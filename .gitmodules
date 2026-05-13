@@ -1,0 +1,3 @@
+[submodule "GNUS-NEO-SWARM"]
+	path = GNUS-NEO-SWARM
+	url = ../
