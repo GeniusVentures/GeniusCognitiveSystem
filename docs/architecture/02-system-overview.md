@@ -25,14 +25,22 @@ The Compute Layer handles the hardware-level execution and optimization of the S
   This serves as the optimized deep learning inference engine responsible for executing the Semantic Core and expert modules efficiently on the diverse hardware found across the GNUS network.
 * **Vulkan / MoltenVK: GPU acceleration**  
   These components provide GPU acceleration for inference operations. Vulkan is the cross-platform standard, while MoltenVK specifically enables Vulkan compatibility on Apple platforms, ensuring wide hardware reach.
-* **FP4 v3 codec: Weight compression**  
-  This component manages weight compression, directly enabling efficient low-bit deployment of the Semantic Core and selected expert modules.
+* **Ultra FP4 codec: Weight compression**  
+   This component manages weight compression via the Ultra FP4 adaptive format, directly enabling efficient low-bit deployment of the Semantic Core and selected expert modules.
 * **CUDA/Vulkan shaders: Tile-based decode & matmul**  
   These are leveraged for high-performance, optimized numerical operations, specifically for tile-based decode and matrix multiplication of compressed weights during runtime.
 
-### 4.1.1 FP4 Design
+### 4.1.1 Ultra FP4 Design
 
-The custom quantization uses the FP4 v3 codec, which is designed for minimal overhead and maximum efficiency. It operates using **64x64 macroblocks** with a **per-block scale**. The design includes an **activation-aware scale search** and ensures that compressed weights are **decoded in shared memory at inference time** for ultra-low latency execution.
+The custom quantization uses the **Ultra FP4 adaptive format**, designed for minimal overhead and maximum efficiency across diverse GPU hardware. Full details are in [16 Ultra FP4 Adaptive Quantization Format](./16-ultra-fp4-format.md).
+
+Key properties:
+
+- **64x64 macroblocks** with a fixed **2048-byte payload** per block, enabling uniform GPU addressing.
+- **Per-block scale + bias** (affine decode: `w_hat = S * code + Bias`) stored as packed FP16 in a single `uint32` header.
+- **Adaptive dual-mode** per block: **FP4_AFFINE** (4-bit signed codes) or **T158_AFFINE** (ternary codes in ~1.58-bit class), selected by the encoder via error minimization.
+- **Flags-in-offsets:** Mode selection and metadata are embedded in the low 4 bits of aligned payload offsets — zero additional memory cost.
+- Compressed weights are **decoded in shared memory at inference time** by GPU compute shaders with per-workgroup branching.
 
 The Semantic Core is expected to be the primary beneficiary of aggressive compression, while role-based and domain-specific experts may use different quantization tradeoffs depending on whether they optimize for breadth, control, verification quality, deterministic formatting, or workflow specialization.
 

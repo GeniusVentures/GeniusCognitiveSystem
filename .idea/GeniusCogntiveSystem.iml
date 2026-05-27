@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<module type="CPP_MODULE" version="4">
+  <component name="NewModuleRootManager">
+    <content url="file://$MODULE_DIR$">
+      <excludeFolder url="file://$MODULE_DIR$/GNUS-NEO-SWARM/flutter_app/.dart_tool" />
+      <excludeFolder url="file://$MODULE_DIR$/GNUS-NEO-SWARM/flutter_app/.pub" />
+      <excludeFolder url="file://$MODULE_DIR$/GNUS-NEO-SWARM/flutter_app/build" />
+      <excludeFolder url="file://$MODULE_DIR$/GNUS-NEO-SWARM/flutter_slm_bridge/.dart_tool" />
+      <excludeFolder url="file://$MODULE_DIR$/GNUS-NEO-SWARM/flutter_slm_bridge/.pub" />
+      <excludeFolder url="file://$MODULE_DIR$/GNUS-NEO-SWARM/flutter_slm_bridge/build" />
+      <excludeFolder url="file://$MODULE_DIR$/GNUS-NEO-SWARM/flutter_slm_bridge/example/.dart_tool" />
+      <excludeFolder url="file://$MODULE_DIR$/GNUS-NEO-SWARM/flutter_slm_bridge/example/.pub" />
+      <excludeFolder url="file://$MODULE_DIR$/GNUS-NEO-SWARM/flutter_slm_bridge/example/build" />
+      <excludeFolder url="file://$MODULE_DIR$/GNUS-NEO-SWARM/ui/.dart_tool" />
+      <excludeFolder url="file://$MODULE_DIR$/GNUS-NEO-SWARM/ui/.pub" />
+      <excludeFolder url="file://$MODULE_DIR$/GNUS-NEO-SWARM/ui/build" />
+      <excludeFolder url="file://$MODULE_DIR$/GNUS-NEO-SWARM/ui/linux/flutter/ephemeral/.plugin_symlinks/path_provider_linux/.dart_tool" />
+      <excludeFolder url="file://$MODULE_DIR$/GNUS-NEO-SWARM/ui/linux/flutter/ephemeral/.plugin_symlinks/path_provider_linux/.pub" />
+      <excludeFolder url="file://$MODULE_DIR$/GNUS-NEO-SWARM/ui/linux/flutter/ephemeral/.plugin_symlinks/path_provider_linux/build" />
+      <excludeFolder url="file://$MODULE_DIR$/GNUS-NEO-SWARM/ui/linux/flutter/ephemeral/.plugin_symlinks/path_provider_linux/example/.dart_tool" />
+      <excludeFolder url="file://$MODULE_DIR$/GNUS-NEO-SWARM/ui/linux/flutter/ephemeral/.plugin_symlinks/path_provider_linux/example/.pub" />
+      <excludeFolder url="file://$MODULE_DIR$/GNUS-NEO-SWARM/ui/linux/flutter/ephemeral/.plugin_symlinks/path_provider_linux/example/build" />
+      <excludeFolder url="file://$MODULE_DIR$/GNUS-NEO-SWARM/ui/macos/Flutter/ephemeral/.symlinks/plugins/path_provider_foundation/.dart_tool" />
+      <excludeFolder url="file://$MODULE_DIR$/GNUS-NEO-SWARM/ui/macos/Flutter/ephemeral/.symlinks/plugins/path_provider_foundation/.pub" />
+      <excludeFolder url="file://$MODULE_DIR$/GNUS-NEO-SWARM/ui/macos/Flutter/ephemeral/.symlinks/plugins/path_provider_foundation/build" />
+      <excludeFolder url="file://$MODULE_DIR$/GNUS-NEO-SWARM/ui/macos/Flutter/ephemeral/.symlinks/plugins/path_provider_foundation/example/.dart_tool" />
+      <excludeFolder url="file://$MODULE_DIR$/GNUS-NEO-SWARM/ui/macos/Flutter/ephemeral/.symlinks/plugins/path_provider_foundation/example/.pub" />
+      <excludeFolder url="file://$MODULE_DIR$/GNUS-NEO-SWARM/ui/macos/Flutter/ephemeral/.symlinks/plugins/path_provider_foundation/example/build" />
+      <excludeFolder url="file://$MODULE_DIR$/GNUS-NEO-SWARM/ui/windows/flutter/ephemeral/.plugin_symlinks/path_provider_windows/.dart_tool" />
+      <excludeFolder url="file://$MODULE_DIR$/GNUS-NEO-SWARM/ui/windows/flutter/ephemeral/.plugin_symlinks/path_provider_windows/.pub" />
+      <excludeFolder url="file://$MODULE_DIR$/GNUS-NEO-SWARM/ui/windows/flutter/ephemeral/.plugin_symlinks/path_provider_windows/build" />
+      <excludeFolder url="file://$MODULE_DIR$/GNUS-NEO-SWARM/ui/windows/flutter/ephemeral/.plugin_symlinks/path_provider_windows/example/.dart_tool" />
+      <excludeFolder url="file://$MODULE_DIR$/GNUS-NEO-SWARM/ui/windows/flutter/ephemeral/.plugin_symlinks/path_provider_windows/example/.pub" />
+      <excludeFolder url="file://$MODULE_DIR$/GNUS-NEO-SWARM/ui/windows/flutter/ephemeral/.plugin_symlinks/path_provider_windows/example/build" />
+      <excludeFolder url="file://$MODULE_DIR$/GNUS-NEO-SWARM/gnus-poc/.venv" />
+    </content>
+    <orderEntry type="inheritedJdk" />
+    <orderEntry type="sourceFolder" forTests="false" />
+  </component>
+</module>

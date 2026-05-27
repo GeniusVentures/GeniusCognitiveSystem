@@ -30,6 +30,7 @@ Combining PRD + TDD + System Architecture Blueprint
 13. [13 EGGROLL Swarm Retraining Architecture](./13-eggroll-swarm-retraining.md)
 14. [14 Targeted Retraining and Hierarchical Critical Thinking Specialists](./14-cognitive-retaining-system.md)
 15. [15 Epistemic Arbitration and Cognitive OS Extensions](./15-epistemic-arbitration-and-cognitive-os.md)
+16. [16 Ultra FP4 Adaptive Quantization Format](./16-ultra-fp4-format.md)
 ---
 
 ## **Suggested Reading Order**

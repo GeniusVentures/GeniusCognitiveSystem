@@ -13,11 +13,12 @@ The Semantic Core is intentionally selected from high-performing, medium-sized m
 
 ### 5.1.2 Quantization
 
-To achieve energy-efficient inference and minimize memory usage, the Semantic Core is heavily optimized using custom weight compression techniques:
+To achieve energy-efficient inference and minimize memory usage, the Semantic Core is heavily optimized using custom weight compression techniques. Full details are in [16 Ultra FP4 Adaptive Quantization Format](./16-ultra-fp4-format.md).
 
-* **FP4 v3 Macroblocks:** The model weights are quantized using the FP4 v3 codec, which operates via 64x64 macroblocks.
-* **Scale Search:** Quantization involves a **32-step scale search** and is performed with a per-block scale.
-* **Activation-Aware Tuning:** The system includes the capability for optional activation-aware tuning, and the weights are decoded in shared memory during inference time.
+* **Ultra FP4 Macroblocks:** Model weights are quantized using the Ultra FP4 adaptive format operating on 64x64 macroblocks with fixed 2048-byte payloads.
+* **Per-Block Affine Decode:** Each macroblock stores a scale + bias header (packed FP16), with all modes using `w_hat = S * code + Bias`.
+* **Adaptive Dual-Mode:** The encoder selects per block between **FP4_AFFINE** (4-bit signed codes) and **T158_AFFINE** (ternary, ~1.58-bit class) via a 32-step scale search and error minimization.
+* **GPU-Decoded:** Weights are decoded in shared memory at inference time; mode flags are embedded in aligned offset low bits for zero-cost per-block branching.
 
 The Semantic Core runs efficiently on the **GNUS compute nodes** using the MNN model runtime and GPU acceleration via Vulkan / MoltenVK.
 
