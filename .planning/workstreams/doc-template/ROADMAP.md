@@ -6,7 +6,7 @@ Extract the `../documentation` MkDocs + Doxygen pattern into a reusable, config-
 
 ## Phases
 
-- [ ] **Phase 1: Template Skeleton & Config** — Submodule-ready directory layout with `gendoc.yml` config file
+- [x] **Phase 1: Template Skeleton & Config** — Submodule-ready directory layout with `gendoc.yml` config file (completed 2026-06-27)
 - [ ] **Phase 2: MkDocs Site** — Material-themed MkDocs renders host project's hand-written docs
 - [ ] **Phase 3: API Reference Pipeline** — Doxygen + doxybook2 generates C++ API docs as markdown
 - [ ] **Phase 4: Navigation Integration** — Hand-written and generated API docs merge into unified navigation
@@ -25,7 +25,7 @@ Extract the `../documentation` MkDocs + Doxygen pattern into a reusable, config-
   3. Directory layout separates concerns cleanly: config template, scripts/, theme assets/, Doxygen template/ — zero hardcoded project paths
 **Plans**: 1 plan
 Plans:
-- [ ] 01-01-PLAN.md — Directory skeleton, gendoc.yml config file schema, and sanity audit
+- [x] 01-01-PLAN.md — Directory skeleton, gendoc.yml config file schema, and sanity audit
 
 ### Phase 2: MkDocs Site
 **Goal**: MkDocs with Material theme renders a GNUS-styled site from the host project's hand-written markdown docs
@@ -86,7 +86,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Template Skeleton & Config | 1 plan | Ready to execute | - |
+| 1. Template Skeleton & Config | 1/1 | Complete   | 2026-06-27 |
 | 2. MkDocs Site | 2 plans | Ready to execute | - |
 | 3. API Reference Pipeline | TBD | Not started | - |
 | 4. Navigation Integration | TBD | Not started | - |

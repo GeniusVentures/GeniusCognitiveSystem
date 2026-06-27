@@ -3,9 +3,9 @@
 ## Active Requirements
 
 ### Config & Setup
-- [ ] **CFG-01**: Template exposes a single config file (`gendoc.yml`) specifying: hand-written docs directory, C++ source directory, project name, Cloudflare account details
+- [x] **CFG-01**: Template exposes a single config file (`gendoc.yml`) specifying: hand-written docs directory, C++ source directory, project name, Cloudflare account details
 - [ ] **CFG-02**: `git submodule add` into a host project, run one setup command, and all paths resolve from config
-- [ ] **CFG-03**: Config includes Wrangler deployment target (zone ID, route, or pages project name)
+- [x] **CFG-03**: Config includes Wrangler deployment target (zone ID, route, or pages project name)
 
 ### MkDocs Site
 - [ ] **MKD-01**: Pre-configured Material theme matching GNUS visual style (colors, nav, search, mermaid, mathjax)
@@ -23,7 +23,7 @@
 - [ ] **BLD-03**: Scripts work on macOS and Linux
 
 ### Template Structure
-- [ ] **TPL-01**: Submodule directory layout is clean: config template, scripts/, theme assets, Doxygen template — no hardcoded project paths
+- [x] **TPL-01**: Submodule directory layout is clean: config template, scripts/, theme assets, Doxygen template — no hardcoded project paths
 - [ ] **TPL-02**: README with setup instructions for host projects
 
 ## Future Requirements
@@ -40,9 +40,9 @@ _(none yet)_
 
 | REQ-ID | Phase | Status |
 |--------|-------|--------|
-| CFG-01 | Phase 1 | Pending |
+| CFG-01 | Phase 1 | Complete |
 | CFG-02 | Phase 6 | Pending |
-| CFG-03 | Phase 1 | Pending |
+| CFG-03 | Phase 1 | Complete |
 | MKD-01 | Phase 2 | Pending |
 | MKD-02 | Phase 4 | Pending |
 | MKD-03 | Phase 2 | Pending |
@@ -52,7 +52,7 @@ _(none yet)_
 | BLD-01 | Phase 5 | Pending |
 | BLD-02 | Phase 5 | Pending |
 | BLD-03 | Phase 5 | Pending |
-| TPL-01 | Phase 1 | Pending |
+| TPL-01 | Phase 1 | Complete |
 | TPL-02 | Phase 6 | Pending |
 
 ---
