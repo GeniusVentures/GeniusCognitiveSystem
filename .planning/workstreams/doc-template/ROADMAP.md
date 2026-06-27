@@ -35,8 +35,11 @@ Plans:
   1. `mkdocs serve` renders a site with GNUS visual styling (colors, navigation, search) driven by config from `gendoc.yml`
   2. `mkdocs build` produces a complete static site with zero build errors
   3. Site supports mermaid diagrams and mathjax rendering out of the box
-**Plans**: TBD
+**Plans**: 2 plans
 **UI hint**: yes
+Plans:
+- [ ] 02-01-PLAN.md — mkdocs.yml with Material theme, gendoc.yml config hook, and theme assets (CSS + JS)
+- [ ] 02-02-PLAN.md — requirements.txt with pinned Python dependencies and mkdocs build verification
 
 ### Phase 3: API Reference Pipeline
 **Goal**: Doxygen + doxybook2 pipeline converts C++ source to markdown API reference pages
@@ -84,7 +87,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Template Skeleton & Config | 1 plan | Ready to execute | - |
-| 2. MkDocs Site | TBD | Not started | - |
+| 2. MkDocs Site | 2 plans | Ready to execute | - |
 | 3. API Reference Pipeline | TBD | Not started | - |
 | 4. Navigation Integration | TBD | Not started | - |
 | 5. Build & Deploy | TBD | Not started | - |
