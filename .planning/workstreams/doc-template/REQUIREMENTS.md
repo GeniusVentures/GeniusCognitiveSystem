@@ -8,9 +8,9 @@
 - [x] **CFG-03**: Config includes Wrangler deployment target (zone ID, route, or pages project name)
 
 ### MkDocs Site
-- [ ] **MKD-01**: Pre-configured Material theme matching GNUS visual style (colors, nav, search, mermaid, mathjax)
+- [x] **MKD-01**: Pre-configured Material theme matching GNUS visual style (colors, nav, search, mermaid, mathjax)
 - [ ] **MKD-02**: literate-nav plugin merges hand-written `SUMMARY.md` with generated API reference nav
-- [ ] **MKD-03**: Site works both locally (`mkdocs serve`) and built for deployment (`mkdocs build`)
+- [x] **MKD-03**: Site works both locally (`mkdocs serve`) and built for deployment (`mkdocs build`)
 
 ### API Reference (Doxygen)
 - [ ] **API-01**: Generic Doxygen config template — project name, source dir, output dir come from config
@@ -43,9 +43,9 @@ _(none yet)_
 | CFG-01 | Phase 1 | Complete |
 | CFG-02 | Phase 6 | Pending |
 | CFG-03 | Phase 1 | Complete |
-| MKD-01 | Phase 2 | Pending |
+| MKD-01 | Phase 2 | Complete |
 | MKD-02 | Phase 4 | Pending |
-| MKD-03 | Phase 2 | Pending |
+| MKD-03 | Phase 2 | Complete |
 | API-01 | Phase 3 | Pending |
 | API-02 | Phase 3 | Pending |
 | API-03 | Phase 3 | Pending |

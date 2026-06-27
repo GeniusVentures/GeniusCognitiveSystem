@@ -38,7 +38,7 @@ Plans:
 **Plans**: 2 plans
 **UI hint**: yes
 Plans:
-- [ ] 02-01-PLAN.md — mkdocs.yml with Material theme, gendoc.yml config hook, and theme assets (CSS + JS)
+- [x] 02-01-PLAN.md — mkdocs.yml with Material theme, gendoc.yml config hook, and theme assets (CSS + JS)
 - [ ] 02-02-PLAN.md — requirements.txt with pinned Python dependencies and mkdocs build verification
 
 ### Phase 3: API Reference Pipeline
@@ -87,7 +87,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Template Skeleton & Config | 1/1 | Complete   | 2026-06-27 |
-| 2. MkDocs Site | 2 plans | Ready to execute | - |
+| 2. MkDocs Site | 1/2 | In Progress|  |
 | 3. API Reference Pipeline | TBD | Not started | - |
 | 4. Navigation Integration | TBD | Not started | - |
 | 5. Build & Deploy | TBD | Not started | - |
