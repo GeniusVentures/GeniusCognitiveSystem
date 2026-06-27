@@ -212,4 +212,4 @@ This transforms static inference into:
 > A dynamic, self-improving cognitive process operating across distributed compute systems.
 
 ---
-[Previous: EGGROLL Swarm Retraining Architecture](./13-eggroll-swarm-retraining.md) | [Architecture Index](./INDEX.md)
+[Previous: EGGROLL Swarm Retraining Architecture](./eggroll-swarm-retraining.md) | [Architecture Index](./INDEX.md)

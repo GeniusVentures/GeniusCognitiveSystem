@@ -45,4 +45,4 @@ It aligns with:
 
 ---
 
-[Previous: Roadmap and Risks](./08-roadmap-and-risks.md) | [Architecture Index](./INDEX.md) | [Next: AI Safety](./10-ai-safety.md)
+[Previous: Roadmap and Risks](./roadmap-and-risks.md) | [Architecture Index](./INDEX.md) | [Next: AI Safety](./ai-safety.md)

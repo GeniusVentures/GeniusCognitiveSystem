@@ -1,4 +1,4 @@
-# **8.4 GNUS Agentic Memory Layer (GAML v1)**
+## **8.4 GNUS Agentic Memory Layer (GAML v1)**
 
 ## **8.4.1 Purpose**
 
@@ -185,4 +185,4 @@ GAML v1 is intentionally practical.
 Future versions may deepen semantic indexing, memory governance, and private operational memory support as needed.
 
 ---
-[Previous: Grounding and Retrieval](./05-grounding.md) | [Architecture Index](./INDEX.md) | [Next: Execution and Performance](./07-execution-and-performance.md)
+[Previous: Grounding and Retrieval](./grounding.md) | [Architecture Index](./INDEX.md) | [Next: Execution and Performance](./execution-and-performance.md)

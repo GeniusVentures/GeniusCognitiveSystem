@@ -1,6 +1,6 @@
-# **Frozen Micro-MTP and VTG Edge Inference**
+# **23 Frozen Micro-MTP and VTG Edge Inference**
 
-## **Purpose**
+## **23.1 Purpose**
 
 This document defines the GNUS edge-inference form of Frozen Multi-Token Prediction: **Frozen Micro-MTP**.
 
@@ -22,7 +22,7 @@ Reference example:
 
 ---
 
-## **Operating Envelope**
+## **23.2 Operating Envelope**
 
 Frozen Micro-MTP is designed for ubiquitous GNUS nodes with constrained local memory, power, and GPU throughput.
 
@@ -50,7 +50,7 @@ The head improves latency by reusing state that the local model already computed
 
 ---
 
-## **Why this matters**
+## **23.3 Why this matters**
 
 A separate speculative drafter can increase local memory pressure because it carries its own weights, prefill work, KV cache, runtime buffers, and model-switching overhead.
 
@@ -70,7 +70,7 @@ This fits GNUS nodes because the drafter does not need to reconstruct context in
 
 ---
 
-## **Core Design Principle**
+## **23.4 Core Design Principle**
 
 > If the local model already computed the context, the drafter should reuse that state.
 
@@ -78,7 +78,7 @@ A constrained node should use Frozen Micro-MTP when the memory overhead of the h
 
 ---
 
-## **Micro-MTP Budget**
+## **23.5 Micro-MTP Budget**
 
 Recommended starting budget:
 
@@ -98,7 +98,7 @@ The key metric is:
 
 ---
 
-## **Relationship to VTG**
+## **23.6 Relationship to VTG**
 
 Frozen Micro-MTP and VTG provide complementary signals.
 
@@ -142,7 +142,7 @@ VTG = distributed historical verified guess
 
 ---
 
-## **Candidate Record**
+## **23.7 Candidate Record**
 
 A Frozen Micro-MTP proposal should carry enough metadata to update VTG and EGGROLL without storing raw private prompt text.
 
@@ -170,7 +170,7 @@ The candidate remains a proposal until the local verifier accepts it.
 
 ---
 
-## **Best Initial Targets**
+## **23.8 Best Initial Targets**
 
 Frozen Micro-MTP should start with narrow roles where validation is cheap.
 
@@ -184,7 +184,7 @@ Frozen Micro-MTP should start with narrow roles where validation is cheap.
 
 ---
 
-## **Local Verification Requirements**
+## **23.9 Local Verification Requirements**
 
 Frozen Micro-MTP is useful because verification keeps commitment bounded.
 
@@ -206,7 +206,7 @@ The commitment rule is:
 
 ---
 
-## **Node Capability Advertisement**
+## **23.10 Node Capability Advertisement**
 
 A GNUS node should advertise Micro-MTP support in its capability profile.
 
@@ -234,7 +234,7 @@ The Router uses this profile to decide whether a node is eligible for latency-se
 
 ---
 
-## **Relationship to Micro-Diffusion and Tiny Tree Drafting**
+## **23.11 Relationship to Micro-Diffusion and Tiny Tree Drafting**
 
 Frozen Micro-MTP is the first neural target for ubiquitous nodes.
 
@@ -249,7 +249,7 @@ Micro-diffusion and tiny JetSpec-style tree heads are complementary role-specifi
 
 ---
 
-## **Relationship to EGGROLL**
+## **23.12 Relationship to EGGROLL**
 
 EGGROLL can optimize Frozen Micro-MTP deployment without changing the frozen backbone.
 
@@ -285,21 +285,21 @@ Example outcome event:
 
 ---
 
-## **Initial Implementation Path**
+## **23.13 Initial Implementation Path**
 
-### **Phase 1 — Measurement**
+### **23.13.1 Phase 1 — Measurement**
 
 Instrument local inference to measure repeated patterns, accepted depth, cache pressure, and verifier cost.
 
-### **Phase 2 — Formatter / Schema Micro-MTP**
+### **23.13.2 Phase 2 — Formatter / Schema Micro-MTP**
 
 Attach a small head to the most deterministic local specialist.
 
-### **Phase 3 — Code Specialist Micro-MTP**
+### **23.13.3 Phase 3 — Code Specialist Micro-MTP**
 
 Extend to code paths where compiler, tests, static analysis, or verifier ELMs can validate.
 
-### **Phase 4 — Router Policy**
+### **23.13.4 Phase 4 — Router Policy**
 
 Allow the Router to choose among:
 
@@ -310,13 +310,13 @@ Allow the Router to choose among:
 - tiny causal tree head
 - micro-diffusion block drafter
 
-### **Phase 5 — Swarm Learning**
+### **23.13.5 Phase 5 — Swarm Learning**
 
 Use compact VTG and EGGROLL events to tune depth, thresholds, and backend choice by role and device class.
 
 ---
 
-## **Summary**
+## **23.14 Summary**
 
 Frozen Micro-MTP gives GeniusCognitiveSystem a practical first neural speculative backend for ubiquitous GNUS nodes.
 

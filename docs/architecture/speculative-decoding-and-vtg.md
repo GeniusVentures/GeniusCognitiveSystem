@@ -1,6 +1,6 @@
-# **Speculative Decoding and VTG Candidate Scheduling**
+# **22 Speculative Decoding and VTG Candidate Scheduling**
 
-## **Purpose**
+## **22.1 Purpose**
 
 This document defines the speculative decoding architecture for GeniusCognitiveSystem using the GNUS network design center: ubiquitous constrained peers, compact local models, local verification, and swarm-level learning.
 
@@ -17,7 +17,7 @@ This document should be read as a companion to:
 
 ---
 
-## **Operating Envelope**
+## **22.2 Operating Envelope**
 
 The baseline GNUS speculative decoding profile is optimized for nodes with limited memory, power, and GPU throughput.
 
@@ -46,7 +46,7 @@ This drives the implementation toward:
 
 ---
 
-## **Why this layer exists**
+## **22.3 Why this layer exists**
 
 Autoregressive inference generates one token at a time.
 
@@ -82,7 +82,7 @@ EGGROLL tunes policy across the swarm
 
 ---
 
-## **Core Components**
+## **22.4 Core Components**
 
 | Component | Responsibility |
 |----------|----------------|
@@ -98,7 +98,7 @@ The output remains provisional until the configured verifier path accepts it.
 
 ---
 
-## **Micro-Speculation Backend Classes**
+## **22.5 Micro-Speculation Backend Classes**
 
 GNUS supports four practical local drafter classes.
 
@@ -126,7 +126,7 @@ else:
 
 ---
 
-## **Confidence-Scheduled Prefix Retention**
+## **22.6 Confidence-Scheduled Prefix Retention**
 
 The scheduler keeps the longest useful prefix and routes that prefix through verification.
 
@@ -153,7 +153,7 @@ The primary metric is:
 
 ---
 
-## **VTG as the Primary Swarm Advantage**
+## **22.7 VTG as the Primary Swarm Advantage**
 
 A single node may have limited compute, but the swarm has history.
 
@@ -182,7 +182,7 @@ The hot shard on a node contains graph fragments relevant to:
 
 ---
 
-## **Micro-Diffusion Block Drafting**
+## **22.8 Micro-Diffusion Block Drafting**
 
 Diffusion-style generation contributes a useful block-refinement pattern for GNUS when scaled down to constrained local execution.
 
@@ -212,7 +212,7 @@ Micro-diffusion is best suited to low-entropy structured regions where verificat
 
 ---
 
-## **Tiny Causal Tree Drafting**
+## **22.9 Tiny Causal Tree Drafting**
 
 JetSpec-style causal parallel drafting contributes a useful pattern for maintaining causal consistency across a small speculative tree.
 
@@ -239,7 +239,7 @@ This preserves causal branch faithfulness while staying within the ubiquitous-no
 
 ---
 
-## **Frozen Micro-MTP as the First Neural Target**
+## **22.10 Frozen Micro-MTP as the First Neural Target**
 
 Frozen Multi-Token Prediction is the most practical neural speculative backend for GNUS edge nodes.
 
@@ -267,7 +267,7 @@ The first targets are formatter/schema and code-specialist paths.
 
 ---
 
-## **Role-Specific Speculation Policy**
+## **22.11 Role-Specific Speculation Policy**
 
 | Role | Policy |
 |------|--------|
@@ -283,7 +283,7 @@ Speculation depth is a policy decision, not a fixed model property.
 
 ---
 
-## **Node Capability Advertisement**
+## **22.12 Node Capability Advertisement**
 
 Nodes advertise micro-speculation capabilities in a compact profile.
 
@@ -313,7 +313,7 @@ The Router uses this profile when choosing local or swarm execution paths.
 
 ---
 
-## **Swarm Outcome Events**
+## **22.13 Swarm Outcome Events**
 
 Each node emits compact outcome events rather than large traces.
 
@@ -347,7 +347,7 @@ which code patch patterns require compiler verification
 
 ---
 
-## **Integration with EGGROLL**
+## **22.14 Integration with EGGROLL**
 
 EGGROLL optimizes micro-speculation policy rather than assuming large model retraining.
 
@@ -367,13 +367,13 @@ The backbone remains stable unless a separate retraining flow explicitly promote
 
 ---
 
-## **Initial Implementation Plan**
+## **22.15 Initial Implementation Plan**
 
-### **Phase 1 — Instrumentation**
+### **22.15.1 Phase 1 — Instrumentation**
 
 Measure repeated low-entropy transitions, candidate acceptance, verifier cost, and latency savings without committing speculative output.
 
-### **Phase 2 — VTG Lookup + Rule Drafter**
+### **22.15.2 Phase 2 — VTG Lookup + Rule Drafter**
 
 Implement the cheapest paths first:
 
@@ -382,25 +382,25 @@ Implement the cheapest paths first:
 - JSON repair
 - known workflow transitions
 
-### **Phase 3 — Frozen Micro-MTP Head**
+### **22.15.3 Phase 3 — Frozen Micro-MTP Head**
 
 Attach a small MTP head to the formatter/schema ELM or another deterministic specialist.
 
-### **Phase 4 — Tiny Causal Tree Head**
+### **22.15.4 Phase 4 — Tiny Causal Tree Head**
 
 Prototype a JetSpec-inspired micro tree head with branch factor 2 and depth 2 to 4.
 
-### **Phase 5 — Micro-Diffusion Block Drafter**
+### **22.15.5 Phase 5 — Micro-Diffusion Block Drafter**
 
 Prototype a tiny masked denoiser for structured low-entropy blocks.
 
-### **Phase 6 — Swarm Optimization**
+### **22.15.6 Phase 6 — Swarm Optimization**
 
 Use VTG and EGGROLL events to tune the backend choice for each role, device class, and tenant workflow.
 
 ---
 
-## **Scope Boundaries**
+## **22.16 Scope Boundaries**
 
 This architecture targets normal GNUS node execution.
 
@@ -408,7 +408,7 @@ Larger experimental backends may exist in research or benchmark environments, bu
 
 ---
 
-## **Design Principle**
+## **22.17 Design Principle**
 
 GNUS treats diffusion, tree drafting, Frozen MTP, schema rules, and VTG lookup as micro-speculative primitives.
 

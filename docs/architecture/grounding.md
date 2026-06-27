@@ -96,8 +96,8 @@ That is why retrieval, structured memory, and private ELM adaptation should be t
 
 The GNUS Agentic Memory Layer (GAML v1) extends the grounding architecture with structured long-term memory and distributed retrieval.
 
-* [Read GAML v1 in the architecture set](./06-agentic-memory-layer.md)
+* [Read GAML v1 in the architecture set](./agentic-memory-layer.md)
 
 ---
 
-[Previous: Reputation and Consensus](./04-reputation-consensus.md) | [Architecture Index](./INDEX.md) | [Next: Agentic Memory Layer](./06-agentic-memory-layer.md)
+[Previous: Reputation and Consensus](./reputation-consensus.md) | [Architecture Index](./INDEX.md) | [Next: Agentic Memory Layer](./agentic-memory-layer.md)

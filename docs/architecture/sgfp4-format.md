@@ -1,6 +1,6 @@
-# 16 Ultra FP4 Adaptive Quantization Format
+# 16 SGFP4 Adaptive Quantization Format
 
-This section defines the **Ultra FP4** weight compression format used across GeniusCognitiveSystem. It replaces the earlier FP4 v3 codec with an adaptive mixed-bit scheme designed for GPU-friendly decode, consistent cross-device fidelity, and minimal per-block metadata overhead.
+This section defines the **SGFP4** weight compression format used across GeniusCognitiveSystem. It replaces the earlier FP4 v3 codec with an adaptive mixed-bit scheme designed for GPU-friendly decode, consistent cross-device fidelity, and minimal per-block metadata overhead.
 
 ---
 
@@ -150,10 +150,10 @@ A single GPU workgroup decodes one macroblock, with each thread processing multi
 
 ## 16.9 Cross-Referencing
 
-- **Semantic Core quantization** is described in [03 Model and Router §5.1.2](./03-model-and-router.md).
-- **FP4 design overview** is in [02 System Overview §4.1.1](./02-system-overview.md).
-- **Performance targets** are in [07 Execution and Performance §10](./07-execution-and-performance.md).
+- **Semantic Core quantization** is described in [03 Model and Router §5.1.2](./model-and-router.md).
+- **FP4 design overview** is in [02 System Overview §4.1.1](./system-overview.md).
+- **Performance targets** are in [07 Execution and Performance §10](./execution-and-performance.md).
 
 ---
 
-[Previous: Epistemic Arbitration](./15-epistemic-arbitration-and-cognitive-os.md) | [Architecture Index](./INDEX.md)
+[Previous: Epistemic Arbitration](./epistemic-arbitration-and-cognitive-os.md) | [Architecture Index](./INDEX.md)

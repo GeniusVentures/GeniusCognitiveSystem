@@ -13,9 +13,9 @@ The Semantic Core is intentionally selected from high-performing, medium-sized m
 
 ### 5.1.2 Quantization
 
-To achieve energy-efficient inference and minimize memory usage, the Semantic Core is heavily optimized using custom weight compression techniques. Full details are in [16 Ultra FP4 Adaptive Quantization Format](./16-ultra-fp4-format.md).
+To achieve energy-efficient inference and minimize memory usage, the Semantic Core is heavily optimized using custom weight compression techniques. Full details are in [16 SGFP4 Adaptive Quantization Format](./sgfp4-format.md).
 
-* **Ultra FP4 Macroblocks:** Model weights are quantized using the Ultra FP4 adaptive format operating on 64x64 macroblocks with fixed 2048-byte payloads.
+* **SGFP4 Macroblocks:** Model weights are quantized using the SGFP4 adaptive format operating on 64x64 macroblocks with fixed 2048-byte payloads.
 * **Per-Block Affine Decode:** Each macroblock stores a scale + bias header (packed FP16), with all modes using `w_hat = S * code + Bias`.
 * **Adaptive Dual-Mode:** The encoder selects per block between **FP4_AFFINE** (4-bit signed codes) and **T158_AFFINE** (ternary, ~1.58-bit class) via a 32-step scale search and error minimization.
 * **GPU-Decoded:** Weights are decoded in shared memory at inference time; mode flags are embedded in aligned offset low bits for zero-cost per-block branching.
@@ -125,4 +125,4 @@ The roadmap includes upgrading the router to a more sophisticated model-based sy
 
 ---
 
-[Previous: System Overview](./02-system-overview.md) | [Architecture Index](./INDEX.md) | [Next: Reputation and Consensus](./04-reputation-consensus.md)
+[Previous: System Overview](./system-overview.md) | [Architecture Index](./INDEX.md) | [Next: Reputation and Consensus](./reputation-consensus.md)

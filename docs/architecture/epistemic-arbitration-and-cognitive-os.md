@@ -1308,4 +1308,4 @@ It can also reason explicitly about how answers should be judged.
 
 ---
 
-[Previous: Targeted Retraining and Hierarchical Critical Thinking Specialists](./14-cognitive-retaining-system.md) | [Architecture Index](./INDEX.md)
+[Previous: Targeted Retraining and Hierarchical Critical Thinking Specialists](./cognitive-retaining-system.md) | [Architecture Index](./INDEX.md)

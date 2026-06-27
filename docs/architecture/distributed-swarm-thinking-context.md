@@ -437,4 +437,4 @@ It does this by making the following explicit:
 This architecture is the bridge between the current GeniusCognitiveSystem v1 execution model and a more advanced distributed SLM swarm capable of transparent, modular, grounded, and reputation-aware reasoning.
 
 ---
-[Previous: AI Safety](./10-ai-safety.md) | [Architecture Index](./INDEX.md) | [Next: Secure Agent Architecture](./12-secure-agent-architecture.md)
+[Previous: AI Safety](./ai-safety.md) | [Architecture Index](./INDEX.md) | [Next: Secure Agent Architecture](./secure-agent-architecture.md)

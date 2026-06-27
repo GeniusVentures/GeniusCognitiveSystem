@@ -1,6 +1,6 @@
-# **Objective Memory and Verified Transition Graph (VTG)**
+# **21 Objective Memory and Verified Transition Graph (VTG)**
 
-## **Purpose**
+## **21.1 Purpose**
 
 This document defines the **Objective Memory** layer and its primary execution structure, the **Verified Transition Graph (VTG)**.
 
@@ -14,7 +14,7 @@ Objective Memory turns repeated successful inference patterns into durable swarm
 
 ---
 
-## **Architectural Position**
+## **21.2 Architectural Position**
 
 GAML stores structured long-term memory: facts, bridge blocks, policies, events, tenant operational state, provenance, trust class, and related memory objects.
 
@@ -58,7 +58,7 @@ The layer is therefore an acceleration and learning substrate, not an authority 
 
 ---
 
-## **Why this layer exists**
+## **21.3 Why this layer exists**
 
 Most language-model inference treats every continuation as if it must be generated from scratch.
 
@@ -91,7 +91,7 @@ This makes repeated successful reasoning an asset of the swarm.
 
 ---
 
-## **Objective vs. Subjective Cognition**
+## **21.4 Objective vs. Subjective Cognition**
 
 The layer is based on a core separation:
 
@@ -117,7 +117,7 @@ Objective Memory may expose candidates to those layers, but it does not make sub
 
 ---
 
-## **Verified Transition Graph**
+## **21.5 Verified Transition Graph**
 
 The Verified Transition Graph stores directed transitions between compact cognitive-state identifiers.
 
@@ -154,7 +154,7 @@ A transition becomes useful only after repeated verification, execution success,
 
 ---
 
-## **State Identity**
+## **21.6 State Identity**
 
 State identity should be content-addressed, versioned, and context-aware.
 
@@ -188,7 +188,7 @@ State identifiers should be stable enough for reuse, but scoped enough to preven
 
 ---
 
-## **Transition Edge Model**
+## **21.7 Transition Edge Model**
 
 A VTG transition edge represents an observed and verified continuation.
 
@@ -235,7 +235,7 @@ Large artifacts should remain external and content-addressed.
 
 ---
 
-## **Candidate Frontier**
+## **21.8 Candidate Frontier**
 
 Objective Memory does not return final answers.
 
@@ -281,7 +281,7 @@ It should account for:
 
 ---
 
-## **Relationship to GAML**
+## **21.9 Relationship to GAML**
 
 Objective Memory depends on GAML but does not replace it.
 
@@ -322,7 +322,7 @@ VTG answers:
 
 ---
 
-## **Relationship to Swarm Thinking Context**
+## **21.10 Relationship to Swarm Thinking Context**
 
 Swarm Thinking Context records the inspectable path of a request through routing, memory selection, expert execution, verification, synthesis, and final response lineage.
 
@@ -357,7 +357,7 @@ This preserves inspectability while keeping the actual transition artifacts poli
 
 ---
 
-## **Relationship to Router and Planner**
+## **21.11 Relationship to Router and Planner**
 
 The Router / Planner may use Objective Memory in two ways.
 
@@ -391,7 +391,7 @@ This improves routing without requiring full Semantic Core retraining.
 
 ---
 
-## **Relationship to Semantic Core and ELMs**
+## **21.12 Relationship to Semantic Core and ELMs**
 
 The Semantic Core remains the broad reasoning substrate.
 
@@ -422,7 +422,7 @@ A VTG hit is only a proposal.
 
 ---
 
-## **Relationship to Epistemic Arbitration**
+## **21.13 Relationship to Epistemic Arbitration**
 
 Epistemic Arbitration governs how viable outputs should be judged, challenged, and synthesized.
 
@@ -453,7 +453,7 @@ In arbitration terms:
 
 ---
 
-## **Relationship to HCTS and Subjective Preference**
+## **21.14 Relationship to HCTS and Subjective Preference**
 
 HCTS and targeted retraining model personalized and role-specific cognitive behavior.
 
@@ -484,7 +484,7 @@ A global VTG shard should only accept transitions that are broadly valid across 
 
 ---
 
-## **Relationship to EGGROLL**
+## **21.15 Relationship to EGGROLL**
 
 EGGROLL evolves specialist models, adapters, routing policies, verifier behavior, and other adaptive artifacts using compact swarm-friendly optimization signals.
 
@@ -542,7 +542,7 @@ models, adapters, routers, arbiters, and verified cognitive transition memory im
 
 ---
 
-## **Storage and Distribution Model**
+## **21.16 Storage and Distribution Model**
 
 VTG should be implemented as a distributed, content-addressed, policy-scoped graph.
 
@@ -567,7 +567,7 @@ It only needs the shards relevant to its local models, tenant boundaries, expert
 
 ---
 
-## **Update Semantics**
+## **21.17 Update Semantics**
 
 VTG updates should be monotonic where possible and policy-gated where required.
 
@@ -595,7 +595,7 @@ All edges decay, version, or require revalidation when model, tokenizer, policy,
 
 ---
 
-## **Security and Poisoning Resistance**
+## **21.18 Security and Poisoning Resistance**
 
 Objective Memory introduces a new attack surface.
 
@@ -623,7 +623,7 @@ It is safe only if it remains governed.
 
 ---
 
-## **Privacy Model**
+## **21.19 Privacy Model**
 
 Objective Memory must be privacy-scoped from the beginning.
 
@@ -645,7 +645,7 @@ Tenant-private graphs may store richer transition artifacts when permitted by po
 
 ---
 
-## **Performance Model**
+## **21.20 Performance Model**
 
 Objective Memory should improve performance when repeated low-entropy transitions are common.
 
@@ -679,9 +679,9 @@ The Router should learn when Objective Memory is worth consulting.
 
 ---
 
-## **Initial Implementation Path**
+## **21.21 Initial Implementation Path**
 
-### **Phase 1 — Instrumentation Only**
+### **21.21.1 Phase 1 — Instrumentation Only**
 
 Record state hashes, candidate outcomes, verifier decisions, tool outcomes, and latency metrics without using VTG for generation.
 
@@ -691,7 +691,7 @@ Goal:
 - identify useful state families
 - quantify low-entropy workloads
 
-### **Phase 2 — Local VTG Prototype**
+### **21.21.2 Phase 2 — Local VTG Prototype**
 
 Enable node-local transition lookup for safe domains:
 
@@ -703,27 +703,27 @@ Enable node-local transition lookup for safe domains:
 
 All candidates remain fully verified before use.
 
-### **Phase 3 — Verified Candidate Frontier**
+### **21.21.3 Phase 3 — Verified Candidate Frontier**
 
 Expose top-k candidates to selected ELMs and verifiers.
 
 Measure acceptance rate and latency improvement.
 
-### **Phase 4 — Tenant-Private VTG**
+### **21.21.4 Phase 4 — Tenant-Private VTG**
 
 Allow organizations to maintain private transition graphs for repeatable workflows, internal APIs, code conventions, and operational policies.
 
-### **Phase 5 — Swarm Replication**
+### **21.21.5 Phase 5 — Swarm Replication**
 
 Replicate selected edge families across beehives using CRDT-style convergence and reputation-gated promotion.
 
-### **Phase 6 — EGGROLL Optimization**
+### **21.21.6 Phase 6 — EGGROLL Optimization**
 
 Use EGGROLL-style compact learning signals to optimize edge ranking, pruning, promotion, and routing policies.
 
 ---
 
-## **Non-Goals**
+## **21.22 Non-Goals**
 
 Objective Memory is not:
 
@@ -741,7 +741,7 @@ The layer should accelerate and improve cognition while remaining subordinate to
 
 ---
 
-## **Strategic Impact**
+## **21.23 Strategic Impact**
 
 Objective Memory creates a missing middle layer between inference and retraining.
 
@@ -774,7 +774,7 @@ Together, these capabilities move GeniusCognitiveSystem closer to a modular, ins
 
 ---
 
-## **Summary**
+## **21.24 Summary**
 
 Objective Memory and the Verified Transition Graph add a verified transition-learning substrate to GeniusCognitiveSystem.
 
@@ -786,4 +786,4 @@ The key architectural principle is:
 
 ---
 
-[Previous: Ultra FP4 Adaptive Quantization Format](./16-ultra-fp4-format.md) | [Architecture Index](./INDEX.md)
+[Previous: Ultra FP4 Adaptive Quantization Format](./sgfp4-format.md) | [Architecture Index](./INDEX.md)

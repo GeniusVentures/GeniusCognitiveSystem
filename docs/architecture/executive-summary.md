@@ -53,4 +53,4 @@ This is a Specialized Adaptable Intelligence Fabric.
 
 ---
 
-[Architecture Index](./INDEX.md) | [Next: System Overview](./02-system-overview.md)
+[Architecture Index](./INDEX.md) | [Next: System Overview](./system-overview.md)

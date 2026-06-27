@@ -266,4 +266,4 @@ However:
 
 This ensures bootstrapping without long-term centralization.
 
-[Previous: Model and Router](./03-model-and-router.md) | [Architecture Index](./INDEX.md) | [Next: Grounding and Retrieval](./05-grounding.md)
+[Previous: Model and Router](./model-and-router.md) | [Architecture Index](./INDEX.md) | [Next: Grounding and Retrieval](./grounding.md)

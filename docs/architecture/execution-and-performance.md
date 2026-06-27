@@ -76,4 +76,4 @@ choose the lowest-cost path among retrieval, memory, private ELM invocation, and
 
 ---
 
-[Previous: Agentic Memory Layer](./06-agentic-memory-layer.md) | [Architecture Index](./INDEX.md) | [Next: Roadmap and Risks](./08-roadmap-and-risks.md)
+[Previous: Agentic Memory Layer](./agentic-memory-layer.md) | [Architecture Index](./INDEX.md) | [Next: Roadmap and Risks](./roadmap-and-risks.md)

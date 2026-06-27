@@ -519,4 +519,4 @@ It completes it by giving the swarm a native mechanism for improving its special
 
 ---
 
-[Previous: Secure Agent Architecture](./12-secure-agent-architecture.md) | [Architecture Index](./INDEX.md) | [Next: Targeted Retraining and Hierarchical Critical Thinking Specialists](./14-cognitive-retaining-system.md)
+[Previous: Secure Agent Architecture](./secure-agent-architecture.md) | [Architecture Index](./INDEX.md) | [Next: Targeted Retraining and Hierarchical Critical Thinking Specialists](./cognitive-retaining-system.md)
