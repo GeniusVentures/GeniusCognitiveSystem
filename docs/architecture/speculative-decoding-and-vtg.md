@@ -2,42 +2,26 @@
 
 ## **Purpose**
 
-This document defines the speculative decoding architecture for GeniusCognitiveSystem under the correct GNUS deployment assumption:
+This document defines the speculative decoding architecture for GeniusCognitiveSystem using the GNUS network design center: ubiquitous constrained peers, compact local models, local verification, and swarm-level learning.
 
-> GNUS nodes are ubiquitous constrained peers, not server-class accelerators.
+Speculative decoding in GNUS is implemented as **micro-speculation**.
 
-The design center is a heterogeneous network of low-power nodes with small local model/runtime budgets, local GPU or integrated GPU execution, compact VTG shards, and swarm-level learning.
+A node proposes a short local continuation, verifies it through the configured local path, commits only the accepted prefix, and publishes compact outcome metadata back into VTG and EGGROLL.
 
-Speculative decoding in GNUS must therefore be implemented as **micro-speculation**:
-
-- small local drafts
-- short accepted prefixes
-- narrow role-specific heads
-- deterministic schema or grammar helpers where possible
-- local verification before commitment
-- compact VTG outcome publication
-- EGGROLL optimization across the swarm
+This keeps acceleration compatible with GNUS nodes that operate under small model/runtime budgets while allowing the network as a whole to improve over time.
 
 This document should be read as a companion to:
 
 - [Objective Memory and Verified Transition Graph](./objective-memory-vtg.md)
-- [Frozen Multi-Token Prediction and VTG Edge Inference](./frozen-mtp-and-vtg.md)
+- [Frozen Micro-MTP and VTG Edge Inference](./frozen-mtp-and-vtg.md)
 
 ---
 
-## **Non-Server Assumption**
+## **Operating Envelope**
 
-The speculative decoding layer must not assume:
+The baseline GNUS speculative decoding profile is optimized for nodes with limited memory, power, and GPU throughput.
 
-- a high-end verifier node
-- large standalone drafter models
-- server-class tree attention kernels
-- full DiffusionGemma-class model execution on a normal node
-- long speculative horizons
-- large branch factors
-- large global VTG shards resident on every device
-
-A normal GNUS node should be able to operate with an approximate local budget such as:
+Representative local budget:
 
 ```text
 active model / ELM budget: 100MB to 350MB
@@ -46,23 +30,39 @@ hot VTG shard: 10MB to 100MB
 runtime buffers, KV cache, and shader state: remaining local budget
 ```
 
-The exact budget may vary by device, but the architectural rule is stable:
+The architectural rule is:
 
 > The swarm provides scale. The individual node provides a small verified contribution.
 
+This drives the implementation toward:
+
+- short accepted prefixes
+- small role-specific prediction heads
+- deterministic schema and grammar helpers
+- compact VTG hot shards
+- mandatory local verification
+- compact signed outcome events
+- device-class-aware scheduling
+
 ---
 
-## **Why this extension exists**
+## **Why this layer exists**
 
-Most autoregressive inference generates one token at a time.
+Autoregressive inference generates one token at a time.
 
-Speculative decoding accelerates generation by drafting future tokens or states and then verifying them before commitment.
+Speculative decoding accelerates generation by proposing a short continuation and validating it before commitment.
 
-For GNUS, the point is not to make one node act like a server GPU.
+For GNUS, speculative decoding is most useful when applied to repeated low-entropy regions such as:
 
-The point is to let many weak nodes learn where **tiny local speculation** is safe.
+- JSON and schema-constrained generation
+- formatter output
+- tool-call templates
+- common code continuations
+- known API usage patterns
+- verifier corrections
+- tenant workflow transitions
 
-The core loop is:
+The local loop is:
 
 ```text
 local context
@@ -73,36 +73,34 @@ draft 1 to 4 tokens or one small state block
     ↓
 local verifier, schema check, target ELM, compiler, tool dry-run, or arbiter check
     ↓
-commit only if accepted
+commit accepted prefix
     ↓
 publish compact VTG outcome
     ↓
 EGGROLL tunes policy across the swarm
 ```
 
-This keeps speculation useful even when each node is small.
-
 ---
 
 ## **Core Components**
 
-| Component | GNUS-Constrained Responsibility |
-|----------|----------------------------------|
+| Component | Responsibility |
+|----------|----------------|
 | **Micro Drafter** | Proposes a tiny future prefix or one small state block. |
-| **Confidence Scheduler** | Decides how much of the proposal survives before verification. |
-| **Local Verifier** | Accepts or rejects using the local target model, schema validator, tool dry-run, test result, or ELM verifier. |
+| **Confidence Scheduler** | Selects the portion of the proposal that should be verified. |
+| **Local Verifier** | Accepts the prefix using the local target model, schema validator, tool dry-run, test result, or ELM verifier. |
 | **VTG Hot Shard** | Supplies locally relevant verified transition candidates. |
 | **Swarm Learning Loop** | Publishes compact outcome events for VTG and EGGROLL. |
 
 The drafter may be neural, symbolic, memory-backed, or hybrid.
 
-The output is always provisional until verified.
+The output remains provisional until the configured verifier path accepts it.
 
 ---
 
 ## **Micro-Speculation Backend Classes**
 
-GNUS should support four practical local drafter classes.
+GNUS supports four practical local drafter classes.
 
 | Backend | Role | Best Initial Uses |
 |--------|------|-------------------|
@@ -111,7 +109,7 @@ GNUS should support four practical local drafter classes.
 | **Rule / Grammar / Schema Drafter** | Deterministic constrained expansion without model guessing. | JSON, tool calls, structured output, DSLs |
 | **Micro-Diffusion Block Drafter** | Tiny masked/block denoiser for low-entropy structured regions. | fill missing JSON fields, code patch skeletons, template repair |
 
-The Router should prefer cheaper and more deterministic drafters first.
+Recommended backend ordering:
 
 ```text
 if deterministic schema or grammar exists:
@@ -119,32 +117,28 @@ if deterministic schema or grammar exists:
 elif strong VTG hit exists:
     use VTG lookup drafter
 elif local model exposes a micro-MTP head:
-    use Frozen MTP
+    use Frozen Micro-MTP
 elif constrained block-fill task has a tiny denoiser:
     use micro-diffusion drafter
 else:
-    use normal autoregressive generation
+    use standard autoregressive generation
 ```
 
 ---
 
 ## **Confidence-Scheduled Prefix Retention**
 
-Speculation should not be all-or-nothing.
-
-The scheduler keeps the longest safe prefix and drops the uncertain suffix.
+The scheduler keeps the longest useful prefix and routes that prefix through verification.
 
 ```text
 Draft:       A B C D
 Confidence:  .96 .91 .72 .51
 Threshold:   .90
-Keep:        A B
-Drop:            C D
+Verify:      A B
+Regenerate:      C D
 ```
 
-For GNUS nodes, the scheduler should be conservative by default.
-
-Typical initial settings:
+Initial operating profile:
 
 ```text
 branch factor: 1 to 2
@@ -153,9 +147,7 @@ verification: mandatory
 rollback budget: near zero
 ```
 
-The goal is not maximum draft length.
-
-The goal is:
+The primary metric is:
 
 > verified accepted length per unit of latency, memory, and risk.
 
@@ -163,7 +155,7 @@ The goal is:
 
 ## **VTG as the Primary Swarm Advantage**
 
-A single node may have little compute, but the swarm has history.
+A single node may have limited compute, but the swarm has history.
 
 VTG allows each node to benefit from repeated verified transitions without needing a large local model.
 
@@ -179,7 +171,7 @@ A VTG candidate may represent:
 - micro-diffusion fill pattern
 - MTP prefix survival profile
 
-The hot shard on a node should only contain the graph fragments relevant to:
+The hot shard on a node contains graph fragments relevant to:
 
 - local model or ELM role
 - tenant boundary
@@ -188,17 +180,13 @@ The hot shard on a node should only contain the graph fragments relevant to:
 - device class
 - available verifier path
 
-The node does not need the full graph.
-
 ---
 
-## **Diffusion as Micro-Diffusion, Not Full Diffusion LM**
+## **Micro-Diffusion Block Drafting**
 
-DiffusionGemma-style block-diffusion language modeling is architecturally interesting, but it is not a direct target for normal GNUS nodes.
+Diffusion-style generation contributes a useful block-refinement pattern for GNUS when scaled down to constrained local execution.
 
-GNUS should borrow the idea, not the scale.
-
-The usable pattern is:
+The GNUS form is:
 
 ```text
 small masked block
@@ -209,7 +197,7 @@ few refinement steps
     ↓
 schema / code / verifier check
     ↓
-commit if accepted
+commit accepted block
 ```
 
 Examples:
@@ -220,19 +208,15 @@ code patch skeleton -> fill likely syntax -> compiler/verifier checks
 tool-call template -> fill arguments -> dry-run validates
 ```
 
-Micro-diffusion should be limited to low-entropy, structured regions where verification is cheap.
-
-It should not be used as the general language generator on a normal node.
+Micro-diffusion is best suited to low-entropy structured regions where verification is cheap and deterministic.
 
 ---
 
-## **JetSpec-Inspired Causal Tree Drafting as a Tiny Head**
+## **Tiny Causal Tree Drafting**
 
-JetSpec-style causal parallel drafting is useful as an architectural pattern, but the GNUS implementation must be tiny.
+JetSpec-style causal parallel drafting contributes a useful pattern for maintaining causal consistency across a small speculative tree.
 
-The server-style version may use larger candidate trees and specialized high-end attention kernels.
-
-The GNUS version should be:
+The GNUS implementation profile is:
 
 ```text
 tiny causal draft head
@@ -251,7 +235,7 @@ roles: formatter, schema, code, tool-support
 verification: mandatory
 ```
 
-This preserves the useful idea of causal branch faithfulness without assuming a high-end verifier node.
+This preserves causal branch faithfulness while staying within the ubiquitous-node budget.
 
 ---
 
@@ -261,15 +245,9 @@ Frozen Multi-Token Prediction is the most practical neural speculative backend f
 
 It keeps the backbone frozen and attaches a small prediction head that reuses the main model state.
 
-This avoids:
+This reduces duplicated context processing and avoids a separate standalone drafter.
 
-- standalone drafter weights
-- duplicate prefill
-- duplicate KV cache
-- extra model switching
-- broad retraining of the deployed backbone
-
-In GNUS, Frozen MTP should be deployed as **micro-MTP**:
+GNUS deployment profile:
 
 ```text
 frozen ELM or Semantic Core
@@ -285,7 +263,7 @@ local verification
 VTG outcome update
 ```
 
-The first targets should be formatter/schema and code-specialist paths, not high-stakes factual generation.
+The first targets are formatter/schema and code-specialist paths.
 
 ---
 
@@ -293,13 +271,13 @@ The first targets should be formatter/schema and code-specialist paths, not high
 
 | Role | Policy |
 |------|--------|
-| Formatter / Schema ELM | Aggressive relative to other roles; deterministic validation is cheap. |
-| Tool-Support ELM | Conservative; validate before side effects. |
-| Code Specialist | Moderate; rely on compiler, tests, static analysis, or code verifier. |
-| Primary Draft ELM | Conservative for general prose; stronger only for low-risk text. |
-| Verifier ELM | Very conservative; consistency beats speed. |
-| Grounding ELM | Very conservative; evidence alignment is required. |
-| Synthesizer / Arbiter | Conservative; arbitration remains authoritative. |
+| Formatter / Schema ELM | Highest speculative depth; deterministic validation is cheap. |
+| Tool-Support ELM | Short depth with tool dry-run validation before side effects. |
+| Code Specialist | Moderate depth with compiler, tests, static analysis, or code verifier. |
+| Primary Draft ELM | Short depth for low-risk repeated text patterns. |
+| Verifier ELM | Minimal depth; consistency is prioritized. |
+| Grounding ELM | Minimal depth when evidence alignment is required. |
+| Synthesizer / Arbiter | Short depth over known synthesis patterns; arbitration remains authoritative. |
 
 Speculation depth is a policy decision, not a fixed model property.
 
@@ -307,7 +285,7 @@ Speculation depth is a policy decision, not a fixed model property.
 
 ## **Node Capability Advertisement**
 
-Nodes should advertise micro-speculation capabilities in a compact profile.
+Nodes advertise micro-speculation capabilities in a compact profile.
 
 ```json
 {
@@ -331,13 +309,13 @@ Nodes should advertise micro-speculation capabilities in a compact profile.
 }
 ```
 
-The Router should use this profile when choosing local or swarm execution paths.
+The Router uses this profile when choosing local or swarm execution paths.
 
 ---
 
 ## **Swarm Outcome Events**
 
-Each node should emit compact outcome events rather than large traces.
+Each node emits compact outcome events rather than large traces.
 
 ```json
 {
@@ -360,20 +338,18 @@ Each node should emit compact outcome events rather than large traces.
 These events let the swarm learn:
 
 ```text
-this tiny drafter works for JSON on weak GPUs
-this VTG edge works for tenant API calls
-this micro-diffusion block fails after two steps
-this formatter head is safe up to four tokens
-this code patch pattern needs compiler verification
+which tiny drafters work for JSON on weak GPUs
+which VTG edges work for tenant API calls
+which micro-diffusion blocks converge quickly
+which formatter heads are safe to depth four
+which code patch patterns require compiler verification
 ```
-
-This is the GNUS advantage.
 
 ---
 
 ## **Integration with EGGROLL**
 
-EGGROLL should optimize micro-speculation policy rather than assuming large model retraining.
+EGGROLL optimizes micro-speculation policy rather than assuming large model retraining.
 
 Targets include:
 
@@ -383,11 +359,11 @@ Targets include:
 - branch factor by model budget
 - VTG hot-shard promotion policy
 - micro-MTP head selection
-- micro-diffusion use/no-use policy
+- micro-diffusion use policy
 - rollback penalty weighting
 - device-class scheduling policy
 
-The backbone should remain stable unless a separate retraining flow explicitly promotes a new artifact.
+The backbone remains stable unless a separate retraining flow explicitly promotes a new artifact.
 
 ---
 
@@ -416,37 +392,32 @@ Prototype a JetSpec-inspired micro tree head with branch factor 2 and depth 2 to
 
 ### **Phase 5 — Micro-Diffusion Block Drafter**
 
-Prototype a tiny masked denoiser only for structured low-entropy blocks.
+Prototype a tiny masked denoiser for structured low-entropy blocks.
 
 ### **Phase 6 — Swarm Optimization**
 
-Use VTG and EGGROLL events to tune which backend works for each role, device class, and tenant workflow.
+Use VTG and EGGROLL events to tune the backend choice for each role, device class, and tenant workflow.
 
 ---
 
-## **Non-Goals**
+## **Scope Boundaries**
 
-This architecture does not require:
+This architecture targets normal GNUS node execution.
 
-- full DiffusionGemma-class inference on normal GNUS nodes
-- server-scale JetSpec kernels on normal GNUS nodes
-- large standalone drafter models
-- long speculative horizons
-- global graph residency on each device
-- unverified speculative commitment
+Larger experimental backends may exist in research or benchmark environments, but the production design baseline remains compact local speculation, local verification, and swarm-level improvement.
 
 ---
 
 ## **Design Principle**
 
-GNUS should not treat diffusion or tree speculation as server-scale accelerators.
+GNUS treats diffusion, tree drafting, Frozen MTP, schema rules, and VTG lookup as micro-speculative primitives.
 
-It should treat them as micro-speculative primitives that run locally, verify cheaply, and improve collectively through VTG and EGGROLL.
+They run locally, verify cheaply, and improve collectively through VTG and EGGROLL.
 
-The system should not try to make one weak node brilliant.
+The system does not try to make one weak node brilliant.
 
-It should let many weak nodes become reliable together.
+It lets many small nodes become reliable together.
 
 ---
 
-[Companion: Objective Memory and Verified Transition Graph](./objective-memory-vtg.md) | [Companion: Frozen Multi-Token Prediction and VTG Edge Inference](./frozen-mtp-and-vtg.md) | [Architecture Index](./INDEX.md)
+[Companion: Objective Memory and Verified Transition Graph](./objective-memory-vtg.md) | [Companion: Frozen Micro-MTP and VTG Edge Inference](./frozen-mtp-and-vtg.md) | [Architecture Index](./INDEX.md)
