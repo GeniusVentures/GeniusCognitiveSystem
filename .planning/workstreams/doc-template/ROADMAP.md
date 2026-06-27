@@ -23,7 +23,9 @@ Extract the `../documentation` MkDocs + Doxygen pattern into a reusable, config-
   1. Template can be added to a host C++ project via `git submodule add`
   2. A single `gendoc.yml` config file exists with fields for: project name, hand-written docs directory, C++ source directory, and Cloudflare Pages deployment target
   3. Directory layout separates concerns cleanly: config template, scripts/, theme assets/, Doxygen template/ — zero hardcoded project paths
-**Plans**: TBD
+**Plans**: 1 plan
+Plans:
+- [ ] 01-01-PLAN.md — Directory skeleton, gendoc.yml config file schema, and sanity audit
 
 ### Phase 2: MkDocs Site
 **Goal**: MkDocs with Material theme renders a GNUS-styled site from the host project's hand-written markdown docs
@@ -81,7 +83,7 @@ Extract the `../documentation` MkDocs + Doxygen pattern into a reusable, config-
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Template Skeleton & Config | TBD | Not started | - |
+| 1. Template Skeleton & Config | 1 plan | Ready to execute | - |
 | 2. MkDocs Site | TBD | Not started | - |
 | 3. API Reference Pipeline | TBD | Not started | - |
 | 4. Navigation Integration | TBD | Not started | - |
