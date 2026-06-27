@@ -1,3 +1,6 @@
 [submodule "GNUS-NEO-SWARM"]
 	path = GNUS-NEO-SWARM
 	url = ../
+[submodule "gendoc-template"]
+	path = gendoc-template
+	url = ./gendoc-template
