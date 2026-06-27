@@ -1,0 +1,56 @@
+# gendoc.yml — GeniusCognitiveSystem documentation configuration
+# See gendoc-template/gendoc.yml.example for the full schema reference.
+
+# ── Project identification ──────────────────────────────────────────────────
+project:
+  name: "GeniusCognitiveSystem"
+  number: "0.1"
+  brief: "Distributed cognitive platform — ELM inference, swarm orchestration, verification, memory, and agent framework"
+
+# ── Paths (relative to this file's location — the host project root) ──
+paths:
+  handwritten_docs: "docs/architecture"
+  cpp_source: "GNUS-NEO-SWARM"
+  exclude_patterns:
+    - "*/thirdparty/*"
+    - "*/build/*"
+    - "*/.venv/*"
+    - "*/node_modules/*"
+
+# ── MkDocs configuration ────────────────────────────────────────────────────
+mkdocs:
+  site_dir: "site"
+  use_directory_urls: true
+  strict: false
+
+# ── Doxygen configuration ───────────────────────────────────────────────────
+doxygen:
+  output_dir: "doxygen-output"
+  generate_xml: true
+  generate_html: false
+  file_patterns:
+    - "*.c"
+    - "*.cpp"
+    - "*.cxx"
+    - "*.h"
+    - "*.hpp"
+    - "*.hxx"
+  recursive: true
+  strip_from_path: ""
+
+# ── API reference (doxybook2) ───────────────────────────────────────────────
+api_reference:
+  output_subdir: "api-reference"
+  base_url: "/api-reference/"
+  folders_to_generate:
+    - "classes"
+    - "files"
+    - "modules"
+    - "namespaces"
+    - "pages"
+
+# ── Deploy (Cloudflare Pages via Wrangler) ──────────────────────────────────
+deploy:
+  cloudflare:
+    pages_project_name: "genius-cognitive-system-docs"
+    compatibility_date: "2024-01-01"
