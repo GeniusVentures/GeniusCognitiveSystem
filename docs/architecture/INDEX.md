@@ -32,6 +32,7 @@ Combining PRD + TDD + System Architecture Blueprint
 15. [15 Epistemic Arbitration and Cognitive OS Extensions](./15-epistemic-arbitration-and-cognitive-os.md)
 16. [16 Ultra FP4 Adaptive Quantization Format](./16-ultra-fp4-format.md)
 17. [Objective Memory and Verified Transition Graph](./objective-memory-vtg.md)
+
 ---
 
 ## **Suggested Reading Order**
