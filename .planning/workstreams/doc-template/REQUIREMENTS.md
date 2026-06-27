@@ -40,20 +40,20 @@ _(none yet)_
 
 | REQ-ID | Phase | Status |
 |--------|-------|--------|
-| CFG-01 | — | — |
-| CFG-02 | — | — |
-| CFG-03 | — | — |
-| MKD-01 | — | — |
-| MKD-02 | — | — |
-| MKD-03 | — | — |
-| API-01 | — | — |
-| API-02 | — | — |
-| API-03 | — | — |
-| BLD-01 | — | — |
-| BLD-02 | — | — |
-| BLD-03 | — | — |
-| TPL-01 | — | — |
-| TPL-02 | — | — |
+| CFG-01 | Phase 1 | Pending |
+| CFG-02 | Phase 6 | Pending |
+| CFG-03 | Phase 1 | Pending |
+| MKD-01 | Phase 2 | Pending |
+| MKD-02 | Phase 4 | Pending |
+| MKD-03 | Phase 2 | Pending |
+| API-01 | Phase 3 | Pending |
+| API-02 | Phase 3 | Pending |
+| API-03 | Phase 3 | Pending |
+| BLD-01 | Phase 5 | Pending |
+| BLD-02 | Phase 5 | Pending |
+| BLD-03 | Phase 5 | Pending |
+| TPL-01 | Phase 1 | Pending |
+| TPL-02 | Phase 6 | Pending |
 
 ---
 
