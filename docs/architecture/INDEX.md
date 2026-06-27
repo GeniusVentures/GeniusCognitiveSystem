@@ -32,9 +32,11 @@ Combining PRD + TDD + System Architecture Blueprint
 15. [15 Epistemic Arbitration and Cognitive OS Extensions](./15-epistemic-arbitration-and-cognitive-os.md)
 16. [16 Ultra FP4 Adaptive Quantization Format](./16-ultra-fp4-format.md)
 17. [Objective Memory and Verified Transition Graph](./objective-memory-vtg.md)
+18. [Speculative Decoding and VTG Candidate Scheduling](./speculative-decoding-and-vtg.md)
+19. [Frozen Micro-MTP and VTG Edge Inference](./frozen-mtp-and-vtg.md)
 
 ---
 
 ## **Suggested Reading Order**
 
-Start with the executive summary and system overview, then move through the model, routing, consensus, grounding, and agentic memory sections before reviewing execution planning, risks, long-term positioning, swarm-thinking architecture, secure agent architecture, the retraining layers, epistemic arbitration, Ultra FP4, and Objective Memory / VTG.
+Start with the executive summary and system overview, then move through the model, routing, consensus, grounding, and agentic memory sections before reviewing execution planning, risks, long-term positioning, swarm-thinking architecture, secure agent architecture, the retraining layers, epistemic arbitration, Ultra FP4, Objective Memory / VTG, speculative decoding candidate scheduling, and Frozen Micro-MTP edge inference.
