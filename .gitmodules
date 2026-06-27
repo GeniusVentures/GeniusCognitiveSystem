@@ -3,4 +3,4 @@
 	url = ../
 [submodule "gendoc-template"]
 	path = gendoc-template
-	url = ./gendoc-template
+	url = git@github.com:GeniusVentures/gendoc-template.git
