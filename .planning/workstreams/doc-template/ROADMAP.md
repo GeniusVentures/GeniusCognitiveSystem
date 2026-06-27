@@ -49,7 +49,10 @@ Plans:
   1. Doxygen generates XML documentation from the C++ source directory specified in `gendoc.yml`
   2. doxybook2 converts Doxygen XML output to markdown pages in the docs directory
   3. Navigation builder produces well-structured literate-nav entries for Classes, Files, Namespaces, Modules, and Pages from parsed Doxygen index files
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 03-01-PLAN.md — Parameterized Doxyfile template ({{TOKEN}} placeholders) and doxybook2 config
+- [ ] 03-02-PLAN.md — build_api_reference.sh pipeline script and generalized build_navigation.py
 
 ### Phase 4: Navigation Integration
 **Goal**: Hand-written docs and generated API reference appear together in a single unified site navigation
@@ -88,7 +91,7 @@ Plans:
 |-------|----------------|--------|-----------|
 | 1. Template Skeleton & Config | 1/1 | Complete   | 2026-06-27 |
 | 2. MkDocs Site | 1/2 | In Progress|  |
-| 3. API Reference Pipeline | TBD | Not started | - |
+| 3. API Reference Pipeline | 0/2 | Planned | - |
 | 4. Navigation Integration | TBD | Not started | - |
 | 5. Build & Deploy | TBD | Not started | - |
 | 6. Documentation & Validation | TBD | Not started | - |
