@@ -31,8 +31,9 @@ Combining PRD + TDD + System Architecture Blueprint
 14. [14 Targeted Retraining and Hierarchical Critical Thinking Specialists](./14-cognitive-retaining-system.md)
 15. [15 Epistemic Arbitration and Cognitive OS Extensions](./15-epistemic-arbitration-and-cognitive-os.md)
 16. [16 Ultra FP4 Adaptive Quantization Format](./16-ultra-fp4-format.md)
+17. [Objective Memory and Verified Transition Graph](./objective-memory-vtg.md)
 ---
 
 ## **Suggested Reading Order**
 
-Start with the executive summary and system overview, then move through the model, routing, consensus, grounding, and agentic memory sections before reviewing execution planning, risks, long-term positioning, swarm-thinking architecture, secure agent architecture, the retraining layers, and finally the epistemic arbitration extension.
+Start with the executive summary and system overview, then move through the model, routing, consensus, grounding, and agentic memory sections before reviewing execution planning, risks, long-term positioning, swarm-thinking architecture, secure agent architecture, the retraining layers, epistemic arbitration, Ultra FP4, and Objective Memory / VTG.
