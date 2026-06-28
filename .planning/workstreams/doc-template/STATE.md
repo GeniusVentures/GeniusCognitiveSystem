@@ -4,14 +4,14 @@ milestone: v0.1
 milestone_name: milestone
 status: verifying
 stopped_at: Completed 03-02-PLAN.md — API Reference Pipeline Scripts
-last_updated: "2026-06-28T19:57:38.411Z"
+last_updated: "2026-06-28T20:12:40.662Z"
 last_activity: 2026-06-28
 progress:
   total_phases: 6
-  completed_phases: 3
-  total_plans: 6
-  completed_plans: 5
-  percent: 50
+  completed_phases: 4
+  total_plans: 7
+  completed_plans: 6
+  percent: 67
 ---
 
 # Project State
@@ -30,7 +30,7 @@ Plan: 2 of 2 in current phase
 Status: Phase complete — ready for verification
 Last activity: 2026-06-28
 
-Progress: [████████░░] 83%
+Progress: [█████████░] 86%
 
 ## Performance Metrics
 
@@ -61,6 +61,7 @@ Progress: [████████░░] 83%
 | Phase 03-api-reference-pipeline P01 | 180 | 2 tasks | 2 files |
 | Phase 03-api-reference-pipeline P02 | 240 | 2 tasks | 2 files |
 | Phase 04-navigation-integration P04-01 | 300 | 2 tasks | 3 files |
+| Phase 05-build-deploy P01 | 2m | 3 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -81,6 +82,10 @@ Progress: [████████░░] 83%
 - [Phase 04]: write_root_nav() produces SUMMARY_EXT.md via build_literate_nav()
 - [Phase 04]: HANDWRITTEN_DOCS_ABS already resolved by build_api_reference.sh (line 128) — no new variable needed
 - [Phase 04]: Missing SUMMARY.md is a soft warning, not a hard error — allows API-reference-only sites
+- [Phase 05]: build.sh reads gendoc.yml from HOST_ROOT (not TEMPLATE_ROOT) — matching load_gendoc_config.py pattern
+- [Phase 05]: wrangler.toml is generated at deploy time from .template via python3 — no sed -i, credentials stay in environment
+- [Phase 05]: CF_API_TOKEN and CF_ACCOUNT_ID passed via inline env assignment (not export) — limiting credential exposure
+- [Phase 05]: All three scripts use read_yaml() from build_api_reference.sh — single source of truth for YAML config parsing
 
 ### Pending Todos
 
@@ -98,6 +103,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-06-28T19:55:41.229Z
+Last session: 2026-06-28T20:11:40.576Z
 Stopped at: Completed 03-02-PLAN.md — API Reference Pipeline Scripts
 Resume file: None

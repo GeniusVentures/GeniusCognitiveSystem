@@ -18,9 +18,9 @@
 - [x] **API-03**: Navigation builder parses Doxygen index files and produces literate-nav entries for Classes, Files, Namespaces, Modules, Pages
 
 ### Build & Deploy
-- [ ] **BLD-01**: Single build script that runs Doxygen → doxybook2 → navigation → MkDocs
-- [ ] **BLD-02**: Cloudflare Pages deploy script using Wrangler (from config entry)
-- [ ] **BLD-03**: Scripts work on macOS and Linux
+- [x] **BLD-01**: Single build script that runs Doxygen → doxybook2 → navigation → MkDocs
+- [x] **BLD-02**: Cloudflare Pages deploy script using Wrangler (from config entry)
+- [x] **BLD-03**: Scripts work on macOS and Linux
 
 ### Template Structure
 - [x] **TPL-01**: Submodule directory layout is clean: config template, scripts/, theme assets, Doxygen template — no hardcoded project paths
@@ -49,9 +49,9 @@ _(none yet)_
 | API-01 | Phase 3 | Complete |
 | API-02 | Phase 3 | Complete |
 | API-03 | Phase 3 | Complete |
-| BLD-01 | Phase 5 | Pending |
-| BLD-02 | Phase 5 | Pending |
-| BLD-03 | Phase 5 | Pending |
+| BLD-01 | Phase 5 | Complete |
+| BLD-02 | Phase 5 | Complete |
+| BLD-03 | Phase 5 | Complete |
 | TPL-01 | Phase 1 | Complete |
 | TPL-02 | Phase 6 | Pending |
 
