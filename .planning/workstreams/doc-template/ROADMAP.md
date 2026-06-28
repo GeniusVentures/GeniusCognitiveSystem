@@ -11,7 +11,7 @@ Extract the `../documentation` MkDocs + Doxygen pattern into a reusable, config-
 - [x] **Phase 3: API Reference Pipeline** — Doxygen + doxybook2 generates C++ API docs as markdown (completed 2026-06-28)
 - [x] **Phase 4: Navigation Integration** — Hand-written and generated API docs merge into unified navigation (completed 2026-06-28)
 - [x] **Phase 5: Build & Deploy** — Single-command full build and Cloudflare Pages deployment (completed 2026-06-28)
-- [ ] **Phase 6: Documentation & Validation** — README, setup instructions, end-to-end workflow verified
+- [x] **Phase 6: Documentation & Validation** — README, setup instructions, end-to-end workflow verified (completed 2026-06-28)
 
 ## Phase Details
 
@@ -89,7 +89,7 @@ Plans:
   3. All paths resolve from `gendoc.yml` — a host project needs no manual edits beyond filling out the config file
 **Plans**: 1 plan
 Plans:
-- [ ] 06-01-PLAN.md — README expansion, .gitignore audit, build_api_reference.sh path fix, and end-to-end verification sweep
+- [x] 06-01-PLAN.md — README expansion, .gitignore audit, build_api_reference.sh path fix, and end-to-end verification sweep
 
 ## Progress
 
@@ -100,4 +100,4 @@ Plans:
 | 3. API Reference Pipeline | 2/2 | Complete   | 2026-06-28 |
 | 4. Navigation Integration | 1/1 | Complete   | 2026-06-28 |
 | 5. Build & Deploy | 1/1 | Complete   | 2026-06-28 |
-| 6. Documentation & Validation | 0/1 | Planned    | - |
+| 6. Documentation & Validation | 1/1 | Complete   | 2026-06-28 |

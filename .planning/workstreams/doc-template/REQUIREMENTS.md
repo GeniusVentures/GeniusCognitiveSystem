@@ -4,7 +4,7 @@
 
 ### Config & Setup
 - [x] **CFG-01**: Template exposes a single config file (`gendoc.yml`) specifying: hand-written docs directory, C++ source directory, project name, Cloudflare account details
-- [ ] **CFG-02**: `git submodule add` into a host project, run one setup command, and all paths resolve from config
+- [x] **CFG-02**: `git submodule add` into a host project, run one setup command, and all paths resolve from config
 - [x] **CFG-03**: Config includes Wrangler deployment target (zone ID, route, or pages project name)
 
 ### MkDocs Site
@@ -24,7 +24,7 @@
 
 ### Template Structure
 - [x] **TPL-01**: Submodule directory layout is clean: config template, scripts/, theme assets, Doxygen template — no hardcoded project paths
-- [ ] **TPL-02**: README with setup instructions for host projects
+- [x] **TPL-02**: README with setup instructions for host projects
 
 ## Future Requirements
 
@@ -41,7 +41,7 @@ _(none yet)_
 | REQ-ID | Phase | Status |
 |--------|-------|--------|
 | CFG-01 | Phase 1 | Complete |
-| CFG-02 | Phase 6 | Pending |
+| CFG-02 | Phase 6 | Complete |
 | CFG-03 | Phase 1 | Complete |
 | MKD-01 | Phase 2 | Complete |
 | MKD-02 | Phase 4 | Complete |
@@ -53,7 +53,7 @@ _(none yet)_
 | BLD-02 | Phase 5 | Complete |
 | BLD-03 | Phase 5 | Complete |
 | TPL-01 | Phase 1 | Complete |
-| TPL-02 | Phase 6 | Pending |
+| TPL-02 | Phase 6 | Complete |
 
 ---
 
