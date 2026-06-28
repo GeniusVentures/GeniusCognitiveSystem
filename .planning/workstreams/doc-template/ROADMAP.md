@@ -62,7 +62,9 @@ Plans:
   1. Hand-written markdown docs from the host project's docs directory appear in site navigation
   2. Generated API reference pages appear alongside hand-written docs in the same navigation structure
   3. Navigation has zero broken links between hand-written and generated sections across the full site
-**Plans**: TBD
+**Plans**: 1 plan
+Plans:
+- [ ] 04-01-PLAN.md — Merge hand-written SUMMARY.md with generated API reference nav into literate-nav-compatible SUMMARY_EXT.md
 **UI hint**: yes
 
 ### Phase 5: Build & Deploy
@@ -92,6 +94,6 @@ Plans:
 | 1. Template Skeleton & Config | 1/1 | Complete   | 2026-06-27 |
 | 2. MkDocs Site | 1/2 | In Progress|  |
 | 3. API Reference Pipeline | 2/2 | Complete   | 2026-06-28 |
-| 4. Navigation Integration | TBD | Not started | - |
+| 4. Navigation Integration | 0/1 | Not started | - |
 | 5. Build & Deploy | TBD | Not started | - |
 | 6. Documentation & Validation | TBD | Not started | - |
