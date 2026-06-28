@@ -87,7 +87,9 @@ Plans:
   1. README provides step-by-step setup instructions that a new developer can follow from scratch
   2. Following the README from `git submodule add` through to a deployed Cloudflare Pages site works end-to-end with no gaps
   3. All paths resolve from `gendoc.yml` — a host project needs no manual edits beyond filling out the config file
-**Plans**: TBD
+**Plans**: 1 plan
+Plans:
+- [ ] 06-01-PLAN.md — README expansion, .gitignore audit, build_api_reference.sh path fix, and end-to-end verification sweep
 
 ## Progress
 
@@ -98,4 +100,4 @@ Plans:
 | 3. API Reference Pipeline | 2/2 | Complete   | 2026-06-28 |
 | 4. Navigation Integration | 1/1 | Complete   | 2026-06-28 |
 | 5. Build & Deploy | 1/1 | Complete   | 2026-06-28 |
-| 6. Documentation & Validation | TBD | Not started | - |
+| 6. Documentation & Validation | 0/1 | Planned    | - |
