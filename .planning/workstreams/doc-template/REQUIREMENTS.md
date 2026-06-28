@@ -9,7 +9,7 @@
 
 ### MkDocs Site
 - [x] **MKD-01**: Pre-configured Material theme matching GNUS visual style (colors, nav, search, mermaid, mathjax)
-- [ ] **MKD-02**: literate-nav plugin merges hand-written `SUMMARY.md` with generated API reference nav
+- [x] **MKD-02**: literate-nav plugin merges hand-written `SUMMARY.md` with generated API reference nav
 - [x] **MKD-03**: Site works both locally (`mkdocs serve`) and built for deployment (`mkdocs build`)
 
 ### API Reference (Doxygen)
@@ -44,7 +44,7 @@ _(none yet)_
 | CFG-02 | Phase 6 | Pending |
 | CFG-03 | Phase 1 | Complete |
 | MKD-01 | Phase 2 | Complete |
-| MKD-02 | Phase 4 | Pending |
+| MKD-02 | Phase 4 | Complete |
 | MKD-03 | Phase 2 | Complete |
 | API-01 | Phase 3 | Complete |
 | API-02 | Phase 3 | Complete |

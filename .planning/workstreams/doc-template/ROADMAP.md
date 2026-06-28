@@ -9,7 +9,7 @@ Extract the `../documentation` MkDocs + Doxygen pattern into a reusable, config-
 - [x] **Phase 1: Template Skeleton & Config** — Submodule-ready directory layout with `gendoc.yml` config file (completed 2026-06-27)
 - [ ] **Phase 2: MkDocs Site** — Material-themed MkDocs renders host project's hand-written docs
 - [x] **Phase 3: API Reference Pipeline** — Doxygen + doxybook2 generates C++ API docs as markdown (completed 2026-06-28)
-- [ ] **Phase 4: Navigation Integration** — Hand-written and generated API docs merge into unified navigation
+- [x] **Phase 4: Navigation Integration** — Hand-written and generated API docs merge into unified navigation (completed 2026-06-28)
 - [ ] **Phase 5: Build & Deploy** — Single-command full build and Cloudflare Pages deployment
 - [ ] **Phase 6: Documentation & Validation** — README, setup instructions, end-to-end workflow verified
 
@@ -64,7 +64,7 @@ Plans:
   3. Navigation has zero broken links between hand-written and generated sections across the full site
 **Plans**: 1 plan
 Plans:
-- [ ] 04-01-PLAN.md — Merge hand-written SUMMARY.md with generated API reference nav into literate-nav-compatible SUMMARY_EXT.md
+- [x] 04-01-PLAN.md — Merge hand-written SUMMARY.md with generated API reference nav into literate-nav-compatible SUMMARY_EXT.md
 **UI hint**: yes
 
 ### Phase 5: Build & Deploy
@@ -94,6 +94,6 @@ Plans:
 | 1. Template Skeleton & Config | 1/1 | Complete   | 2026-06-27 |
 | 2. MkDocs Site | 1/2 | In Progress|  |
 | 3. API Reference Pipeline | 2/2 | Complete   | 2026-06-28 |
-| 4. Navigation Integration | 0/1 | Not started | - |
+| 4. Navigation Integration | 1/1 | Complete   | 2026-06-28 |
 | 5. Build & Deploy | TBD | Not started | - |
 | 6. Documentation & Validation | TBD | Not started | - |
