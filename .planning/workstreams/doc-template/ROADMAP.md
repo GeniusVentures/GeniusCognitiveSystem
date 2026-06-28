@@ -8,7 +8,7 @@ Extract the `../documentation` MkDocs + Doxygen pattern into a reusable, config-
 
 - [x] **Phase 1: Template Skeleton & Config** — Submodule-ready directory layout with `gendoc.yml` config file (completed 2026-06-27)
 - [ ] **Phase 2: MkDocs Site** — Material-themed MkDocs renders host project's hand-written docs
-- [ ] **Phase 3: API Reference Pipeline** — Doxygen + doxybook2 generates C++ API docs as markdown
+- [x] **Phase 3: API Reference Pipeline** — Doxygen + doxybook2 generates C++ API docs as markdown (completed 2026-06-28)
 - [ ] **Phase 4: Navigation Integration** — Hand-written and generated API docs merge into unified navigation
 - [ ] **Phase 5: Build & Deploy** — Single-command full build and Cloudflare Pages deployment
 - [ ] **Phase 6: Documentation & Validation** — README, setup instructions, end-to-end workflow verified
@@ -51,8 +51,8 @@ Plans:
   3. Navigation builder produces well-structured literate-nav entries for Classes, Files, Namespaces, Modules, and Pages from parsed Doxygen index files
 **Plans**: 2 plans
 Plans:
-- [ ] 03-01-PLAN.md — Parameterized Doxyfile template ({{TOKEN}} placeholders) and doxybook2 config
-- [ ] 03-02-PLAN.md — build_api_reference.sh pipeline script and generalized build_navigation.py
+- [x] 03-01-PLAN.md — Parameterized Doxyfile template ({{TOKEN}} placeholders) and doxybook2 config
+- [x] 03-02-PLAN.md — build_api_reference.sh pipeline script and generalized build_navigation.py
 
 ### Phase 4: Navigation Integration
 **Goal**: Hand-written docs and generated API reference appear together in a single unified site navigation
@@ -91,7 +91,7 @@ Plans:
 |-------|----------------|--------|-----------|
 | 1. Template Skeleton & Config | 1/1 | Complete   | 2026-06-27 |
 | 2. MkDocs Site | 1/2 | In Progress|  |
-| 3. API Reference Pipeline | 0/2 | Planned | - |
+| 3. API Reference Pipeline | 2/2 | Complete   | 2026-06-28 |
 | 4. Navigation Integration | TBD | Not started | - |
 | 5. Build & Deploy | TBD | Not started | - |
 | 6. Documentation & Validation | TBD | Not started | - |

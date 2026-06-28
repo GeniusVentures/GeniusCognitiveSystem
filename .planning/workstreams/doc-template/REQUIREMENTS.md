@@ -13,9 +13,9 @@
 - [x] **MKD-03**: Site works both locally (`mkdocs serve`) and built for deployment (`mkdocs build`)
 
 ### API Reference (Doxygen)
-- [ ] **API-01**: Generic Doxygen config template — project name, source dir, output dir come from config
-- [ ] **API-02**: doxybook2 converts Doxygen XML to markdown pages in the docs directory
-- [ ] **API-03**: Navigation builder parses Doxygen index files and produces literate-nav entries for Classes, Files, Namespaces, Modules, Pages
+- [x] **API-01**: Generic Doxygen config template — project name, source dir, output dir come from config
+- [x] **API-02**: doxybook2 converts Doxygen XML to markdown pages in the docs directory
+- [x] **API-03**: Navigation builder parses Doxygen index files and produces literate-nav entries for Classes, Files, Namespaces, Modules, Pages
 
 ### Build & Deploy
 - [ ] **BLD-01**: Single build script that runs Doxygen → doxybook2 → navigation → MkDocs
@@ -46,9 +46,9 @@ _(none yet)_
 | MKD-01 | Phase 2 | Complete |
 | MKD-02 | Phase 4 | Pending |
 | MKD-03 | Phase 2 | Complete |
-| API-01 | Phase 3 | Pending |
-| API-02 | Phase 3 | Pending |
-| API-03 | Phase 3 | Pending |
+| API-01 | Phase 3 | Complete |
+| API-02 | Phase 3 | Complete |
+| API-03 | Phase 3 | Complete |
 | BLD-01 | Phase 5 | Pending |
 | BLD-02 | Phase 5 | Pending |
 | BLD-03 | Phase 5 | Pending |
@@ -57,4 +57,4 @@ _(none yet)_
 
 ---
 
-_Last updated: 2026-06-27_
+_Last updated: 2026-06-28_
