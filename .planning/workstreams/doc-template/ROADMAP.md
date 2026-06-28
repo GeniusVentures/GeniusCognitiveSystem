@@ -75,7 +75,9 @@ Plans:
   1. A single build script executes the complete pipeline: Doxygen -> doxybook2 -> navigation -> MkDocs build
   2. Wrangler deployment script publishes the built site to Cloudflare Pages using credentials from `gendoc.yml`
   3. Both build and deploy scripts run successfully on macOS and Linux without platform-specific workarounds
-**Plans**: TBD
+**Plans**: 1 plan
+Plans:
+- [ ] 05-01-PLAN.md — build.sh (full pipeline orchestrator), wrangler.toml.template, and deploy.sh (Cloudflare Pages)
 
 ### Phase 6: Documentation & Validation
 **Goal**: Template is self-documenting and the full end-to-end workflow is proven
@@ -95,5 +97,5 @@ Plans:
 | 2. MkDocs Site | 1/2 | In Progress|  |
 | 3. API Reference Pipeline | 2/2 | Complete   | 2026-06-28 |
 | 4. Navigation Integration | 1/1 | Complete   | 2026-06-28 |
-| 5. Build & Deploy | TBD | Not started | - |
+| 5. Build & Deploy | 0/1 | Not started | - |
 | 6. Documentation & Validation | TBD | Not started | - |
