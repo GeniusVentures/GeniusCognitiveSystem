@@ -38,10 +38,10 @@ doxygen:
   recursive: true
   strip_from_path: ""
 
-# ── API reference (doxybook2) ───────────────────────────────────────────────
-api_reference:
-  output_subdir: "api-reference"
-  base_url: "/api-reference/"
+# ── Source reference (doxybook2) ───────────────────────────────────────────────
+source_reference:
+  output_subdir: "source-reference"
+  base_url: "/source-reference/"
   folders_to_generate:
     - "classes"
     - "files"
