@@ -414,6 +414,7 @@ Combining PRD + TDD + System Architecture Blueprint
     - [23.13.4 Phase 4 — Router Policy](./frozen-mtp-and-vtg.md#23134-phase-4-router-policy)
     - [23.13.5 Phase 5 — Swarm Learning](./frozen-mtp-and-vtg.md#23135-phase-5-swarm-learning)
   - [23.14 Summary](./frozen-mtp-and-vtg.md#2314-summary)
+- [SUMMARY_EXT](./SUMMARY_EXT.md)
 
 ---
 

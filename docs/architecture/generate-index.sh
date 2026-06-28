@@ -1,13 +1,13 @@
 #!/bin/bash
-# Generate docs/architecture/INDEX.md from INDEX.md.template.
+# Generate docs/architecture/index.md from index.md.template.
 # Extracts H1/H2/H3 headings, sorts files by chapter number (from first heading),
 # groups headings per file, indents sub-docs under parent chapter.
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-OUTPUT="$SCRIPT_DIR/INDEX.md"
-TEMPLATE="$SCRIPT_DIR/INDEX.md.template"
+OUTPUT="$SCRIPT_DIR/index.md"
+TEMPLATE="$SCRIPT_DIR/index.md.template"
 
 slugify() {
     echo "$1" \
@@ -76,7 +76,7 @@ trap 'rm -rf "$TMPDIR"' EXIT
 # -------------------------------------------------------------------
 for file in "$SCRIPT_DIR"/*.md; do
     filename="$(basename "$file")"
-    case "$filename" in INDEX.md|INDEX.md.template) continue ;; esac
+    case "$filename" in index.md|index.md.template) continue ;; esac
 
     chap="$(get_chapter "$file")"
     key="$(pad_key "$chap")"
@@ -131,7 +131,7 @@ for file in "$SCRIPT_DIR"/*.md; do
 done
 
 # -------------------------------------------------------------------
-# Phase 2: Write INDEX.md from template + sorted entries.
+# Phase 2: Write index.md from template + sorted entries.
 # -------------------------------------------------------------------
 sed '/<!-- INDEX_LIST -->/q' "$TEMPLATE" > "$OUTPUT"
 
