@@ -24,7 +24,7 @@ mkdocs:
 
 # ── Doxygen configuration (shared by all source reference sets) ─────────────
 doxygen:
-  output_dir: "doxygen-output"
+  output_dir: "gendoc-template/doxygen-output"
   generate_xml: true
   generate_html: false
   recursive: true
