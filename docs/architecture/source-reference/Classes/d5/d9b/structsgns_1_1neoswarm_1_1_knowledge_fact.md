@@ -16,9 +16,9 @@ title: sgns::neoswarm::KnowledgeFact
 
 |                | Name           |
 | -------------- | -------------- |
-| std::string | **[m_source](/source-reference/Classes/d5/d9b/structsgns_1_1neoswarm_1_1_knowledge_fact/#variable-m-source)**  |
-| std::string | **[m_content](/source-reference/Classes/d5/d9b/structsgns_1_1neoswarm_1_1_knowledge_fact/#variable-m-content)**  |
-| float | **[m_relevanceScore](/source-reference/Classes/d5/d9b/structsgns_1_1neoswarm_1_1_knowledge_fact/#variable-m-relevancescore)**  |
+| std::string | **[m_source](/source-reference/Classes/d5/d9b/structsgns_1_1neoswarm_1_1_knowledge_fact/#variable-m_source)**  |
+| std::string | **[m_content](/source-reference/Classes/d5/d9b/structsgns_1_1neoswarm_1_1_knowledge_fact/#variable-m_content)**  |
+| float | **[m_relevanceScore](/source-reference/Classes/d5/d9b/structsgns_1_1neoswarm_1_1_knowledge_fact/#variable-m_relevancescore)**  |
 
 ## Public Attributes Documentation
 
@@ -45,4 +45,4 @@ float m_relevanceScore = 0.0f;
 
 -------------------------------
 
-Updated on 2026-06-28 at 13:58:22 -0700
+Updated on 2026-06-28 at 23:28:42 -0700

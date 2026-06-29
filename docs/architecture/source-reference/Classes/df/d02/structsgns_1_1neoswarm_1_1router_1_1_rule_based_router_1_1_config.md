@@ -16,9 +16,9 @@ title: sgns::neoswarm::router::RuleBasedRouter::Config
 
 |                | Name           |
 | -------------- | -------------- |
-| float | **[numeric_density_threshold_](/source-reference/Classes/df/d02/structsgns_1_1neoswarm_1_1router_1_1_rule_based_router_1_1_config/#variable-numeric-density-threshold-)**  |
-| float | **[complexity_swarm_threshold_](/source-reference/Classes/df/d02/structsgns_1_1neoswarm_1_1router_1_1_rule_based_router_1_1_config/#variable-complexity-swarm-threshold-)**  |
-| bool | **[enable_swarm_m_mode](/source-reference/Classes/df/d02/structsgns_1_1neoswarm_1_1router_1_1_rule_based_router_1_1_config/#variable-enable-swarm-m-mode)**  |
+| float | **[numeric_density_threshold_](/source-reference/Classes/df/d02/structsgns_1_1neoswarm_1_1router_1_1_rule_based_router_1_1_config/#variable-numeric_density_threshold_)**  |
+| float | **[complexity_swarm_threshold_](/source-reference/Classes/df/d02/structsgns_1_1neoswarm_1_1router_1_1_rule_based_router_1_1_config/#variable-complexity_swarm_threshold_)**  |
+| bool | **[enable_swarm_m_mode](/source-reference/Classes/df/d02/structsgns_1_1neoswarm_1_1router_1_1_rule_based_router_1_1_config/#variable-enable_swarm_m_mode)**  |
 
 ## Public Attributes Documentation
 
@@ -45,4 +45,4 @@ bool enable_swarm_m_mode = true;
 
 -------------------------------
 
-Updated on 2026-06-28 at 13:58:22 -0700
+Updated on 2026-06-28 at 23:28:42 -0700

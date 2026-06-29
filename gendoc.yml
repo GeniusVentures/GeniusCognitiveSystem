@@ -3,14 +3,13 @@
 
 # ── Project identification ──────────────────────────────────────────────────
 project:
-  name: "GeniusCognitiveSystem"
+  name: "Genius Cognitive System"
   number: "0.1"
   brief: "Distributed cognitive platform — ELM inference, swarm orchestration, verification, memory, and agent framework"
 
 # ── Paths (relative to this file's location — the host project root) ──
 paths:
   handwritten_docs: "docs/architecture"
-  cpp_source: "GNUS-NEO-SWARM"
   exclude_patterns:
     - "*/thirdparty/*"
     - "*/build/*"
@@ -23,34 +22,62 @@ mkdocs:
   use_directory_urls: true
   strict: false
 
-# ── Doxygen configuration ───────────────────────────────────────────────────
+# ── Doxygen configuration (shared by all source reference sets) ─────────────
 doxygen:
   output_dir: "doxygen-output"
   generate_xml: true
   generate_html: false
-  file_patterns:
-    - "*.c"
-    - "*.cpp"
-    - "*.cxx"
-    - "*.h"
-    - "*.hpp"
-    - "*.hxx"
   recursive: true
   strip_from_path: ""
 
-# ── Source reference (doxybook2) ───────────────────────────────────────────────
-source_reference:
-  output_subdir: "source-reference"
-  base_url: "/source-reference/"
-  folders_to_generate:
-    - "classes"
-    - "files"
-    - "modules"
-    - "namespaces"
-    - "pages"
+# ── Source reference sets (doxygen → doxybook2) ─────────────────────────────
+# One entry per body of source code to document.  Each set runs its own
+# doxygen + doxybook2 pass and becomes its own nav section.  Global
+# paths.exclude_patterns above apply to every set; per-set exclude_patterns
+# are appended.
+source_references:
+  - name: "neoswarm"
+    label: "GNUS-NEO-SWARM Source"
+    language: "C++"
+    source: "GNUS-NEO-SWARM"
+    file_patterns:
+      - "*.c"
+      - "*.cpp"
+      - "*.cxx"
+      - "*.h"
+      - "*.hpp"
+      - "*.hxx"
+    output_subdir: "source-reference"
+    base_url: "/source-reference/"
+
+  - name: "gnus-poc"
+    label: "Python (gnus-poc)"
+    language: "Python"
+    source: "GNUS-NEO-SWARM/gnus-poc"
+    file_patterns:
+      - "*.py"
+    exclude_patterns:
+      - "*/tests/*"
+      - "*/__pycache__/*"
+    output_subdir: "python-reference"
+    base_url: "/python-reference/"
+
+# ── Navigation ────────────────────────────────────────────────────────────────
+# Configure how the root navigation (SUMMARY_EXT.md) is built from hand-written
+# docs and the generated source reference sets.
+navigation:
+  # Hand-written doc sections merged into the nav before the source reference.
+  # Order in this array = order in the nav sidebar.
+  sections:
+    - label: "Architecture"
+      source_file: "index.md"
+      extract_heading: "Architecture Index"    # The readable section tree in index.md
+      promote_page_roots: false                  # Set true to collapse per-page TOC to page roots (adds breadcrumbs, may duplicate)
 
 # ── Deploy (Cloudflare Pages via Wrangler) ──────────────────────────────────
 deploy:
   cloudflare:
     pages_project_name: "genius-cognitive-system-docs"
     compatibility_date: "2024-01-01"
+    production_branch: "main"                  # Git branch that triggers production deploy
+    custom_domain: "gcs.gnus.ai"               # Optional: custom domain (e.g. docs.example.com)

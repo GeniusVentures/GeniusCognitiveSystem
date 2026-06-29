@@ -16,10 +16,10 @@ title: sgns::neoswarm::knowledge::FactValidation::ValidationResult
 
 |                | Name           |
 | -------------- | -------------- |
-| bool | **[passed_](/source-reference/Classes/df/dd5/structsgns_1_1neoswarm_1_1knowledge_1_1_fact_validation_1_1_validation_result/#variable-passed-)**  |
-| float | **[m_contradictionScore](/source-reference/Classes/df/dd5/structsgns_1_1neoswarm_1_1knowledge_1_1_fact_validation_1_1_validation_result/#variable-m-contradictionscore)**  |
-| std::vector< std::string > | **[m_contradictions](/source-reference/Classes/df/dd5/structsgns_1_1neoswarm_1_1knowledge_1_1_fact_validation_1_1_validation_result/#variable-m-contradictions)**  |
-| std::string | **[suggestion_](/source-reference/Classes/df/dd5/structsgns_1_1neoswarm_1_1knowledge_1_1_fact_validation_1_1_validation_result/#variable-suggestion-)**  |
+| bool | **[passed_](/source-reference/Classes/df/dd5/structsgns_1_1neoswarm_1_1knowledge_1_1_fact_validation_1_1_validation_result/#variable-passed_)**  |
+| float | **[m_contradictionScore](/source-reference/Classes/df/dd5/structsgns_1_1neoswarm_1_1knowledge_1_1_fact_validation_1_1_validation_result/#variable-m_contradictionscore)**  |
+| std::vector< std::string > | **[m_contradictions](/source-reference/Classes/df/dd5/structsgns_1_1neoswarm_1_1knowledge_1_1_fact_validation_1_1_validation_result/#variable-m_contradictions)**  |
+| std::string | **[suggestion_](/source-reference/Classes/df/dd5/structsgns_1_1neoswarm_1_1knowledge_1_1_fact_validation_1_1_validation_result/#variable-suggestion_)**  |
 
 ## Public Attributes Documentation
 
@@ -53,4 +53,4 @@ std::string suggestion_;
 
 -------------------------------
 
-Updated on 2026-06-28 at 13:58:22 -0700
+Updated on 2026-06-28 at 23:28:42 -0700

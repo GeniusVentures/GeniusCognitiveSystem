@@ -13,25 +13,25 @@ title: Args
 
 |                | Name           |
 | -------------- | -------------- |
-| std::string | **[m_modelPath](/source-reference/Classes/d5/dca/struct_args/#variable-m-modelpath)**  |
-| std::string | **[m_grammarModelPath](/source-reference/Classes/d5/dca/struct_args/#variable-m-grammarmodelpath)**  |
-| std::string | **[m_mathModelPath](/source-reference/Classes/d5/dca/struct_args/#variable-m-mathmodelpath)**  |
-| std::string | **[m_mode](/source-reference/Classes/d5/dca/struct_args/#variable-m-mode)**  |
-| std::string | **[m_prompt](/source-reference/Classes/d5/dca/struct_args/#variable-m-prompt)**  |
-| int | **[port_](/source-reference/Classes/d5/dca/struct_args/#variable-port-)**  |
-| std::string | **[db_path_](/source-reference/Classes/d5/dca/struct_args/#variable-db-path-)**  |
-| std::string | **[key_file_](/source-reference/Classes/d5/dca/struct_args/#variable-key-file-)**  |
-| std::string | **[m_knowledgePath](/source-reference/Classes/d5/dca/struct_args/#variable-m-knowledgepath)**  |
-| int | **[m_maxTokens](/source-reference/Classes/d5/dca/struct_args/#variable-m-maxtokens)**  |
-| float | **[m_temperature](/source-reference/Classes/d5/dca/struct_args/#variable-m-temperature)**  |
-| std::string | **[m_sgEndpoint](/source-reference/Classes/d5/dca/struct_args/#variable-m-sgendpoint)**  |
-| std::string | **[m_sgTlsCa](/source-reference/Classes/d5/dca/struct_args/#variable-m-sgtlsca)**  |
-| std::string | **[m_sgTlsCert](/source-reference/Classes/d5/dca/struct_args/#variable-m-sgtlscert)**  |
-| std::string | **[config_path_](/source-reference/Classes/d5/dca/struct_args/#variable-config-path-)**  |
-| bool | **[network_](/source-reference/Classes/d5/dca/struct_args/#variable-network-)**  |
-| bool | **[serve_](/source-reference/Classes/d5/dca/struct_args/#variable-serve-)**  |
-| bool | **[verbose_](/source-reference/Classes/d5/dca/struct_args/#variable-verbose-)**  |
-| bool | **[help_](/source-reference/Classes/d5/dca/struct_args/#variable-help-)**  |
+| std::string | **[m_modelPath](/source-reference/Classes/d5/dca/struct_args/#variable-m_modelpath)**  |
+| std::string | **[m_grammarModelPath](/source-reference/Classes/d5/dca/struct_args/#variable-m_grammarmodelpath)**  |
+| std::string | **[m_mathModelPath](/source-reference/Classes/d5/dca/struct_args/#variable-m_mathmodelpath)**  |
+| std::string | **[m_mode](/source-reference/Classes/d5/dca/struct_args/#variable-m_mode)**  |
+| std::string | **[m_prompt](/source-reference/Classes/d5/dca/struct_args/#variable-m_prompt)**  |
+| int | **[port_](/source-reference/Classes/d5/dca/struct_args/#variable-port_)**  |
+| std::string | **[db_path_](/source-reference/Classes/d5/dca/struct_args/#variable-db_path_)**  |
+| std::string | **[key_file_](/source-reference/Classes/d5/dca/struct_args/#variable-key_file_)**  |
+| std::string | **[m_knowledgePath](/source-reference/Classes/d5/dca/struct_args/#variable-m_knowledgepath)**  |
+| int | **[m_maxTokens](/source-reference/Classes/d5/dca/struct_args/#variable-m_maxtokens)**  |
+| float | **[m_temperature](/source-reference/Classes/d5/dca/struct_args/#variable-m_temperature)**  |
+| std::string | **[m_sgEndpoint](/source-reference/Classes/d5/dca/struct_args/#variable-m_sgendpoint)**  |
+| std::string | **[m_sgTlsCa](/source-reference/Classes/d5/dca/struct_args/#variable-m_sgtlsca)**  |
+| std::string | **[m_sgTlsCert](/source-reference/Classes/d5/dca/struct_args/#variable-m_sgtlscert)**  |
+| std::string | **[config_path_](/source-reference/Classes/d5/dca/struct_args/#variable-config_path_)**  |
+| bool | **[network_](/source-reference/Classes/d5/dca/struct_args/#variable-network_)**  |
+| bool | **[serve_](/source-reference/Classes/d5/dca/struct_args/#variable-serve_)**  |
+| bool | **[verbose_](/source-reference/Classes/d5/dca/struct_args/#variable-verbose_)**  |
+| bool | **[help_](/source-reference/Classes/d5/dca/struct_args/#variable-help_)**  |
 
 ## Public Attributes Documentation
 
@@ -170,4 +170,4 @@ bool help_ = false;
 
 -------------------------------
 
-Updated on 2026-06-28 at 13:58:22 -0700
+Updated on 2026-06-28 at 23:28:42 -0700

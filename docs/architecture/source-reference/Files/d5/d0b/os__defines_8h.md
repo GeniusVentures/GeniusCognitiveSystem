@@ -14,8 +14,8 @@ Platform abstraction for flutter_slm_bridge.  [More...](#detailed-description)
 
 |                | Name           |
 | -------------- | -------------- |
-|  | **[FFI_PLUGIN_EXPORT](/source-reference/Files/d5/d0b/os__defines_8h/#define-ffi-plugin-export)**  |
-|  | **[PLATFORM_SLEEP_MS](/source-reference/Files/d5/d0b/os__defines_8h/#define-platform-sleep-ms)**(ms)  |
+|  | **[FFI_PLUGIN_EXPORT](/source-reference/Files/d5/d0b/os__defines_8h/#define-ffi_plugin_export)**  |
+|  | **[PLATFORM_SLEEP_MS](/source-reference/Files/d5/d0b/os__defines_8h/#define-platform_sleep_ms)**(ms)  |
 
 ## Detailed Description
 
@@ -24,7 +24,7 @@ Platform abstraction for flutter_slm_bridge.
 **Date**: 2026-06-18
 
 
-Centralizes all OS-specific includes and macros so the main public header ([flutter_slm_bridge.h](/source-reference/Files/d7/d34/flutter__slm__bridge_8h/#file-flutter-slm-bridge.h)) contains zero #ifdef gates. 
+Centralizes all OS-specific includes and macros so the main public header ([flutter_slm_bridge.h](/source-reference/Files/d7/d34/flutter__slm__bridge_8h/#file-flutter_slm_bridge.h)) contains zero #ifdef gates. 
 
 
 
@@ -73,4 +73,4 @@ usleep( ( ms ) * 1000 )
 
 -------------------------------
 
-Updated on 2026-06-28 at 13:58:22 -0700
+Updated on 2026-06-28 at 23:28:42 -0700

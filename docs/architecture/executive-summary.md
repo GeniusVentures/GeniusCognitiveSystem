@@ -50,7 +50,3 @@ This is a Specialized Adaptable Intelligence Fabric.
 * Future compatibility with latent models.
 * Private customization through memory, retrieval, and expert adaptation.
 * Clear separation between general reasoning and focused expert cognition.
-
----
-
-[Architecture Index](./INDEX.md) | [Next: System Overview](./system-overview.md)

@@ -16,21 +16,21 @@ title: sgns::neoswarm::api::ApiServer::Config
 
 |                | Name           |
 | -------------- | -------------- |
-| std::string | **[m_modelPath](/source-reference/Classes/d1/d6c/structsgns_1_1neoswarm_1_1api_1_1_api_server_1_1_config/#variable-m-modelpath)**  |
-| std::string | **[m_grammarModelPath](/source-reference/Classes/d1/d6c/structsgns_1_1neoswarm_1_1api_1_1_api_server_1_1_config/#variable-m-grammarmodelpath)**  |
-| std::string | **[m_mathModelPath](/source-reference/Classes/d1/d6c/structsgns_1_1neoswarm_1_1api_1_1_api_server_1_1_config/#variable-m-mathmodelpath)**  |
-| std::string | **[m_reputationDbPath](/source-reference/Classes/d1/d6c/structsgns_1_1neoswarm_1_1api_1_1_api_server_1_1_config/#variable-m-reputationdbpath)**  |
-| std::string | **[m_knowledgeFacts](/source-reference/Classes/d1/d6c/structsgns_1_1neoswarm_1_1api_1_1_api_server_1_1_config/#variable-m-knowledgefacts)**  |
-| bool | **[m_enableNetwork](/source-reference/Classes/d1/d6c/structsgns_1_1neoswarm_1_1api_1_1_api_server_1_1_config/#variable-m-enablenetwork)**  |
-| bool | **[m_enableKnowledge](/source-reference/Classes/d1/d6c/structsgns_1_1neoswarm_1_1api_1_1_api_server_1_1_config/#variable-m-enableknowledge)**  |
-| int | **[m_grpcPort](/source-reference/Classes/d1/d6c/structsgns_1_1neoswarm_1_1api_1_1_api_server_1_1_config/#variable-m-grpcport)**  |
-| std::string | **[m_nodeKeyFile](/source-reference/Classes/d1/d6c/structsgns_1_1neoswarm_1_1api_1_1_api_server_1_1_config/#variable-m-nodekeyfile)**  |
-| std::string | **[m_nodeKeyPassphrase](/source-reference/Classes/d1/d6c/structsgns_1_1neoswarm_1_1api_1_1_api_server_1_1_config/#variable-m-nodekeypassphrase)**  |
-| bool | **[m_enableSgProcessing](/source-reference/Classes/d1/d6c/structsgns_1_1neoswarm_1_1api_1_1_api_server_1_1_config/#variable-m-enablesgprocessing)**  |
-| bool | **[m_sgProcessingNetworkMode](/source-reference/Classes/d1/d6c/structsgns_1_1neoswarm_1_1api_1_1_api_server_1_1_config/#variable-m-sgprocessingnetworkmode)**  |
-| std::string | **[m_sgEndpoint](/source-reference/Classes/d1/d6c/structsgns_1_1neoswarm_1_1api_1_1_api_server_1_1_config/#variable-m-sgendpoint)**  |
-| std::string | **[m_sgTlsCa](/source-reference/Classes/d1/d6c/structsgns_1_1neoswarm_1_1api_1_1_api_server_1_1_config/#variable-m-sgtlsca)**  |
-| std::string | **[m_sgTlsCert](/source-reference/Classes/d1/d6c/structsgns_1_1neoswarm_1_1api_1_1_api_server_1_1_config/#variable-m-sgtlscert)**  |
+| std::string | **[m_modelPath](/source-reference/Classes/d1/d6c/structsgns_1_1neoswarm_1_1api_1_1_api_server_1_1_config/#variable-m_modelpath)**  |
+| std::string | **[m_grammarModelPath](/source-reference/Classes/d1/d6c/structsgns_1_1neoswarm_1_1api_1_1_api_server_1_1_config/#variable-m_grammarmodelpath)**  |
+| std::string | **[m_mathModelPath](/source-reference/Classes/d1/d6c/structsgns_1_1neoswarm_1_1api_1_1_api_server_1_1_config/#variable-m_mathmodelpath)**  |
+| std::string | **[m_reputationDbPath](/source-reference/Classes/d1/d6c/structsgns_1_1neoswarm_1_1api_1_1_api_server_1_1_config/#variable-m_reputationdbpath)**  |
+| std::string | **[m_knowledgeFacts](/source-reference/Classes/d1/d6c/structsgns_1_1neoswarm_1_1api_1_1_api_server_1_1_config/#variable-m_knowledgefacts)**  |
+| bool | **[m_enableNetwork](/source-reference/Classes/d1/d6c/structsgns_1_1neoswarm_1_1api_1_1_api_server_1_1_config/#variable-m_enablenetwork)**  |
+| bool | **[m_enableKnowledge](/source-reference/Classes/d1/d6c/structsgns_1_1neoswarm_1_1api_1_1_api_server_1_1_config/#variable-m_enableknowledge)**  |
+| int | **[m_grpcPort](/source-reference/Classes/d1/d6c/structsgns_1_1neoswarm_1_1api_1_1_api_server_1_1_config/#variable-m_grpcport)**  |
+| std::string | **[m_nodeKeyFile](/source-reference/Classes/d1/d6c/structsgns_1_1neoswarm_1_1api_1_1_api_server_1_1_config/#variable-m_nodekeyfile)**  |
+| std::string | **[m_nodeKeyPassphrase](/source-reference/Classes/d1/d6c/structsgns_1_1neoswarm_1_1api_1_1_api_server_1_1_config/#variable-m_nodekeypassphrase)**  |
+| bool | **[m_enableSgProcessing](/source-reference/Classes/d1/d6c/structsgns_1_1neoswarm_1_1api_1_1_api_server_1_1_config/#variable-m_enablesgprocessing)**  |
+| bool | **[m_sgProcessingNetworkMode](/source-reference/Classes/d1/d6c/structsgns_1_1neoswarm_1_1api_1_1_api_server_1_1_config/#variable-m_sgprocessingnetworkmode)**  |
+| std::string | **[m_sgEndpoint](/source-reference/Classes/d1/d6c/structsgns_1_1neoswarm_1_1api_1_1_api_server_1_1_config/#variable-m_sgendpoint)**  |
+| std::string | **[m_sgTlsCa](/source-reference/Classes/d1/d6c/structsgns_1_1neoswarm_1_1api_1_1_api_server_1_1_config/#variable-m_sgtlsca)**  |
+| std::string | **[m_sgTlsCert](/source-reference/Classes/d1/d6c/structsgns_1_1neoswarm_1_1api_1_1_api_server_1_1_config/#variable-m_sgtlscert)**  |
 
 ## Public Attributes Documentation
 
@@ -141,4 +141,4 @@ std::string m_sgTlsCert;
 
 -------------------------------
 
-Updated on 2026-06-28 at 13:58:22 -0700
+Updated on 2026-06-28 at 23:28:42 -0700

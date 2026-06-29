@@ -19,13 +19,13 @@ title: sgns::neoswarm::network::SGResultCollector::Impl
 
 |                | Name           |
 | -------------- | -------------- |
-| std::shared_ptr< grpc::Channel > | **[m_channel](/source-reference/Classes/d6/d08/structsgns_1_1neoswarm_1_1network_1_1_s_g_result_collector_1_1_impl/#variable-m-channel)**  |
-| [SGMessageAuthenticator](/source-reference/Classes/d0/d6c/classsgns_1_1neoswarm_1_1network_1_1_s_g_message_authenticator/) & | **[m_authenticator](/source-reference/Classes/d6/d08/structsgns_1_1neoswarm_1_1network_1_1_s_g_result_collector_1_1_impl/#variable-m-authenticator)**  |
-| [SGResultCollectorConfig](/source-reference/Classes/d1/dd3/structsgns_1_1neoswarm_1_1network_1_1_s_g_result_collector_config/) | **[m_cfg](/source-reference/Classes/d6/d08/structsgns_1_1neoswarm_1_1network_1_1_s_g_result_collector_1_1_impl/#variable-m-cfg)**  |
-| std::mutex | **[m_mutex](/source-reference/Classes/d6/d08/structsgns_1_1neoswarm_1_1network_1_1_s_g_result_collector_1_1_impl/#variable-m-mutex)**  |
-| std::condition_variable | **[cv_](/source-reference/Classes/d6/d08/structsgns_1_1neoswarm_1_1network_1_1_s_g_result_collector_1_1_impl/#variable-cv-)**  |
-| bool | **[resultReady_](/source-reference/Classes/d6/d08/structsgns_1_1neoswarm_1_1network_1_1_s_g_result_collector_1_1_impl/#variable-resultready-)**  |
-| std::vector< uint8_t > | **[resultData_](/source-reference/Classes/d6/d08/structsgns_1_1neoswarm_1_1network_1_1_s_g_result_collector_1_1_impl/#variable-resultdata-)**  |
+| std::shared_ptr< grpc::Channel > | **[m_channel](/source-reference/Classes/d6/d08/structsgns_1_1neoswarm_1_1network_1_1_s_g_result_collector_1_1_impl/#variable-m_channel)**  |
+| [SGMessageAuthenticator](/source-reference/Classes/d0/d6c/classsgns_1_1neoswarm_1_1network_1_1_s_g_message_authenticator/) & | **[m_authenticator](/source-reference/Classes/d6/d08/structsgns_1_1neoswarm_1_1network_1_1_s_g_result_collector_1_1_impl/#variable-m_authenticator)**  |
+| [SGResultCollectorConfig](/source-reference/Classes/d1/dd3/structsgns_1_1neoswarm_1_1network_1_1_s_g_result_collector_config/) | **[m_cfg](/source-reference/Classes/d6/d08/structsgns_1_1neoswarm_1_1network_1_1_s_g_result_collector_1_1_impl/#variable-m_cfg)**  |
+| std::mutex | **[m_mutex](/source-reference/Classes/d6/d08/structsgns_1_1neoswarm_1_1network_1_1_s_g_result_collector_1_1_impl/#variable-m_mutex)**  |
+| std::condition_variable | **[cv_](/source-reference/Classes/d6/d08/structsgns_1_1neoswarm_1_1network_1_1_s_g_result_collector_1_1_impl/#variable-cv_)**  |
+| bool | **[resultReady_](/source-reference/Classes/d6/d08/structsgns_1_1neoswarm_1_1network_1_1_s_g_result_collector_1_1_impl/#variable-resultready_)**  |
+| std::vector< uint8_t > | **[resultData_](/source-reference/Classes/d6/d08/structsgns_1_1neoswarm_1_1network_1_1_s_g_result_collector_1_1_impl/#variable-resultdata_)**  |
 
 ## Public Functions Documentation
 
@@ -93,4 +93,4 @@ std::vector< uint8_t > resultData_;
 
 -------------------------------
 
-Updated on 2026-06-28 at 13:58:22 -0700
+Updated on 2026-06-28 at 23:28:42 -0700

@@ -16,12 +16,12 @@ title: sgns::neoswarm::Task
 
 |                | Name           |
 | -------------- | -------------- |
-| std::string | **[m_id](/source-reference/Classes/db/d71/structsgns_1_1neoswarm_1_1_task/#variable-m-id)**  |
-| std::string | **[m_prompt](/source-reference/Classes/db/d71/structsgns_1_1neoswarm_1_1_task/#variable-m-prompt)**  |
-| [ExecutionMode](/source-reference/Namespaces/d6/d33/namespacesgns_1_1neoswarm/#enum-executionmode) | **[m_mode](/source-reference/Classes/db/d71/structsgns_1_1neoswarm_1_1_task/#variable-m-mode)**  |
-| uint32_t | **[m_maxTokens](/source-reference/Classes/db/d71/structsgns_1_1neoswarm_1_1_task/#variable-m-maxtokens)**  |
-| float | **[m_temperature](/source-reference/Classes/db/d71/structsgns_1_1neoswarm_1_1_task/#variable-m-temperature)**  |
-| std::string | **[m_nodeId](/source-reference/Classes/db/d71/structsgns_1_1neoswarm_1_1_task/#variable-m-nodeid)** <br/>originating node  |
+| std::string | **[m_id](/source-reference/Classes/db/d71/structsgns_1_1neoswarm_1_1_task/#variable-m_id)**  |
+| std::string | **[m_prompt](/source-reference/Classes/db/d71/structsgns_1_1neoswarm_1_1_task/#variable-m_prompt)**  |
+| [ExecutionMode](/source-reference/Namespaces/d6/d33/namespacesgns_1_1neoswarm/#enum-executionmode) | **[m_mode](/source-reference/Classes/db/d71/structsgns_1_1neoswarm_1_1_task/#variable-m_mode)**  |
+| uint32_t | **[m_maxTokens](/source-reference/Classes/db/d71/structsgns_1_1neoswarm_1_1_task/#variable-m_maxtokens)**  |
+| float | **[m_temperature](/source-reference/Classes/db/d71/structsgns_1_1neoswarm_1_1_task/#variable-m_temperature)**  |
+| std::string | **[m_nodeId](/source-reference/Classes/db/d71/structsgns_1_1neoswarm_1_1_task/#variable-m_nodeid)** <br/>originating node  |
 
 ## Public Attributes Documentation
 
@@ -70,4 +70,4 @@ originating node
 
 -------------------------------
 
-Updated on 2026-06-28 at 13:58:22 -0700
+Updated on 2026-06-28 at 23:28:42 -0700

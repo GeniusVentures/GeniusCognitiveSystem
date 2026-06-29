@@ -172,6 +172,3 @@ GeniusCognitiveSystem v1:
 * Requires explicit execution boundaries for tool use.
 
 This model aligns with decentralized network design principles.
-
----
-[Previous: Future Compatibility and Positioning](./future-and-positioning.md) | [Architecture Index](./INDEX.md) | [Next: Distributed Swarm Thinking Context Architecture](./distributed-swarm-thinking-context.md)

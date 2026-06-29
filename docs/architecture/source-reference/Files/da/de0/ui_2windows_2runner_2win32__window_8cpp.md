@@ -19,7 +19,7 @@ title: GNUS-NEO-SWARM/ui/windows/runner/win32_window.cpp
 
 |                | Name           |
 | -------------- | -------------- |
-|  | **[DWMWA_USE_IMMERSIVE_DARK_MODE](/source-reference/Files/da/de0/ui_2windows_2runner_2win32__window_8cpp/#define-dwmwa-use-immersive-dark-mode)**  |
+|  | **[DWMWA_USE_IMMERSIVE_DARK_MODE](/source-reference/Files/da/de0/ui_2windows_2runner_2win32__window_8cpp/#define-dwmwa_use_immersive_dark_mode)**  |
 
 
 
@@ -325,4 +325,4 @@ void Win32Window::UpdateTheme(HWND const window) {
 
 -------------------------------
 
-Updated on 2026-06-28 at 13:58:22 -0700
+Updated on 2026-06-28 at 23:28:43 -0700

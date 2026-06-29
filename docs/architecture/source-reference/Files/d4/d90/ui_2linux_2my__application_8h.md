@@ -13,7 +13,7 @@ title: GNUS-NEO-SWARM/ui/linux/my_application.h
 
 |                | Name           |
 | -------------- | -------------- |
-| | **[G_DECLARE_FINAL_TYPE](/source-reference/Files/d4/d90/ui_2linux_2my__application_8h/#function-g-declare-final-type)**(MyApplication , my_application , MY , APPLICATION , GtkApplication ) |
+| | **[G_DECLARE_FINAL_TYPE](/source-reference/Files/d4/d90/ui_2linux_2my__application_8h/#function-g_declare_final_type)**(MyApplication , my_application , MY , APPLICATION , GtkApplication ) |
 
 
 ## Functions Documentation
@@ -60,4 +60,4 @@ MyApplication* my_application_new();
 
 -------------------------------
 
-Updated on 2026-06-28 at 13:58:22 -0700
+Updated on 2026-06-28 at 23:28:42 -0700

@@ -265,5 +265,3 @@ However:
 * No permanent privilege is retained.
 
 This ensures bootstrapping without long-term centralization.
-
-[Previous: Model and Router](./model-and-router.md) | [Architecture Index](./INDEX.md) | [Next: Grounding and Retrieval](./grounding.md)

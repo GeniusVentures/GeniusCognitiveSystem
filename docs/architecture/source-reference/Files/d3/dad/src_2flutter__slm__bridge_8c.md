@@ -13,8 +13,8 @@ title: GNUS-NEO-SWARM/flutter_slm_bridge/src/flutter_slm_bridge.c
 
 |                | Name           |
 | -------------- | -------------- |
-| [FFI_PLUGIN_EXPORT](/source-reference/Files/d5/d0b/os__defines_8h/#define-ffi-plugin-export) int | **[sum](/source-reference/Files/d3/dad/src_2flutter__slm__bridge_8c/#function-sum)**(int a, int b) |
-| [FFI_PLUGIN_EXPORT](/source-reference/Files/d5/d0b/os__defines_8h/#define-ffi-plugin-export) int | **[sum_long_running](/source-reference/Files/d3/dad/src_2flutter__slm__bridge_8c/#function-sum-long-running)**(int a, int b) |
+| [FFI_PLUGIN_EXPORT](/source-reference/Files/d5/d0b/os__defines_8h/#define-ffi_plugin_export) int | **[sum](/source-reference/Files/d3/dad/src_2flutter__slm__bridge_8c/#function-sum)**(int a, int b) |
+| [FFI_PLUGIN_EXPORT](/source-reference/Files/d5/d0b/os__defines_8h/#define-ffi_plugin_export) int | **[sum_long_running](/source-reference/Files/d3/dad/src_2flutter__slm__bridge_8c/#function-sum_long_running)**(int a, int b) |
 
 
 ## Functions Documentation
@@ -68,4 +68,4 @@ PLATFORM_SLEEP_MS( 5000 );
 
 -------------------------------
 
-Updated on 2026-06-28 at 13:58:22 -0700
+Updated on 2026-06-28 at 23:28:42 -0700

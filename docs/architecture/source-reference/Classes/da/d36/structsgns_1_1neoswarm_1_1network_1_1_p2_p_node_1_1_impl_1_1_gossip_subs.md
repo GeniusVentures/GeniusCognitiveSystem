@@ -13,8 +13,8 @@ title: sgns::neoswarm::network::P2PNode::Impl::GossipSubs
 
 |                | Name           |
 | -------------- | -------------- |
-| libp2p::protocol::Subscription | **[task_sub](/source-reference/Classes/da/d36/structsgns_1_1neoswarm_1_1network_1_1_p2_p_node_1_1_impl_1_1_gossip_subs/#variable-task-sub)**  |
-| libp2p::protocol::Subscription | **[crdt_sub](/source-reference/Classes/da/d36/structsgns_1_1neoswarm_1_1network_1_1_p2_p_node_1_1_impl_1_1_gossip_subs/#variable-crdt-sub)**  |
+| libp2p::protocol::Subscription | **[task_sub](/source-reference/Classes/da/d36/structsgns_1_1neoswarm_1_1network_1_1_p2_p_node_1_1_impl_1_1_gossip_subs/#variable-task_sub)**  |
+| libp2p::protocol::Subscription | **[crdt_sub](/source-reference/Classes/da/d36/structsgns_1_1neoswarm_1_1network_1_1_p2_p_node_1_1_impl_1_1_gossip_subs/#variable-crdt_sub)**  |
 
 ## Public Attributes Documentation
 
@@ -34,4 +34,4 @@ libp2p::protocol::Subscription crdt_sub;
 
 -------------------------------
 
-Updated on 2026-06-28 at 13:58:22 -0700
+Updated on 2026-06-28 at 23:28:42 -0700

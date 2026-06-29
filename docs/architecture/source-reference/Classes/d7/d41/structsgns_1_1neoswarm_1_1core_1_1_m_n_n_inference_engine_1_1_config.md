@@ -16,16 +16,16 @@ title: sgns::neoswarm::core::MNNInferenceEngine::Config
 
 |                | Name           |
 | -------------- | -------------- |
-| std::string | **[m_engineMode](/source-reference/Classes/d7/d41/structsgns_1_1neoswarm_1_1core_1_1_m_n_n_inference_engine_1_1_config/#variable-m-enginemode)** <br/>Inference path: "sgprocessing" (primary) or "interpreter" (fallback).  |
-| std::string | **[m_backend](/source-reference/Classes/d7/d41/structsgns_1_1neoswarm_1_1core_1_1_m_n_n_inference_engine_1_1_config/#variable-m-backend)** <br/>GPU backend: "vulkan" (cross-platform) or "cpu".  |
-| bool | **[m_useFp4](/source-reference/Classes/d7/d41/structsgns_1_1neoswarm_1_1core_1_1_m_n_n_inference_engine_1_1_config/#variable-m-usefp4)** <br/>Use FP4 quantization for SGProcessing path.  |
-| int | **[m_numThreads](/source-reference/Classes/d7/d41/structsgns_1_1neoswarm_1_1core_1_1_m_n_n_inference_engine_1_1_config/#variable-m-numthreads)** <br/>CPU thread count (used when m_backend == "cpu").  |
-| int | **[m_maxNewTokens](/source-reference/Classes/d7/d41/structsgns_1_1neoswarm_1_1core_1_1_m_n_n_inference_engine_1_1_config/#variable-m-maxnewtokens)**  |
-| float | **[m_temperature](/source-reference/Classes/d7/d41/structsgns_1_1neoswarm_1_1core_1_1_m_n_n_inference_engine_1_1_config/#variable-m-temperature)**  |
-| float | **[m_topP](/source-reference/Classes/d7/d41/structsgns_1_1neoswarm_1_1core_1_1_m_n_n_inference_engine_1_1_config/#variable-m-topp)**  |
-| int | **[m_topK](/source-reference/Classes/d7/d41/structsgns_1_1neoswarm_1_1core_1_1_m_n_n_inference_engine_1_1_config/#variable-m-topk)**  |
-| float | **[m_repetitionPenalty](/source-reference/Classes/d7/d41/structsgns_1_1neoswarm_1_1core_1_1_m_n_n_inference_engine_1_1_config/#variable-m-repetitionpenalty)**  |
-| bool | **[m_sgNetworkMode](/source-reference/Classes/d7/d41/structsgns_1_1neoswarm_1_1core_1_1_m_n_n_inference_engine_1_1_config/#variable-m-sgnetworkmode)** <br/>SGProcessing network mode (Phase 2: dispatch via gRPC to SuperGenius).  |
+| std::string | **[m_engineMode](/source-reference/Classes/d7/d41/structsgns_1_1neoswarm_1_1core_1_1_m_n_n_inference_engine_1_1_config/#variable-m_enginemode)** <br/>Inference path: "sgprocessing" (primary) or "interpreter" (fallback).  |
+| std::string | **[m_backend](/source-reference/Classes/d7/d41/structsgns_1_1neoswarm_1_1core_1_1_m_n_n_inference_engine_1_1_config/#variable-m_backend)** <br/>GPU backend: "vulkan" (cross-platform) or "cpu".  |
+| bool | **[m_useFp4](/source-reference/Classes/d7/d41/structsgns_1_1neoswarm_1_1core_1_1_m_n_n_inference_engine_1_1_config/#variable-m_usefp4)** <br/>Use FP4 quantization for SGProcessing path.  |
+| int | **[m_numThreads](/source-reference/Classes/d7/d41/structsgns_1_1neoswarm_1_1core_1_1_m_n_n_inference_engine_1_1_config/#variable-m_numthreads)** <br/>CPU thread count (used when m_backend == "cpu").  |
+| int | **[m_maxNewTokens](/source-reference/Classes/d7/d41/structsgns_1_1neoswarm_1_1core_1_1_m_n_n_inference_engine_1_1_config/#variable-m_maxnewtokens)**  |
+| float | **[m_temperature](/source-reference/Classes/d7/d41/structsgns_1_1neoswarm_1_1core_1_1_m_n_n_inference_engine_1_1_config/#variable-m_temperature)**  |
+| float | **[m_topP](/source-reference/Classes/d7/d41/structsgns_1_1neoswarm_1_1core_1_1_m_n_n_inference_engine_1_1_config/#variable-m_topp)**  |
+| int | **[m_topK](/source-reference/Classes/d7/d41/structsgns_1_1neoswarm_1_1core_1_1_m_n_n_inference_engine_1_1_config/#variable-m_topk)**  |
+| float | **[m_repetitionPenalty](/source-reference/Classes/d7/d41/structsgns_1_1neoswarm_1_1core_1_1_m_n_n_inference_engine_1_1_config/#variable-m_repetitionpenalty)**  |
+| bool | **[m_sgNetworkMode](/source-reference/Classes/d7/d41/structsgns_1_1neoswarm_1_1core_1_1_m_n_n_inference_engine_1_1_config/#variable-m_sgnetworkmode)** <br/>SGProcessing network mode (Phase 2: dispatch via gRPC to SuperGenius).  |
 | int | **[kDefaultMaxTokens](/source-reference/Classes/d7/d41/structsgns_1_1neoswarm_1_1core_1_1_m_n_n_inference_engine_1_1_config/#variable-kdefaultmaxtokens)** <br/>Generation parameters.  |
 | float | **[kDefaultTemperature](/source-reference/Classes/d7/d41/structsgns_1_1neoswarm_1_1core_1_1_m_n_n_inference_engine_1_1_config/#variable-kdefaulttemperature)**  |
 | float | **[kDefaultTopP](/source-reference/Classes/d7/d41/structsgns_1_1neoswarm_1_1core_1_1_m_n_n_inference_engine_1_1_config/#variable-kdefaulttopp)**  |
@@ -147,4 +147,4 @@ static float kDefaultRepetitionPenalty = 1.1f;
 
 -------------------------------
 
-Updated on 2026-06-28 at 13:58:22 -0700
+Updated on 2026-06-28 at 23:28:42 -0700

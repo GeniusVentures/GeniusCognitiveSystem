@@ -13,7 +13,7 @@ title: GNUS-NEO-SWARM/ui/linux/flutter/generated_plugin_registrant.h
 
 |                | Name           |
 | -------------- | -------------- |
-| void | **[fl_register_plugins](/source-reference/Files/d4/d81/ui_2linux_2flutter_2generated__plugin__registrant_8h/#function-fl-register-plugins)**(FlPluginRegistry * registry) |
+| void | **[fl_register_plugins](/source-reference/Files/d4/d81/ui_2linux_2flutter_2generated__plugin__registrant_8h/#function-fl_register_plugins)**(FlPluginRegistry * registry) |
 
 
 ## Functions Documentation
@@ -52,4 +52,4 @@ void fl_register_plugins(FlPluginRegistry* registry);
 
 -------------------------------
 
-Updated on 2026-06-28 at 13:58:22 -0700
+Updated on 2026-06-28 at 23:28:42 -0700

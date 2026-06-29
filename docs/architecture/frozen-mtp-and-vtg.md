@@ -323,7 +323,3 @@ Frozen Micro-MTP gives GeniusCognitiveSystem a practical first neural speculativ
 It reuses local model state, avoids a separate drafter, keeps the backbone frozen, proposes short prefixes, verifies locally, and publishes compact outcome signals so the swarm can learn where the head is useful.
 
 The value is that many small nodes become incrementally faster and more reliable together.
-
----
-
-[Companion: Speculative Decoding and VTG Candidate Scheduling](./speculative-decoding-and-vtg.md) | [Architecture Index](./INDEX.md)

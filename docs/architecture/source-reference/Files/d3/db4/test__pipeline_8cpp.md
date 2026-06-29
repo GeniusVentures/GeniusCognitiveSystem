@@ -20,13 +20,13 @@ Integration tests — full pipeline in stub mode.  [More...](#detailed-descripti
 
 |                | Name           |
 | -------------- | -------------- |
-| | **[TEST_F](/source-reference/Files/d3/db4/test__pipeline_8cpp/#function-test-f)**([PipelineTest](/source-reference/Classes/db/d7a/class_pipeline_test/) , SingleNodeMode ) |
-| | **[TEST_F](/source-reference/Files/d3/db4/test__pipeline_8cpp/#function-test-f)**([PipelineTest](/source-reference/Classes/db/d7a/class_pipeline_test/) , MathRoutingAutoDetect ) |
-| | **[TEST_F](/source-reference/Files/d3/db4/test__pipeline_8cpp/#function-test-f)**([PipelineTest](/source-reference/Classes/db/d7a/class_pipeline_test/) , GrammarRoutingAutoDetect ) |
-| | **[TEST_F](/source-reference/Files/d3/db4/test__pipeline_8cpp/#function-test-f)**([PipelineTest](/source-reference/Classes/db/d7a/class_pipeline_test/) , ExplicitSpecialistMode ) |
-| | **[TEST_F](/source-reference/Files/d3/db4/test__pipeline_8cpp/#function-test-f)**([PipelineTest](/source-reference/Classes/db/d7a/class_pipeline_test/) , SwarmFallsBackToSingleWithoutNetwork ) |
-| | **[TEST_F](/source-reference/Files/d3/db4/test__pipeline_8cpp/#function-test-f)**([PipelineTest](/source-reference/Classes/db/d7a/class_pipeline_test/) , ResponseHasTaskId ) |
-| | **[TEST_F](/source-reference/Files/d3/db4/test__pipeline_8cpp/#function-test-f)**([PipelineTest](/source-reference/Classes/db/d7a/class_pipeline_test/) , LatencyIsPositive ) |
+| | **[TEST_F](/source-reference/Files/d3/db4/test__pipeline_8cpp/#function-test_f)**([PipelineTest](/source-reference/Classes/db/d7a/class_pipeline_test/) , SingleNodeMode ) |
+| | **[TEST_F](/source-reference/Files/d3/db4/test__pipeline_8cpp/#function-test_f)**([PipelineTest](/source-reference/Classes/db/d7a/class_pipeline_test/) , MathRoutingAutoDetect ) |
+| | **[TEST_F](/source-reference/Files/d3/db4/test__pipeline_8cpp/#function-test_f)**([PipelineTest](/source-reference/Classes/db/d7a/class_pipeline_test/) , GrammarRoutingAutoDetect ) |
+| | **[TEST_F](/source-reference/Files/d3/db4/test__pipeline_8cpp/#function-test_f)**([PipelineTest](/source-reference/Classes/db/d7a/class_pipeline_test/) , ExplicitSpecialistMode ) |
+| | **[TEST_F](/source-reference/Files/d3/db4/test__pipeline_8cpp/#function-test_f)**([PipelineTest](/source-reference/Classes/db/d7a/class_pipeline_test/) , SwarmFallsBackToSingleWithoutNetwork ) |
+| | **[TEST_F](/source-reference/Files/d3/db4/test__pipeline_8cpp/#function-test_f)**([PipelineTest](/source-reference/Classes/db/d7a/class_pipeline_test/) , ResponseHasTaskId ) |
+| | **[TEST_F](/source-reference/Files/d3/db4/test__pipeline_8cpp/#function-test_f)**([PipelineTest](/source-reference/Classes/db/d7a/class_pipeline_test/) , LatencyIsPositive ) |
 
 ## Detailed Description
 
@@ -226,4 +226,4 @@ TEST_F( PipelineTest, LatencyIsPositive )
 
 -------------------------------
 
-Updated on 2026-06-28 at 13:58:22 -0700
+Updated on 2026-06-28 at 23:28:42 -0700

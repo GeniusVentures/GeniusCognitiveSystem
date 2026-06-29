@@ -16,11 +16,11 @@ title: sgns::neoswarm::network::P2PNode::Config
 
 |                | Name           |
 | -------------- | -------------- |
-| std::string | **[listen_addr_](/source-reference/Classes/dc/d46/structsgns_1_1neoswarm_1_1network_1_1_p2_p_node_1_1_config/#variable-listen-addr-)**  |
-| std::string | **[bootstrap_peer_](/source-reference/Classes/dc/d46/structsgns_1_1neoswarm_1_1network_1_1_p2_p_node_1_1_config/#variable-bootstrap-peer-)** <br/>optional bootstrap peer multiaddr  |
-| bool | **[enable_mdns_](/source-reference/Classes/dc/d46/structsgns_1_1neoswarm_1_1network_1_1_p2_p_node_1_1_config/#variable-enable-mdns-)** <br/>local peer discovery  |
-| bool | **[enable_kademlia_](/source-reference/Classes/dc/d46/structsgns_1_1neoswarm_1_1network_1_1_p2_p_node_1_1_config/#variable-enable-kademlia-)**  |
-| int | **[max_peers_](/source-reference/Classes/dc/d46/structsgns_1_1neoswarm_1_1network_1_1_p2_p_node_1_1_config/#variable-max-peers-)**  |
+| std::string | **[listen_addr_](/source-reference/Classes/dc/d46/structsgns_1_1neoswarm_1_1network_1_1_p2_p_node_1_1_config/#variable-listen_addr_)**  |
+| std::string | **[bootstrap_peer_](/source-reference/Classes/dc/d46/structsgns_1_1neoswarm_1_1network_1_1_p2_p_node_1_1_config/#variable-bootstrap_peer_)** <br/>optional bootstrap peer multiaddr  |
+| bool | **[enable_mdns_](/source-reference/Classes/dc/d46/structsgns_1_1neoswarm_1_1network_1_1_p2_p_node_1_1_config/#variable-enable_mdns_)** <br/>local peer discovery  |
+| bool | **[enable_kademlia_](/source-reference/Classes/dc/d46/structsgns_1_1neoswarm_1_1network_1_1_p2_p_node_1_1_config/#variable-enable_kademlia_)**  |
+| int | **[max_peers_](/source-reference/Classes/dc/d46/structsgns_1_1neoswarm_1_1network_1_1_p2_p_node_1_1_config/#variable-max_peers_)**  |
 
 ## Public Attributes Documentation
 
@@ -63,4 +63,4 @@ int max_peers_ = 50;
 
 -------------------------------
 
-Updated on 2026-06-28 at 13:58:22 -0700
+Updated on 2026-06-28 at 23:28:42 -0700

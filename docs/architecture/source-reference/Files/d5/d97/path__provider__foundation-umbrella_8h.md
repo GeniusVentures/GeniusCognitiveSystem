@@ -13,14 +13,14 @@ title: GNUS-NEO-SWARM/ui/macos/Pods/Target Support Files/path_provider_foundatio
 
 |                | Name           |
 | -------------- | -------------- |
-| [FOUNDATION_EXPORT](/source-reference/Files/d5/d97/path__provider__foundation-umbrella_8h/#define-foundation-export) double | **[path_provider_foundationVersionNumber](/source-reference/Files/d5/d97/path__provider__foundation-umbrella_8h/#variable-path-provider-foundationversionnumber)**  |
-| [FOUNDATION_EXPORT](/source-reference/Files/d5/d97/path__provider__foundation-umbrella_8h/#define-foundation-export) const unsigned char[] | **[path_provider_foundationVersionString](/source-reference/Files/d5/d97/path__provider__foundation-umbrella_8h/#variable-path-provider-foundationversionstring)**  |
+| [FOUNDATION_EXPORT](/source-reference/Files/d5/d97/path__provider__foundation-umbrella_8h/#define-foundation_export) double | **[path_provider_foundationVersionNumber](/source-reference/Files/d5/d97/path__provider__foundation-umbrella_8h/#variable-path_provider_foundationversionnumber)**  |
+| [FOUNDATION_EXPORT](/source-reference/Files/d5/d97/path__provider__foundation-umbrella_8h/#define-foundation_export) const unsigned char[] | **[path_provider_foundationVersionString](/source-reference/Files/d5/d97/path__provider__foundation-umbrella_8h/#variable-path_provider_foundationversionstring)**  |
 
 ## Defines
 
 |                | Name           |
 | -------------- | -------------- |
-|  | **[FOUNDATION_EXPORT](/source-reference/Files/d5/d97/path__provider__foundation-umbrella_8h/#define-foundation-export)**  |
+|  | **[FOUNDATION_EXPORT](/source-reference/Files/d5/d97/path__provider__foundation-umbrella_8h/#define-foundation_export)**  |
 
 
 
@@ -73,4 +73,4 @@ FOUNDATION_EXPORT const unsigned char path_provider_foundationVersionString[];
 
 -------------------------------
 
-Updated on 2026-06-28 at 13:58:22 -0700
+Updated on 2026-06-28 at 23:28:42 -0700

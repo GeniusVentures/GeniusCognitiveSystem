@@ -19,9 +19,9 @@ title: sgns::neoswarm::network::SGJobSubmitter::Impl
 
 |                | Name           |
 | -------------- | -------------- |
-| std::shared_ptr< grpc::Channel > | **[m_channel](/source-reference/Classes/da/d6d/structsgns_1_1neoswarm_1_1network_1_1_s_g_job_submitter_1_1_impl/#variable-m-channel)**  |
-| [SGMessageAuthenticator](/source-reference/Classes/d0/d6c/classsgns_1_1neoswarm_1_1network_1_1_s_g_message_authenticator/) & | **[m_authenticator](/source-reference/Classes/da/d6d/structsgns_1_1neoswarm_1_1network_1_1_s_g_job_submitter_1_1_impl/#variable-m-authenticator)**  |
-| std::string | **[gridChannel_](/source-reference/Classes/da/d6d/structsgns_1_1neoswarm_1_1network_1_1_s_g_job_submitter_1_1_impl/#variable-gridchannel-)**  |
+| std::shared_ptr< grpc::Channel > | **[m_channel](/source-reference/Classes/da/d6d/structsgns_1_1neoswarm_1_1network_1_1_s_g_job_submitter_1_1_impl/#variable-m_channel)**  |
+| [SGMessageAuthenticator](/source-reference/Classes/d0/d6c/classsgns_1_1neoswarm_1_1network_1_1_s_g_message_authenticator/) & | **[m_authenticator](/source-reference/Classes/da/d6d/structsgns_1_1neoswarm_1_1network_1_1_s_g_job_submitter_1_1_impl/#variable-m_authenticator)**  |
+| std::string | **[gridChannel_](/source-reference/Classes/da/d6d/structsgns_1_1neoswarm_1_1network_1_1_s_g_job_submitter_1_1_impl/#variable-gridchannel_)**  |
 
 ## Public Functions Documentation
 
@@ -60,4 +60,4 @@ std::string gridChannel_ = "gnus.processing.grid";
 
 -------------------------------
 
-Updated on 2026-06-28 at 13:58:22 -0700
+Updated on 2026-06-28 at 23:28:42 -0700

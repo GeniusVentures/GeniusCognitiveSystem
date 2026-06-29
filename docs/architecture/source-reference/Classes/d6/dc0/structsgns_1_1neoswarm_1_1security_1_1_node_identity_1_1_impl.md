@@ -13,8 +13,8 @@ title: sgns::neoswarm::security::NodeIdentity::Impl
 
 |                | Name           |
 | -------------- | -------------- |
-| [PrivKey](/source-reference/Classes/d6/d99/classsgns_1_1neoswarm_1_1security_1_1_node_identity/#using-privkey) | **[m_privKey](/source-reference/Classes/d6/dc0/structsgns_1_1neoswarm_1_1security_1_1_node_identity_1_1_impl/#variable-m-privkey)**  |
-| secp256k1_context * | **[m_ctx](/source-reference/Classes/d6/dc0/structsgns_1_1neoswarm_1_1security_1_1_node_identity_1_1_impl/#variable-m-ctx)**  |
+| [PrivKey](/source-reference/Classes/d6/d99/classsgns_1_1neoswarm_1_1security_1_1_node_identity/#using-privkey) | **[m_privKey](/source-reference/Classes/d6/dc0/structsgns_1_1neoswarm_1_1security_1_1_node_identity_1_1_impl/#variable-m_privkey)**  |
+| secp256k1_context * | **[m_ctx](/source-reference/Classes/d6/dc0/structsgns_1_1neoswarm_1_1security_1_1_node_identity_1_1_impl/#variable-m_ctx)**  |
 
 ## Public Attributes Documentation
 
@@ -34,4 +34,4 @@ secp256k1_context * m_ctx = nullptr;
 
 -------------------------------
 
-Updated on 2026-06-28 at 13:58:22 -0700
+Updated on 2026-06-28 at 23:28:42 -0700

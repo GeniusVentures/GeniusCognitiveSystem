@@ -1305,7 +1305,3 @@ That layer is implemented through:
 The result is a Cognitive OS architecture that does not merely generate and rank answers.
 
 It can also reason explicitly about how answers should be judged.
-
----
-
-[Previous: Targeted Retraining and Hierarchical Critical Thinking Specialists](./cognitive-retaining-system.md) | [Architecture Index](./INDEX.md)

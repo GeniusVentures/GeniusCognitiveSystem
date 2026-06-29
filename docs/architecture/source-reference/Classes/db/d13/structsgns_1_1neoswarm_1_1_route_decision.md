@@ -16,10 +16,10 @@ title: sgns::neoswarm::RouteDecision
 
 |                | Name           |
 | -------------- | -------------- |
-| [RouteTarget](/source-reference/Namespaces/d6/d33/namespacesgns_1_1neoswarm/#enum-routetarget) | **[m_target](/source-reference/Classes/db/d13/structsgns_1_1neoswarm_1_1_route_decision/#variable-m-target)**  |
-| float | **[confidence_](/source-reference/Classes/db/d13/structsgns_1_1neoswarm_1_1_route_decision/#variable-confidence-)**  |
-| std::string | **[m_reasoning](/source-reference/Classes/db/d13/structsgns_1_1neoswarm_1_1_route_decision/#variable-m-reasoning)**  |
-| [ExecutionMode](/source-reference/Namespaces/d6/d33/namespacesgns_1_1neoswarm/#enum-executionmode) | **[m_mode](/source-reference/Classes/db/d13/structsgns_1_1neoswarm_1_1_route_decision/#variable-m-mode)**  |
+| [RouteTarget](/source-reference/Namespaces/d6/d33/namespacesgns_1_1neoswarm/#enum-routetarget) | **[m_target](/source-reference/Classes/db/d13/structsgns_1_1neoswarm_1_1_route_decision/#variable-m_target)**  |
+| float | **[confidence_](/source-reference/Classes/db/d13/structsgns_1_1neoswarm_1_1_route_decision/#variable-confidence_)**  |
+| std::string | **[m_reasoning](/source-reference/Classes/db/d13/structsgns_1_1neoswarm_1_1_route_decision/#variable-m_reasoning)**  |
+| [ExecutionMode](/source-reference/Namespaces/d6/d33/namespacesgns_1_1neoswarm/#enum-executionmode) | **[m_mode](/source-reference/Classes/db/d13/structsgns_1_1neoswarm_1_1_route_decision/#variable-m_mode)**  |
 
 ## Public Attributes Documentation
 
@@ -53,4 +53,4 @@ ExecutionMode m_mode = ExecutionMode::SingleNode;
 
 -------------------------------
 
-Updated on 2026-06-28 at 13:58:22 -0700
+Updated on 2026-06-28 at 23:28:42 -0700

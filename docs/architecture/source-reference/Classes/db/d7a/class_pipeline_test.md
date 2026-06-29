@@ -21,7 +21,7 @@ Inherits from testing::Test
 
 |                | Name           |
 | -------------- | -------------- |
-| std::unique_ptr< [ApiServer](/source-reference/Classes/dd/d89/classsgns_1_1neoswarm_1_1api_1_1_api_server/) > | **[server_](/source-reference/Classes/db/d7a/class_pipeline_test/#variable-server-)**  |
+| std::unique_ptr< [ApiServer](/source-reference/Classes/dd/d89/classsgns_1_1neoswarm_1_1api_1_1_api_server/) > | **[server_](/source-reference/Classes/db/d7a/class_pipeline_test/#variable-server_)**  |
 
 ## Protected Functions Documentation
 
@@ -43,4 +43,4 @@ std::unique_ptr< ApiServer > server_;
 
 -------------------------------
 
-Updated on 2026-06-28 at 13:58:22 -0700
+Updated on 2026-06-28 at 23:28:42 -0700

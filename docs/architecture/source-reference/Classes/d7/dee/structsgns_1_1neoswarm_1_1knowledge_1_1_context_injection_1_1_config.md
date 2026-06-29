@@ -16,8 +16,8 @@ title: sgns::neoswarm::knowledge::ContextInjection::Config
 
 |                | Name           |
 | -------------- | -------------- |
-| size_t | **[max_token_budget_](/source-reference/Classes/d7/dee/structsgns_1_1neoswarm_1_1knowledge_1_1_context_injection_1_1_config/#variable-max-token-budget-)** <br/>max tokens to add for context  |
-| bool | **[add_source_tags_](/source-reference/Classes/d7/dee/structsgns_1_1neoswarm_1_1knowledge_1_1_context_injection_1_1_config/#variable-add-source-tags-)** <br/>add [GROKIPEDIA: source] tags  |
+| size_t | **[max_token_budget_](/source-reference/Classes/d7/dee/structsgns_1_1neoswarm_1_1knowledge_1_1_context_injection_1_1_config/#variable-max_token_budget_)** <br/>max tokens to add for context  |
+| bool | **[add_source_tags_](/source-reference/Classes/d7/dee/structsgns_1_1neoswarm_1_1knowledge_1_1_context_injection_1_1_config/#variable-add_source_tags_)** <br/>add [GROKIPEDIA: source] tags  |
 
 ## Public Attributes Documentation
 
@@ -39,4 +39,4 @@ add [GROKIPEDIA: source] tags
 
 -------------------------------
 
-Updated on 2026-06-28 at 13:58:22 -0700
+Updated on 2026-06-28 at 23:28:42 -0700

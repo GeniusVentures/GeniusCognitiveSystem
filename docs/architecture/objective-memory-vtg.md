@@ -783,7 +783,3 @@ The layer stores reusable low-entropy cognitive transitions, returns multi-path 
 The key architectural principle is:
 
 > Objective Memory proposes. The Semantic Core and ELMs reason. Verifiers check. Consensus weights. Epistemic Arbitration judges. EGGROLL evolves.
-
----
-
-[Previous: Ultra FP4 Adaptive Quantization Format](./sgfp4-format.md) | [Architecture Index](./INDEX.md)

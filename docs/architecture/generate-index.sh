@@ -16,7 +16,7 @@ slugify() {
             s/\*\*//g
             s/`//g
             s/—/-/g
-            s/[^a-z0-9 -]//g
+            s/[^a-z0-9_ -]//g
             s/  +/ /g
             s/ /-/g
             s/--*/-/g
@@ -76,7 +76,7 @@ trap 'rm -rf "$TMPDIR"' EXIT
 # -------------------------------------------------------------------
 for file in "$SCRIPT_DIR"/*.md; do
     filename="$(basename "$file")"
-    case "$filename" in index.md|index.md.template) continue ;; esac
+    case "$filename" in index.md|index.md.template|SUMMARY_EXT.md) continue ;; esac
 
     chap="$(get_chapter "$file")"
     key="$(pad_key "$chap")"
@@ -145,11 +145,7 @@ for entry in "$TMPDIR"/*; do
             *) prefix="- " ;;
         esac
 
-        if (( indent == 0 )); then
-            printf -- '%s[%s](./%s)\n' "$prefix" "$text" "$fname"
-        else
-            printf -- '%s[%s](./%s#%s)\n' "$prefix" "$text" "$fname" "$anchor"
-        fi
+        printf -- '%s[%s](./%s#%s)\n' "$prefix" "$text" "$fname" "$anchor"
     done < "$entry"
 done >> "$OUTPUT"
 

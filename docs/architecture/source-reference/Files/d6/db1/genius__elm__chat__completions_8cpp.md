@@ -13,10 +13,10 @@ title: GNUS-NEO-SWARM/src/genius_elm_chat_completions.cpp
 
 |                | Name           |
 | -------------- | -------------- |
-| [NEOSWARM_ELM_CHAT_C_API](/source-reference/Files/d3/deb/genius__elm__chat__completions_8h/#define-neoswarm-elm-chat-c-api) int | **[GeniusElmInit](/source-reference/Files/d6/db1/genius__elm__chat__completions_8cpp/#function-geniuselminit)**(const char * modelPath, const char * knowledgePath)<br/>Initialises the Genius ELM engine.  |
-| [NEOSWARM_ELM_CHAT_C_API](/source-reference/Files/d3/deb/genius__elm__chat__completions_8h/#define-neoswarm-elm-chat-c-api) char * | **[GeniusElmChatCompletionsCreate](/source-reference/Files/d6/db1/genius__elm__chat__completions_8cpp/#function-geniuselmchatcompletionscreate)**(const char * requestJson)<br/>Creates an OpenAI v1-style chat completion response.  |
-| [NEOSWARM_ELM_CHAT_C_API](/source-reference/Files/d3/deb/genius__elm__chat__completions_8h/#define-neoswarm-elm-chat-c-api) void | **[GeniusElmStringFree](/source-reference/Files/d6/db1/genius__elm__chat__completions_8cpp/#function-geniuselmstringfree)**(char * value)<br/>Releases a string buffer returned by the chat FFI API.  |
-| [NEOSWARM_ELM_CHAT_C_API](/source-reference/Files/d3/deb/genius__elm__chat__completions_8h/#define-neoswarm-elm-chat-c-api) char * | **[GeniusElmGetStatus](/source-reference/Files/d6/db1/genius__elm__chat__completions_8cpp/#function-geniuselmgetstatus)**(void )<br/>Returns the current engine status as a JSON string.  |
+| [NEOSWARM_ELM_CHAT_C_API](/source-reference/Files/d3/deb/genius__elm__chat__completions_8h/#define-neoswarm_elm_chat_c_api) int | **[GeniusElmInit](/source-reference/Files/d6/db1/genius__elm__chat__completions_8cpp/#function-geniuselminit)**(const char * modelPath, const char * knowledgePath)<br/>Initialises the Genius ELM engine.  |
+| [NEOSWARM_ELM_CHAT_C_API](/source-reference/Files/d3/deb/genius__elm__chat__completions_8h/#define-neoswarm_elm_chat_c_api) char * | **[GeniusElmChatCompletionsCreate](/source-reference/Files/d6/db1/genius__elm__chat__completions_8cpp/#function-geniuselmchatcompletionscreate)**(const char * requestJson)<br/>Creates an OpenAI v1-style chat completion response.  |
+| [NEOSWARM_ELM_CHAT_C_API](/source-reference/Files/d3/deb/genius__elm__chat__completions_8h/#define-neoswarm_elm_chat_c_api) void | **[GeniusElmStringFree](/source-reference/Files/d6/db1/genius__elm__chat__completions_8cpp/#function-geniuselmstringfree)**(char * value)<br/>Releases a string buffer returned by the chat FFI API.  |
+| [NEOSWARM_ELM_CHAT_C_API](/source-reference/Files/d3/deb/genius__elm__chat__completions_8h/#define-neoswarm_elm_chat_c_api) char * | **[GeniusElmGetStatus](/source-reference/Files/d6/db1/genius__elm__chat__completions_8cpp/#function-geniuselmgetstatus)**(void )<br/>Returns the current engine status as a JSON string.  |
 
 
 ## Functions Documentation
@@ -328,4 +328,4 @@ extern "C"
 
 -------------------------------
 
-Updated on 2026-06-28 at 13:58:22 -0700
+Updated on 2026-06-28 at 23:28:42 -0700

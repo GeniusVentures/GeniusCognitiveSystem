@@ -73,7 +73,3 @@ bounded and separately reported from inference latency
 Customization efficiency
 
 choose the lowest-cost path among retrieval, memory, private ELM invocation, and swarm consensus that still satisfies quality and policy requirements
-
----
-
-[Previous: Agentic Memory Layer](./agentic-memory-layer.md) | [Architecture Index](./INDEX.md) | [Next: Roadmap and Risks](./roadmap-and-risks.md)

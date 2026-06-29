@@ -13,8 +13,8 @@ title: sgns::neoswarm::reputation::ReputationStorage::Impl
 
 |                | Name           |
 | -------------- | -------------- |
-| rocksdb::DB * | **[m_db](/source-reference/Classes/d5/dee/structsgns_1_1neoswarm_1_1reputation_1_1_reputation_storage_1_1_impl/#variable-m-db)**  |
-| rocksdb::Options | **[options_](/source-reference/Classes/d5/dee/structsgns_1_1neoswarm_1_1reputation_1_1_reputation_storage_1_1_impl/#variable-options-)**  |
+| rocksdb::DB * | **[m_db](/source-reference/Classes/d5/dee/structsgns_1_1neoswarm_1_1reputation_1_1_reputation_storage_1_1_impl/#variable-m_db)**  |
+| rocksdb::Options | **[options_](/source-reference/Classes/d5/dee/structsgns_1_1neoswarm_1_1reputation_1_1_reputation_storage_1_1_impl/#variable-options_)**  |
 
 ## Public Attributes Documentation
 
@@ -34,4 +34,4 @@ rocksdb::Options options_;
 
 -------------------------------
 
-Updated on 2026-06-28 at 13:58:22 -0700
+Updated on 2026-06-28 at 23:28:42 -0700

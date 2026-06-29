@@ -19,8 +19,8 @@ title: sgns::neoswarm::network::SGMessageAuthenticator::Impl
 
 |                | Name           |
 | -------------- | -------------- |
-| const [security::NodeIdentity](/source-reference/Classes/d6/d99/classsgns_1_1neoswarm_1_1security_1_1_node_identity/) & | **[m_identity](/source-reference/Classes/d8/d21/structsgns_1_1neoswarm_1_1network_1_1_s_g_message_authenticator_1_1_impl/#variable-m-identity)**  |
-| std::unique_ptr< [security::MessageSigning](/source-reference/Classes/dd/d22/classsgns_1_1neoswarm_1_1security_1_1_message_signing/) > | **[signer_](/source-reference/Classes/d8/d21/structsgns_1_1neoswarm_1_1network_1_1_s_g_message_authenticator_1_1_impl/#variable-signer-)**  |
+| const [security::NodeIdentity](/source-reference/Classes/d6/d99/classsgns_1_1neoswarm_1_1security_1_1_node_identity/) & | **[m_identity](/source-reference/Classes/d8/d21/structsgns_1_1neoswarm_1_1network_1_1_s_g_message_authenticator_1_1_impl/#variable-m_identity)**  |
+| std::unique_ptr< [security::MessageSigning](/source-reference/Classes/dd/d22/classsgns_1_1neoswarm_1_1security_1_1_message_signing/) > | **[signer_](/source-reference/Classes/d8/d21/structsgns_1_1neoswarm_1_1network_1_1_s_g_message_authenticator_1_1_impl/#variable-signer_)**  |
 
 ## Public Functions Documentation
 
@@ -51,4 +51,4 @@ std::unique_ptr< security::MessageSigning > signer_;
 
 -------------------------------
 
-Updated on 2026-06-28 at 13:58:22 -0700
+Updated on 2026-06-28 at 23:28:42 -0700

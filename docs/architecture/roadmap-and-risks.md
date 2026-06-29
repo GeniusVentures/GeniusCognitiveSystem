@@ -83,7 +83,3 @@ Require intermediary attestation and approval gates
 Customization path confusion
 
 Keep retrieval, memory, and private ELM adaptation as separate governed levers
-
----
-
-[Previous: Execution and Performance](./execution-and-performance.md) | [Architecture Index](./INDEX.md) | [Next: Future Compatibility and Positioning](./future-and-positioning.md)

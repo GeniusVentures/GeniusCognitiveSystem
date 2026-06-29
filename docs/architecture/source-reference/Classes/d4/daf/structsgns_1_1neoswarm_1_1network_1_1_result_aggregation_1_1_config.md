@@ -16,9 +16,9 @@ title: sgns::neoswarm::network::ResultAggregation::Config
 
 |                | Name           |
 | -------------- | -------------- |
-| std::chrono::milliseconds | **[m_timeout](/source-reference/Classes/d4/daf/structsgns_1_1neoswarm_1_1network_1_1_result_aggregation_1_1_config/#variable-m-timeout)** <br/>max wait for responses  |
-| size_t | **[min_responses_](/source-reference/Classes/d4/daf/structsgns_1_1neoswarm_1_1network_1_1_result_aggregation_1_1_config/#variable-min-responses-)** <br/>minimum before returning  |
-| size_t | **[max_responses_](/source-reference/Classes/d4/daf/structsgns_1_1neoswarm_1_1network_1_1_result_aggregation_1_1_config/#variable-max-responses-)** <br/>stop collecting after this many  |
+| std::chrono::milliseconds | **[m_timeout](/source-reference/Classes/d4/daf/structsgns_1_1neoswarm_1_1network_1_1_result_aggregation_1_1_config/#variable-m_timeout)** <br/>max wait for responses  |
+| size_t | **[min_responses_](/source-reference/Classes/d4/daf/structsgns_1_1neoswarm_1_1network_1_1_result_aggregation_1_1_config/#variable-min_responses_)** <br/>minimum before returning  |
+| size_t | **[max_responses_](/source-reference/Classes/d4/daf/structsgns_1_1neoswarm_1_1network_1_1_result_aggregation_1_1_config/#variable-max_responses_)** <br/>stop collecting after this many  |
 
 ## Public Attributes Documentation
 
@@ -48,4 +48,4 @@ stop collecting after this many
 
 -------------------------------
 
-Updated on 2026-06-28 at 13:58:22 -0700
+Updated on 2026-06-28 at 23:28:42 -0700

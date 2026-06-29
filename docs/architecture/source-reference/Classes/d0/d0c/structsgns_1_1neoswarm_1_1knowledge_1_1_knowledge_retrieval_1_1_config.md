@@ -16,11 +16,11 @@ title: sgns::neoswarm::knowledge::KnowledgeRetrieval::Config
 
 |                | Name           |
 | -------------- | -------------- |
-| std::string | **[index_path_](/source-reference/Classes/d0/d0c/structsgns_1_1neoswarm_1_1knowledge_1_1_knowledge_retrieval_1_1_config/#variable-index-path-)** <br/>path to HNSW index file (future)  |
-| std::string | **[m_factsPath](/source-reference/Classes/d0/d0c/structsgns_1_1neoswarm_1_1knowledge_1_1_knowledge_retrieval_1_1_config/#variable-m-factspath)** <br/>path to facts CSV  |
-| int | **[top_k_](/source-reference/Classes/d0/d0c/structsgns_1_1neoswarm_1_1knowledge_1_1_knowledge_retrieval_1_1_config/#variable-top-k-)** <br/>number of facts to retrieve  |
-| float | **[min_score_](/source-reference/Classes/d0/d0c/structsgns_1_1neoswarm_1_1knowledge_1_1_knowledge_retrieval_1_1_config/#variable-min-score-)** <br/>minimum relevance score  |
-| bool | **[enabled_](/source-reference/Classes/d0/d0c/structsgns_1_1neoswarm_1_1knowledge_1_1_knowledge_retrieval_1_1_config/#variable-enabled-)**  |
+| std::string | **[index_path_](/source-reference/Classes/d0/d0c/structsgns_1_1neoswarm_1_1knowledge_1_1_knowledge_retrieval_1_1_config/#variable-index_path_)** <br/>path to HNSW index file (future)  |
+| std::string | **[m_factsPath](/source-reference/Classes/d0/d0c/structsgns_1_1neoswarm_1_1knowledge_1_1_knowledge_retrieval_1_1_config/#variable-m_factspath)** <br/>path to facts CSV  |
+| int | **[top_k_](/source-reference/Classes/d0/d0c/structsgns_1_1neoswarm_1_1knowledge_1_1_knowledge_retrieval_1_1_config/#variable-top_k_)** <br/>number of facts to retrieve  |
+| float | **[min_score_](/source-reference/Classes/d0/d0c/structsgns_1_1neoswarm_1_1knowledge_1_1_knowledge_retrieval_1_1_config/#variable-min_score_)** <br/>minimum relevance score  |
+| bool | **[enabled_](/source-reference/Classes/d0/d0c/structsgns_1_1neoswarm_1_1knowledge_1_1_knowledge_retrieval_1_1_config/#variable-enabled_)**  |
 
 ## Public Attributes Documentation
 
@@ -65,4 +65,4 @@ bool enabled_ = true;
 
 -------------------------------
 
-Updated on 2026-06-28 at 13:58:22 -0700
+Updated on 2026-06-28 at 23:28:42 -0700

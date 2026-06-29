@@ -1030,6 +1030,3 @@ Expand this PTDS into implementation tickets with the following deliverables:
 ### 17.1.12 Summary
 
 This Product Technical Design Specification defines secure agent execution as part of the broader GNUS.ai decentralized cognitive system. The design centers on routing and planning, Semantic Core plus ELM execution, structured memory, grounding-aware verification, secure tool intermediation, reputation-aware trust controls, and auditable task completion. The principal security boundary remains the Tool Intermediary choke-point, reinforced by default-deny sandboxing, capability manifests, and provenance-aware memory promotion. Together, these measures reduce the most important agent-specific attack classes without abandoning the decentralized performance and auditability goals of the GNUS architecture.
-
----
-[Previous: Distributed Swarm Thinking Context Architecture](./distributed-swarm-thinking-context.md) | [Architecture Index](./INDEX.md) | [Next: EGGROLL Swarm Retraining Architecture](./eggroll-swarm-retraining.md)

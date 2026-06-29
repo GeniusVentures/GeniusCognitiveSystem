@@ -183,6 +183,3 @@ It aligns directly with:
 
 GAML v1 is intentionally practical.  
 Future versions may deepen semantic indexing, memory governance, and private operational memory support as needed.
-
----
-[Previous: Grounding and Retrieval](./grounding.md) | [Architecture Index](./INDEX.md) | [Next: Execution and Performance](./execution-and-performance.md)

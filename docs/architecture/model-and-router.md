@@ -1,4 +1,3 @@
-# **Model and Router**
 # **5 Model Architecture**
 
 ---
@@ -122,7 +121,3 @@ The roadmap includes upgrading the router to a more sophisticated model-based sy
 * **Cognitive planner:** a planner-level expert capable of decomposing tasks into multi-step workflows involving reasoning, retrieval, tools, verification, arbitration, and private ELM selection.
 
 * **Execution Awareness:** Future routing should incorporate latency budget, policy constraints, privacy mode, prior expert success, disagreement risk, and tenant boundary requirements.
-
----
-
-[Previous: System Overview](./system-overview.md) | [Architecture Index](./INDEX.md) | [Next: Reputation and Consensus](./reputation-consensus.md)

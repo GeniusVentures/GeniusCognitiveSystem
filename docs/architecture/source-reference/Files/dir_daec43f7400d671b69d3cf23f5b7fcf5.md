@@ -13,7 +13,7 @@ title: GNUS-NEO-SWARM/flutter_slm_bridge/macos
 
 | Name           |
 | -------------- |
-| **[GNUS-NEO-SWARM/flutter_slm_bridge/macos/Classes](/source-reference/Files/dir_17dc62967f788a9c5ba3643c38d396aa/#dir-gnus-neo-swarm/flutter-slm-bridge/macos/classes)**  |
+| **[GNUS-NEO-SWARM/flutter_slm_bridge/macos/Classes](/source-reference/Files/dir_17dc62967f788a9c5ba3643c38d396aa/#dir-gnus-neo-swarm/flutter_slm_bridge/macos/classes)**  |
 
 
 
@@ -22,4 +22,4 @@ title: GNUS-NEO-SWARM/flutter_slm_bridge/macos
 
 -------------------------------
 
-Updated on 2026-06-28 at 13:58:22 -0700
+Updated on 2026-06-28 at 23:28:42 -0700

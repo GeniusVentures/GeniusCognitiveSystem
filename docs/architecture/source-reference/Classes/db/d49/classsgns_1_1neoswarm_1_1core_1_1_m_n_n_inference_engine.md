@@ -54,13 +54,13 @@ class sgns::neoswarm::core::MNNInferenceEngine;
 
 MNN-backed inference engine with composable configuration. 
 
-Inference paths (selected at runtime via [Config::m_engineMode](/source-reference/Classes/d7/d41/structsgns_1_1neoswarm_1_1core_1_1_m_n_n_inference_engine_1_1_config/#variable-m-enginemode)):
+Inference paths (selected at runtime via [Config::m_engineMode](/source-reference/Classes/d7/d41/structsgns_1_1neoswarm_1_1core_1_1_m_n_n_inference_engine_1_1_config/#variable-m_enginemode)):
 
 "sgprocessing" — Primary path. Routes through SGProcessingManager which handles model loading, chunking, and execution. Cross-platform. Network-ready (Phase 2).
 
 "interpreter" — Fallback. Uses MNN::Interpreter directly for standard single-file .mnn models. Requires the external [SentencePieceTokenizer](/source-reference/Classes/d6/d8a/classsgns_1_1neoswarm_1_1core_1_1_sentence_piece_tokenizer/) to be attached.
 
-GPU backend (selected at runtime via [Config::m_backend](/source-reference/Classes/d7/d41/structsgns_1_1neoswarm_1_1core_1_1_m_n_n_inference_engine_1_1_config/#variable-m-backend)):
+GPU backend (selected at runtime via [Config::m_backend](/source-reference/Classes/d7/d41/structsgns_1_1neoswarm_1_1core_1_1_m_n_n_inference_engine_1_1_config/#variable-m_backend)):
 
 "vulkan" — Vulkan (cross-platform). MoltenVK translates to Metal on Apple. "cpu" — CPU-only fallback. 
 
@@ -213,4 +213,4 @@ Call once during initialization after both the engine and the SGClient are creat
 
 -------------------------------
 
-Updated on 2026-06-28 at 13:58:22 -0700
+Updated on 2026-06-28 at 23:28:42 -0700

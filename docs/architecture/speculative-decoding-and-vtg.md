@@ -417,7 +417,3 @@ They run locally, verify cheaply, and improve collectively through VTG and EGGRO
 The system does not try to make one weak node brilliant.
 
 It lets many small nodes become reliable together.
-
----
-
-[Companion: Objective Memory and Verified Transition Graph](./objective-memory-vtg.md) | [Companion: Frozen Micro-MTP and VTG Edge Inference](./frozen-mtp-and-vtg.md) | [Architecture Index](./INDEX.md)

@@ -153,7 +153,3 @@ A single GPU workgroup decodes one macroblock, with each thread processing multi
 - **Semantic Core quantization** is described in [03 Model and Router §5.1.2](./model-and-router.md).
 - **FP4 design overview** is in [02 System Overview §4.1.1](./system-overview.md).
 - **Performance targets** are in [07 Execution and Performance §10](./execution-and-performance.md).
-
----
-
-[Previous: Epistemic Arbitration](./epistemic-arbitration-and-cognitive-os.md) | [Architecture Index](./INDEX.md)

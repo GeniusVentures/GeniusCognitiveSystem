@@ -16,16 +16,16 @@ title: sgns::neoswarm::InferenceResponse
 
 |                | Name           |
 | -------------- | -------------- |
-| std::string | **[m_output](/source-reference/Classes/d4/d14/structsgns_1_1neoswarm_1_1_inference_response/#variable-m-output)**  |
-| std::string | **[m_taskId](/source-reference/Classes/d4/d14/structsgns_1_1neoswarm_1_1_inference_response/#variable-m-taskid)**  |
-| [ExecutionMode](/source-reference/Namespaces/d6/d33/namespacesgns_1_1neoswarm/#enum-executionmode) | **[m_modeUsed](/source-reference/Classes/d4/d14/structsgns_1_1neoswarm_1_1_inference_response/#variable-m-modeused)**  |
-| [RouteTarget](/source-reference/Namespaces/d6/d33/namespacesgns_1_1neoswarm/#enum-routetarget) | **[m_routeUsed](/source-reference/Classes/d4/d14/structsgns_1_1neoswarm_1_1_inference_response/#variable-m-routeused)**  |
-| double | **[m_totalLatencyMs](/source-reference/Classes/d4/d14/structsgns_1_1neoswarm_1_1_inference_response/#variable-m-totallatencyms)**  |
-| float | **[m_perplexity](/source-reference/Classes/d4/d14/structsgns_1_1neoswarm_1_1_inference_response/#variable-m-perplexity)**  |
-| double | **[m_latencyMs](/source-reference/Classes/d4/d14/structsgns_1_1neoswarm_1_1_inference_response/#variable-m-latencyms)**  |
-| std::string | **[m_nodeId](/source-reference/Classes/d4/d14/structsgns_1_1neoswarm_1_1_inference_response/#variable-m-nodeid)**  |
-| bool | **[m_success](/source-reference/Classes/d4/d14/structsgns_1_1neoswarm_1_1_inference_response/#variable-m-success)**  |
-| std::string | **[m_errorMessage](/source-reference/Classes/d4/d14/structsgns_1_1neoswarm_1_1_inference_response/#variable-m-errormessage)**  |
+| std::string | **[m_output](/source-reference/Classes/d4/d14/structsgns_1_1neoswarm_1_1_inference_response/#variable-m_output)**  |
+| std::string | **[m_taskId](/source-reference/Classes/d4/d14/structsgns_1_1neoswarm_1_1_inference_response/#variable-m_taskid)**  |
+| [ExecutionMode](/source-reference/Namespaces/d6/d33/namespacesgns_1_1neoswarm/#enum-executionmode) | **[m_modeUsed](/source-reference/Classes/d4/d14/structsgns_1_1neoswarm_1_1_inference_response/#variable-m_modeused)**  |
+| [RouteTarget](/source-reference/Namespaces/d6/d33/namespacesgns_1_1neoswarm/#enum-routetarget) | **[m_routeUsed](/source-reference/Classes/d4/d14/structsgns_1_1neoswarm_1_1_inference_response/#variable-m_routeused)**  |
+| double | **[m_totalLatencyMs](/source-reference/Classes/d4/d14/structsgns_1_1neoswarm_1_1_inference_response/#variable-m_totallatencyms)**  |
+| float | **[m_perplexity](/source-reference/Classes/d4/d14/structsgns_1_1neoswarm_1_1_inference_response/#variable-m_perplexity)**  |
+| double | **[m_latencyMs](/source-reference/Classes/d4/d14/structsgns_1_1neoswarm_1_1_inference_response/#variable-m_latencyms)**  |
+| std::string | **[m_nodeId](/source-reference/Classes/d4/d14/structsgns_1_1neoswarm_1_1_inference_response/#variable-m_nodeid)**  |
+| bool | **[m_success](/source-reference/Classes/d4/d14/structsgns_1_1neoswarm_1_1_inference_response/#variable-m_success)**  |
+| std::string | **[m_errorMessage](/source-reference/Classes/d4/d14/structsgns_1_1neoswarm_1_1_inference_response/#variable-m_errormessage)**  |
 
 ## Public Attributes Documentation
 
@@ -101,4 +101,4 @@ std::string m_errorMessage;
 
 -------------------------------
 
-Updated on 2026-06-28 at 13:58:22 -0700
+Updated on 2026-06-28 at 23:28:42 -0700

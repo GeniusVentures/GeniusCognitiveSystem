@@ -93,7 +93,3 @@ The system is built around two main cognitive classes:
 * **Expert Language Models (ELMs)** — narrower specialized units invoked when additional expertise, verification, structure, grounding, or action competence is required.
 
 This distinction is foundational. GNUS.ai does not assume that every task should be solved by a single general-purpose model.
-
----
-
-[Previous: Executive Summary](./executive-summary.md) | [Architecture Index](./INDEX.md) | [Next: Model and Router](./model-and-router.md)

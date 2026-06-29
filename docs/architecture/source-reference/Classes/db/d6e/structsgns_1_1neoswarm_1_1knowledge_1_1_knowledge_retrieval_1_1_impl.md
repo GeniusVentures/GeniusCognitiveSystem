@@ -19,7 +19,7 @@ title: sgns::neoswarm::knowledge::KnowledgeRetrieval::Impl
 
 |                | Name           |
 | -------------- | -------------- |
-| std::vector< [FactEntry](/source-reference/Classes/d3/df2/structsgns_1_1neoswarm_1_1knowledge_1_1_knowledge_retrieval_1_1_impl_1_1_fact_entry/) > | **[m_facts](/source-reference/Classes/db/d6e/structsgns_1_1neoswarm_1_1knowledge_1_1_knowledge_retrieval_1_1_impl/#variable-m-facts)**  |
+| std::vector< [FactEntry](/source-reference/Classes/d3/df2/structsgns_1_1neoswarm_1_1knowledge_1_1_knowledge_retrieval_1_1_impl_1_1_fact_entry/) > | **[m_facts](/source-reference/Classes/db/d6e/structsgns_1_1neoswarm_1_1knowledge_1_1_knowledge_retrieval_1_1_impl/#variable-m_facts)**  |
 
 ## Public Attributes Documentation
 
@@ -32,4 +32,4 @@ std::vector< FactEntry > m_facts;
 
 -------------------------------
 
-Updated on 2026-06-28 at 13:58:22 -0700
+Updated on 2026-06-28 at 23:28:42 -0700

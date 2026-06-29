@@ -16,12 +16,12 @@ title: sgns::neoswarm::reputation::ReputationScoring::Config
 
 |                | Name           |
 | -------------- | -------------- |
-| double | **[alpha_](/source-reference/Classes/db/dae/structsgns_1_1neoswarm_1_1reputation_1_1_reputation_scoring_1_1_config/#variable-alpha-)** <br/>accuracy weight  |
-| double | **[beta_](/source-reference/Classes/db/dae/structsgns_1_1neoswarm_1_1reputation_1_1_reputation_scoring_1_1_config/#variable-beta-)** <br/>consensus agreement weight  |
-| double | **[gamma_](/source-reference/Classes/db/dae/structsgns_1_1neoswarm_1_1reputation_1_1_reputation_scoring_1_1_config/#variable-gamma-)** <br/>latency penalty  |
-| double | **[delta_](/source-reference/Classes/db/dae/structsgns_1_1neoswarm_1_1reputation_1_1_reputation_scoring_1_1_config/#variable-delta-)** <br/>consistency bonus  |
-| double | **[epsilon_](/source-reference/Classes/db/dae/structsgns_1_1neoswarm_1_1reputation_1_1_reputation_scoring_1_1_config/#variable-epsilon-)** <br/>perplexity smoothing  |
-| double | **[baseline_accuracy_](/source-reference/Classes/db/dae/structsgns_1_1neoswarm_1_1reputation_1_1_reputation_scoring_1_1_config/#variable-baseline-accuracy-)**  |
+| double | **[alpha_](/source-reference/Classes/db/dae/structsgns_1_1neoswarm_1_1reputation_1_1_reputation_scoring_1_1_config/#variable-alpha_)** <br/>accuracy weight  |
+| double | **[beta_](/source-reference/Classes/db/dae/structsgns_1_1neoswarm_1_1reputation_1_1_reputation_scoring_1_1_config/#variable-beta_)** <br/>consensus agreement weight  |
+| double | **[gamma_](/source-reference/Classes/db/dae/structsgns_1_1neoswarm_1_1reputation_1_1_reputation_scoring_1_1_config/#variable-gamma_)** <br/>latency penalty  |
+| double | **[delta_](/source-reference/Classes/db/dae/structsgns_1_1neoswarm_1_1reputation_1_1_reputation_scoring_1_1_config/#variable-delta_)** <br/>consistency bonus  |
+| double | **[epsilon_](/source-reference/Classes/db/dae/structsgns_1_1neoswarm_1_1reputation_1_1_reputation_scoring_1_1_config/#variable-epsilon_)** <br/>perplexity smoothing  |
+| double | **[baseline_accuracy_](/source-reference/Classes/db/dae/structsgns_1_1neoswarm_1_1reputation_1_1_reputation_scoring_1_1_config/#variable-baseline_accuracy_)**  |
 
 ## Public Attributes Documentation
 
@@ -74,4 +74,4 @@ double baseline_accuracy_ = 0.5;
 
 -------------------------------
 
-Updated on 2026-06-28 at 13:58:22 -0700
+Updated on 2026-06-28 at 23:28:42 -0700

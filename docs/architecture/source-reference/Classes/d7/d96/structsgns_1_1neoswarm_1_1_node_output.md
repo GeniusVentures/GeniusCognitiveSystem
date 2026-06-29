@@ -16,11 +16,11 @@ title: sgns::neoswarm::NodeOutput
 
 |                | Name           |
 | -------------- | -------------- |
-| std::string | **[m_nodeId](/source-reference/Classes/d7/d96/structsgns_1_1neoswarm_1_1_node_output/#variable-m-nodeid)**  |
-| std::string | **[m_output](/source-reference/Classes/d7/d96/structsgns_1_1neoswarm_1_1_node_output/#variable-m-output)**  |
-| float | **[m_perplexity](/source-reference/Classes/d7/d96/structsgns_1_1neoswarm_1_1_node_output/#variable-m-perplexity)**  |
-| double | **[m_latencyMs](/source-reference/Classes/d7/d96/structsgns_1_1neoswarm_1_1_node_output/#variable-m-latencyms)**  |
-| double | **[reputation_](/source-reference/Classes/d7/d96/structsgns_1_1neoswarm_1_1_node_output/#variable-reputation-)**  |
+| std::string | **[m_nodeId](/source-reference/Classes/d7/d96/structsgns_1_1neoswarm_1_1_node_output/#variable-m_nodeid)**  |
+| std::string | **[m_output](/source-reference/Classes/d7/d96/structsgns_1_1neoswarm_1_1_node_output/#variable-m_output)**  |
+| float | **[m_perplexity](/source-reference/Classes/d7/d96/structsgns_1_1neoswarm_1_1_node_output/#variable-m_perplexity)**  |
+| double | **[m_latencyMs](/source-reference/Classes/d7/d96/structsgns_1_1neoswarm_1_1_node_output/#variable-m_latencyms)**  |
+| double | **[reputation_](/source-reference/Classes/d7/d96/structsgns_1_1neoswarm_1_1_node_output/#variable-reputation_)**  |
 
 ## Public Attributes Documentation
 
@@ -61,4 +61,4 @@ double reputation_ = 0.5;
 
 -------------------------------
 
-Updated on 2026-06-28 at 13:58:22 -0700
+Updated on 2026-06-28 at 23:28:42 -0700

@@ -13,7 +13,7 @@ title: GNUS-NEO-SWARM/ui/macos/Pods/Target Support Files/path_provider_foundatio
 
 | Name           |
 | -------------- |
-| **[GNUS-NEO-SWARM/ui/macos/Pods/Target Support Files/path_provider_foundation/path_provider_foundation-umbrella.h](/source-reference/Files/d5/d97/path__provider__foundation-umbrella_8h/#file-path-provider-foundation-umbrella.h)**  |
+| **[GNUS-NEO-SWARM/ui/macos/Pods/Target Support Files/path_provider_foundation/path_provider_foundation-umbrella.h](/source-reference/Files/d5/d97/path__provider__foundation-umbrella_8h/#file-path_provider_foundation-umbrella.h)**  |
 
 
 
@@ -22,4 +22,4 @@ title: GNUS-NEO-SWARM/ui/macos/Pods/Target Support Files/path_provider_foundatio
 
 -------------------------------
 
-Updated on 2026-06-28 at 13:58:22 -0700
+Updated on 2026-06-28 at 23:28:42 -0700

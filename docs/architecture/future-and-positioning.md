@@ -42,7 +42,3 @@ It aligns with:
 * Distributed AI ecosystems
 * Structured and inspectable cognition
 * Layered private adaptation paths
-
----
-
-[Previous: Roadmap and Risks](./roadmap-and-risks.md) | [Architecture Index](./INDEX.md) | [Next: AI Safety](./ai-safety.md)

@@ -516,7 +516,3 @@ EGGROLL Swarm Retraining adds a new capability to GeniusCognitiveSystem:
 
 This layer does not replace the existing GeniusCognitiveSystem architecture.
 It completes it by giving the swarm a native mechanism for improving its specialists over time.
-
----
-
-[Previous: Secure Agent Architecture](./secure-agent-architecture.md) | [Architecture Index](./INDEX.md) | [Next: Targeted Retraining and Hierarchical Critical Thinking Specialists](./cognitive-retaining-system.md)

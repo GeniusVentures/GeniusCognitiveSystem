@@ -17,11 +17,11 @@ Configuration for SuperGenius network connectivity.
 
 |                | Name           |
 | -------------- | -------------- |
-| std::string | **[m_endpoint](/source-reference/Classes/df/dca/structsgns_1_1neoswarm_1_1network_1_1_s_g_client_1_1_config/#variable-m-endpoint)** <br/>SuperGenius node address.  |
-| std::string | **[m_tlsCaPath](/source-reference/Classes/df/dca/structsgns_1_1neoswarm_1_1network_1_1_s_g_client_1_1_config/#variable-m-tlscapath)** <br/>TLS CA certificate bundle.  |
-| std::string | **[m_tlsCertPath](/source-reference/Classes/df/dca/structsgns_1_1neoswarm_1_1network_1_1_s_g_client_1_1_config/#variable-m-tlscertpath)** <br/>TLS client certificate.  |
-| std::chrono::seconds | **[channel_m_timeout](/source-reference/Classes/df/dca/structsgns_1_1neoswarm_1_1network_1_1_s_g_client_1_1_config/#variable-channel-m-timeout)** <br/>Channel creation timeout.  |
-| std::chrono::seconds | **[result_m_timeout](/source-reference/Classes/df/dca/structsgns_1_1neoswarm_1_1network_1_1_s_g_client_1_1_config/#variable-result-m-timeout)** <br/>Inference result timeout (5 min).  |
+| std::string | **[m_endpoint](/source-reference/Classes/df/dca/structsgns_1_1neoswarm_1_1network_1_1_s_g_client_1_1_config/#variable-m_endpoint)** <br/>SuperGenius node address.  |
+| std::string | **[m_tlsCaPath](/source-reference/Classes/df/dca/structsgns_1_1neoswarm_1_1network_1_1_s_g_client_1_1_config/#variable-m_tlscapath)** <br/>TLS CA certificate bundle.  |
+| std::string | **[m_tlsCertPath](/source-reference/Classes/df/dca/structsgns_1_1neoswarm_1_1network_1_1_s_g_client_1_1_config/#variable-m_tlscertpath)** <br/>TLS client certificate.  |
+| std::chrono::seconds | **[channel_m_timeout](/source-reference/Classes/df/dca/structsgns_1_1neoswarm_1_1network_1_1_s_g_client_1_1_config/#variable-channel_m_timeout)** <br/>Channel creation timeout.  |
+| std::chrono::seconds | **[result_m_timeout](/source-reference/Classes/df/dca/structsgns_1_1neoswarm_1_1network_1_1_s_g_client_1_1_config/#variable-result_m_timeout)** <br/>Inference result timeout (5 min).  |
 
 ## Public Attributes Documentation
 
@@ -67,4 +67,4 @@ Inference result timeout (5 min).
 
 -------------------------------
 
-Updated on 2026-06-28 at 13:58:22 -0700
+Updated on 2026-06-28 at 23:28:42 -0700

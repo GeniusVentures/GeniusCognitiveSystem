@@ -14,7 +14,7 @@ Boost.Outcome error category registration for GNUS NEO SWARM.
 
 |                | Name           |
 | -------------- | -------------- |
-| | **[OUTCOME_CPP_DEFINE_CATEGORY_3](/source-reference/Files/dd/db1/error_8cpp/#function-outcome-cpp-define-category-3)**([sgns::neoswarm](/source-reference/Namespaces/d6/d33/namespacesgns_1_1neoswarm/) , Error , e ) |
+| | **[OUTCOME_CPP_DEFINE_CATEGORY_3](/source-reference/Files/dd/db1/error_8cpp/#function-outcome_cpp_define_category_3)**([sgns::neoswarm](/source-reference/Namespaces/d6/d33/namespacesgns_1_1neoswarm/) , Error , e ) |
 
 
 ## Functions Documentation
@@ -86,4 +86,4 @@ OUTCOME_CPP_DEFINE_CATEGORY_3( sgns::neoswarm, Error, e )
 
 -------------------------------
 
-Updated on 2026-06-28 at 13:58:22 -0700
+Updated on 2026-06-28 at 23:28:42 -0700

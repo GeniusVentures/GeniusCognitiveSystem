@@ -16,7 +16,7 @@ title: sgns::neoswarm::network::SGResultCollectorConfig
 
 |                | Name           |
 | -------------- | -------------- |
-| std::chrono::seconds | **[result_m_timeout](/source-reference/Classes/d1/dd3/structsgns_1_1neoswarm_1_1network_1_1_s_g_result_collector_config/#variable-result-m-timeout)**  |
+| std::chrono::seconds | **[result_m_timeout](/source-reference/Classes/d1/dd3/structsgns_1_1neoswarm_1_1network_1_1_s_g_result_collector_config/#variable-result_m_timeout)**  |
 
 ## Public Attributes Documentation
 
@@ -29,4 +29,4 @@ std::chrono::seconds result_m_timeout { 300 };
 
 -------------------------------
 
-Updated on 2026-06-28 at 13:58:22 -0700
+Updated on 2026-06-28 at 23:28:42 -0700
