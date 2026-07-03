@@ -7,7 +7,7 @@ Extract the `../documentation` MkDocs + Doxygen pattern into a reusable, config-
 ## Phases
 
 - [x] **Phase 1: Template Skeleton & Config** — Submodule-ready directory layout with `gendoc.yml` config file (completed 2026-06-27)
-- [ ] **Phase 2: MkDocs Site** — Material-themed MkDocs renders host project's hand-written docs
+- [x] **Phase 2: MkDocs Site** — Material-themed MkDocs renders host project's hand-written docs (completed 2026-07-03)
 - [x] **Phase 3: API Reference Pipeline** — Doxygen + doxybook2 generates C++ API docs as markdown (completed 2026-06-28)
 - [x] **Phase 4: Navigation Integration** — Hand-written and generated API docs merge into unified navigation (completed 2026-06-28)
 - [x] **Phase 5: Build & Deploy** — Single-command full build and Cloudflare Pages deployment (completed 2026-06-28)
@@ -39,7 +39,7 @@ Plans:
 **UI hint**: yes
 Plans:
 - [x] 02-01-PLAN.md — mkdocs.yml with Material theme, gendoc.yml config hook, and theme assets (CSS + JS)
-- [ ] 02-02-PLAN.md — requirements.txt with pinned Python dependencies and mkdocs build verification
+- [x] 02-02-PLAN.md — requirements.txt with pinned Python dependencies and mkdocs build verification
 
 ### Phase 3: API Reference Pipeline
 **Goal**: Doxygen + doxybook2 pipeline converts C++ source to markdown API reference pages
@@ -96,7 +96,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Template Skeleton & Config | 1/1 | Complete   | 2026-06-27 |
-| 2. MkDocs Site | 1/2 | In Progress|  |
+| 2. MkDocs Site | 2/2 | Complete   | 2026-07-03 |
 | 3. API Reference Pipeline | 2/2 | Complete   | 2026-06-28 |
 | 4. Navigation Integration | 1/1 | Complete   | 2026-06-28 |
 | 5. Build & Deploy | 1/1 | Complete   | 2026-06-28 |
