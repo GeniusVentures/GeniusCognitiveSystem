@@ -33,7 +33,8 @@ A parameterized generalization of the `../documentation` reference implementatio
 
 ## Key Decisions
 
-_(to be filled as decisions are made)_
+- **Phase 02:** MkDocs Material theme with GNUS brand colors (cyan-blue ramp), Doxygen CSS integration ported from reference, 5 JS integrations for nav/anchor/scrolling/toc/lightbox. Config-driven via gendoc.yml → load_gendoc_config.py hook. Python deps pinned: mkdocs==1.6.1, mkdocs-material==9.5.27, pymdown-extensions>=10.14, mkdocs-literate-nav==0.6.1, pyyaml>=6.0.
+- **Phase 02:** `mkdocs build --strict` verified end-to-end with zero warnings — the configuration and theme produce a clean static site.
 
 ## Evolution
 
@@ -54,4 +55,4 @@ This document evolves at phase transitions and milestone boundaries.
 
 ---
 
-_Last updated: 2026-06-27_
+_Last updated: 2026-07-03_
