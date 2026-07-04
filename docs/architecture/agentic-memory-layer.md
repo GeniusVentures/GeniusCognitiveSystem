@@ -4,7 +4,7 @@
 
 The GNUS Agentic Memory Layer (GAML) introduces structured, reasoning-oriented long-term memory into GeniusCognitiveSystem.
 
-Unlike traditional RAG pipelines that rely only on embedding similarity and vector databases, GAML treats retrieval as a governed cognitive process involving bridge blocks, facts, policies, events, trust metadata, and orchestration-aware selection.
+Unlike traditional RAG pipelines that rely only on embedding similarity and vector databases, GAML treats retrieval as a governed cognitive process involving bridge blocks, facts, policies, events, trust metadata, execution-integrity evidence, and orchestration-aware selection.
 
 GAML enables:
 
@@ -12,6 +12,7 @@ GAML enables:
 * Multi-hop reasoning over historical state
 * Temporal coherence enforcement
 * Swarm-consensus memory resolution where required
+* Storage of execution claims, calibration data, and fraud verdicts as auditable Cognitive Assets
 * Reduced dependency on brute-force transcript replay
 
 This makes GeniusCognitiveSystem memory-native rather than prompt-extended.
@@ -25,6 +26,7 @@ GAML operates between:
 * Router / Planner Layer
 * Memory Governor
 * Semantic Core / Expert Execution
+* Execution Integrity System (EIS)
 * Grounding and Verification
 
 Updated flow:
@@ -37,7 +39,7 @@ GAML Retrieval + Memory Governor
 ↓  
 Semantic Core / Expert Nodes  
 ↓  
-Verification / Arbitration  
+EIS Claims + Verification / Arbitration  
 ↓  
 Grounding Validation  
 ↓  
@@ -75,7 +77,7 @@ Embeddings may still be used where useful, but they are not the sole definition 
 
 ## **8.4.4 Cognitive Asset Model**
 
-GAML should treat long-term memory, bridge blocks, reasoning traces, tool results, plans, verification outputs, consensus records, and distillation samples as related forms of a common abstraction: the **Cognitive Asset**.
+GAML should treat long-term memory, bridge blocks, reasoning traces, tool results, plans, execution claims, verification outputs, consensus records, and distillation samples as related forms of a common abstraction: the **Cognitive Asset**.
 
 A Cognitive Asset is any structured artifact produced or consumed by GeniusCognitiveSystem that contributes to reasoning, learning, execution, memory, verification, grounding, or coordination. Memory objects are therefore one important class of Cognitive Asset, but not the only class.
 
@@ -89,10 +91,13 @@ Representative Cognitive Asset types include:
 * **Procedure** — reusable workflow, tool sequence, coding pattern, deployment step, or tenant playbook.
 * **Tool Result** — structured output from a tool call, dry run, execution attempt, or external service.
 * **Plan** — decomposition, execution graph, routing path, or specialist schedule.
-* **Verification Result** — factual, mathematical, code, grounding, policy, schema, or tool-output check.
+* **Execution Claim** — node assertion describing the execution contract, token sequence, checkpoint digests, model/container hashes, determinism class, kernel manifest, and sampling seed used for a job.
+* **Checkpoint Calibration** — drift-band, exception-rate, checkpoint-density, and substitution-margin parameters produced during kernel/model registration.
+* **Verification Result** — factual, mathematical, code, grounding, policy, schema, tool-output, or execution-integrity check.
+* **Execution Verdict** — EIS fraud, pass, escalation, or borderline verdict generated from teacher-forced spot checks and checkpoint-band comparison.
 * **Arbitration Result** — decision resolving competing drafts, critiques, experts, or memory states.
 * **Consensus Record** — reputation-weighted agreement, disagreement, voting result, or swarm finalization artifact.
-* **Benchmark Result** — evaluation output used to measure model, specialist, router, or memory quality.
+* **Benchmark Result** — evaluation output used to measure model, specialist, router, memory, or execution-integrity quality.
 * **Distillation Sample** — training example derived from planning, routing, verification, synthesis, tool use, consensus, or final response behavior.
 * **Specialist Trace** — record of which ELM or service was invoked, what context it used, what it produced, and how it performed.
 
@@ -123,19 +128,19 @@ CognitiveAsset {
 }
 ```
 
-The graph relationships are as important as the payload. A fact may support a policy, a procedure may depend on a tool result, a bridge block may reference a conversation summary, a verifier result may contradict a generated answer, and a distillation sample may be derived from a consensus record. This allows GAML to behave as a cognitive graph rather than a flat memory table.
+The graph relationships are as important as the payload. A fact may support a policy, a procedure may depend on a tool result, a bridge block may reference a conversation summary, an execution verdict may contradict a node claim, a verifier result may contradict a generated answer, and a distillation sample may be derived from a consensus record. This allows GAML to behave as a cognitive graph rather than a flat memory table.
 
-Cognitive Assets should not all be injected into prompts. The Memory Governor decides which assets are relevant, fresh, trusted, policy-allowed, and compact enough for the current execution path. Some assets are useful only for offline evaluation, distillation, reputation updates, or later reconciliation.
+Cognitive Assets should not all be injected into prompts. The Memory Governor decides which assets are relevant, fresh, trusted, policy-allowed, and compact enough for the current execution path. Some assets are useful only for offline evaluation, distillation, EIS calibration, reputation updates, or later reconciliation.
 
 ---
 
 ## **8.4.5 Ingestion Pipeline**
 
-When new information enters the system (conversation, task result, user preference, tool outcome), GAML evaluates multiple memory-oriented functions:
+When new information enters the system (conversation, task result, user preference, tool outcome, execution claim, or verifier verdict), GAML evaluates multiple memory-oriented functions:
 
 1. **Fact Extraction** – converts raw output into atomic structured facts where appropriate.
-2. **Context Mapping** – associates facts and events with session, task, workflow, and user context.
-3. **Temporal Tracking** – resolves updates, contradictions, and stale state.
+2. **Context Mapping** – associates facts and events with session, task, workflow, node, model, and user context.
+3. **Temporal Tracking** – resolves updates, contradictions, stale state, and superseded execution or adapter versions.
 4. **Write Evaluation** – scores novelty, expected utility, provenance, and contamination risk before durable storage.
 
 The exact implementation may be heuristic, model-assisted, or hybrid depending on deployment stage.
@@ -152,6 +157,7 @@ Representative retrieval stages:
 * semantic matching where available
 * temporal resolution
 * policy and tenant boundary checks
+* EIS trust-class checks where execution evidence affects confidence
 * memory governor selection of final context set
 
 Results may be merged using reputation-weighted, policy-aware selection when multiple nodes return conflicting or overlapping state.
@@ -164,6 +170,7 @@ Surprise remains useful, but only as one signal among several. A memory write is
 
 * novel
 * useful for future routing or generation
+* useful for future execution-integrity calibration or fraud detection
 * durable enough to matter
 * allowed under policy
 * consistent with the existing memory graph
@@ -179,6 +186,7 @@ Memory is not only for the Semantic Core. It also provides expert-specific conte
 * prior tool state for a Tool-Support ELM
 * historical conflicts for an Arbiter ELM
 * tenant workflow rules for a private Operations ELM
+* EIS execution history, model-version evidence, and node-integrity signals for scheduling and trust decisions
 
 ---
 
@@ -191,6 +199,7 @@ When multiple nodes return conflicting memory states:
     * Confidence score
     * Recency
     * Provenance / trust class
+    * EIS execution-integrity evidence where applicable
 2. Conflict resolution is performed using CRDT plus policy-aware weighted selection.
 3. Final resolved memory is injected into inference, grounding, or verification context.
 
@@ -212,6 +221,7 @@ Estimated impact in Swarm Mode:
 * Minimal GPU overhead relative to core inference in many deployments
 * Horizontal scalability across GNUS nodes
 * Reduced hallucination risk via structured recall
+* Better execution-integrity auditability through stored claims, calibration assets, and verdicts
 
 Compared to purely transcript-based context replay:
 
@@ -233,9 +243,10 @@ It aligns directly with:
 
 * Hierarchical Reasoning Model
 * Semantic Core plus ELM execution
+* Execution Integrity System evidence and audit records
 * Reputation-weighted consensus
 * Distributed GNUS infrastructure
 * Secure memory governance for agentic workflows
 
 GAML v1 is intentionally practical.  
-Future versions may deepen semantic indexing, memory governance, and private operational memory support as needed.
+Future versions may deepen semantic indexing, memory governance, execution-integrity asset handling, and private operational memory support as needed.
