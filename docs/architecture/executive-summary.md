@@ -104,7 +104,7 @@ The Router remains a key part of this layer, but it is not the whole cognitive s
 
 ### **2.3.2 GAML as the Cognitive Knowledge Layer**
 
-The GNUS Agentic Memory Layer (GAML) should be understood as the Cognitive Knowledge Layer of GCS rather than as a conventional vector database. Its purpose is not merely to find similar text. Its purpose is to decide which durable cognitive artifacts should influence the next action.
+The GNUS Agentic Memory Layer (GAML) should be understood as the Cognitive Knowledge Layer of GCS rather than as a conventional vector database. Its purpose is not merely to find similar text. Its purpose is to decide which durable cognitive context should influence the next action.
 
 GAML supports multiple memory classes:
 
@@ -116,41 +116,11 @@ GAML supports multiple memory classes:
 
 GAML retrieves and writes memory through a governed process. The Memory Governor determines whether memory is needed, which memory classes are relevant, how much context budget may be spent, which memories are stale or superseded, which sources are trusted, and whether conflicting memories require arbitration.
 
-This makes GCS memory-native rather than prompt-extended. The system should not rely on brute-force transcript replay when a compact set of structured facts, procedures, bridge blocks, and prior decisions can provide better context at lower cost.
+This makes GCS memory-native rather than prompt-extended. The system should not rely on brute-force transcript replay when a compact set of structured facts, procedures, bridge blocks, and prior decisions can provide better context at lower cost. The detailed Cognitive Asset model belongs in the GAML architecture because it defines how these memory, trace, verification, and learning artifacts are represented and governed.
 
-### **2.3.3 Cognitive Assets**
+### **2.3.3 Bridge Blocks and Context Assembly**
 
-GCS treats memory, reasoning traces, tool results, plans, verification outputs, and distillation samples as forms of a common abstraction: the **Cognitive Asset**.
-
-A Cognitive Asset is any structured artifact produced or consumed by GCS that contributes to reasoning, learning, execution, memory, verification, or coordination.
-
-Representative Cognitive Assets include:
-
-* facts
-* goals
-* constraints
-* policies
-* Bridge Blocks
-* conversation summaries
-* procedures
-* tool results
-* plans
-* routing decisions
-* verification results
-* arbiter decisions
-* consensus records
-* benchmark results
-* distillation samples
-* specialist performance traces
-* memory writeback candidates
-
-Each Cognitive Asset should carry enough metadata to support future use, including identity, type, provenance, timestamp, confidence, freshness, tenant boundary, source authority, dependencies, supersession links, and graph relationships to related assets.
-
-This unifies GAML, grounding, routing, verification, consensus, and distillation. Instead of treating these systems as separate data silos, GCS can build a distributed graph of Cognitive Assets that records not only what the system knows, but how that knowledge was produced, verified, revised, and used.
-
-### **2.3.4 Bridge Blocks and Context Assembly**
-
-Bridge Blocks are compact cognitive assets that preserve useful workflow continuity without replaying entire histories. A Bridge Block may summarize a task span, prior decision, active branch, unresolved issue, file set, debugging state, user preference, or project milestone.
+Bridge Blocks are compact memory artifacts that preserve useful workflow continuity without replaying entire histories. A Bridge Block may summarize a task span, prior decision, active branch, unresolved issue, file set, debugging state, user preference, or project milestone.
 
 During context assembly, the Memory Governor combines Bridge Blocks with facts, policies, procedures, private tenant knowledge, grounding results, and current request state. The goal is to assemble the smallest useful context packet for the selected cognitive path.
 
@@ -167,7 +137,7 @@ A typical context packet may include:
 
 This approach is closer to human working memory than archive search. The system does not retrieve everything it has seen. It retrieves and composes the information most likely to improve the next decision.
 
-### **2.3.5 Semantic Core and Specialist Cognition**
+### **2.3.4 Semantic Core and Specialist Cognition**
 
 The Semantic Core remains the general reasoning substrate of GCS. It provides broad language understanding, default response generation, synthesis support, and fallback reasoning. The Semantic Core is the primary target for aggressive quantization because it is broadly useful and frequently active.
 
@@ -195,7 +165,7 @@ Domain-specific specialists include:
 
 These specialists may be compact standalone SLMs, adapter-augmented models, distilled expert models, constrained services, or distributed swarm participants. The architecture intentionally leaves room for multiple implementation strategies while preserving the higher-level cognitive role.
 
-### **2.3.6 Verification, Arbitration, and Synthesis**
+### **2.3.5 Verification, Arbitration, and Synthesis**
 
 GCS separates generation from verification. A candidate answer is not considered final simply because a model produced it. Depending on task risk and routing policy, the system may invoke verification, arbitration, grounding, formatting, or consensus before returning a response.
 
@@ -213,9 +183,9 @@ Arbitration resolves disagreement between multiple candidate outputs, critiques,
 
 This is the foundation for swarm thinking: multiple experts may contribute different parts of cognition, but the final answer is produced through governed synthesis rather than raw aggregation.
 
-### **2.3.7 Learning and Distillation Feedback**
+### **2.3.6 Learning and Distillation Feedback**
 
-Every completed request can produce reusable Cognitive Assets. Successful routing decisions, failed routing decisions, verifier corrections, tool-call repairs, consensus outcomes, synthesis edits, memory writebacks, and benchmark results are all potential training material.
+Every completed request can produce reusable learning material. Successful routing decisions, failed routing decisions, verifier corrections, tool-call repairs, consensus outcomes, synthesis edits, memory writebacks, and benchmark results are all potential training material.
 
 GCS should therefore treat distillation as more than answer imitation. The system can distill:
 
@@ -229,9 +199,9 @@ GCS should therefore treat distillation as more than answer imitation. The syste
 * consensus and arbitration outcomes
 * domain-specialist responses
 
-This allows GCS to improve individual cognitive functions without retraining one monolithic model. It also creates a durable learning loop: production execution produces structured traces, traces become Cognitive Assets, Cognitive Assets feed evaluation and distillation, and improved specialists return to the execution layer.
+This allows GCS to improve individual cognitive functions without retraining one monolithic model. It also creates a durable learning loop: production execution produces structured traces, traces feed evaluation and distillation, and improved specialists return to the execution layer.
 
-### **2.3.8 Relationship to the GNUS Swarm**
+### **2.3.7 Relationship to the GNUS Swarm**
 
 The cognitive architecture is local-first but swarm-capable. Simple requests may run entirely on one node using the Semantic Core and local memory. More complex, high-risk, or high-value requests may escalate to specialist chains or distributed swarm execution.
 
