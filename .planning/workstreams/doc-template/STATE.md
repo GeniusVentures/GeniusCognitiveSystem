@@ -1,17 +1,17 @@
 ---
 gsd_state_version: 1.0
 milestone: v0.1
-milestone_name: milestone
-status: Awaiting next milestone
-stopped_at: Completed 06-01-PLAN.md — Final Verification & Self-Documentation
-last_updated: "2026-07-04T18:03:02.739Z"
-last_activity: 2026-07-04 — Milestone v0.1 completed and archived
+milestone_name: Initial Template
+status: Phase 5.1 inserted — needs planning
+stopped_at: Phase 5.1 — CI/CD Deployment inserted after Phase 5
+last_updated: "2026-07-04T18:20:01.309Z"
+last_activity: 2026-07-04 — Phase 5.1 (INSERTED) CI/CD GitHub Actions deployment workflow
 progress:
-  total_phases: 6
+  total_phases: 7
   completed_phases: 6
   total_plans: 8
   completed_plans: 8
-  percent: 100
+  percent: 86
 ---
 
 # Project State
@@ -21,7 +21,7 @@ progress:
 See: .planning/workstreams/doc-template/PROJECT.md (updated 2026-06-27)
 
 **Core value:** A reusable, config-driven MkDocs documentation template that any GNUS C++ project can add as a git submodule to produce a complete documentation site.
-**Current focus:** Phase 03 — api reference pipeline
+**Current focus:** Phase 5.1 — CI/CD Deployment (INSERTED after Phase 5)
 
 ## Current Position
 
@@ -65,6 +65,10 @@ Last activity: 2026-07-04 — Milestone v0.1 completed and archived
 | Phase 02 P02 | 1 | 2 tasks | 1 files |
 
 ## Accumulated Context
+
+### Roadmap Evolution
+
+- Phase 5.1 inserted after Phase 5: CI/CD GitHub Actions deployment workflow (URGENT)
 
 ### Decisions
 
