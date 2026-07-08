@@ -1,22 +1,22 @@
-# 18 OpenAI-Compatible API Router and GCS Job Queue Architecture
+# 24 OpenAI-Compatible API Router and GCS Job Queue Architecture
 
-## 18.1 Product Technical Design Specification
+## 24.1 Product Technical Design Specification
 
-This document specifies an OpenAI-compatible API router for the Genius Cognitive System (GCS). The feature allows existing OpenAI-compatible clients, SDKs, agents, IDE integrations, and enterprise applications to submit API requests through a Cloudflare-fronted endpoint while the actual work is executed by the GNUS.ai peer-to-peer cognitive network.
+This document specifies an OpenAI-compatible API router for the Genius Cognitive System (GCS). The feature allows existing OpenAI-compatible clients, SDKs, agents, IDE integrations, websites, IDE plugins, enterprise applications, and automation systems to submit standard OpenAI-style API requests while the actual work is executed through the GNUS.ai peer-to-peer cognitive network.
 
 The core design rule is:
 
 > The API router does not schedule inference directly. It translates OpenAI-compatible calls into signed GNUS.ai democratized queue jobs.
 
-This keeps the public developer surface familiar while preserving the GNUS.ai distributed execution model underneath.
+This preserves the GNUS.ai distributed execution model while giving developers a familiar API surface. Developers should be able to switch existing tools by changing the API base URL and API key, without learning the p2p network internals.
 
-The design extends the existing processing task queue with a new higher-level job class for API request/response orchestration. This job class is intentionally different from strict AI processing chunk jobs. Existing processing chunk jobs remain the low-level unit of compute. API request jobs become the higher-level unit that owns external client lifecycle, OpenAI API compatibility, streaming, authentication, policy, metering, orchestration, and result packaging.
+This design extends the existing processing task queue with a higher-level job class for API request/response orchestration. That job class is intentionally different from strict AI processing chunk jobs. Existing processing chunk jobs remain the low-level unit of compute. API request jobs become the higher-level unit that owns external client lifecycle, OpenAI API compatibility, streaming, authentication, policy, metering, orchestration, and result packaging.
 
 ---
 
-## 18.2 Background and Current Queue Context
+## 24.2 Background and Current Queue Context
 
-The current GNUS/SuperGenius queue implementation is a CRDT-backed processing queue built around `SGProcessing::Task`, `SGProcessing::SubTask`, locks, completion records, and task results.
+The current GNUS/SuperGenius processing queue is a CRDT-backed task queue built around `SGProcessing::Task`, `SGProcessing::SubTask`, task locks, completion records, and task results.
 
 The current queue behavior can be summarized as:
 
@@ -31,7 +31,7 @@ The current queue behavior can be summarized as:
 - `MoveExpiredTaskLock(taskKey, task)` allows a timed-out locked task to be reclaimed.
 - `MarkTaskBad(taskKey)` blacklists a bad task locally so the worker will not keep retrying broken jobs.
 
-That design is good for democratized distributed work pickup. However, OpenAI-compatible API requests have lifecycle needs that do not fit cleanly into the current strict AI processing chunk model:
+That design is good for democratized distributed work pickup. However, OpenAI-compatible API requests have lifecycle requirements that do not fit cleanly into the current strict processing chunk model:
 
 - HTTP request/response lifecycle
 - streaming Server-Sent Events
@@ -47,28 +47,28 @@ That design is good for democratized distributed work pickup. However, OpenAI-co
 - partial result streaming
 - retry/requeue semantics that preserve the external API contract
 
-Therefore, the queue should support a new higher-level job type: the **GCS API Request Job**.
+Therefore, the queue should support a higher-level **GCS API Request Job** type.
 
 ---
 
-## 18.3 Goals
+## 24.3 Goals
 
-### 18.3.1 Primary goals
+### 24.3.1 Primary Goals
 
 - Provide an OpenAI-compatible API surface for GCS.
 - Allow existing OpenAI SDK users to switch to GNUS.ai by changing `base_url` and API key.
-- Convert API calls into signed GCS jobs.
+- Convert API calls into signed GCS API request jobs.
 - Allow online GNUS/GCS nodes to register capabilities through pub/sub.
-- Allow eligible nodes to pick up API jobs using the GNUS.ai democratized queue mechanics.
+- Allow eligible nodes to pick up API jobs using GNUS.ai democratized queue mechanics.
 - Keep Cloudflare/API ingress lightweight.
 - Keep actual execution inside the p2p GNUS.ai system.
 - Add a higher-level queue job type for request/response orchestration.
 - Preserve existing processing chunk behavior for lower-level compute tasks.
-- Support public, private, local-only, and hybrid routing policies.
+- Support public, private, local-only, gateway-local, and hybrid routing policies.
 - Support streaming and blocking responses.
-- Support metering, billing, reward, and settlement hooks.
+- Support metering, billing, reward, reputation, and settlement hooks.
 
-### 18.3.2 Developer experience goals
+### 24.3.2 Developer Experience Goals
 
 A developer should be able to use a standard OpenAI SDK:
 
@@ -100,7 +100,7 @@ The client should receive normal OpenAI-compatible responses while GCS handles d
 
 ---
 
-## 18.4 Non-goals for MVP
+## 24.4 Non-Goals for MVP
 
 MVP should not attempt to implement every OpenAI API or every future GCS orchestration mode.
 
@@ -110,7 +110,7 @@ MVP does not need:
 - Fine-tuning API compatibility.
 - Image generation.
 - Realtime audio.
-- Tool-call execution against arbitrary external systems.
+- Arbitrary external tool execution.
 - Full distributed token-by-token decoding.
 - Multi-node speculative decoding.
 - Global consensus for every API response.
@@ -121,7 +121,7 @@ MVP does not need:
 
 ---
 
-## 18.5 Core Design Principle
+## 24.5 Core Design Principle
 
 The API layer should not become a centralized inference scheduler.
 
@@ -130,21 +130,21 @@ Instead:
 1. API clients send OpenAI-compatible HTTP requests.
 2. Cloudflare authenticates and rate-limits the request.
 3. The API router normalizes the request.
-4. The router creates a signed `GCS_API_REQUEST` job.
+4. The router creates a signed `GCS_API_REQUEST_JOB`.
 5. The job is published into the GNUS.ai pub/sub and CRDT-backed queue system.
 6. Online nodes that have registered matching capabilities can claim the job.
 7. The winning node or queue-selected node executes the API request job.
 8. The API request job may create one or more lower-level processing jobs.
-9. Results are published back to a result channel.
+9. Results are published back to a result channel or stream channel.
 10. The API router converts results into OpenAI-compatible JSON or SSE chunks.
 
 The router is an adapter, not the brain.
 
 ---
 
-## 18.6 Job Type Split
+## 24.6 Job Type Split
 
-### 18.6.1 Existing job type: processing chunk job
+### 24.6.1 Existing Job Type: Processing Chunk Job
 
 The existing processing queue should continue to support strict AI processing chunk jobs.
 
@@ -169,7 +169,7 @@ Properties:
 - generally stores result through `TaskResult`
 - may be one of many child jobs under a larger request
 
-### 18.6.2 New job type: API request job
+### 24.6.2 New Job Type: API Request Job
 
 A GCS API request job is a higher-level orchestration job.
 
@@ -193,11 +193,11 @@ Properties:
 - owns metering and billing envelope
 - may create zero, one, or many processing chunk jobs
 - may return a result without child chunks if one node can execute directly
-- may be routed through public, private, hybrid, or local-only queues
+- may be routed through public, private, hybrid, local-only, or gateway-local queues
 - is signed by the API gateway or trusted tenant ingress
 - records audit metadata and request provenance
 
-### 18.6.3 Why this split matters
+### 24.6.3 Why This Split Matters
 
 Do not force OpenAI-compatible HTTP semantics into processing chunks.
 
@@ -227,7 +227,7 @@ API Request Job
 
 ---
 
-## 18.7 Architecture Overview
+## 24.7 Architecture Overview
 
 ```text
 OpenAI-Compatible Client
@@ -275,9 +275,9 @@ Client
 
 ---
 
-## 18.8 Components
+## 24.8 Components
 
-### 18.8.1 Cloudflare Edge
+### 24.8.1 Cloudflare Edge
 
 Cloudflare provides the public HTTP edge.
 
@@ -296,7 +296,7 @@ Responsibilities:
 
 Cloudflare should not maintain long-lived libP2P participation. It should forward valid requests to a GCS API Router or Gateway service that can maintain p2p network connections.
 
-### 18.8.2 GCS API Router
+### 24.8.2 GCS API Router
 
 The API Router speaks OpenAI-compatible HTTP externally and GCS job protocol internally.
 
@@ -311,7 +311,7 @@ Responsibilities:
 - attach tenant/project identity
 - attach policy envelope
 - estimate token/cost limits
-- create signed `GCS_API_REQUEST` job envelope
+- create signed `GCS_API_REQUEST_JOB` envelope
 - publish to GCS Gateway
 - subscribe to result/stream channels
 - convert internal errors to OpenAI-compatible errors
@@ -319,7 +319,7 @@ Responsibilities:
 - record API-level usage
 - handle client disconnect and cancellation
 
-### 18.8.3 GCS Gateway Node
+### 24.8.3 GCS Gateway Node
 
 The GCS Gateway Node bridges the HTTP/API world into the GNUS.ai p2p world.
 
@@ -337,7 +337,7 @@ Responsibilities:
 - expose job status back to API Router
 - optionally act as aggregator for MVP
 
-### 18.8.4 Online GCS Worker Nodes
+### 24.8.4 Online GCS Worker Nodes
 
 Worker nodes register their availability and capabilities.
 
@@ -353,7 +353,7 @@ Responsibilities:
 - sign claims and results
 - report usage and execution metrics
 
-### 18.8.5 Router / Planner Node
+### 24.8.5 Router / Planner Node
 
 A Router / Planner node may execute the API request job if the request requires decomposition.
 
@@ -366,7 +366,7 @@ Responsibilities:
 - combine child results
 - return final answer or stream to aggregator
 
-### 18.8.6 Aggregator Node
+### 24.8.6 Aggregator Node
 
 The aggregator receives partial results and produces a final response.
 
@@ -384,9 +384,9 @@ For MVP, the API Gateway or first worker can act as aggregator.
 
 ---
 
-## 18.9 Pub/Sub Channels
+## 24.9 Pub/Sub Channels
 
-### 18.9.1 Capability registration channels
+### 24.9.1 Capability Registration Channels
 
 Nodes should register on capability channels.
 
@@ -403,7 +403,7 @@ gcs.capabilities.aggregator
 gcs.capabilities.private.<tenant_id>
 ```
 
-### 18.9.2 API job channels
+### 24.9.2 API Job Channels
 
 API request jobs should publish to API-specific channels.
 
@@ -419,7 +419,7 @@ gcs.api.jobs.private.<tenant_id>
 gcs.api.jobs.local.<swarm_id>
 ```
 
-### 18.9.3 Processing chunk channels
+### 24.9.3 Processing Chunk Channels
 
 Existing processing jobs can continue to use existing processing topics.
 
@@ -433,35 +433,21 @@ gcs.processing.jobs.verify
 gcs.processing.jobs.ipfs
 ```
 
-### 18.9.4 Result channels
+### 24.9.4 Result, Stream, and Claim Channels
 
-Each API job should receive a unique result channel.
+Each API job should receive unique channels:
 
 ```text
 gcs.api.results.<job_id>
-```
-
-### 18.9.5 Stream channels
-
-Streaming jobs should receive a unique stream channel.
-
-```text
 gcs.api.stream.<job_id>
-```
-
-### 18.9.6 Claim channels
-
-Claims may be published to a job-specific claim channel or written as CRDT claim records.
-
-```text
 gcs.api.claims.<job_id>
 ```
 
 ---
 
-## 18.10 Node Registration
+## 24.10 Node Registration
 
-### 18.10.1 Registration envelope
+### 24.10.1 Registration Envelope
 
 A node registration is a signed, short-lived capability advertisement.
 
@@ -496,13 +482,6 @@ A node registration is a signed, short-lived capability advertisement.
       "tasks": ["chat", "completion"]
     }
   ],
-  "hardware": {
-    "cpu_threads": 16,
-    "ram_mb": 32768,
-    "gpu": "Apple M2 Ultra",
-    "vram_mb": 196608,
-    "backends": ["mlx", "mnn", "ggml", "vulkan"]
-  },
   "queue": {
     "max_concurrent_api_jobs": 2,
     "max_concurrent_processing_jobs": 8,
@@ -526,7 +505,7 @@ A node registration is a signed, short-lived capability advertisement.
 }
 ```
 
-### 18.10.2 Heartbeat rules
+### 24.10.2 Heartbeat Rules
 
 - Registrations are short-lived.
 - Nodes must refresh before expiration.
@@ -538,9 +517,9 @@ A node registration is a signed, short-lived capability advertisement.
 
 ---
 
-## 18.11 API Request Job Envelope
+## 24.11 API Request Job Envelope
 
-### 18.11.1 Required fields
+### 24.11.1 Required Fields
 
 ```json
 {
@@ -590,8 +569,9 @@ A node registration is a signed, short-lived capability advertisement.
   },
   "limits": {
     "claim_timeout_ms": 1000,
-    "first_token_timeout_ms": 5000,
-    "wall_timeout_ms": 30000,
+    "first_token_timeout_ms": 10000,
+    "idle_stream_timeout_ms": 30000,
+    "wall_timeout_ms": 120000,
     "max_cost_gnus": "auto",
     "max_requeues": 2
   },
@@ -601,12 +581,12 @@ A node registration is a signed, short-lived capability advertisement.
     "claim_channel": "gcs.api.claims.gcsapi_01J..."
   },
   "created_at_ms": 1783468800000,
-  "expires_at_ms": 1783468830000,
+  "expires_at_ms": 1783468920000,
   "signature": "..."
 }
 ```
 
-### 18.11.2 Payload storage modes
+### 24.11.2 Payload Storage Modes
 
 The job envelope should not always inline the prompt.
 
@@ -621,11 +601,9 @@ gateway_ref
 tenant_private_ref
 ```
 
-MVP can use `inline` for public test traffic and `gateway_ref` for larger bodies.
+MVP can use `inline` for public test traffic and `gateway_ref` for larger bodies. Production should support encrypted payload references so job discovery does not leak sensitive prompts.
 
-Production should support encrypted payload references so job discovery does not leak sensitive prompts.
-
-### 18.11.3 Routing modes
+### 24.11.3 Routing Modes
 
 Supported routing modes:
 
@@ -647,9 +625,9 @@ Definitions:
 
 ---
 
-## 18.12 Claim and Lock Semantics
+## 24.12 Claim, Lock, and Lease Semantics
 
-### 18.12.1 First valid claim MVP
+### 24.12.1 First Valid Claim MVP
 
 MVP should use a simple policy:
 
@@ -671,7 +649,7 @@ A claim is valid if:
 - node signature verifies
 - job has not already been claimed or completed
 
-### 18.12.2 Claim envelope
+### 24.12.2 Claim Envelope
 
 ```json
 {
@@ -698,27 +676,9 @@ A claim is valid if:
 }
 ```
 
-### 18.12.3 Claim acceptance
+### 24.12.3 Lease Rules
 
-The gateway or queue layer accepts the first valid claim and writes a job lock/lease.
-
-The lock should include:
-
-```json
-{
-  "job_id": "gcsapi_01J...",
-  "claim_id": "claim_01J...",
-  "node_id": "gnusnode_abc",
-  "lease_started_at_ms": 1783468800100,
-  "lease_expires_at_ms": 1783468830100,
-  "renewable": true,
-  "signature": "..."
-}
-```
-
-### 18.12.4 Lease renewal
-
-API request jobs may live longer than the existing short processing lock timeout. Therefore API job locks should be leases, not just one-shot locks.
+API request jobs may live longer than short processing locks, especially for streaming. Therefore API job locks should be leases, not just one-shot locks.
 
 Rules:
 
@@ -728,35 +688,28 @@ Rules:
 - final result closes lease
 - cancellation revokes lease
 
-### 18.12.5 Relationship to existing task locks
-
-Existing `LockTask()` behavior can remain for processing chunks.
-
-API jobs should use a new lock namespace to avoid confusing:
-
-- API request leases
-- processing chunk locks
+Existing `LockTask()` behavior can remain for processing chunks. API jobs should use a separate lock namespace so API request leases and processing chunk locks are not confused.
 
 Proposed namespaces:
 
 ```text
-/api/jobs/<job_id>
-/api/claims/<job_id>/<claim_id>
-/api/locks/<job_id>
-/api/results/<job_id>
-/api/streams/<job_id>/<sequence>
+/gcs/api/jobs/<job_id>
+/gcs/api/claims/<job_id>/<claim_id>
+/gcs/api/leases/<job_id>
+/gcs/api/results/<job_id>
+/gcs/api/streams/<job_id>/<sequence>
 
-/processing/tasks/<task_id>
-/processing/subtasks/<task_id>/<subtask_id>
-/processing/locks/<task_key>
-/processing/results/<task_id>
+/gcs/processing/tasks/<task_id>
+/gcs/processing/subtasks/<task_id>/<subtask_id>
+/gcs/processing/locks/<task_key>
+/gcs/processing/results/<task_id>
 ```
 
 ---
 
-## 18.13 API Job Lifecycle
+## 24.13 API Job Lifecycle
 
-### 18.13.1 States
+### 24.13.1 States
 
 ```text
 created
@@ -776,7 +729,7 @@ expired
 requeued
 ```
 
-### 18.13.2 Lifecycle flow
+### 24.13.2 Lifecycle Flow
 
 ```text
 1. API request received.
@@ -797,7 +750,7 @@ requeued
 14. Usage and settlement records are emitted.
 ```
 
-### 18.13.3 Cancellation flow
+### 24.13.3 Cancellation Flow
 
 Cancellation can occur when:
 
@@ -820,9 +773,9 @@ Flow:
 
 ---
 
-## 18.14 Child Processing Jobs
+## 24.14 Child Processing Jobs
 
-### 18.14.1 When to create child jobs
+### 24.14.1 When to Create Child Jobs
 
 An API request job may create child processing jobs when:
 
@@ -835,7 +788,7 @@ An API request job may create child processing jobs when:
 - private and public hybrid execution is needed
 - memory hydration requires multiple shards
 
-### 18.14.2 Child job reference
+### 24.14.2 Child Job Reference
 
 Each child processing job should reference the parent API job.
 
@@ -853,27 +806,15 @@ Each child processing job should reference the parent API job.
 }
 ```
 
-### 18.14.3 Parent/child result aggregation
+The parent API job is not complete until all required child jobs complete, enough child jobs complete to satisfy quorum, timeout policy allows partial result, or failure policy aborts the request.
 
-The parent API job is not complete until:
-
-- all required child jobs complete,
-- enough child jobs complete to satisfy quorum,
-- timeout policy allows partial result,
-- or failure policy aborts the request.
-
-Aggregation can happen at:
-
-- claiming worker
-- router/planner node
-- aggregator node
-- gateway node for MVP
+Aggregation can happen at the claiming worker, router/planner node, aggregator node, or gateway node for MVP.
 
 ---
 
-## 18.15 OpenAI-Compatible API Surface
+## 24.15 OpenAI-Compatible API Surface
 
-### 18.15.1 `/v1/models`
+### 24.15.1 `/v1/models`
 
 Returns available GNUS model aliases.
 
@@ -883,36 +824,16 @@ Example response:
 {
   "object": "list",
   "data": [
-    {
-      "id": "gnus-auto",
-      "object": "model",
-      "owned_by": "gnus.ai"
-    },
-    {
-      "id": "gnus-small",
-      "object": "model",
-      "owned_by": "gnus.ai"
-    },
-    {
-      "id": "gnus-rag",
-      "object": "model",
-      "owned_by": "gnus.ai"
-    },
-    {
-      "id": "gnus-code",
-      "object": "model",
-      "owned_by": "gnus.ai"
-    },
-    {
-      "id": "gnus-embed",
-      "object": "model",
-      "owned_by": "gnus.ai"
-    }
+    { "id": "gnus-auto", "object": "model", "owned_by": "gnus.ai" },
+    { "id": "gnus-small", "object": "model", "owned_by": "gnus.ai" },
+    { "id": "gnus-rag", "object": "model", "owned_by": "gnus.ai" },
+    { "id": "gnus-code", "object": "model", "owned_by": "gnus.ai" },
+    { "id": "gnus-embed", "object": "model", "owned_by": "gnus.ai" }
   ]
 }
 ```
 
-### 18.15.2 `/v1/chat/completions`
+### 24.15.2 `/v1/chat/completions`
 
 MVP supported fields:
 
@@ -929,7 +850,7 @@ MVP supported fields:
 
 MVP should tolerate unsupported OpenAI fields by ignoring them unless strict compatibility mode is enabled.
 
-### 18.15.3 `/v1/embeddings`
+### 24.15.3 `/v1/embeddings`
 
 Embeddings route to embedding-capable nodes.
 
@@ -942,7 +863,7 @@ MVP supported fields:
 }
 ```
 
-### 18.15.4 GNUS extension object
+### 24.15.4 GNUS Extension Object
 
 Advanced clients may include a `gnus` object.
 
@@ -950,10 +871,7 @@ Advanced clients may include a `gnus` object.
 {
   "model": "gnus-auto",
   "messages": [
-    {
-      "role": "user",
-      "content": "Summarize these docs."
-    }
+    { "role": "user", "content": "Summarize these docs." }
   ],
   "stream": true,
   "gnus": {
@@ -970,7 +888,7 @@ Advanced clients may include a `gnus` object.
     },
     "limits": {
       "max_cost_gnus": "auto",
-      "wall_timeout_ms": 30000
+      "wall_timeout_ms": 120000
     }
   }
 }
@@ -980,9 +898,131 @@ OpenAI clients that do not use this object remain compatible.
 
 ---
 
-## 18.16 Streaming
+## 24.16 Streaming Proxy Requirements
 
-### 18.16.1 Internal stream chunk
+Streaming must be treated as a first-class transport mode, not as a delayed blocking response.
+
+The API proxy must stream chunks incrementally to standard OpenAI SDK clients while bridging the GNUS.ai p2p stream channel safely, with bounded buffering, cancellation, timeout handling, ordering, and usage accounting.
+
+### 24.16.1 Streaming Proxy Responsibilities
+
+For `stream: true`, the API proxy is responsible for maintaining a live Server-Sent Events response to the client while bridging one or more internal GCS stream channels from the p2p network.
+
+Required proxy responsibilities:
+
+- send HTTP response headers before the first model token when possible
+- use `Content-Type: text/event-stream`
+- use `Cache-Control: no-cache, no-transform`
+- disable response buffering where supported
+- flush each OpenAI-compatible chunk as soon as it is available
+- preserve chunk order using internal sequence numbers
+- emit keepalive comments while waiting for first token or during long gaps
+- detect client disconnects
+- publish cancellation to the GCS job when the client disconnects
+- enforce first-token timeout
+- enforce idle stream timeout
+- enforce total wall-clock timeout
+- convert internal GCS stream chunks into OpenAI-compatible SSE chunks
+- convert terminal worker errors into OpenAI-compatible error events when the client is still connected
+- always send `data: [DONE]` after a clean finish
+- record partial usage even when the client disconnects before completion
+
+The API proxy should never buffer the full completion before returning it to the client when `stream: true`.
+
+### 24.16.2 Recommended Streaming Headers
+
+For streaming responses, the API proxy should send:
+
+```http
+HTTP/1.1 200 OK
+Content-Type: text/event-stream; charset=utf-8
+Cache-Control: no-cache, no-transform
+Connection: keep-alive
+X-Accel-Buffering: no
+```
+
+When running behind Cloudflare or another edge proxy, the implementation must verify that response buffering is not delaying chunks. The system must test real client-visible time-to-first-byte and time-to-first-token, not just internal worker timings.
+
+Important metrics:
+
+- client-visible time-to-first-byte
+- client-visible time-to-first-token
+- internal job publication latency
+- claim latency
+- model warmup latency
+- worker first-token latency
+- proxy flush latency
+
+### 24.16.3 First-Token Behavior
+
+The API proxy should open the SSE stream quickly after the API request is accepted and the job is published.
+
+If the worker has not produced a token yet, the proxy may send an SSE keepalive comment:
+
+```text
+: gcs job accepted
+
+```
+
+This prevents some clients and intermediaries from treating the connection as idle while the GCS queue is claiming the job or the worker is warming the model.
+
+The keepalive comment must not be sent as an OpenAI `data:` chunk because OpenAI SDKs expect `data:` frames to contain valid completion chunk JSON or `[DONE]`.
+
+Recommended first-token flow:
+
+```text
+1. Client sends stream request.
+2. Proxy validates request.
+3. Proxy publishes GCS API request job.
+4. Proxy opens SSE response.
+5. Proxy sends optional keepalive comment.
+6. Worker claims job.
+7. Worker emits first internal stream chunk.
+8. Proxy converts it to OpenAI-compatible SSE.
+9. Proxy flushes chunk immediately.
+```
+
+### 24.16.4 Internal-to-External Stream Bridge
+
+The proxy bridges:
+
+```text
+gcs.api.stream.<job_id>
+```
+
+into:
+
+```text
+data: {openai-compatible chunk json}\n\n
+```
+
+The bridge should maintain per-job stream state:
+
+```json
+{
+  "job_id": "gcsapi_01J...",
+  "client_request_id": "req_abc",
+  "stream_id": "chatcmpl_gnus_123",
+  "last_sequence_sent": 12,
+  "first_byte_sent": true,
+  "first_token_sent": true,
+  "client_connected": true,
+  "worker_node_id": "gnusnode_abc",
+  "started_at_ms": 1783468800000,
+  "last_chunk_at_ms": 1783468801200
+}
+```
+
+The proxy should reject, ignore, or quarantine chunks that:
+
+- fail signature verification
+- are for the wrong job ID
+- are from a node that does not hold the accepted job lease
+- repeat a sequence number already sent
+- arrive after a terminal result
+- violate the requested response format
+
+### 24.16.5 Internal Stream Chunk
 
 ```json
 {
@@ -1004,7 +1044,7 @@ OpenAI clients that do not use this object remain compatible.
 }
 ```
 
-### 18.16.2 External OpenAI-compatible chunk
+### 24.16.6 External OpenAI-Compatible Chunk
 
 ```text
 data: {
@@ -1030,19 +1070,189 @@ Final event:
 data: [DONE]
 ```
 
-### 18.16.3 Stream ordering
+### 24.16.7 Backpressure and Slow Clients
 
-- chunks must include monotonic sequence numbers
-- duplicate sequence numbers should be ignored
-- missing sequence numbers should trigger a short reorder buffer
-- final result should include total usage
-- worker signature should cover job ID, node ID, sequence, delta hash, and timestamp
+The API proxy must not allow one slow client to create unbounded memory growth.
+
+Required behavior:
+
+- maintain a bounded outgoing stream buffer per request
+- pause or slow reads from the internal stream when the client is backpressured, if supported by the runtime
+- drop or cancel the job if the outgoing buffer exceeds the configured maximum
+- record cancellation reason as `client_backpressure` when the client cannot keep up
+- do not continue expensive p2p generation after the client is gone unless the request explicitly asked for detached/background completion
+
+Recommended MVP defaults:
+
+```text
+max_stream_buffer_bytes: 262144
+stream_keepalive_interval_ms: 15000
+first_token_timeout_ms: 10000
+idle_stream_timeout_ms: 30000
+max_stream_wall_time_ms: 120000
+```
+
+These values should be tenant/model configurable.
+
+### 24.16.8 Disconnect and Cancellation Semantics
+
+When the client disconnects, the proxy should immediately publish a cancellation message:
+
+```json
+{
+  "message_type": "GCS_API_CANCELLATION",
+  "version": 1,
+  "job_id": "gcsapi_01J...",
+  "reason": "client_disconnected",
+  "last_sequence_sent": 42,
+  "partial_usage": {
+    "output_tokens_sent": 42
+  },
+  "created_at_ms": 1783468810000,
+  "signature": "..."
+}
+```
+
+Workers must treat cancellation as a best-effort stop signal. If the worker already generated additional chunks, those chunks should not be forwarded after disconnect.
+
+The usage record should distinguish:
+
+- tokens generated
+- tokens sent to client
+- compute already consumed
+- cancellation reason
+
+This matters for billing, node rewards, and abuse detection.
+
+### 24.16.9 Requeue During Streaming
+
+If a worker fails before producing any user-visible token, the gateway may requeue the job transparently as long as the external first-token timeout and wall-clock timeout still allow it.
+
+If a worker fails after tokens have already been sent to the client, the proxy should not silently switch to a different worker unless the response format supports continuation safely.
+
+For MVP, the correct behavior after visible tokens have been sent is:
+
+- terminate the stream with an error if possible, or
+- close the stream and mark the job failed, or
+- return a final chunk with `finish_reason: "error"` only if the client compatibility layer supports it
+
+The system should avoid producing a stream where the first half came from one model/node and the second half came from another without explicit aggregation support.
+
+### 24.16.10 Pre-Stream vs Post-Stream Errors
+
+OpenAI-compatible streaming is awkward when an error happens after the HTTP status has already been sent as `200 OK`.
+
+Therefore the proxy should distinguish:
+
+```text
+pre-stream errors
+post-stream errors
+```
+
+If no SSE bytes have been sent yet, return a normal OpenAI-compatible JSON error with the correct HTTP status.
+
+If SSE output has already started, the proxy cannot reliably change the HTTP status code. For MVP, the proxy should emit an SSE error-shaped chunk only when compatible clients tolerate it, then close the stream.
+
+Suggested policy:
+
+```text
+if first_token_sent == false:
+    requeue_or_return_json_error
+else:
+    emit_stream_error_if_supported
+    close_stream
+    mark_job_failed_after_partial_output
+```
+
+The final usage record must record that the request failed after partial output.
+
+### 24.16.11 Stream Ordering and Replay Protection
+
+Internal chunks must include monotonic sequence numbers and signatures.
+
+Required behavior:
+
+- `sequence` starts at 0 or 1 and increases by 1
+- proxy tracks `last_sequence_sent`
+- duplicate chunks are ignored
+- small out-of-order gaps may be buffered briefly
+- large or persistent gaps terminate the stream
+- chunks after terminal result are ignored
+- chunks from non-lease-holder nodes are rejected
+- chunk signatures must cover job ID, node ID, sequence, delta hash, and timestamp
+
+Recommended reorder buffer:
+
+```text
+max_reorder_gap: 8 chunks
+max_reorder_wait_ms: 250
+```
+
+For MVP, if chunk ordering becomes complicated, prefer fail-fast over delivering corrupt token order.
+
+### 24.16.12 Cloudflare and Runtime Boundary
+
+Cloudflare can be the public HTTP edge, but the implementation should avoid relying on a Cloudflare Worker as a permanent p2p node.
+
+Recommended split:
+
+```text
+Cloudflare Worker / edge route
+    handles public HTTPS request, auth precheck, rate limit, and SSE response
+
+GCS Gateway service
+    maintains libP2P connections, publishes jobs, receives stream chunks, verifies worker messages
+```
+
+The Cloudflare edge and GCS Gateway may communicate over a normal internal HTTP/WebSocket stream, Durable Object, queue, or tunnel-backed service depending on deployment.
+
+The important architectural boundary is:
+
+```text
+Cloudflare handles web ingress.
+GCS Gateway handles p2p participation.
+```
+
+### 24.16.13 Streaming Test Matrix
+
+Streaming is not done until it works with real clients.
+
+Required tests:
+
+- OpenAI JavaScript SDK with `stream: true`
+- OpenAI Python SDK with `stream: true`
+- `curl -N` SSE test
+- browser `EventSource` or fetch streaming test where applicable
+- slow client test
+- client disconnect test
+- worker timeout before first token
+- worker timeout after partial tokens
+- duplicate internal chunk test
+- out-of-order internal chunk test
+- gateway restart during stream
+- Cloudflare buffering regression test
+- large response test
+- concurrent streaming requests test
+
+### 24.16.14 Streaming Acceptance Criteria
+
+Streaming is acceptable for MVP only when:
+
+- a standard OpenAI JavaScript SDK can consume `stream: true`
+- a standard OpenAI Python SDK can consume `stream: true`
+- chunks arrive incrementally, not buffered until completion
+- first-token latency is measured externally at the client
+- disconnect cancels the GCS job
+- slow clients cannot create unbounded proxy memory growth
+- duplicate and out-of-order internal chunks do not corrupt the external stream
+- every clean stream ends with `data: [DONE]`
+- usage records distinguish generated tokens from delivered tokens
 
 ---
 
-## 18.17 Result Envelope
+## 24.17 Result Envelope
 
-### 18.17.1 Final result
+### 24.17.1 Final Result
 
 ```json
 {
@@ -1078,6 +1288,7 @@ data: [DONE]
   "metering": {
     "input_tokens": 100,
     "output_tokens": 50,
+    "tokens_sent_to_client": 50,
     "compute_ms": 1840,
     "child_jobs": 0,
     "cost_gnus": "0.0031"
@@ -1092,7 +1303,7 @@ data: [DONE]
 }
 ```
 
-### 18.17.2 Error result
+### 24.17.2 Error Result
 
 ```json
 {
@@ -1124,9 +1335,9 @@ External OpenAI-compatible error:
 
 ---
 
-## 18.18 Queue Fairness and Democratized Pickup
+## 24.18 Queue Fairness and Democratized Pickup
 
-### 18.18.1 MVP policy
+### 24.18.1 MVP Policy
 
 MVP uses:
 
@@ -1136,7 +1347,7 @@ first valid claim wins
 
 This matches the simplest form of democratized pickup and is easy to reason about.
 
-### 18.18.2 Later policies
+### 24.18.2 Later Policies
 
 Future queue policies may include:
 
@@ -1152,7 +1363,7 @@ private_pool_round_robin
 verification_required_multi_claim
 ```
 
-### 18.18.3 Fairness state
+### 24.18.3 Fairness State
 
 The queue should eventually track:
 
@@ -1171,9 +1382,9 @@ This allows democratized routing without letting the fastest spammer always win 
 
 ---
 
-## 18.19 Requeue and Retry
+## 24.19 Requeue and Retry
 
-### 18.19.1 Requeue reasons
+### 24.19.1 Requeue Reasons
 
 An API job may be requeued when:
 
@@ -1188,7 +1399,7 @@ An API job may be requeued when:
 - stream stalls beyond timeout
 - result signature fails verification
 
-### 18.19.2 Requeue envelope
+### 24.19.2 Requeue Envelope
 
 ```json
 {
@@ -1204,22 +1415,13 @@ An API job may be requeued when:
 }
 ```
 
-### 18.19.3 Requeue limits
-
-Each API request job should include:
-
-- maximum requeue count
-- total wall-clock timeout
-- first-token timeout
-- result timeout
-- excluded failed nodes
-- partial result policy
+Each API request job should include maximum requeue count, total wall-clock timeout, first-token timeout, result timeout, excluded failed nodes, and partial result policy.
 
 ---
 
-## 18.20 Security and Privacy
+## 24.20 Security and Privacy
 
-### 18.20.1 API key security
+### 24.20.1 API Key Security
 
 - API keys must be hashed at rest.
 - API keys must be scoped to tenant/project.
@@ -1227,7 +1429,7 @@ Each API request job should include:
 - API keys may restrict public network usage.
 - API keys may require private-only execution.
 
-### 18.20.2 Job signature requirements
+### 24.20.2 Job Signature Requirements
 
 These messages must be signed:
 
@@ -1242,7 +1444,7 @@ These messages must be signed:
 - cancellation
 - requeue
 
-### 18.20.3 Prompt privacy
+### 24.20.3 Prompt Privacy
 
 Supported privacy levels:
 
@@ -1254,11 +1456,9 @@ local_only
 metadata_minimized
 ```
 
-MVP can start with `standard` and `private_pool`.
+MVP can start with `standard` and `private_pool`. Production should support encrypted payloads and metadata-minimized job publication.
 
-Production should support encrypted payloads and metadata-minimized job publication.
-
-### 18.20.4 Public queue leakage
+### 24.20.4 Public Queue Leakage
 
 Public job channels must not leak sensitive prompts by default.
 
@@ -1273,9 +1473,9 @@ For sensitive jobs:
 
 ---
 
-## 18.21 Metering, Rewards, and Settlement
+## 24.21 Metering, Rewards, and Settlement
 
-### 18.21.1 Usage record
+### 24.21.1 Usage Record
 
 ```json
 {
@@ -1290,7 +1490,8 @@ For sensitive jobs:
   "api_type": "chat.completion",
   "network": "public",
   "input_tokens": 812,
-  "output_tokens": 266,
+  "output_tokens_generated": 266,
+  "output_tokens_sent_to_client": 266,
   "embedding_tokens": 0,
   "retrieval_chunks": 0,
   "child_jobs": 0,
@@ -1298,12 +1499,13 @@ For sensitive jobs:
   "first_token_ms": 800,
   "wall_ms": 7000,
   "cost_gnus": "0.0031",
+  "cancellation_reason": null,
   "created_at_ms": 1783468807000,
   "signature": "..."
 }
 ```
 
-### 18.21.2 Settlement hooks
+### 24.21.2 Settlement Hooks
 
 The usage record should feed:
 
@@ -1317,9 +1519,9 @@ The usage record should feed:
 
 ---
 
-## 18.22 Data Model Changes
+## 24.22 Data Model Changes
 
-### 18.22.1 New protobuf/message concepts
+### 24.22.1 New Message Concepts
 
 Recommended new messages:
 
@@ -1336,7 +1538,7 @@ GCSApiCancellation
 GCSApiRequeue
 ```
 
-### 18.22.2 Existing processing messages remain
+### 24.22.2 Existing Processing Messages Remain
 
 Existing concepts remain:
 
@@ -1347,7 +1549,7 @@ SGProcessing::TaskLock
 SGProcessing::TaskResult
 ```
 
-### 18.22.3 Optional unified queue wrapper
+### 24.22.3 Optional Unified Queue Wrapper
 
 A future unified queue wrapper could use a `oneof` style model:
 
@@ -1384,7 +1586,7 @@ enum GCSJobKind {
 
 ---
 
-## 18.23 CRDT Keyspace Proposal
+## 24.23 CRDT Keyspace Proposal
 
 To avoid breaking the existing processing queue, use a parallel keyspace.
 
@@ -1408,9 +1610,9 @@ Existing processing queue keyspace remains separate.
 
 ---
 
-## 18.24 MVP Implementation Plan
+## 24.24 MVP Implementation Plan
 
-### Phase 1: API compatibility shell
+### 24.24.1 Phase 1: API Compatibility Shell
 
 Deliver:
 
@@ -1426,7 +1628,7 @@ Deliver:
 
 Execution can initially route to one controlled GCS node.
 
-### Phase 2: API request job schema
+### 24.24.2 Phase 2: API Request Job Schema
 
 Deliver:
 
@@ -1439,7 +1641,7 @@ Deliver:
 - OpenAI payload normalization
 - OpenAI error mapping
 
-### Phase 3: GCS gateway bridge
+### 24.24.3 Phase 3: GCS Gateway Bridge
 
 Deliver:
 
@@ -1450,7 +1652,7 @@ Deliver:
 - lease and timeout handling
 - cancellation on client disconnect
 
-### Phase 4: Node registration and claim
+### 24.24.4 Phase 4: Node Registration and Claim
 
 Deliver:
 
@@ -1462,7 +1664,7 @@ Deliver:
 - API job lease
 - stale node rejection
 
-### Phase 5: Direct worker execution
+### 24.24.5 Phase 5: Direct Worker Execution
 
 Deliver:
 
@@ -1472,7 +1674,7 @@ Deliver:
 - worker can publish final result
 - gateway converts to OpenAI-compatible response
 
-### Phase 6: Child processing jobs
+### 24.24.6 Phase 6: Child Processing Jobs
 
 Deliver:
 
@@ -1482,7 +1684,7 @@ Deliver:
 - parent aggregates child results
 - parent publishes final result
 
-### Phase 7: Metering and settlement
+### 24.24.7 Phase 7: Metering and Settlement
 
 Deliver:
 
@@ -1492,7 +1694,7 @@ Deliver:
 - tenant billing hook
 - dashboard data
 
-### Phase 8: Private and hybrid routing
+### 24.24.8 Phase 8: Private and Hybrid Routing
 
 Deliver:
 
@@ -1504,7 +1706,7 @@ Deliver:
 
 ---
 
-## 18.25 Acceptance Criteria
+## 24.25 Acceptance Criteria
 
 MVP is complete when:
 
@@ -1518,15 +1720,19 @@ MVP is complete when:
 - Claimed jobs receive leases.
 - Failed jobs can be requeued.
 - Streaming chunks are converted to OpenAI-compatible SSE.
-- Final result is returned in OpenAI-compatible JSON.
+- Streaming chunks arrive incrementally, not buffered until completion.
+- Client disconnect cancels the GCS job.
+- Slow clients cannot create unbounded proxy memory growth.
+- Final result is returned in OpenAI-compatible JSON for non-streaming requests.
 - Usage is recorded per tenant/project/API key/node.
+- Usage records distinguish generated tokens from delivered tokens.
 - Existing processing chunk jobs still work independently.
 - API request jobs can create child processing jobs in a later MVP phase.
 - Public/private/local routing policy is represented in the job envelope.
 
 ---
 
-## 18.26 Open Questions
+## 24.26 Open Questions
 
 - Should API job leases reuse any existing `TaskLock` behavior internally, or should API jobs use a fully separate lease type from day one?
 - Should the first API gateway act as the only claim validator during MVP, or should claim acceptance be CRDT-consensus visible immediately?
@@ -1536,28 +1742,11 @@ MVP is complete when:
 - What is the minimum useful settlement record for a public node reward?
 - Should the first implementation live in the GCS repo, SuperGenius repo, or a separate API gateway repo?
 - Should `GCS_API_REQUEST_JOB` be protobuf-first, JSON-first, or dual-format during early integration?
+- Should post-token streaming worker failure be represented as an SSE error chunk, a closed stream, or an OpenAI-compatible final chunk with an error finish reason?
 
 ---
 
-## 18.27 Recommended Initial File Placement
-
-Recommended path:
-
-```text
-docs/architecture/openai-compatible-api-router-and-gcs-job-queue.md
-```
-
-Recommended index title:
-
-```text
-18 OpenAI-Compatible API Router and GCS Job Queue Architecture
-```
-
-This document should sit beside `secure-agent-architecture.md` because it defines the external API ingress and queue mechanics that can feed the secure agent architecture, router/planner layer, ELM execution, memory services, verification services, and settlement/reputation layers.
-
----
-
-## 18.28 Summary
+## 24.27 Summary
 
 This feature gives GNUS.ai a simple developer-facing wedge:
 
@@ -1568,4 +1757,6 @@ Under the hood, this requires a clean queue distinction:
 - **Processing chunk jobs** remain the low-level distributed compute units.
 - **API request jobs** become the high-level request/response orchestration units.
 
-That split lets GNUS.ai preserve its democratized queue and p2p architecture while exposing a boring, familiar, OpenAI-compatible API to the outside world.
+Streaming is part of the core API request job contract, not an addendum. The proxy must bridge signed GCS stream chunks into real-time OpenAI-compatible SSE while handling buffering, ordering, disconnect cancellation, partial usage, and failure boundaries.
+
+That split lets GNUS.ai preserve its democratized queue and p2p architecture while exposing a familiar OpenAI-compatible API to the outside world.
