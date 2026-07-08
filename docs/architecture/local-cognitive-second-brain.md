@@ -198,10 +198,20 @@ The local second brain may ingest private or local context from:
 * browser research captures
 * project management systems
 * source code repositories
+* databases
+* local database files
+* internal application databases
 * CRM exports
 * support tickets
 * internal wikis
 * filesystem folders
+* local application APIs
+* local system APIs
+* operating system services and event logs
+* device, sensor, and IoT APIs
+* banking and financial data APIs
+* accounting, payment, and invoicing APIs
+* business system APIs
 * user corrections and feedback
 
 By default, second-brain memory belongs to the user, local device, enterprise account, or private subnet that generated it.
