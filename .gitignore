@@ -1,0 +1,6 @@
+site/
+doxygen-output/
+docs/architecture/python-reference/
+docs/architecture/source-reference/
+docs/architecture/SUMMARY_EXT.md
+docs/architecture/index.md
