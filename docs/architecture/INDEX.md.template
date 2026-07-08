@@ -21,4 +21,4 @@ Combining PRD + TDD + System Architecture Blueprint
 
 ## **Suggested Reading Order**
 
-Start with the executive summary and system overview, then move through the model, routing, consensus, grounding, and agentic memory sections before reviewing execution planning, risks, long-term positioning, swarm-thinking architecture, secure agent architecture, the retraining layers, epistemic arbitration, SGFP4, Objective Memory / VTG, speculative decoding candidate scheduling, and Frozen Micro-MTP edge inference.
+Start with the executive summary and system overview, then move through the model, routing, consensus, grounding, and agentic memory sections before reviewing execution planning, risks, long-term positioning, swarm-thinking architecture, secure agent architecture, the retraining layers, epistemic arbitration, SGFP4, Objective Memory / VTG, speculative decoding candidate scheduling, Frozen Micro-MTP edge inference, the OpenAI-compatible API router, and Local Cognitive Second Brain Mode.
