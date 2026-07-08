@@ -134,6 +134,23 @@ The Second Brain Agent is responsible for:
 * writing confirmed updates back into GAML
 * emitting adaptation signals to EGGROLL when appropriate
 
+### **25.6.1 Supporting Agents and Modules**
+
+The Second Brain Agent coordinates several specialized agents and modules.
+
+* **Source Observer Agents:** watch approved local sources for new, changed, or deleted information.
+* **Connector and Ingestion Agents:** pull data from files, email, calendars, local databases, local system APIs, business APIs, financial APIs, and enterprise systems into a normalized ingestion format.
+* **Extraction Agents:** convert raw source data into candidate people, organizations, projects, facts, claims, decisions, commitments, deadlines, tasks, preferences, contradictions, and memory traces.
+* **Entity Resolution Agent:** merges aliases and duplicate references across names, emails, handles, account IDs, companies, projects, vendors, systems, and source records.
+* **Memory Scoring Agent:** assigns freshness, confidence, source reliability, contradiction risk, and trust weight before memory becomes operational state.
+* **Context Packet Builder:** assembles compact task-specific context packets for local or private ELM execution.
+* **Tool Permission Agent:** checks whether the workflow may call a local API, database, banking API, operating system service, filesystem action, or business system API.
+* **Verification and Contradiction Agent:** checks generated outputs against newer facts, stale deadlines, prior decisions, conflicting records, and higher-trust sources.
+* **Writeback Agent:** writes confirmed updates, corrections, decisions, tasks, preferences, and memory traces into GAML.
+* **EGGROLL Signal Agent:** converts accepted outputs, rejected outputs, corrections, retrieval failures, and workflow outcomes into adaptation signals.
+
+These agents keep the second-brain workflow modular and testable.
+
 ---
 
 ## **25.7 EGGROLL Role**
@@ -429,10 +446,11 @@ A first implementation should include:
 1. Local source connectors for files, notes, email, calendar, and meeting transcripts.
 2. GAML object schemas for people, organizations, projects, decisions, commitments, deadlines, tasks, facts, claims, preferences, style signals, contradictions, and memory traces.
 3. A Second Brain Agent with retrieval, context-packet assembly, local ELM invocation, permitted tool use, and writeback.
-4. A human-readable memory mirror.
-5. Privacy modes for local-only, private enterprise, hybrid, and explicit swarm contribution.
-6. EGGROLL signal emission for corrections, retrieval failures, accepted outputs, rejected outputs, and repeated preferences.
-7. Validation logic for stale memory, conflicting commitments, source-grounding checks, and permission boundaries.
+4. Supporting agents for observation, ingestion, extraction, entity resolution, scoring, permission checks, verification, contradiction detection, writeback, and EGGROLL signal generation.
+5. A human-readable memory mirror.
+6. Privacy modes for local-only, private enterprise, hybrid, and explicit swarm contribution.
+7. EGGROLL signal emission for corrections, retrieval failures, accepted outputs, rejected outputs, and repeated preferences.
+8. Validation logic for stale memory, conflicting commitments, source-grounding checks, and permission boundaries.
 
 ---
 
