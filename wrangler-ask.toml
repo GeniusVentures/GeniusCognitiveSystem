@@ -2,7 +2,7 @@
 # The setup/deploy scripts substitute {{TOKENS}} from gendoc.yml.
 
 name = "genius-cognitive-system-docs-ask"
-main = "ask-ai/worker/src/index.ts"
+main = "gendoc-template/ask-ai/worker/src/index.ts"
 compatibility_date = "2024-01-01"
 
 [vars]
