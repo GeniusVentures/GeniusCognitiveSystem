@@ -1,0 +1,29 @@
+# Wrangler configuration for the Ask AI Worker.
+# The setup/deploy scripts substitute {{TOKENS}} from gendoc.yml.
+
+name = "genius-cognitive-system-docs-ask"
+main = "worker/src/index.ts"
+compatibility_date = "2024-01-01"
+
+[vars]
+LLMS_URL = "https://gcs.gnus.ai/llms.txt"
+ALLOWED_ORIGINS = "https://docs.gnus.ai,https://gcs.gnus.ai"
+SITE_URL = "https://gcs.gnus.ai"
+BOT_NAME = "Genius Cognitive System Assistant"
+PROVIDERS = "openrouter,gemini"
+GEMINI_MODEL = "gemini-2.5-flash"
+OPENROUTER_MODELS = "nvidia/nemotron-3-super-120b-a12b:free,nvidia/nemotron-3-ultra-550b-a55b:free,nvidia/nemotron-3-nano-30b-a3b:free"
+
+# Optional Cloudflare Rate Limiting binding. Verify this syntax against the
+# Wrangler version used by the repository before enabling it in production.
+# [[ratelimits]]
+# binding = "ASK_RATE_LIMITER"
+# simple = { limit = 30, period = 60 }
+
+# Secrets are configured separately:
+#   wrangler secret put GEMINI_API_KEY
+#   wrangler secret put OPENROUTER_API_KEY
+
+[[routes]]
+pattern = "ask.gnus.ai/api/*"
+zone_name = "gnus.ai"
