@@ -1,0 +1,3897 @@
+{
+  "docs": {
+    "docs:./execution-integrity-system.md": {
+      "hash": "f229c5ea198c2668",
+      "description": "How does GCS verify that nodes ran the declared model, adapter, and container rather than a cheaper substitute? Defines the Execution Integrity System (EIS), determinism classes A/B/C, checkpoint-band matching, and teacher-forced spot-checks.",
+      "category": "architecture",
+      "optional": false,
+      "exclude": false,
+      "pinned": true,
+      "nav_section": "Architecture"
+    },
+    "docs:./executive-summary.md": {
+      "hash": "a3f457179c4774f5",
+      "description": "What is the Genius Cognitive System at a high level? Covers primary/secondary goals, cognitive architecture components, Genius ELM role, and the system's positioning as a Specialized Adaptable Intelligence Fabric.",
+      "category": "architecture",
+      "optional": false,
+      "exclude": false,
+      "pinned": true,
+      "nav_section": "Architecture"
+    },
+    "docs:./system-overview.md": {
+      "hash": "855d5a3c8d7cb78d",
+      "description": "How are GCS components connected? Maps the compute layer (MNN, Vulkan, SGFP4, EIS), the component topology, and the data flow from client API through routing, execution, verification, consensus, and grounding.",
+      "category": "architecture",
+      "optional": false,
+      "exclude": false,
+      "nav_section": "Architecture"
+    },
+    "docs:./model-and-router.md": {
+      "hash": "2572aaa0e0ff8dc7",
+      "description": "What is the Semantic Core model and how does expert routing work? Defines the base model selection criteria, SGFP4 quantization strategy, ELM categories (role-based, domain-specific), and the router/planner architecture.",
+      "category": "architecture",
+      "optional": false,
+      "exclude": false,
+      "nav_section": "Architecture"
+    },
+    "docs:./reputation-consensus.md": {
+      "hash": "51d6a5d065850e02",
+      "description": "How does the reputation system score nodes and weight consensus? Defines the role-aware/domain-aware reputation data model, update formulas (accuracy, latency, safety), CRDT replication, and sybil resistance.",
+      "category": "nodes",
+      "optional": false,
+      "exclude": false,
+      "nav_section": "Architecture"
+    },
+    "docs:./grounding.md": {
+      "hash": "7b8b00c9da243400",
+      "description": "How does GCS anchor outputs to verified data? Covers the Grokipedia retrieval pipeline, private knowledge grounding, post-generation validation, and how grounding evidence feeds reputation scoring.",
+      "category": "technical",
+      "optional": false,
+      "exclude": false,
+      "nav_section": "Architecture"
+    },
+    "docs:./agentic-memory-layer.md": {
+      "hash": "ff3d851b172f064c",
+      "description": "How does GAML provide structured long-term memory? Defines the agentic memory layer with bridge blocks, facts, policies, events, trust metadata, and EIS evidence \u2014 making GCS memory-native rather than prompt-extended.",
+      "category": "architecture",
+      "optional": false,
+      "exclude": false,
+      "nav_section": "Architecture"
+    },
+    "docs:./execution-and-performance.md": {
+      "hash": "51e6852c722b79e1",
+      "description": "What execution modes does GCS support? Compares single-node, ELM-assisted, swarm, and agent modes. Defines local-first execution, small effective cognitive sets, and performance targets.",
+      "category": "architecture",
+      "optional": false,
+      "exclude": false,
+      "nav_section": "Architecture"
+    },
+    "docs:./roadmap-and-risks.md": {
+      "hash": "94ce688a8109c3d4",
+      "description": "What are the phased milestones for building GCS? Covers Phase 1 (Semantic Core) through Phase 6 (Ecosystem), with deliverables, hardware requirements, market risks, and technical risks.",
+      "category": "technical",
+      "optional": false,
+      "exclude": false,
+      "nav_section": "Architecture"
+    },
+    "docs:./future-and-positioning.md": {
+      "hash": "3d09777b8d729d9b",
+      "description": "How does GCS prepare for future reasoning substrates? Describes how the modular architecture survives replacement of the Semantic Core with latent world models while preserving specialists, memory, and consensus.",
+      "category": "technical",
+      "optional": false,
+      "exclude": false,
+      "nav_section": "Architecture"
+    },
+    "docs:./ai-safety.md": {
+      "hash": "f6ac6a2ff3c4f348",
+      "description": "How does GCS enforce safety without a central gateway? Defines the multi-layer safety model: node-local enforcement, reputation penalties, EIS attestation, and client-selectable safety policies for decentralized deployment.",
+      "category": "technical",
+      "optional": false,
+      "exclude": false,
+      "nav_section": "Architecture"
+    },
+    "docs:./distributed-swarm-thinking-context.md": {
+      "hash": "fd6b21930ff3761c",
+      "description": "How does the swarm coordinate distributed reasoning? Defines the five-layer swarm thinking context: context/memory, routing/planning, expert execution, verification/synthesis, and user-visible thinking traces.",
+      "category": "nodes",
+      "optional": false,
+      "exclude": false,
+      "pinned": true,
+      "nav_section": "Architecture"
+    },
+    "docs:./sgfp4-format.md": {
+      "hash": "45ce5f4fdbf19d65",
+      "description": "How does the SGFP4 quantization format compress model weights? Specifies the 64x64 macroblock tiling, FP4_AFFINE/T158_AFFINE dual-mode encoding, flags-in-offsets, and GPU decode kernel design.",
+      "category": "technical",
+      "optional": false,
+      "exclude": false,
+      "nav_section": "Architecture"
+    },
+    "docs:./secure-agent-architecture.md": {
+      "hash": "eb63a8f816ec1f50",
+      "description": "How does secure agent execution work in GCS? Defines the tool intermediary sandbox, policy-constrained execution, capability-scoped security choke-point, and zero-trust agent boundaries.",
+      "category": "nodes",
+      "optional": false,
+      "exclude": false,
+      "pinned": true,
+      "nav_section": "Architecture"
+    },
+    "docs:./eggroll-swarm-retraining.md": {
+      "hash": "d77d2010c674018a",
+      "description": "How does distributed retraining work on the GNUS swarm? Defines the EGGROLL evolutionary optimization workflow for specialist refresh using perturbation reconstruction, compact fitness communication, and reputation-gated promotion.",
+      "category": "technical",
+      "optional": false,
+      "exclude": false,
+      "nav_section": "Architecture"
+    },
+    "docs:./cognitive-retaining-system.md": {
+      "hash": "45449ae36f87d463",
+      "description": "How does targeted retraining adapt cognition per user? Defines lightweight adaptation of adapters, routing weights, critic weights, and arbitration logic without full model retraining, using EGGROLL-style optimization.",
+      "category": "technical",
+      "optional": false,
+      "exclude": false,
+      "nav_section": "Architecture"
+    },
+    "docs:./epistemic-arbitration-and-cognitive-os.md": {
+      "hash": "0129e52860ba7159",
+      "description": "How does the Cognitive OS judge, challenge, and synthesize competing outputs? Defines the epistemic arbitration layer with configurable reasoning frameworks (Nyaya, modal, hybrid), JSON reasoning machines, and WASM plugins.",
+      "category": "architecture",
+      "optional": false,
+      "exclude": false,
+      "pinned": true,
+      "nav_section": "Architecture"
+    },
+    "docs:./objective-memory-vtg.md": {
+      "hash": "65f82b9a5b6db2c4",
+      "description": "How does the Verified Transition Graph record reusable inference patterns? Distinguishes VTG from GAML: VTG stores verified low-entropy cognitive transitions discovered during inference, verification, and consensus.",
+      "category": "technical",
+      "optional": false,
+      "exclude": false,
+      "nav_section": "Architecture"
+    },
+    "docs:./speculative-decoding-and-vtg.md": {
+      "hash": "654cab37bcce5cf0",
+      "description": "How does micro-speculation accelerate inference on constrained nodes? Defines short local continuation proposals with local verification, accepted-prefix-only commitment, and compact outcome metadata fed back to VTG and EGGROLL.",
+      "category": "technical",
+      "optional": false,
+      "exclude": false,
+      "nav_section": "Architecture"
+    },
+    "docs:./frozen-mtp-and-vtg.md": {
+      "hash": "40795a0f46510e56",
+      "description": "How does Frozen Micro-MTP enable edge inference? Defines attaching small multi-token prediction heads to frozen backbones for 1-4 token proposals, verified against VTG before commitment.",
+      "category": "technical",
+      "optional": false,
+      "exclude": false,
+      "nav_section": "Architecture"
+    },
+    "docs:./openai-compatible-api-router-and-gcs-job-queue.md": {
+      "hash": "be937c350269fb50",
+      "description": "How does the OpenAI-compatible API router integrate with the GCS job queue? Specifies an API router that translates OpenAI-compatible calls into signed GNUS.ai democratized queue jobs, covering API surface design, streaming proxy, job lifecycle, pub/sub channels, node registration, and security.",
+      "category": "architecture",
+      "optional": false,
+      "exclude": false,
+      "nav_section": "Architecture"
+    },
+    "docs:./local-cognitive-second-brain.md": {
+      "hash": "dd1b60bebb7188cb",
+      "description": "How does GCS operate as a private, user-owned memory and reasoning system? Defines Local Cognitive Second Brain Mode backed by GAML, using local or private ELMs with the orchestration layer, supporting privacy modes, memory lifecycle, context assembly, and example workflows.",
+      "category": "architecture",
+      "optional": false,
+      "exclude": false,
+      "nav_section": "Architecture"
+    },
+    "docs:./agent-module-development-inventory.md": {
+      "hash": "fc2b71f38d86b348",
+      "description": "What agents, modules, and services are needed across the GCS architecture? Consolidates the implementation inventory covering agents, services, and runtime components for routing, memory, tool execution, verification, arbitration, EGGROLL adaptation, distributed execution, and the API router.",
+      "category": "architecture",
+      "optional": false,
+      "exclude": false,
+      "nav_section": "Architecture"
+    },
+    "set:neoswarm:dd/d89/classsgns_1_1neoswarm_1_1api_1_1_api_server": {
+      "hash": "37fe4bdfcfa58f41",
+      "description": "Orchestrates the full inference pipeline.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d5/dca/struct_args": {
+      "hash": "f9e09a143d491ddf",
+      "description": "Args",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d1/d6c/structsgns_1_1neoswarm_1_1api_1_1_api_server_1_1_config": {
+      "hash": "8e5ad0e084471d10",
+      "description": "Config",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d7/d41/structsgns_1_1neoswarm_1_1core_1_1_m_n_n_inference_engine_1_1_config": {
+      "hash": "c31459195335c313",
+      "description": "Config",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:dd/d29/structsgns_1_1neoswarm_1_1core_1_1_s_g_processing_bridge_1_1_config": {
+      "hash": "9da11ab97e0bd728",
+      "description": "Config",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d7/dee/structsgns_1_1neoswarm_1_1knowledge_1_1_context_injection_1_1_config": {
+      "hash": "0069638bd1e57a5f",
+      "description": "Config",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d0/d0c/structsgns_1_1neoswarm_1_1knowledge_1_1_knowledge_retrieval_1_1_config": {
+      "hash": "c21ad67aa4693b10",
+      "description": "Config",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:dc/d46/structsgns_1_1neoswarm_1_1network_1_1_p2_p_node_1_1_config": {
+      "hash": "32e4e7e7e6dd40e6",
+      "description": "Config",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d4/daf/structsgns_1_1neoswarm_1_1network_1_1_result_aggregation_1_1_config": {
+      "hash": "72c58cb2e3bb308e",
+      "description": "Config",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d8/d2b/structsgns_1_1neoswarm_1_1network_1_1_s_g_channel_manager_1_1_config": {
+      "hash": "90a5b2b2a0c0ce6b",
+      "description": "Config",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:df/dca/structsgns_1_1neoswarm_1_1network_1_1_s_g_client_1_1_config": {
+      "hash": "40b39eafb35b66a8",
+      "description": "Configuration for SuperGenius network connectivity.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:db/dae/structsgns_1_1neoswarm_1_1reputation_1_1_reputation_scoring_1_1_config": {
+      "hash": "e7ecb5cb2a7b4312",
+      "description": "Config",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:dd/dc7/structsgns_1_1neoswarm_1_1reputation_1_1_weighted_consensus_1_1_config": {
+      "hash": "64e514400ec0cfdc",
+      "description": "Config",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:df/d02/structsgns_1_1neoswarm_1_1router_1_1_rule_based_router_1_1_config": {
+      "hash": "d08b7f10b08641cd",
+      "description": "Config",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d9/da2/classsgns_1_1neoswarm_1_1knowledge_1_1_context_injection": {
+      "hash": "53103f32d9c075ea",
+      "description": "Prepends retrieved Grokipedia facts to a prompt before inference.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d3/df2/structsgns_1_1neoswarm_1_1knowledge_1_1_knowledge_retrieval_1_1_impl_1_1_fact_entry": {
+      "hash": "b8257f92dd69621d",
+      "description": "FactEntry",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d3/dce/classsgns_1_1neoswarm_1_1knowledge_1_1_fact_validation": {
+      "hash": "3b0240c3b2316513",
+      "description": "Checks factual claims in generated output against Grokipedia.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:dc/d1a/interface_flutter_app_delegate": {
+      "hash": "ad72994f8cfbeb36",
+      "description": "FlutterAppDelegate",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d0/d54/interface_flutter_app_lifecycle_registrar": {
+      "hash": "cf838a70e707d314",
+      "description": "FlutterAppLifecycleRegistrar",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:de/d2f/interface_flutter_basic_message_channel": {
+      "hash": "9b81e51701c08405",
+      "description": "FlutterBasicMessageChannel",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:df/d62/interface_flutter_binary_codec": {
+      "hash": "d11687cf09b17e1c",
+      "description": "FlutterBinaryCodec",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d5/db0/interface_flutter_dart_project": {
+      "hash": "925f68d70ec2405b",
+      "description": "FlutterDartProject",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d3/dbc/interface_flutter_engine": {
+      "hash": "7479424ab2b4fa91",
+      "description": "FlutterEngine",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d0/da1/interface_flutter_error": {
+      "hash": "720066492697695c",
+      "description": "FlutterError",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:dd/dda/interface_flutter_event_channel": {
+      "hash": "fcd3da6923fb8854",
+      "description": "FlutterEventChannel",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d4/d41/interface_flutter_hour_format": {
+      "hash": "bd1f6b6a4be61507",
+      "description": "FlutterHourFormat",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d6/daa/interface_flutter_j_s_o_n_message_codec": {
+      "hash": "67fc9200c8927847",
+      "description": "FlutterJSONMessageCodec",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:dd/de1/interface_flutter_j_s_o_n_method_codec": {
+      "hash": "16ca49e0fa1f7b3e",
+      "description": "FlutterJSONMethodCodec",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d4/d81/interface_flutter_method_call": {
+      "hash": "0b836ea6a0939d01",
+      "description": "FlutterMethodCall",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:da/d6e/interface_flutter_method_channel": {
+      "hash": "678ae6ab80f30977",
+      "description": "FlutterMethodChannel",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:da/d21/interface_flutter_standard_message_codec": {
+      "hash": "6eda753fee5e2014",
+      "description": "FlutterStandardMessageCodec",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d2/d0e/interface_flutter_standard_method_codec": {
+      "hash": "cd1f003fe9356c51",
+      "description": "FlutterStandardMethodCodec",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d6/d72/interface_flutter_standard_reader": {
+      "hash": "3ff16f4caed2bfc0",
+      "description": "FlutterStandardReader",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:da/d07/interface_flutter_standard_reader_writer": {
+      "hash": "e7b554fae06d0112",
+      "description": "FlutterStandardReaderWriter",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:df/d85/interface_flutter_standard_typed_data": {
+      "hash": "4d88c03e088d9846",
+      "description": "FlutterStandardTypedData",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d4/d9e/interface_flutter_standard_writer": {
+      "hash": "786cf4fd3d85df14",
+      "description": "FlutterStandardWriter",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:dc/d8a/interface_flutter_string_codec": {
+      "hash": "957dcfe136d2c93a",
+      "description": "FlutterStringCodec",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d1/d53/interface_flutter_view_controller": {
+      "hash": "cab30fb1979caf8d",
+      "description": "FlutterViewController",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d0/df0/class_flutter_window": {
+      "hash": "5719b7c93763c8b9",
+      "description": "FlutterWindow",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d5/dc3/classsgns_1_1neoswarm_1_1fp4_1_1_f_p4_codec": {
+      "hash": "405a81e020aed22a",
+      "description": "Encodes and decodes FP32 weight matrices to/from FP4.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d4/d68/structsgns_1_1neoswarm_1_1fp4_1_1_f_p4_tensor": {
+      "hash": "b22ba306ac5a3068",
+      "description": "Packed FP4 tensor: each byte holds two nibbles (high = even index).",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:df/dd1/interface_generated_plugin_registrant": {
+      "hash": "2db642bc5308d8a0",
+      "description": "GeneratedPluginRegistrant",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:da/d36/structsgns_1_1neoswarm_1_1network_1_1_p2_p_node_1_1_impl_1_1_gossip_subs": {
+      "hash": "791a98e8d5dfd352",
+      "description": "GossipSubs",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d2/df3/classsgns_1_1neoswarm_1_1specialists_1_1_grammar_specialist": {
+      "hash": "2f524f3f6b262d1c",
+      "description": "200M\u2013500M parameter grammar correction model (PTDS \u00a75.2).",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d1/d1d/structsgns_1_1neoswarm_1_1core_1_1_sentence_piece_tokenizer_1_1_impl": {
+      "hash": "dcd8fdcca2b07655",
+      "description": "Impl",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:db/d6e/structsgns_1_1neoswarm_1_1knowledge_1_1_knowledge_retrieval_1_1_impl": {
+      "hash": "cb8f2c43053d0738",
+      "description": "Impl",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d4/da2/structsgns_1_1neoswarm_1_1network_1_1_p2_p_node_1_1_impl": {
+      "hash": "4d6fb7f12a3643c4",
+      "description": "Impl",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d9/d1e/structsgns_1_1neoswarm_1_1network_1_1_s_g_client_1_1_impl": {
+      "hash": "7b06d1f9b6b270e3",
+      "description": "Impl",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:da/d6d/structsgns_1_1neoswarm_1_1network_1_1_s_g_job_submitter_1_1_impl": {
+      "hash": "6fffc6cbeefae0f6",
+      "description": "Impl",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d8/d21/structsgns_1_1neoswarm_1_1network_1_1_s_g_message_authenticator_1_1_impl": {
+      "hash": "595b1bedd9433800",
+      "description": "Impl",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d6/d08/structsgns_1_1neoswarm_1_1network_1_1_s_g_result_collector_1_1_impl": {
+      "hash": "85936e894a3aa2bc",
+      "description": "Impl",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d5/dee/structsgns_1_1neoswarm_1_1reputation_1_1_reputation_storage_1_1_impl": {
+      "hash": "99e761a0b8d69e8b",
+      "description": "Impl",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d6/dc0/structsgns_1_1neoswarm_1_1security_1_1_node_identity_1_1_impl": {
+      "hash": "11d91ba7912cd38a",
+      "description": "Impl",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d9/d27/classsgns_1_1neoswarm_1_1core_1_1_inference_engine": {
+      "hash": "933e177bbbef67f2",
+      "description": "Abstract interface for all inference backends.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d4/d14/structsgns_1_1neoswarm_1_1_inference_response": {
+      "hash": "c0c467a4733f254f",
+      "description": "InferenceResponse",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:dc/da9/classsgns_1_1neoswarm_1_1router_1_1_i_router": {
+      "hash": "365c76839db7357b",
+      "description": "Abstract interface for prompt routing strategies.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:df/df6/classsgns_1_1neoswarm_1_1specialists_1_1_i_specialist": {
+      "hash": "05273205fc486516",
+      "description": "Abstract interface for specialist post-processing modules.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d5/d9b/structsgns_1_1neoswarm_1_1_knowledge_fact": {
+      "hash": "3faa1565def1cae0",
+      "description": "KnowledgeFact",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d3/dd7/classsgns_1_1neoswarm_1_1knowledge_1_1_knowledge_retrieval": {
+      "hash": "56a4002d5973bf26",
+      "description": "Retrieves top-k structured facts from a Grokipedia index.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:df/d42/classsgns_1_1neoswarm_1_1specialists_1_1_math_specialist": {
+      "hash": "575acc9903f90431",
+      "description": "1\u20133B parameter GSM8K-tuned math model (PTDS \u00a75.2).",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:dd/d22/classsgns_1_1neoswarm_1_1security_1_1_message_signing": {
+      "hash": "2f0b1ce37b1b97d6",
+      "description": "Signs and verifies inter-node message payloads.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:db/d49/classsgns_1_1neoswarm_1_1core_1_1_m_n_n_inference_engine": {
+      "hash": "34ce46d441bb59e9",
+      "description": "MNN-backed inference engine with composable configuration.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d6/d99/classsgns_1_1neoswarm_1_1security_1_1_node_identity": {
+      "hash": "3e7c8e21e3b7d6fb",
+      "description": "Manages a secp256k1 keypair and derives the node's PeerId.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d7/d96/structsgns_1_1neoswarm_1_1_node_output": {
+      "hash": "a4fdd05dc1afb99c",
+      "description": "NodeOutput",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d9/dea/structsgns_1_1neoswarm_1_1_node_reputation": {
+      "hash": "9f7743030c412d38",
+      "description": "NodeReputation",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:df/d86/structsgns_1_1neoswarm_1_1reputation_1_1_node_reputation": {
+      "hash": "9f7743030c412d38",
+      "description": "NodeReputation",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d1/db5/classsgns_1_1neoswarm_1_1network_1_1_p2_p_node": {
+      "hash": "cafe146d938b522f",
+      "description": "Manages a libp2p host for swarm task broadcasting and CRDT sync.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d5/d0d/structsgns_1_1neoswarm_1_1specialists_1_1_symbolic_fallback_1_1_parser": {
+      "hash": "7f488a6190f105ec",
+      "description": "Parser",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:db/d7a/class_pipeline_test": {
+      "hash": "4baadef83310c0f9",
+      "description": "PipelineTest",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d4/d78/struct_win32_window_1_1_point": {
+      "hash": "52b9c4b4de04b6f1",
+      "description": "Point",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d4/d6d/classsgns_1_1neoswarm_1_1router_1_1_prompt_analyzer": {
+      "hash": "9bdd3646fc692ad4",
+      "description": "Analyses a prompt string and returns a feature vector used by the router.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d4/dc5/structsgns_1_1neoswarm_1_1_prompt_features": {
+      "hash": "6ef621b2338d72db",
+      "description": "PromptFeatures",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d2/d29/classsgns_1_1neoswarm_1_1reputation_1_1_reputation_c_r_d_t": {
+      "hash": "a92ebb99e14b40bc",
+      "description": "Last-Write-Wins Register per node (PTDS \u00a74.2).",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d1/dd6/classsgns_1_1neoswarm_1_1reputation_1_1_reputation_scoring": {
+      "hash": "73fbcede7a943262",
+      "description": "Implements the PTDS \u00a77.2 reputation update formulas.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:dd/d0a/classsgns_1_1neoswarm_1_1reputation_1_1_reputation_storage": {
+      "hash": "1be40fbf93a6e26a",
+      "description": "Persists NodeReputation records to RocksDB. Falls back to an in-memory store when RocksDB is not compiled in.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d8/d65/classsgns_1_1neoswarm_1_1network_1_1_result_aggregation": {
+      "hash": "5fe1595c78bfae41",
+      "description": "Collects NodeOutput responses from swarm peers with a timeout.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:db/d13/structsgns_1_1neoswarm_1_1_route_decision": {
+      "hash": "a8a6413f2230a97c",
+      "description": "RouteDecision",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d6/def/classsgns_1_1neoswarm_1_1router_1_1_rule_based_router": {
+      "hash": "c76f2e99809c9dae",
+      "description": "MVP rule-based routing (PTDS \u00a76.1).",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d6/d8a/classsgns_1_1neoswarm_1_1core_1_1_sentence_piece_tokenizer": {
+      "hash": "fc3c9dcd7eddd3e3",
+      "description": "SentencePiece tokenizer.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d7/dce/classsgns_1_1neoswarm_1_1network_1_1_s_g_channel_manager": {
+      "hash": "e9e6c1da7c38bfc7",
+      "description": "Manages a persistent gRPC channel to a SuperGenius node.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d4/d9a/classsgns_1_1neoswarm_1_1network_1_1_s_g_client": {
+      "hash": "a1b88b63e87bbfd0",
+      "description": "Client that bridges GNUS NEO SWARM to the SuperGenius blockchain compute network via PubSub-based gRPC dispatch.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:de/d51/classsgns_1_1neoswarm_1_1network_1_1_s_g_job_submitter": {
+      "hash": "48560a8edb74a340",
+      "description": "Signs and publishes Task messages to the SuperGenius grid channel.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d0/d6c/classsgns_1_1neoswarm_1_1network_1_1_s_g_message_authenticator": {
+      "hash": "0631d5cdcbcd5b28",
+      "description": "Wraps NodeIdentity and MessageSigning for SuperGenius dispatch.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d2/de4/classsgns_1_1neoswarm_1_1core_1_1_s_g_processing_bridge": {
+      "hash": "e6fb87cf627bb36a",
+      "description": "Constructs GNUS_Schema-compliant JSON and submits inference jobs to SGProcessingManager (Phase 1 direct) or the GNUS network (Phase 2).",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:de/d02/classsgns_1_1neoswarm_1_1network_1_1_s_g_result_collector": {
+      "hash": "eac0dcddc62240d5",
+      "description": "Collects inference results from SuperGenius PubSub result channels.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d1/dd3/structsgns_1_1neoswarm_1_1network_1_1_s_g_result_collector_config": {
+      "hash": "e1ac0df6d58ee0f1",
+      "description": "SGResultCollectorConfig",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d1/db6/struct_win32_window_1_1_size": {
+      "hash": "9f0a42174cc3ca46",
+      "description": "Size",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d1/d06/classsgns_1_1neoswarm_1_1specialists_1_1_symbolic_fallback": {
+      "hash": "34aed540cd4ee7a4",
+      "description": "Evaluates mathematical expressions symbolically.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:db/d71/structsgns_1_1neoswarm_1_1_task": {
+      "hash": "40a8482569378153",
+      "description": "Task",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d2/d9a/classsgns_1_1neoswarm_1_1core_1_1_tensor_interpreter": {
+      "hash": "9e9cf46835dc1e4c",
+      "description": "Converts raw MNN tensor output bytes to a human-readable string.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d8/d0c/classsgns_1_1neoswarm_1_1core_1_1_tokenizer": {
+      "hash": "3ba9627444945225",
+      "description": "Abstract tokenizer interface.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:df/dd5/structsgns_1_1neoswarm_1_1knowledge_1_1_fact_validation_1_1_validation_result": {
+      "hash": "0f8f96a390ab8a6e",
+      "description": "ValidationResult",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d7/dc5/classsgns_1_1neoswarm_1_1reputation_1_1_weighted_consensus": {
+      "hash": "3450806a709e8ad3",
+      "description": "Selects the winning output from a set of node responses.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:df/d4e/class_win32_window": {
+      "hash": "b7c2f2d14dbf6755",
+      "description": "Win32Window",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d7/d82/class_window_class_registrar": {
+      "hash": "abbc1ac98a4aa1fa",
+      "description": "WindowClassRegistrar",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:dd/d38/namespace_0d010337333303111242361367045251232072164025220056": {
+      "hash": "set",
+      "description": "@010337333303111242361367045251232072164025220056",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d4/dba/namespace_0d011255004103212075021071215230345143343177230062": {
+      "hash": "set",
+      "description": "@011255004103212075021071215230345143343177230062",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d1/db1/namespace_0d050062174053340124052306357265232144107306143334": {
+      "hash": "set",
+      "description": "@050062174053340124052306357265232144107306143334",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:df/d59/namespace_0d074030367330154357164216252243305216062127256304": {
+      "hash": "set",
+      "description": "@074030367330154357164216252243305216062127256304",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:de/db3/namespace_0d121014112352356317034023167353240077264115340127": {
+      "hash": "set",
+      "description": "@121014112352356317034023167353240077264115340127",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d5/d43/namespace_0d150307146303367347013015353016254043263150010006": {
+      "hash": "set",
+      "description": "@150307146303367347013015353016254043263150010006",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d4/d1b/namespace_0d217272200013153171262320210004124141207004073007": {
+      "hash": "set",
+      "description": "@217272200013153171262320210004124141207004073007",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d8/d62/namespace_0d223312146313347275352044135077116247303057011070": {
+      "hash": "set",
+      "description": "@223312146313347275352044135077116247303057011070",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d4/d5c/namespace_0d274051133160116237050131352351125117207003161361": {
+      "hash": "set",
+      "description": "@274051133160116237050131352351125117207003161361",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:da/d27/namespace_0d332042002107242252025013161130014011001003256273": {
+      "hash": "set",
+      "description": "@332042002107242252025013161130014011001003256273",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d3/d38/namespace_0d351270360033217315111023205237101007016366070376": {
+      "hash": "set",
+      "description": "@351270360033217315111023205237101007016366070376",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:dc/d8d/namespace_0d367037047313064102260265342370357104115143170305": {
+      "hash": "set",
+      "description": "@367037047313064102260265342370357104115143170305",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d4/da9/namespaceboost": {
+      "hash": "set",
+      "description": "boost",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d2/d1e/namespaceboost_1_1asio": {
+      "hash": "set",
+      "description": "asio",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d4/d4f/namespacegrpc": {
+      "hash": "set",
+      "description": "grpc",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d1/d90/namespace_m_n_n": {
+      "hash": "set",
+      "description": "MNN",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d6/d2b/namespace_m_n_n_1_1_transformer": {
+      "hash": "set",
+      "description": "Transformer",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d2/d2b/namespacesgns": {
+      "hash": "set",
+      "description": "sgns",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d6/d33/namespacesgns_1_1neoswarm": {
+      "hash": "07b6e44774277918",
+      "description": "neoswarm",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d7/d2f/namespacesgns_1_1neoswarm_1_1api": {
+      "hash": "set",
+      "description": "api",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d7/d63/namespacesgns_1_1neoswarm_1_1api_1_1_0d103307241305161001364032146050133004134375000353": {
+      "hash": "set",
+      "description": "@103307241305161001364032146050133004134375000353",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d2/db7/namespacesgns_1_1neoswarm_1_1core": {
+      "hash": "set",
+      "description": "core",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:de/d70/namespacesgns_1_1neoswarm_1_1core_1_1_0d136372074252336024012213141242362047170067104234": {
+      "hash": "set",
+      "description": "@136372074252336024012213141242362047170067104234",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d3/d89/namespacesgns_1_1neoswarm_1_1core_1_1_0d142223373125302214136164045143225001137227276245": {
+      "hash": "set",
+      "description": "@142223373125302214136164045143225001137227276245",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:db/de2/namespacesgns_1_1neoswarm_1_1core_1_1_0d167026133012351221243155241202050211041234326074": {
+      "hash": "set",
+      "description": "@167026133012351221243155241202050211041234326074",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d6/d92/namespacesgns_1_1neoswarm_1_1core_1_1_0d235123307061045033236364112247321156114344331235": {
+      "hash": "set",
+      "description": "@235123307061045033236364112247321156114344331235",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:db/daf/namespacesgns_1_1neoswarm_1_1fp4": {
+      "hash": "baf13dcc72ab20fc",
+      "description": "fp4",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d0/d2b/namespacesgns_1_1neoswarm_1_1fp4_1_1_0d144010367113274010064203230013260156365153011161": {
+      "hash": "set",
+      "description": "@144010367113274010064203230013260156365153011161",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d8/da0/namespacesgns_1_1neoswarm_1_1knowledge": {
+      "hash": "set",
+      "description": "knowledge",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:dc/d8c/namespacesgns_1_1neoswarm_1_1knowledge_1_1_0d042240001010122107113013220210201107227341161211": {
+      "hash": "set",
+      "description": "@042240001010122107113013220210201107227341161211",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:dc/dc1/namespacesgns_1_1neoswarm_1_1knowledge_1_1_0d253042273334242000135262277114030047156334011041": {
+      "hash": "set",
+      "description": "@253042273334242000135262277114030047156334011041",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:dc/d2a/namespacesgns_1_1neoswarm_1_1network": {
+      "hash": "set",
+      "description": "network",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d5/d91/namespacesgns_1_1neoswarm_1_1network_1_1_0d025340357202165304306037125141165007052257245334": {
+      "hash": "set",
+      "description": "@025340357202165304306037125141165007052257245334",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d3/d91/namespacesgns_1_1neoswarm_1_1network_1_1_0d116030302037337374226026341333141320225263306317": {
+      "hash": "set",
+      "description": "@116030302037337374226026341333141320225263306317",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d2/db4/namespacesgns_1_1neoswarm_1_1network_1_1_0d116122176034027045275204132264313116122073117324": {
+      "hash": "set",
+      "description": "@116122176034027045275204132264313116122073117324",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:df/d7e/namespacesgns_1_1neoswarm_1_1network_1_1_0d140206013363205261357075334345345050230267213224": {
+      "hash": "set",
+      "description": "@140206013363205261357075334345345050230267213224",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:df/d62/namespacesgns_1_1neoswarm_1_1network_1_1_0d240317215000010273243367046065042124243025011237": {
+      "hash": "set",
+      "description": "@240317215000010273243367046065042124243025011237",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:dd/d95/namespacesgns_1_1neoswarm_1_1network_1_1_0d242274113151074376105211313304104164235065150124": {
+      "hash": "set",
+      "description": "@242274113151074376105211313304104164235065150124",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d4/d11/namespacesgns_1_1neoswarm_1_1network_1_1_0d314267074375044134373034367266033213007010270365": {
+      "hash": "set",
+      "description": "@314267074375044134373034367266033213007010270365",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d7/d2c/namespacesgns_1_1neoswarm_1_1reputation": {
+      "hash": "f7c49a53acba625d",
+      "description": "reputation",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d4/dc3/namespacesgns_1_1neoswarm_1_1reputation_1_1_0d001006173017047253227206167340221273165345101141": {
+      "hash": "set",
+      "description": "@001006173017047253227206167340221273165345101141",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d5/d05/namespacesgns_1_1neoswarm_1_1reputation_1_1_0d016312371300237017044323262263250033104202171075": {
+      "hash": "set",
+      "description": "@016312371300237017044323262263250033104202171075",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d8/d57/namespacesgns_1_1neoswarm_1_1reputation_1_1_0d156074372046207360314053272114264350045203144071": {
+      "hash": "set",
+      "description": "@156074372046207360314053272114264350045203144071",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d3/d96/namespacesgns_1_1neoswarm_1_1reputation_1_1_0d206240041131213330135277003220022043134333044114": {
+      "hash": "set",
+      "description": "@206240041131213330135277003220022043134333044114",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:df/d79/namespacesgns_1_1neoswarm_1_1router": {
+      "hash": "set",
+      "description": "router",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:da/daf/namespacesgns_1_1neoswarm_1_1router_1_1_0d033276316013100011352336252343302153327363153226": {
+      "hash": "set",
+      "description": "@033276316013100011352336252343302153327363153226",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:de/d34/namespacesgns_1_1neoswarm_1_1router_1_1_0d276276237217206313277202274114005073175377306262": {
+      "hash": "set",
+      "description": "@276276237217206313277202274114005073175377306262",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d7/d75/namespacesgns_1_1neoswarm_1_1security": {
+      "hash": "set",
+      "description": "security",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:de/d3e/namespacesgns_1_1neoswarm_1_1security_1_1_0d120365005117010054041226223045330263014162342034": {
+      "hash": "set",
+      "description": "@120365005117010054041226223045330263014162342034",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d5/d80/namespacesgns_1_1neoswarm_1_1security_1_1_0d276142120017213255166041133104170157065374012267": {
+      "hash": "set",
+      "description": "@276142120017213255166041133104170157065374012267",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:de/d04/namespacesgns_1_1neoswarm_1_1specialists": {
+      "hash": "set",
+      "description": "specialists",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:db/dd9/namespacesgns_1_1neoswarm_1_1specialists_1_1_0d052274105044237375057371005221314073174310255370": {
+      "hash": "set",
+      "description": "@052274105044237375057371005221314073174310255370",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d7/df7/namespacesgns_1_1neoswarm_1_1specialists_1_1_0d215141014135305270141276212323057212202027350107": {
+      "hash": "set",
+      "description": "@215141014135305270141276212323057212202027350107",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d8/dcc/namespacestd": {
+      "hash": "0a373fc4dde7db35",
+      "description": "STL namespace.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d0/d75/namespacetesting": {
+      "hash": "set",
+      "description": "testing",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d1/d3a/_c_make_c_compiler_id_8c": {
+      "hash": "e6d38ec773a6266c",
+      "description": "CMakeCCompilerId.c",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d3/d66/_c_make_c_x_x_compiler_id_8cpp": {
+      "hash": "a1f0329461d83946",
+      "description": "CMakeCXXCompilerId.cpp",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d1/d99/ios_2_classes_2flutter__slm__bridge_8c": {
+      "hash": "set",
+      "description": "flutter_slm_bridge.c",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d3/d93/macos_2_classes_2flutter__slm__bridge_8c": {
+      "hash": "set",
+      "description": "flutter_slm_bridge.c",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d3/dad/src_2flutter__slm__bridge_8c": {
+      "hash": "b4dfd073dbd11e66",
+      "description": "flutter_slm_bridge.c",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d7/d34/flutter__slm__bridge_8h": {
+      "hash": "b4dfd073dbd11e66",
+      "description": "flutter_slm_bridge.h",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d5/d0b/os__defines_8h": {
+      "hash": "b2325c9777c573fa",
+      "description": "Platform abstraction for flutter_slm_bridge.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:df/d7f/api__server_8cpp": {
+      "hash": "3a8609a919424d25",
+      "description": "Inference pipeline orchestration implementation.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d8/d67/api__server_8hpp": {
+      "hash": "980556a7721eb172",
+      "description": "Orchestrates the full inference pipeline (PTDS \u00a79).",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:dd/db1/error_8cpp": {
+      "hash": "928dfdc232b23f8f",
+      "description": "Boost.Outcome error category registration for GNUS NEO SWARM.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d9/d99/error_8hpp": {
+      "hash": "8df1d4528b9d21bf",
+      "description": "Error codes and outcome::result alias for GNUS NEO SWARM.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d0/da9/logging_8hpp": {
+      "hash": "50283d8d40178802",
+      "description": "Logging facade \u2014 wraps spdlog directly.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:dd/de3/types_8hpp": {
+      "hash": "aa9568b6f4b65666",
+      "description": "Shared data types for the GNUS NEO SWARM engine.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d8/dcd/inference__engine_8hpp": {
+      "hash": "c5a88195a70fed6a",
+      "description": "Abstract inference engine interface.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d5/df8/mnn__inference__engine_8cpp": {
+      "hash": "eda4319e616496e7",
+      "description": "MNN inference engine \u2014 cross-platform, config-driven.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:db/da3/mnn__inference__engine_8hpp": {
+      "hash": "set",
+      "description": "mnn_inference_engine.hpp",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:da/dff/fp4__codec_8cpp": {
+      "hash": "f9469a73113ff178",
+      "description": "FP4 v3 quantization codec implementation.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:da/d7a/fp4__codec_8hpp": {
+      "hash": "05f2a029ffaa6dd8",
+      "description": "FP4 v3 4-bit floating-point quantization codec (PTDS \u00a74.1).",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d3/d8d/sg__processing__bridge_8cpp": {
+      "hash": "f0cfc70f37465c89",
+      "description": "SGProcessingManager bridge \u2014 Phase 1 direct inference.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:db/dca/sg__processing__bridge_8hpp": {
+      "hash": "9ed3e365be01bebd",
+      "description": "Bridge to SuperGenius SGProcessingManager for GNUS network dispatch.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d7/d76/tensor__interpreter_8cpp": {
+      "hash": "ca9f634f481c62fd",
+      "description": "Raw tensor byte to text conversion.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:da/dc3/tensor__interpreter_8hpp": {
+      "hash": "c0a810e1f1bb14c4",
+      "description": "Converts raw SGProcessingManager output bytes to text.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:df/d85/sentence__piece__tokenizer_8cpp": {
+      "hash": "d0575b00c975ed4d",
+      "description": "SentencePiece tokenizer implementation.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d1/db4/tokenizer_8hpp": {
+      "hash": "8e48cebd6a727b4f",
+      "description": "Abstract tokenizer interface and SentencePiece implementation.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d8/d0f/genius__elm__chat__c_8cpp": {
+      "hash": "f94735fe8b3a6cef",
+      "description": "C FFI entry point stub for GeniusElmInit / GeniusElmChatCompletionsCreate / GeniusElmStringFree / GeniusElmGetStatus.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d6/db1/genius__elm__chat__completions_8cpp": {
+      "hash": "38eee1a192f25064",
+      "description": "genius_elm_chat_completions.cpp",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d3/deb/genius__elm__chat__completions_8h": {
+      "hash": "810241515a0feb9c",
+      "description": "genius_elm_chat_completions.h",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d8/d41/context__injection_8cpp": {
+      "hash": "8e5063d2c8c93b29",
+      "description": "Prompt augmentation with Grokipedia facts.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d6/dfa/context__injection_8hpp": {
+      "hash": "a77c3d646787b32a",
+      "description": "Augments prompts with Grokipedia facts (PTDS \u00a78.2).",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d0/dda/fact__validation_8cpp": {
+      "hash": "72af3f7a4702e5ea",
+      "description": "Post-generation fact checking implementation.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d7/d72/fact__validation_8hpp": {
+      "hash": "eb3393bba5f646ae",
+      "description": "Post-generation fact checking against Grokipedia (PTDS \u00a78.3).",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d8/d63/knowledge__retrieval_8cpp": {
+      "hash": "set",
+      "description": "knowledge_retrieval.cpp",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d1/dd8/knowledge__retrieval_8hpp": {
+      "hash": "set",
+      "description": "knowledge_retrieval.hpp",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d6/d49/p2p__node_8cpp": {
+      "hash": "e623408ef378c57f",
+      "description": "libp2p swarm node implementation",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d8/d99/p2p__node_8hpp": {
+      "hash": "ec71d55e77fd6e6b",
+      "description": "libp2p swarm node (PTDS \u00a74.2)",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d8/d7a/result__aggregation_8cpp": {
+      "hash": "853bf207bbb0932d",
+      "description": "Swarm response aggregation implementation.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:df/d5e/result__aggregation_8hpp": {
+      "hash": "c6a2db32c95bc0f0",
+      "description": "Timeout-bounded collection of swarm node responses (PTDS \u00a74.2).",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:da/dd8/sg__channel__manager_8cpp": {
+      "hash": "81ece112976a6269",
+      "description": "gRPC channel lifecycle implementation \u2014 TLS, keepalive, reconnect",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d6/da5/sg__channel__manager_8hpp": {
+      "hash": "6d1bb631fdde2e9e",
+      "description": "Manages gRPC channel lifecycle \u2014 create, keepalive, reconnect, health check.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d5/d97/sg__job__submitter_8cpp": {
+      "hash": "7f579e4231da67f2",
+      "description": "Publishes signed Task messages to the SuperGenius grid channel via PubSub.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d4/d72/sg__job__submitter_8hpp": {
+      "hash": "7f579e4231da67f2",
+      "description": "Publishes signed Task messages to the SuperGenius grid channel via PubSub.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d6/d66/sg__message__authenticator_8cpp": {
+      "hash": "1b7d131ac6102f5a",
+      "description": "Signs and verifies messages via hardened NodeIdentity + MessageSigning.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d6/d2b/sg__message__authenticator_8hpp": {
+      "hash": "5e4d3586caebe997",
+      "description": "Signs and verifies messages using the node's secp256k1 identity.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d6/d9e/sg__result__collector_8cpp": {
+      "hash": "9512a193ce39da24",
+      "description": "Timeout-bounded result collection from SuperGenius PubSub result channels.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d4/d81/sg__result__collector_8hpp": {
+      "hash": "f9861beb21964358",
+      "description": "Subscribes to per-job result channels and collects TaskResult messages.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d9/db5/super__genius__client_8cpp": {
+      "hash": "2b1dee914d2d3f64",
+      "description": "Bridges GNUS NEO SWARM to SuperGenius via PubSub gRPC dispatch.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:db/d7a/super__genius__client_8hpp": {
+      "hash": "0dc633145f9417a3",
+      "description": "Client for SuperGenius blockchain compute network dispatch via PubSub gRPC.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d9/df7/node__reputation_8hpp": {
+      "hash": "6247983efd6fba89",
+      "description": "Reputation helpers for GNUS NEO SWARM nodes.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d9/df0/reputation__crdt_8cpp": {
+      "hash": "df6eceb29638928b",
+      "description": "LWW CRDT reputation synchronisation implementation.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d0/db9/reputation__crdt_8hpp": {
+      "hash": "dd6bd7ddcb35c66a",
+      "description": "Last-Write-Wins CRDT for reputation synchronisation (PTDS \u00a74.2).",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d8/d90/reputation__scoring_8cpp": {
+      "hash": "7a6eb774134bd827",
+      "description": "Reputation update formula implementation.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:db/d60/reputation__scoring_8hpp": {
+      "hash": "e42a45b129396caf",
+      "description": "Reputation update formulas (PTDS \u00a77.2).",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:db/d3f/reputation__storage_8cpp": {
+      "hash": "1f84d53e3aed921a",
+      "description": "RocksDB-backed reputation persistence implementation.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d8/d22/reputation__storage_8hpp": {
+      "hash": "016284b14fd5830f",
+      "description": "RocksDB-backed reputation persistence (PTDS \u00a74.2).",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d7/d2d/weighted__consensus_8cpp": {
+      "hash": "386fac0bf052399d",
+      "description": "Weighted consensus implementation.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d2/d73/weighted__consensus_8hpp": {
+      "hash": "4af1b48969f827d2",
+      "description": "Weighted consensus selection (PTDS \u00a77.3).",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d5/d70/i__router_8hpp": {
+      "hash": "92a517186f240df7",
+      "description": "Abstract router interface for GNUS NEO SWARM.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d5/d69/prompt__analyzer_8cpp": {
+      "hash": "a40bcc4b34677482",
+      "description": "Prompt feature extraction implementation.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d2/d07/prompt__analyzer_8hpp": {
+      "hash": "0b9b8924128ec8f6",
+      "description": "Extracts routing features from a raw prompt string (PTDS \u00a76.1).",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:dc/db6/rule__based__router_8cpp": {
+      "hash": "5df6615f3b2eceaa",
+      "description": "Rule-based router implementation.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d5/d10/rule__based__router_8hpp": {
+      "hash": "1ccb11ba06712197",
+      "description": "Rule-based prompt router (PTDS \u00a76.1).",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d6/d55/message__signing_8cpp": {
+      "hash": "779c22b0310fbe70",
+      "description": "Message signing implementation.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:db/d97/message__signing_8hpp": {
+      "hash": "a1e7b10a20767fc3",
+      "description": "secp256k1 sign/verify for inter-node messages (PTDS \u00a74.3)",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:da/d4e/node__identity_8cpp": {
+      "hash": "a942deeadfa1c294",
+      "description": "secp256k1 keypair implementation",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d8/dba/node__identity_8hpp": {
+      "hash": "de7b1fd2693c0f1b",
+      "description": "secp256k1 keypair and PeerId derivation (PTDS \u00a74.3)",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d5/db9/grammar__specialist_8cpp": {
+      "hash": "22df0b765292df99",
+      "description": "Grammar specialist implementation.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d4/d97/grammar__specialist_8hpp": {
+      "hash": "cf5af8e89b3af793",
+      "description": "Grammar correction specialist model (PTDS \u00a75.2).",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d9/dcf/i__specialist_8hpp": {
+      "hash": "19383263cb3c3837",
+      "description": "Abstract interface for all specialist modules (PTDS \u00a75.2).",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:dd/dfc/math__specialist_8cpp": {
+      "hash": "608320ebb9f6c772",
+      "description": "Math specialist implementation.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:dc/de2/math__specialist_8hpp": {
+      "hash": "9a0924704748935a",
+      "description": "GSM8K-tuned math specialist model (PTDS \u00a75.2).",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d6/da0/symbolic__fallback_8cpp": {
+      "hash": "7c1d20007decddcf",
+      "description": "Recursive-descent expression evaluator.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d6/dc6/symbolic__fallback_8hpp": {
+      "hash": "199a82ecee54d704",
+      "description": "Expression parser and evaluator for math validation (PTDS \u00a75.2).",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d4/dbc/bench__mnn__llm_8cpp": {
+      "hash": "4afda8f201596343",
+      "description": "Benchmark MNN LLM inference \u2014 measures prefill + decode performance.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d2/de6/os__memory_8hpp": {
+      "hash": "ca24e05f71cba117",
+      "description": "Platform-specific peak-memory measurement for benchmarks.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:da/dbf/test__fp4__codec_8cpp": {
+      "hash": "b6e50b8d9293ebf3",
+      "description": "Unit tests for FP4Codec.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:de/d05/test__genius__elm__ffi_8cpp": {
+      "hash": "08c6070b59d9e8f2",
+      "description": "test_genius_elm_ffi.cpp",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d3/db4/test__pipeline_8cpp": {
+      "hash": "8d8c002784c44c52",
+      "description": "Integration tests \u2014 full pipeline in stub mode.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d9/d21/test__sgprocessing__pipeline_8cpp": {
+      "hash": "b23f12d08e45600e",
+      "description": "Integration tests: NeoSwarm \u2192 SGProcessingManager \u2192 TensorInterpreter.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:de/d09/test__fact__validation_8cpp": {
+      "hash": "9b81dcddca697ab5",
+      "description": "Unit tests for FactValidation \u2014 claim verification against grounding facts.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:dd/d78/test__network_8cpp": {
+      "hash": "6a115b0ae9a20c5e",
+      "description": "Unit tests for P2PNode and ResultAggregation.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:df/d44/test__reputation_8cpp": {
+      "hash": "d3a893976de1d2dc",
+      "description": "Unit tests for reputation subsystem.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d7/d86/test__router_8cpp": {
+      "hash": "0b3c6ca528b0aa7a",
+      "description": "Unit tests for PromptAnalyzer and RuleBasedRouter.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:dc/d40/test__message__signing_8cpp": {
+      "hash": "86789db573929bcd",
+      "description": "Unit tests for MessageSigning \u2014 verify, tamper rejection, replay protection.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:df/d83/test__node__identity_8cpp": {
+      "hash": "2c9d142403e4a9ba",
+      "description": "Unit tests for NodeIdentity \u2014 key generation, sign/verify, encrypted save/load.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:da/d8d/test__grammar__specialist_8cpp": {
+      "hash": "4af65611994d0117",
+      "description": "Unit tests for GrammarSpecialist \u2014 happy, unhappy paths.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d6/d42/test__math__specialist_8cpp": {
+      "hash": "5a5eeb2b8e9fb833",
+      "description": "Unit tests for MathSpecialist \u2014 happy, unhappy paths.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:da/df0/url__launcher__macos__vers_8c": {
+      "hash": "5a5801bd2ebd21ef",
+      "description": "url_launcher_macos_vers.c",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d2/d65/_intermediates_8noindex_2_pods_8build_2_debug_2url__launcher__macos_8build_2_objects-normal_2armee35c16bc66aaf734d1fd8bc1e6e5397": {
+      "hash": "73191e4787e874b9",
+      "description": "url_launcher_macos-Swift.h",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:db/daa/_products_2_debug_2url__launcher__macos_2url__launcher__macos_8framework_2_versions_2_a_2_headere35a1b7830e5623197202dc596d99201": {
+      "hash": "set",
+      "description": "url_launcher_macos-Swift.h",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d5/dad/_debug_2path__provider__foundation_8build_2_derived_sources_2path__provider__foundation__vers_8c": {
+      "hash": "e601da7a509cda8f",
+      "description": "path_provider_foundation_vers.c",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d5/dad/_release_2path__provider__foundation_8build_2_derived_sources_2path__provider__foundation__vers_8c": {
+      "hash": "e601da7a509cda8f",
+      "description": "path_provider_foundation_vers.c",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d8/dc1/_intermediates_8noindex_2_pods_8build_2_debug_2path__provider__foundation_8build_2_objects-norma24389db29229141ae59929339f228f79": {
+      "hash": "1d9150c2444c9481",
+      "description": "path_provider_foundation-Swift.h",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d5/dbc/_intermediates_8noindex_2_pods_8build_2_release_2path__provider__foundation_8build_2_objects-nor01b103c99f1bd35f39c8778bb3e59383": {
+      "hash": "73191e4787e874b9",
+      "description": "path_provider_foundation-Swift.h",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:dc/d8a/_intermediates_8noindex_2_pods_8build_2_release_2path__provider__foundation_8build_2_objects-nor8773aa999cb808b0b1b7bbc84b0aeccc": {
+      "hash": "73191e4787e874b9",
+      "description": "path_provider_foundation-Swift.h",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:de/db8/_products_2_debug_2path__provider__foundation_2path__provider__foundation_8framework_2_versions_092411c9c29dee62e90b9a38b8d6aebf": {
+      "hash": "set",
+      "description": "path_provider_foundation-Swift.h",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d4/dde/_products_2_release_2path__provider__foundation_2path__provider__foundation_8framework_2_version0730df6672d5ac5bcb78b4b6062ec076": {
+      "hash": "set",
+      "description": "path_provider_foundation-Swift.h",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d1/d78/_debug_2_pods-_runner_8build_2_derived_sources_2_pods___runner__vers_8c": {
+      "hash": "95f73365187ba39c",
+      "description": "Pods_Runner_vers.c",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d6/dfd/_release_2_pods-_runner_8build_2_derived_sources_2_pods___runner__vers_8c": {
+      "hash": "95f73365187ba39c",
+      "description": "Pods_Runner_vers.c",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d2/d45/url__launcher__macos-umbrella_8h": {
+      "hash": "db4bf5b0aff60a02",
+      "description": "url_launcher_macos-umbrella.h",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d7/d3e/_debug_2_flutter_mac_o_s_8framework_2_versions_2_a_2_headers_2_flutter_app_delegate_8h": {
+      "hash": "set",
+      "description": "FlutterAppDelegate.h",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d6/d8d/_release_2_flutter_mac_o_s_8framework_2_versions_2_a_2_headers_2_flutter_app_delegate_8h": {
+      "hash": "set",
+      "description": "FlutterAppDelegate.h",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:de/dd4/_debug_2_flutter_mac_o_s_8framework_2_versions_2_a_2_headers_2_flutter_app_lifecycle_delegate_8h": {
+      "hash": "set",
+      "description": "FlutterAppLifecycleDelegate.h",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d2/dba/_release_2_flutter_mac_o_s_8framework_2_versions_2_a_2_headers_2_flutter_app_lifecycle_delegate_8h": {
+      "hash": "set",
+      "description": "FlutterAppLifecycleDelegate.h",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d4/d70/_debug_2_flutter_mac_o_s_8framework_2_versions_2_a_2_headers_2_flutter_binary_messenger_8h": {
+      "hash": "93bffe390e7eccd6",
+      "description": "FlutterBinaryMessenger.h",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d8/dcc/_release_2_flutter_mac_o_s_8framework_2_versions_2_a_2_headers_2_flutter_binary_messenger_8h": {
+      "hash": "34ae48cf2e18a92f",
+      "description": "FlutterBinaryMessenger.h",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d2/d37/_debug_2_flutter_mac_o_s_8framework_2_versions_2_a_2_headers_2_flutter_channels_8h": {
+      "hash": "7a73b9e722cdae85",
+      "description": "FlutterChannels.h",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d6/d84/_release_2_flutter_mac_o_s_8framework_2_versions_2_a_2_headers_2_flutter_channels_8h": {
+      "hash": "7a73b9e722cdae85",
+      "description": "FlutterChannels.h",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:da/d92/_debug_2_flutter_mac_o_s_8framework_2_versions_2_a_2_headers_2_flutter_codecs_8h": {
+      "hash": "fba50cdce5da7dd2",
+      "description": "FlutterCodecs.h",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d7/db3/_release_2_flutter_mac_o_s_8framework_2_versions_2_a_2_headers_2_flutter_codecs_8h": {
+      "hash": "fba50cdce5da7dd2",
+      "description": "FlutterCodecs.h",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:da/d0a/_debug_2_flutter_mac_o_s_8framework_2_versions_2_a_2_headers_2_flutter_dart_project_8h": {
+      "hash": "set",
+      "description": "FlutterDartProject.h",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:df/dea/_release_2_flutter_mac_o_s_8framework_2_versions_2_a_2_headers_2_flutter_dart_project_8h": {
+      "hash": "set",
+      "description": "FlutterDartProject.h",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d4/d22/_debug_2_flutter_mac_o_s_8framework_2_versions_2_a_2_headers_2_flutter_engine_8h": {
+      "hash": "set",
+      "description": "FlutterEngine.h",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d3/d3a/_release_2_flutter_mac_o_s_8framework_2_versions_2_a_2_headers_2_flutter_engine_8h": {
+      "hash": "set",
+      "description": "FlutterEngine.h",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d9/df3/_flutter_hour_format_8h": {
+      "hash": "set",
+      "description": "FlutterHourFormat.h",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d0/ddd/_debug_2_flutter_mac_o_s_8framework_2_versions_2_a_2_headers_2_flutter_mac_o_s_8h": {
+      "hash": "set",
+      "description": "FlutterMacOS.h",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d1/d36/_release_2_flutter_mac_o_s_8framework_2_versions_2_a_2_headers_2_flutter_mac_o_s_8h": {
+      "hash": "set",
+      "description": "FlutterMacOS.h",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:df/d02/_debug_2_flutter_mac_o_s_8framework_2_versions_2_a_2_headers_2_flutter_macros_8h": {
+      "hash": "4cd4a85dad74fa8e",
+      "description": "FlutterMacros.h",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d7/d06/_release_2_flutter_mac_o_s_8framework_2_versions_2_a_2_headers_2_flutter_macros_8h": {
+      "hash": "4cd4a85dad74fa8e",
+      "description": "FlutterMacros.h",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d3/d47/_debug_2_flutter_mac_o_s_8framework_2_versions_2_a_2_headers_2_flutter_platform_views_8h": {
+      "hash": "set",
+      "description": "FlutterPlatformViews.h",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:df/dd8/_release_2_flutter_mac_o_s_8framework_2_versions_2_a_2_headers_2_flutter_platform_views_8h": {
+      "hash": "set",
+      "description": "FlutterPlatformViews.h",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d4/da1/_debug_2_flutter_mac_o_s_8framework_2_versions_2_a_2_headers_2_flutter_plugin_mac_o_s_8h": {
+      "hash": "set",
+      "description": "FlutterPluginMacOS.h",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d5/dec/_release_2_flutter_mac_o_s_8framework_2_versions_2_a_2_headers_2_flutter_plugin_mac_o_s_8h": {
+      "hash": "set",
+      "description": "FlutterPluginMacOS.h",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:da/d8b/_debug_2_flutter_mac_o_s_8framework_2_versions_2_a_2_headers_2_flutter_plugin_registrar_mac_o_s_8h": {
+      "hash": "set",
+      "description": "FlutterPluginRegistrarMacOS.h",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d5/df7/_release_2_flutter_mac_o_s_8framework_2_versions_2_a_2_headers_2_flutter_plugin_registrar_mac_o_s_8h": {
+      "hash": "set",
+      "description": "FlutterPluginRegistrarMacOS.h",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:de/d0c/_debug_2_flutter_mac_o_s_8framework_2_versions_2_a_2_headers_2_flutter_texture_8h": {
+      "hash": "set",
+      "description": "FlutterTexture.h",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:dd/dc7/_release_2_flutter_mac_o_s_8framework_2_versions_2_a_2_headers_2_flutter_texture_8h": {
+      "hash": "set",
+      "description": "FlutterTexture.h",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:dd/d4e/_debug_2_flutter_mac_o_s_8framework_2_versions_2_a_2_headers_2_flutter_view_controller_8h": {
+      "hash": "fba50cdce5da7dd2",
+      "description": "FlutterViewController.h",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d7/d79/_release_2_flutter_mac_o_s_8framework_2_versions_2_a_2_headers_2_flutter_view_controller_8h": {
+      "hash": "1cec726422082b05",
+      "description": "FlutterViewController.h",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d1/df4/_generated_plugin_registrant_8h": {
+      "hash": "set",
+      "description": "GeneratedPluginRegistrant.h",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:da/df6/flutter__app_2ios_2_runner_2_runner-_bridging-_header_8h": {
+      "hash": "set",
+      "description": "Runner-Bridging-Header.h",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d2/dce/flutter__slm__bridge_2example_2ios_2_runner_2_runner-_bridging-_header_8h": {
+      "hash": "set",
+      "description": "Runner-Bridging-Header.h",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d5/dbd/ui_2ios_2_runner_2_runner-_bridging-_header_8h": {
+      "hash": "set",
+      "description": "Runner-Bridging-Header.h",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d8/d33/flutter__app_2linux_2flutter_2generated__plugin__registrant_8h": {
+      "hash": "49b13ab229b87f8e",
+      "description": "generated_plugin_registrant.h",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:db/da0/flutter__app_2windows_2flutter_2generated__plugin__registrant_8h": {
+      "hash": "84a5db84892ff79a",
+      "description": "generated_plugin_registrant.h",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d4/d81/ui_2linux_2flutter_2generated__plugin__registrant_8h": {
+      "hash": "49b13ab229b87f8e",
+      "description": "generated_plugin_registrant.h",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d3/db0/ui_2windows_2flutter_2generated__plugin__registrant_8h": {
+      "hash": "84a5db84892ff79a",
+      "description": "generated_plugin_registrant.h",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d5/dd4/flutter__app_2linux_2runner_2my__application_8h": {
+      "hash": "4b20f8b6b2846a7c",
+      "description": "my_application.h",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d4/d8b/flutter__slm__bridge_2example_2linux_2runner_2my__application_8h": {
+      "hash": "4b20f8b6b2846a7c",
+      "description": "my_application.h",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d4/d90/ui_2linux_2my__application_8h": {
+      "hash": "4b20f8b6b2846a7c",
+      "description": "my_application.h",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d1/dcf/build_2macos_2_build_2_products_2_debug_2path__provider__foundation_2path__provider__foundation_3ec871b05753f0a77fcad814d817ba57": {
+      "hash": "d661e4cec6b72062",
+      "description": "path_provider_foundation-umbrella.h",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:df/de6/build_2macos_2_build_2_products_2_release_2path__provider__foundation_2path__provider__foundatio5acb795edfdfd7022987a84d71ce5344": {
+      "hash": "d661e4cec6b72062",
+      "description": "path_provider_foundation-umbrella.h",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d2/d24/macos_2_pods_2_target_01_support_01_files_2path__provider__foundation_2path__provider__foundation-umbrella_8h": {
+      "hash": "d661e4cec6b72062",
+      "description": "path_provider_foundation-umbrella.h",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:dc/d26/build_2macos_2_build_2_products_2_debug_2_pods___runner_8framework_2_versions_2_a_2_headers_2_pods-_runner-umbrella_8h": {
+      "hash": "a0a8d6a11d760d7e",
+      "description": "Pods-Runner-umbrella.h",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d3/d5f/build_2macos_2_build_2_products_2_release_2_pods___runner_8framework_2_versions_2_a_2_headers_2_pods-_runner-umbrella_8h": {
+      "hash": "a0a8d6a11d760d7e",
+      "description": "Pods-Runner-umbrella.h",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d4/dca/macos_2_pods_2_target_01_support_01_files_2_pods-_runner_2_pods-_runner-umbrella_8h": {
+      "hash": "a0a8d6a11d760d7e",
+      "description": "Pods-Runner-umbrella.h",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d6/ddb/_pods-_runner_tests-umbrella_8h": {
+      "hash": "4d56d5fd5d54d0e0",
+      "description": "Pods-RunnerTests-umbrella.h",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:df/d0a/flutter__app_2windows_2runner_2flutter__window_8cpp": {
+      "hash": "set",
+      "description": "flutter_window.cpp",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d0/dab/flutter__slm__bridge_2example_2windows_2runner_2flutter__window_8cpp": {
+      "hash": "set",
+      "description": "flutter_window.cpp",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d8/d4c/ui_2windows_2runner_2flutter__window_8cpp": {
+      "hash": "set",
+      "description": "flutter_window.cpp",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:db/d07/flutter__app_2windows_2runner_2flutter__window_8h": {
+      "hash": "set",
+      "description": "flutter_window.h",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d1/dd6/flutter__slm__bridge_2example_2windows_2runner_2flutter__window_8h": {
+      "hash": "set",
+      "description": "flutter_window.h",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d0/d00/ui_2windows_2runner_2flutter__window_8h": {
+      "hash": "set",
+      "description": "flutter_window.h",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d2/d16/flutter__app_2windows_2runner_2main_8cpp": {
+      "hash": "bb69b3ef21a30ccb",
+      "description": "main.cpp",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d7/d18/flutter__slm__bridge_2example_2windows_2runner_2main_8cpp": {
+      "hash": "bb69b3ef21a30ccb",
+      "description": "main.cpp",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:de/dfb/src_2main_8cpp": {
+      "hash": "0b92da7921c41044",
+      "description": "main.cpp",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:db/db9/ui_2windows_2runner_2main_8cpp": {
+      "hash": "bb69b3ef21a30ccb",
+      "description": "main.cpp",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:dd/dd8/flutter__app_2windows_2runner_2resource_8h": {
+      "hash": "833a12475c863208",
+      "description": "resource.h",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:da/d18/flutter__slm__bridge_2example_2windows_2runner_2resource_8h": {
+      "hash": "833a12475c863208",
+      "description": "resource.h",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d3/d82/ui_2windows_2runner_2resource_8h": {
+      "hash": "833a12475c863208",
+      "description": "resource.h",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d3/df2/flutter__app_2windows_2runner_2utils_8cpp": {
+      "hash": "41d21294257af4e7",
+      "description": "utils.cpp",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:dd/def/flutter__slm__bridge_2example_2windows_2runner_2utils_8cpp": {
+      "hash": "41d21294257af4e7",
+      "description": "utils.cpp",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d9/df0/ui_2windows_2runner_2utils_8cpp": {
+      "hash": "41d21294257af4e7",
+      "description": "utils.cpp",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:df/db1/flutter__app_2windows_2runner_2utils_8h": {
+      "hash": "9a5b2866a7b8ac18",
+      "description": "utils.h",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d1/da0/flutter__slm__bridge_2example_2windows_2runner_2utils_8h": {
+      "hash": "9a5b2866a7b8ac18",
+      "description": "utils.h",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:dc/d4d/ui_2windows_2runner_2utils_8h": {
+      "hash": "9a5b2866a7b8ac18",
+      "description": "utils.h",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:df/d75/flutter__app_2windows_2runner_2win32__window_8cpp": {
+      "hash": "2890380f648a2e9b",
+      "description": "win32_window.cpp",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d5/dbf/flutter__slm__bridge_2example_2windows_2runner_2win32__window_8cpp": {
+      "hash": "2890380f648a2e9b",
+      "description": "win32_window.cpp",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:da/de0/ui_2windows_2runner_2win32__window_8cpp": {
+      "hash": "2890380f648a2e9b",
+      "description": "win32_window.cpp",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d7/d56/flutter__app_2windows_2runner_2win32__window_8h": {
+      "hash": "set",
+      "description": "win32_window.h",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:da/dcf/flutter__slm__bridge_2example_2windows_2runner_2win32__window_8h": {
+      "hash": "set",
+      "description": "win32_window.h",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d3/d9f/ui_2windows_2runner_2win32__window_8h": {
+      "hash": "set",
+      "description": "win32_window.h",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d4/d23/classdistill_1_1teacher_1_1___response_wrapper": {
+      "hash": "b767c8912bc23237",
+      "description": "_ResponseWrapper",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d7/d5a/classeval_1_1adaptive__gating_1_1_adaptive_gating": {
+      "hash": "18e40814ec00b284",
+      "description": "AdaptiveGating",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d6/d29/classdistill_1_1backends_1_1anthropic__backend_1_1_anthropic_backend": {
+      "hash": "cdc504c87e8fa742",
+      "description": "AnthropicBackend",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d4/d43/classdistill_1_1teacher__errors_1_1_backend_not_found_error": {
+      "hash": "237dfed90012dea8",
+      "description": "BackendNotFoundError",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d6/db5/classeval_1_1benchmarker_1_1_benchmarker": {
+      "hash": "b6f275d43c7f343f",
+      "description": "Benchmarker",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:df/d1b/classeval_1_1benchmark__runner_1_1_benchmark_runner": {
+      "hash": "536a33f53e9d34be",
+      "description": "BenchmarkRunner",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d1/d95/classdistill_1_1teacher__errors_1_1_budget_exceeded_error": {
+      "hash": "set",
+      "description": "BudgetExceededError",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:da/d69/classdistill_1_1cascade_1_1_cascade_result": {
+      "hash": "f291dd1d761cf7f7",
+      "description": "CascadeResult",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d9/db3/classpipeline_1_1checkpoint_1_1_checkpoint_validator": {
+      "hash": "b52ddc474466b1ca",
+      "description": "CheckpointValidator",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:db/d75/classdistill_1_1teacher__errors_1_1_circuit_breaker_open_error": {
+      "hash": "set",
+      "description": "CircuitBreakerOpenError",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:db/d71/classeval_1_1benchmark__config_1_1_config_error": {
+      "hash": "219244ca75f9805a",
+      "description": "ConfigError",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d8/da5/classconfig_1_1loader_1_1_config_loader": {
+      "hash": "9b9516d422552af7",
+      "description": "ConfigLoader",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:dc/d66/classconfig_1_1loader_1_1_config_validation_error": {
+      "hash": "eee13abf36f0b82e",
+      "description": "ConfigValidationError",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:de/dd4/classdistill_1_1convergence_1_1_convergence_tracker": {
+      "hash": "1410821224f69b29",
+      "description": "ConvergenceTracker",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d2/d54/classdistill_1_1distillation_1_1_distillation_aborted_error": {
+      "hash": "52ab15025dcc48c2",
+      "description": "DistillationAbortedError",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d1/d3c/classdistill_1_1distillation_1_1_distiller": {
+      "hash": "d913819e4c877c0f",
+      "description": "Distiller",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:de/d1d/classtraining_1_1tracker_1_1_experiment_tracker": {
+      "hash": "fc194716e1afc0ce",
+      "description": "ExperimentTracker",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d6/d9b/classquantize_1_1fp4__exporter_1_1_f_p4_exporter": {
+      "hash": "2d6eb9b2844e8f42",
+      "description": "FP4Exporter",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:de/dde/classquantize_1_1laplacian_1_1_laplacian_weighted_error": {
+      "hash": "d5c49ab732a506a9",
+      "description": "LaplacianWeightedError",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d4/d0e/classquantize_1_1manifest_1_1_manifest_builder": {
+      "hash": "3602f63449b6d388",
+      "description": "ManifestBuilder",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:de/de1/classeval_1_1metric__store_1_1_metric_store": {
+      "hash": "03c17c1d69e8d94e",
+      "description": "MetricStore",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d1/d82/classeval_1_1benchmarker_1_1_missing_baseline_error": {
+      "hash": "dc9c6120f77c9f83",
+      "description": "MissingBaselineError",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d8/de9/classeval_1_1benchmark__mlx__model_1_1_m_l_x_benchmark_model": {
+      "hash": "d8212c611f4bd91c",
+      "description": "MLXBenchmarkModel",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d8/dea/classdistill_1_1backends_1_1openai__backend_1_1_open_a_i_backend": {
+      "hash": "d248e6df349d6dcd",
+      "description": "OpenAIBackend",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d4/daf/classpipeline_1_1runner_1_1_pipeline_runner": {
+      "hash": "cd8a70a5803524db",
+      "description": "PipelineRunner",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d6/daa/classquantize_1_1quadtree_1_1_quadtree_encoder": {
+      "hash": "9f6a874df1f27e50",
+      "description": "QuadtreeEncoder",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:db/d0a/classrouter_1_1classifier_1_1_router_classifier": {
+      "hash": "296dbc372fb14c8e",
+      "description": "RouterClassifier",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d6/d8d/classrouter_1_1engine_1_1_router_state_machine": {
+      "hash": "0226d2516c67e9af",
+      "description": "RouterStateMachine",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:da/d8d/classrouter_1_1rules_1_1_rule_matcher": {
+      "hash": "8306dfb15e729ed0",
+      "description": "RuleMatcher",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d0/d3a/classeval_1_1evaluator_1_1_specialist_evaluator": {
+      "hash": "4b3e6deeb6ce290f",
+      "description": "SpecialistEvaluator",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:dd/d61/classpipeline_1_1runner_1_1_stage_result": {
+      "hash": "2b0d80e60d1e3305",
+      "description": "StageResult",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d1/d15/classpipeline_1_1checkpoint_1_1_stage_validation_result": {
+      "hash": "58f94cf35dfcc905",
+      "description": "StageValidationResult",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d4/d56/classdistill_1_1teacher__errors_1_1_synthetic_data_error": {
+      "hash": "set",
+      "description": "SyntheticDataError",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d1/dbe/classdistill_1_1synthetic_1_1_synthetic_data_generator": {
+      "hash": "14a6bcdaae6c4f6f",
+      "description": "SyntheticDataGenerator",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:de/d97/classdistill_1_1backends_1_1base_1_1_teacher_backend": {
+      "hash": "eed6f346f6772b3f",
+      "description": "TeacherBackend",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d6/d79/classdistill_1_1cascade_1_1_teacher_cascade": {
+      "hash": "73a941874d621d95",
+      "description": "TeacherCascade",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d1/de5/classdistill_1_1teacher_1_1_teacher_client": {
+      "hash": "abf0bfb70c950206",
+      "description": "TeacherClient",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d4/d32/classdistill_1_1teacher__errors_1_1_teacher_config_error": {
+      "hash": "set",
+      "description": "TeacherConfigError",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d5/dc4/classtraining_1_1config_1_1_training_config": {
+      "hash": "383a45eb2e056452",
+      "description": "TrainingConfig",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d6/d7f/namespaceconfig": {
+      "hash": "2fc51539d06861d4",
+      "description": "config",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d7/de9/namespaceconfig_1_1loader": {
+      "hash": "1013d1ade56f3fc7",
+      "description": "loader",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:dc/db8/namespacedistill": {
+      "hash": "d946678b622fd44a",
+      "description": "distill",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d7/dd3/namespacedistill_1_1backends": {
+      "hash": "3eecc297c1a86fc0",
+      "description": "backends",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d1/d78/namespacedistill_1_1backends_1_1anthropic__backend": {
+      "hash": "8fd3d98ffdc545f1",
+      "description": "anthropic_backend",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:dd/d96/namespacedistill_1_1backends_1_1base": {
+      "hash": "45fdcc1ad53c416c",
+      "description": "base",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:de/d8d/namespacedistill_1_1backends_1_1openai__backend": {
+      "hash": "4a367c1fe50b1d6c",
+      "description": "openai_backend",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d9/df9/namespacedistill_1_1cascade": {
+      "hash": "a6fa65433beeabd4",
+      "description": "cascade",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d5/d7d/namespacedistill_1_1convergence": {
+      "hash": "1cf2c3d4f83b3e66",
+      "description": "convergence",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:dd/d2b/namespacedistill_1_1distillation": {
+      "hash": "8160c7acca979c5c",
+      "description": "distillation",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d2/d86/namespacedistill_1_1synthetic": {
+      "hash": "4b8023089c5e7db1",
+      "description": "synthetic",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d6/d31/namespacedistill_1_1teacher": {
+      "hash": "724d6950aea38e9f",
+      "description": "teacher",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:db/ddf/namespacedistill_1_1teacher__errors": {
+      "hash": "62d1f745d08c982c",
+      "description": "teacher_errors",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:dd/df7/namespaceeval": {
+      "hash": "11a945de2b0c2e4d",
+      "description": "eval",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d6/d1e/namespaceeval_1_1adaptive__gating": {
+      "hash": "8e3116886a8c0e42",
+      "description": "adaptive_gating",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d0/da3/namespaceeval_1_1benchmark__config": {
+      "hash": "95ed306181b4b257",
+      "description": "benchmark_config",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:db/d84/namespaceeval_1_1benchmark__fingerprint": {
+      "hash": "a72a62cfda551942",
+      "description": "benchmark_fingerprint",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:da/dc4/namespaceeval_1_1benchmark__mlx__model": {
+      "hash": "647638030e97e251",
+      "description": "benchmark_mlx_model",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:dc/d45/namespaceeval_1_1benchmark__repair": {
+      "hash": "209b1c9457083bf9",
+      "description": "benchmark_repair",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:db/d3d/namespaceeval_1_1benchmark__runner": {
+      "hash": "f7c39fb07743cdab",
+      "description": "benchmark_runner",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:db/d01/namespaceeval_1_1benchmark__tasks": {
+      "hash": "122125f38e0a15a0",
+      "description": "benchmark_tasks",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d3/db7/namespaceeval_1_1benchmark__trends": {
+      "hash": "e157dbf14ff848c7",
+      "description": "benchmark_trends",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d3/ddd/namespaceeval_1_1benchmarker": {
+      "hash": "d20f00aaf8b15c2a",
+      "description": "benchmarker",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:df/d87/namespaceeval_1_1evaluator": {
+      "hash": "a5f7e93ddda92716",
+      "description": "evaluator",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d1/d40/namespaceeval_1_1metric__store": {
+      "hash": "fe83d3c8bb09434d",
+      "description": "metric_store",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:db/d27/namespacepipeline": {
+      "hash": "58076cfc0e231467",
+      "description": "pipeline",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d5/d9f/namespacepipeline_1_1checkpoint": {
+      "hash": "be0f9c1e50478712",
+      "description": "checkpoint",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:dc/d87/namespacepipeline_1_1runner": {
+      "hash": "153fdb349afb6d6e",
+      "description": "runner",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d1/d35/namespacequantize": {
+      "hash": "d443ad353532e903",
+      "description": "quantize",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d3/df0/namespacequantize_1_1fp4__exporter": {
+      "hash": "d94838c477d21207",
+      "description": "fp4_exporter",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d4/d78/namespacequantize_1_1laplacian": {
+      "hash": "0c6d877ee5871878",
+      "description": "laplacian",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d8/d94/namespacequantize_1_1manifest": {
+      "hash": "4f19b97ddbb93435",
+      "description": "manifest",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:df/d8b/namespacequantize_1_1quadtree": {
+      "hash": "db0279da7ca5cd5e",
+      "description": "quadtree",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d3/d81/namespacerouter": {
+      "hash": "81585196a911b230",
+      "description": "router",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:dc/d1a/namespacerouter_1_1classifier": {
+      "hash": "c40d3573e9e9e92c",
+      "description": "classifier",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d1/dea/namespacerouter_1_1engine": {
+      "hash": "4ef1a754e33de2bf",
+      "description": "engine",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d5/d64/namespacerouter_1_1rules": {
+      "hash": "de3cbd8372f58ea2",
+      "description": "rules",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:de/d27/namespacerouter_1_1schema": {
+      "hash": "55ee5cf989d42b11",
+      "description": "schema",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:df/d75/namespacescripts": {
+      "hash": "2bacdd80531f0b2e",
+      "description": "scripts",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:db/de2/namespacescripts_1_1analyze__common__pile": {
+      "hash": "d15a7e0cfc6b2c2a",
+      "description": "analyze_common_pile",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:dd/d40/namespacescripts_1_1extract__source__niches": {
+      "hash": "f04532cd369f512f",
+      "description": "extract_source_niches",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d2/dcb/namespacescripts_1_1prepare__datasets": {
+      "hash": "4609649fa469af8b",
+      "description": "prepare_datasets",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d8/dcc/namespacestd": {
+      "hash": "0a373fc4dde7db35",
+      "description": "STL namespace.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d5/d9a/namespacetraining": {
+      "hash": "6e6241dd72be5fc1",
+      "description": "training",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d9/de8/namespacetraining_1_1config": {
+      "hash": "5a9e3cf1b4fa6195",
+      "description": "config",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d4/d27/namespacetraining_1_1dedup": {
+      "hash": "faa10ddfe1cb4b1e",
+      "description": "dedup",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:dd/d0a/namespacetraining_1_1memory": {
+      "hash": "797ad72458b7563b",
+      "description": "memory",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:dd/d78/namespacetraining_1_1tokenizer__utils": {
+      "hash": "b02fe2db8dcbf20d",
+      "description": "tokenizer_utils",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d9/d1d/namespacetraining_1_1tracker": {
+      "hash": "6a1d94279ac2ceda",
+      "description": "tracker",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:dd/df2/namespacetraining_1_1train__specialists": {
+      "hash": "5069e306057f4caf",
+      "description": "train_specialists",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d7/df6/namespacetraining_1_1train__specialists__mlx": {
+      "hash": "d5d9e8586b404aa2",
+      "description": "train_specialists_mlx",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d9/d6a/namespacetraining_1_1validation": {
+      "hash": "1262aedb36652f9a",
+      "description": "validation",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d4/de3/loader_8py": {
+      "hash": "e54149229a026728",
+      "description": "loader.py",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d5/dd5/analyze__common__pile_8py": {
+      "hash": "3698fdceaab233d9",
+      "description": "analyze_common_pile.py",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d7/dbe/extract__source__niches_8py": {
+      "hash": "91cd3793e7b889e5",
+      "description": "extract_source_niches.py",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d5/d9f/prepare__datasets_8py": {
+      "hash": "d26aafdf8bdc2c23",
+      "description": "prepare_datasets.py",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:da/de6/anthropic__backend_8py": {
+      "hash": "set",
+      "description": "anthropic_backend.py",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d5/de2/base_8py": {
+      "hash": "set",
+      "description": "base.py",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:df/d3e/openai__backend_8py": {
+      "hash": "set",
+      "description": "openai_backend.py",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d0/d43/cascade_8py": {
+      "hash": "4018d8e4f30ac421",
+      "description": "cascade.py",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d9/d10/convergence_8py": {
+      "hash": "69750a8546891f04",
+      "description": "convergence.py",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d9/dd2/distillation_8py": {
+      "hash": "2eff5e6641b973d4",
+      "description": "distillation.py",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d8/d49/synthetic_8py": {
+      "hash": "589dd7bc635cd75c",
+      "description": "synthetic.py",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d0/de1/teacher_8py": {
+      "hash": "b73ae3ef1badd3a0",
+      "description": "teacher.py",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d8/d16/teacher__errors_8py": {
+      "hash": "set",
+      "description": "teacher_errors.py",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:da/d8f/adaptive__gating_8py": {
+      "hash": "f177acac08349012",
+      "description": "adaptive_gating.py",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d3/de9/benchmark__config_8py": {
+      "hash": "a4a84cf3d2cc0a29",
+      "description": "benchmark_config.py",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:dc/df7/benchmark__fingerprint_8py": {
+      "hash": "f850dd1c719327c0",
+      "description": "benchmark_fingerprint.py",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d7/dfe/benchmark__mlx__model_8py": {
+      "hash": "363b40d85714061b",
+      "description": "benchmark_mlx_model.py",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:da/d63/benchmark__repair_8py": {
+      "hash": "3aac657594ee03bc",
+      "description": "benchmark_repair.py",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:df/de1/benchmark__runner_8py": {
+      "hash": "e1af762514e9d438",
+      "description": "benchmark_runner.py",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d1/de5/benchmark__tasks_8py": {
+      "hash": "4e90801668a65040",
+      "description": "benchmark_tasks.py",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d0/d84/benchmark__trends_8py": {
+      "hash": "32dbd6e48a904d7d",
+      "description": "benchmark_trends.py",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:de/d4d/benchmarker_8py": {
+      "hash": "69750a8546891f04",
+      "description": "benchmarker.py",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d3/d4a/evaluator_8py": {
+      "hash": "6c2b8a8de868e41c",
+      "description": "evaluator.py",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d4/dd1/metric__store_8py": {
+      "hash": "02111e6acea7aeb0",
+      "description": "metric_store.py",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:dc/d2e/checkpoint_8py": {
+      "hash": "69750a8546891f04",
+      "description": "checkpoint.py",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d6/da7/runner_8py": {
+      "hash": "03e03e9e029c1c8c",
+      "description": "runner.py",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d3/d5c/config_2____init_____8py": {
+      "hash": "fc0eb0ab84c574b7",
+      "description": "__init__.py",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:dc/da8/data_2scripts_2____init_____8py": {
+      "hash": "set",
+      "description": "__init__.py",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d6/d42/distill_2____init_____8py": {
+      "hash": "fc0eb0ab84c574b7",
+      "description": "__init__.py",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d2/dfb/distill_2backends_2____init_____8py": {
+      "hash": "fc0eb0ab84c574b7",
+      "description": "__init__.py",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:de/d9e/eval_2____init_____8py": {
+      "hash": "fc0eb0ab84c574b7",
+      "description": "__init__.py",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d7/d61/pipeline_2____init_____8py": {
+      "hash": "fc0eb0ab84c574b7",
+      "description": "__init__.py",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d8/deb/quantize_2____init_____8py": {
+      "hash": "fc0eb0ab84c574b7",
+      "description": "__init__.py",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d1/dfc/router_2____init_____8py": {
+      "hash": "55c684579c3e3f3c",
+      "description": "__init__.py",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:dc/de3/training_2____init_____8py": {
+      "hash": "set",
+      "description": "__init__.py",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d5/d67/fp4__exporter_8py": {
+      "hash": "919f2fe5427eddde",
+      "description": "fp4_exporter.py",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d7/dfd/laplacian_8py": {
+      "hash": "50829bcb9ad9f2ad",
+      "description": "laplacian.py",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d8/d70/manifest_8py": {
+      "hash": "set",
+      "description": "manifest.py",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d0/ded/quadtree_8py": {
+      "hash": "0b5b1579779f3bb8",
+      "description": "quadtree.py",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d1/d7b/classifier_8py": {
+      "hash": "9fae9a3622516b60",
+      "description": "classifier.py",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:da/db5/engine_8py": {
+      "hash": "8897551a51687c54",
+      "description": "engine.py",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d0/dd8/rules_8py": {
+      "hash": "4669841eb40760f0",
+      "description": "rules.py",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:dd/d8d/schema_8py": {
+      "hash": "c04dad7b70ca2d90",
+      "description": "schema.py",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:dd/deb/config_8py": {
+      "hash": "4aa4ee18395d72cc",
+      "description": "config.py",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d4/d4a/dedup_8py": {
+      "hash": "ff9433db3feaeae9",
+      "description": "dedup.py",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:de/d64/memory_8py": {
+      "hash": "61f568e52d492474",
+      "description": "memory.py",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:db/d9b/tokenizer__utils_8py": {
+      "hash": "bc2fc4819d35c4d1",
+      "description": "tokenizer_utils.py",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:de/d2e/tracker_8py": {
+      "hash": "set",
+      "description": "tracker.py",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:df/dda/train__specialists_8py": {
+      "hash": "870c57b8589c180d",
+      "description": "train_specialists.py",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:df/d23/train__specialists__mlx_8py": {
+      "hash": "812bbc2ebdcbd69f",
+      "description": "train_specialists_mlx.py",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:gnus-poc:d0/d19/validation_8py": {
+      "hash": "63ae48fac4bcc466",
+      "description": "validation.py",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    }
+  }
+}

@@ -1,6 +1,14 @@
 site/
 doxygen-output/
-docs/architecture/python-reference/
-docs/architecture/source-reference/
+docs/archictecture/PythonOrchestratedCompression
+gendoc-template/architecture/GNUSNeoSwarm/
 docs/architecture/SUMMARY_EXT.md
 docs/architecture/index.md
+javascripts/ask/
+
+.dev.vars
+.generated-vars
+
+.wrangler
+docs/architecture/GNUSNeoSwarm
+docs/architecture/PythonOrchestratedCompression
