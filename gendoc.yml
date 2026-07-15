@@ -5,7 +5,9 @@
 project:
   name: "Genius Cognitive System"
   number: "0.1"
+  logo: "docs/gnus-ai-logo.png"
   brief: "Distributed cognitive platform — ELM inference, swarm orchestration, verification, memory, and agent framework"
+  generator: false
 
 # ── Paths (relative to this file's location — the host project root) ──
 paths:
@@ -18,7 +20,6 @@ paths:
 
 # ── MkDocs configuration ────────────────────────────────────────────────────
 mkdocs:
-  site_dir: "site"
   use_directory_urls: true
   strict: false
 
@@ -47,8 +48,8 @@ source_references:
       - "*.h"
       - "*.hpp"
       - "*.hxx"
-    output_subdir: "source-reference"
-    base_url: "/source-reference/"
+    output_subdir: "GNUSNeoSwarm"
+    base_url: "/GNUSNeoSwarm/"
 
   - name: "gnus-poc"
     label: "Python (gnus-poc)"
@@ -59,13 +60,14 @@ source_references:
     exclude_patterns:
       - "*/tests/*"
       - "*/__pycache__/*"
-    output_subdir: "python-reference"
-    base_url: "/python-reference/"
+    output_subdir: "PythonOrchestratedCompression"
+    base_url: "/PythonOrchestratedCompression/"
 
 # ── Navigation ────────────────────────────────────────────────────────────────
 # Configure how the root navigation (SUMMARY_EXT.md) is built from hand-written
 # docs and the generated source reference sets.
 navigation:
+  generate_index: true                          # Rebuild index.md from index.md.template during build
   # Hand-written doc sections merged into the nav before the source reference.
   # Order in this array = order in the nav sidebar.
   sections:
@@ -81,3 +83,39 @@ deploy:
     compatibility_date: "2024-01-01"
     production_branch: "main"                  # Git branch that triggers production deploy
     custom_domain: "gcs.gnus.ai"               # Optional: custom domain (e.g. docs.example.com)
+
+llms:
+  enabled: true
+  site_url: "https://gcs.gnus.ai"            # canonical URL of the deployed site
+  corpus_cache: "llms-corpus"                # committed cache of fetched external docs
+  meta_file: "llms-meta.json"                # committed editorial metadata
+
+  # Audience catalogs and which categories feed them. Categories are
+  # assigned per-document in llms-meta.json (the editorial pass).
+  audiences:
+    llms-technical.txt:
+      title: "Architecture & Developer Reference"
+      categories: [technical, architecture, api, nodes]
+
+  related_catalogs:
+    - url: "https://docs.gnus.ai/llms.txt"
+      title: "The GNUS.AI Operating System"
+      description: "Documents on the complete GNUS.ai Network Operating System"
+      audiences: [llms-technical.txt]
+
+  # -- Ask AI Widget (optional) -------------------------------------------------
+  # Floating "Ask" button + chat drawer that answers questions only from your
+  # docs. Requires a Cloudflare Worker (deployed by setup.sh).  When
+  # `endpoint` is set, setup.sh injects a route into the wrangler config so
+  # traffic to that domain reaches this worker -- use this for sharing one
+  # worker across multiple projects.
+  ask:
+    enabled: true
+    title: "Ask GCS AI"
+    endpoint: "https://ask.gnus.ai/api/ask"   # custom-domain / shared-worker (optional)
+    allowed_origins:                             # default: [site_url]
+      - "https://docs.gnus.ai"
+      - "https://gcs.gnus.ai"
+    providers: "openrouter,gemini"
+    gemini_model: "gemini-2.5-flash"
+    openrouter_models: "nvidia/nemotron-3-super-120b-a12b:free,nvidia/nemotron-3-ultra-550b-a55b:free,nvidia/nemotron-3-nano-30b-a3b:free"
