@@ -51,8 +51,8 @@
       "nav_section": "Architecture"
     },
     "docs:./agentic-memory-layer.md": {
-      "hash": "ff3d851b172f064c",
-      "description": "How does GAML provide structured long-term memory? Defines the agentic memory layer with bridge blocks, facts, policies, events, trust metadata, and EIS evidence \u2014 making GCS memory-native rather than prompt-extended.",
+      "hash": "65af549b213e8bd1",
+      "description": "How does GAML provide governed long-term memory with cognitive assets, privacy scopes, surprise-gated writes, and swarm consensus resolution?",
       "category": "architecture",
       "optional": false,
       "exclude": false,
@@ -182,8 +182,8 @@
       "nav_section": "Architecture"
     },
     "docs:./agent-module-development-inventory.md": {
-      "hash": "fc2b71f38d86b348",
-      "description": "What agents, modules, and services are needed across the GCS architecture? Consolidates the implementation inventory covering agents, services, and runtime components for routing, memory, tool execution, verification, arbitration, EGGROLL adaptation, distributed execution, and the API router.",
+      "hash": "aa62bd49eae1027e",
+      "description": "What agents, modules, and services need building? Consolidates architecture requirements into an implementation inventory for milestone planning.",
       "category": "architecture",
       "optional": false,
       "exclude": false,
@@ -3892,6 +3892,22 @@
       "optional": true,
       "exclude": false,
       "nav_section": "Source Reference"
+    },
+    "docs:./forecast-driven-cognition.md": {
+      "hash": "27cad78c577dd43f",
+      "description": "How does GCS anticipate what it will need next? Defines ACE forecasting, CES scheduling, multi-hypothesis branching, and personal forecast models.",
+      "category": "architecture",
+      "optional": false,
+      "exclude": false,
+      "nav_section": "Architecture"
+    },
+    "docs:./capability-system.md": {
+      "hash": "319286b4628b31c6",
+      "description": "How does GCS discover and govern external capabilities? Defines canonical contracts, MCP adapters, and Tool Intermediary enforcement.",
+      "category": "architecture",
+      "optional": false,
+      "exclude": false,
+      "nav_section": "Architecture"
     }
   }
 }
