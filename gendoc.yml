@@ -81,7 +81,7 @@ deploy:
   cloudflare:
     pages_project_name: "genius-cognitive-system-docs"
     compatibility_date: "2024-01-01"
-    production_branch: "main"                  # Git branch that triggers production deploy
+    branch: "main"                             # Cloudflare Pages production branch
     custom_domain: "gcs.gnus.ai"               # Optional: custom domain (e.g. docs.example.com)
 
 llms:
