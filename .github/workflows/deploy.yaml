@@ -15,3 +15,58 @@ jobs:
     secrets:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+  verify-custom-domain:
+    needs: deploy
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      PAGES_PROJECT_NAME: genius-cognitive-system-docs
+      CUSTOM_DOMAIN: gcs.gnus.ai
+    steps:
+      - name: Verify custom domain ownership and deployed asset
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          api="https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects"
+          auth="Authorization: Bearer $CLOUDFLARE_API_TOKEN"
+
+          echo "Expected Pages project: $PAGES_PROJECT_NAME"
+          echo "Custom domain: $CUSTOM_DOMAIN"
+
+          owner=""
+          projects="$(curl --fail-with-body --silent --show-error             -H "$auth" "$api?per_page=100")"
+
+          while IFS= read -r project; do
+            response="$(curl --silent --show-error               -H "$auth"               "$api/$project/domains/$CUSTOM_DOMAIN")"
+            if jq -e '.success == true' >/dev/null 2>&1 <<<"$response"; then
+              owner="$project"
+              break
+            fi
+          done < <(jq -r '.result[].name' <<<"$projects")
+
+          if [[ -z "$owner" ]]; then
+            echo "::error::Custom domain $CUSTOM_DOMAIN is not attached to any Pages project."
+          elif [[ "$owner" != "$PAGES_PROJECT_NAME" ]]; then
+            echo "::error::Custom domain $CUSTOM_DOMAIN is attached to Pages project '$owner', not '$PAGES_PROJECT_NAME'."
+          else
+            echo "Custom domain is attached to the expected Pages project."
+          fi
+
+          expected="$(mktemp)"
+          actual="$(mktemp)"
+          cache_bust="verify=$GITHUB_SHA-$GITHUB_RUN_ATTEMPT"
+          curl --fail-with-body --silent --show-error             "https://production.$PAGES_PROJECT_NAME.pages.dev/javascripts/ask/drawer.js?$cache_bust"             -o "$expected"
+          curl --fail-with-body --silent --show-error             -H "Cache-Control: no-cache"             "https://$CUSTOM_DOMAIN/javascripts/ask/drawer.js?$cache_bust"             -o "$actual"
+
+          expected_hash="$(sha256sum "$expected" | cut -d' ' -f1)"
+          actual_hash="$(sha256sum "$actual" | cut -d' ' -f1)"
+          echo "Pages asset SHA-256: $expected_hash"
+          echo "Domain asset SHA-256: $actual_hash"
+
+          if [[ "$owner" != "$PAGES_PROJECT_NAME" || "$expected_hash" != "$actual_hash" ]]; then
+            echo "::error::The custom domain is not serving the deployment produced by this workflow."
+            exit 1
+          fi
