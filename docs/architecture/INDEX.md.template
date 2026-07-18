@@ -1,10 +1,10 @@
-# **Genius Cognitive System Architecture Documentation**
+## **Genius Cognitive System Architecture Documentation**
 
-## **Product & Technical Design Specification (PTDS)**
+### **Product & Technical Design Specification (PTDS)**
 
 This specification describes the complete **GeniusCognitiveSystem**, an integrated distributed cognitive platform where **Genius Expert Language Model (Genius ELM)** serves as the semantic core inference engine within a broader orchestration, verification, memory, and specialized-agent framework.
 
-### **Document Classification**
+#### **Document Classification**
 
 This documentation set is a:
 
@@ -13,12 +13,12 @@ Combining PRD + TDD + System Architecture Blueprint
 
 ---
 
-## **Architecture Index**
+### **Architecture Index**
 
 <!-- INDEX_LIST -->
 
 ---
 
-## **Suggested Reading Order**
+### **Suggested Reading Order**
 
 Start with the executive summary and system overview, then move through the model, routing, consensus, grounding, and agentic memory sections before reviewing execution planning, risks, long-term positioning, swarm-thinking architecture, secure agent architecture, the retraining layers, epistemic arbitration, SGFP4, Objective Memory / VTG, speculative decoding candidate scheduling, Frozen Micro-MTP edge inference, the OpenAI-compatible API router, Local Cognitive Second Brain Mode, Forecast-Driven Cognition and Predictive Prefetching, and the Agent and Module Development Inventory.
