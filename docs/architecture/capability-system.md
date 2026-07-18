@@ -1,6 +1,6 @@
-# **27. GCS Capability System**
+# **28. GCS Capability System**
 
-## **27.1 Purpose**
+## **28.1 Purpose**
 
 The GCS Capability System provides a protocol-neutral way for GeniusCognitiveSystem to discover, describe, govern, route, execute, and evaluate external and local capabilities.
 
@@ -14,7 +14,7 @@ MCP is one supported connector protocol. It is not the internal authority model 
 
 ---
 
-## **27.2 Architectural Position**
+## **28.2 Architectural Position**
 
 ```text
 External and Local Systems
@@ -49,9 +49,9 @@ The Capability System sits between external connector protocols and the existing
 
 ---
 
-## **27.3 Core Concepts**
+## **28.3 Core Concepts**
 
-### **27.3.1 Capability**
+### **28.3.1 Capability**
 
 A capability describes an operation available to GCS independently of how that operation is transported.
 
@@ -66,7 +66,7 @@ Examples:
 * `browser.page.retrieve`
 * `gnus.job.submit`
 
-### **27.3.2 Connector**
+### **28.3.2 Connector**
 
 A connector implements communication with a provider or local system.
 
@@ -81,17 +81,17 @@ github.issue.create
 
 The Router may select among equivalent connectors using policy, privacy, reliability, reputation, latency, cost, location, and current availability.
 
-### **27.3.3 Capability Provider**
+### **28.3.3 Capability Provider**
 
 A provider is the entity, service, application, device, node, or tenant system that supplies one or more connectors and capabilities.
 
-### **27.3.4 Capability Contract**
+### **28.3.4 Capability Contract**
 
 A capability contract is the canonical internal representation used by GCS policy and execution layers. External schemas are discovery input only. They do not grant authority.
 
 ---
 
-## **27.4 Canonical Capability Contract**
+## **28.4 Canonical Capability Contract**
 
 Representative schema:
 
@@ -160,7 +160,7 @@ The contract should include enough information to support:
 
 ---
 
-## **27.5 Discovery and Contract Translation**
+## **28.5 Discovery and Contract Translation**
 
 Connector adapters may discover operations from MCP tool schemas, OpenAPI documents, GraphQL schemas, gRPC descriptors, native manifests, application APIs, or manually defined interfaces.
 
@@ -184,7 +184,7 @@ The AI rewrites the connector's declared operation into the GCS contract model. 
 
 ---
 
-## **27.6 MCP Connector Adapter**
+## **28.6 MCP Connector Adapter**
 
 The MCP adapter allows GCS to act as an MCP host or client while preserving the GCS authority model.
 
@@ -220,11 +220,11 @@ MCP transport compatibility does not imply trust. Community, unverified, first-p
 
 ---
 
-## **27.7 Connector Categories**
+## **28.7 Connector Categories**
 
 The initial connector catalog should emphasize operational and private-data capabilities rather than external AI dependence.
 
-### **27.7.1 Local Personal Data**
+### **28.7.1 Local Personal Data**
 
 * local email stores and mail applications
 * local calendars and contacts
@@ -234,7 +234,7 @@ The initial connector catalog should emphasize operational and private-data capa
 * meeting transcripts and voice notes
 * notifications and local application databases
 
-### **27.7.2 Developer and Engineering Systems**
+### **28.7.2 Developer and Engineering Systems**
 
 * source repositories
 * issue and project trackers
@@ -242,14 +242,14 @@ The initial connector catalog should emphasize operational and private-data capa
 * package registries
 * code indexing and build systems
 
-### **27.7.3 Enterprise and Productivity Systems**
+### **28.7.3 Enterprise and Productivity Systems**
 
 * email and calendar services
 * document and collaboration platforms
 * CRM, ERP, support, and ticketing systems
 * internal APIs, databases, and knowledge systems
 
-### **27.7.4 Data and Knowledge Systems**
+### **28.7.4 Data and Knowledge Systems**
 
 * relational and document databases
 * vector and graph indexes
@@ -257,7 +257,7 @@ The initial connector catalog should emphasize operational and private-data capa
 * public and private grounding sources
 * filesystem and object storage
 
-### **27.7.5 Finance, Commerce, and Blockchain**
+### **28.7.5 Finance, Commerce, and Blockchain**
 
 * accounting and invoicing systems
 * payment processors
@@ -265,7 +265,7 @@ The initial connector catalog should emphasize operational and private-data capa
 * blockchain RPC and smart-contract interfaces
 * wallet and settlement services
 
-### **27.7.6 Device and Operating-System Services**
+### **28.7.6 Device and Operating-System Services**
 
 * local filesystem access
 * secure storage
@@ -274,7 +274,7 @@ The initial connector catalog should emphasize operational and private-data capa
 * application-scoped local APIs
 * controlled process or shell execution
 
-### **27.7.7 GNUS and GCS Services**
+### **28.7.7 GNUS and GCS Services**
 
 * GCS job submission and status
 * GNUS node capabilities
@@ -282,13 +282,13 @@ The initial connector catalog should emphasize operational and private-data capa
 * GAML retrieval and proposed writes
 * grounding, verification, EIS, and settlement services
 
-### **27.7.8 Optional External Inference Providers**
+### **28.7.8 Optional External Inference Providers**
 
 External model services may be supported through policy-scoped connectors for distillation, benchmarking, verification, fallback, or explicitly authorized tenant workflows. They are not part of the trusted cognitive core and do not replace the Semantic Core, GAML, EIS, GCS routing, or GNUS distributed execution.
 
 ---
 
-## **27.8 Local Capability Execution**
+## **28.8 Local Capability Execution**
 
 A capability may execute entirely on the same device as the user and GCS runtime.
 
@@ -312,7 +312,7 @@ Local access does not imply permission to memorize, replicate, train on, or tran
 
 ---
 
-## **27.9 Capability Routing and Reputation**
+## **28.9 Capability Routing and Reputation**
 
 Capability selection may consider:
 
@@ -331,7 +331,7 @@ Execution outcomes should update provider- and connector-specific reputation wit
 
 ---
 
-## **27.10 Credential and Secret Handling**
+## **28.10 Credential and Secret Handling**
 
 Credentials are not Cognitive Asset payloads and must not be stored directly in GAML.
 
@@ -341,7 +341,7 @@ Credentials must be bound to the requesting user, tenant, workspace, capability,
 
 ---
 
-## **27.11 Tool Intermediary Integration**
+## **28.11 Tool Intermediary Integration**
 
 Every capability invocation that reads external or local protected data, accesses credentials, performs a side effect, or may affect durable memory passes through the Tool Intermediary.
 
@@ -360,7 +360,7 @@ The Capability System describes what may be requested. The Tool Intermediary dec
 
 ---
 
-## **27.12 GAML Integration**
+## **28.12 GAML Integration**
 
 GAML may represent durable capability knowledge using Cognitive Assets such as:
 
@@ -392,7 +392,7 @@ Live secrets are never stored in GAML. Capability-derived data inherits the priv
 
 ---
 
-## **27.13 Connector Lifecycle**
+## **28.13 Connector Lifecycle**
 
 ```text
 Discover
@@ -411,7 +411,7 @@ Manifest changes must trigger drift detection and contract revalidation. Materia
 
 ---
 
-## **27.14 Initial Implementation Requirements**
+## **28.14 Initial Implementation Requirements**
 
 A first implementation should include:
 
@@ -428,7 +428,7 @@ A first implementation should include:
 
 ---
 
-## **27.15 Design Principle**
+## **28.15 Design Principle**
 
 GCS should speak many protocols externally while using one governed capability model internally.
 
