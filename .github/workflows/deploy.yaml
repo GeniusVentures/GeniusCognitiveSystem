@@ -37,7 +37,7 @@ jobs:
           echo "Custom domain: $CUSTOM_DOMAIN"
 
           owner=""
-          projects="$(curl --fail-with-body --silent --show-error             -H "$auth" "$api?per_page=100")"
+          projects="$(curl --fail-with-body --silent --show-error             -H "$auth" "$api")"
 
           while IFS= read -r project; do
             response="$(curl --silent --show-error               -H "$auth"               "$api/$project/domains/$CUSTOM_DOMAIN")"
