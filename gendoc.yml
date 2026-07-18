@@ -67,13 +67,15 @@ source_references:
 # Configure how the root navigation (SUMMARY_EXT.md) is built from hand-written
 # docs and the generated source reference sets.
 navigation:
-  generate_index: true                          # Rebuild index.md from index.md.template during build
+  generate_index: true                          # Rebuild SUMMARY.md from SUMMARY.md.template during build
+  index_template: "SUMMARY.md.template"
+  index_output: "SUMMARY.md"
   # Hand-written doc sections merged into the nav before the source reference.
   # Order in this array = order in the nav sidebar.
   sections:
     - label: "Architecture"
-      source_file: "index.md"
-      extract_heading: "Architecture Index"    # The readable section tree in index.md
+      source_file: "SUMMARY.md"
+      extract_heading: "Architecture Index"    # The readable section tree in SUMMARY.md
       promote_page_roots: false                  # Set true to collapse per-page TOC to page roots (adds breadcrumbs, may duplicate)
 
 # ── Deploy (Cloudflare Pages via Wrangler) ──────────────────────────────────
