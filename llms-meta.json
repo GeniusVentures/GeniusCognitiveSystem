@@ -3721,8 +3721,8 @@
       "nav_section": "**Genius Cognitive System Architecture Documentation**"
     },
     "docs:./agent-module-development-inventory.md": {
-      "hash": "baa649a388394c75",
-      "description": "Answers which agents, modules, services, and runtime components the GCS architecture requires and how they decompose into workstreams and repos.",
+      "hash": "09f654447916f70d",
+      "description": "What agents, deterministic services, ELMs, connectors, and infrastructure components does GCS require, decomposed into workstreams, milestones, trust tiers, and deployment profiles?",
       "category": "architecture",
       "optional": false,
       "exclude": false,
