@@ -6,9 +6,7 @@ main = "gendoc-template/ask-ai/worker/src/index.ts"
 compatibility_date = "2024-01-01"
 
 [vars]
-LLMS_URL = "https://gcs.gnus.ai/llms.txt"
 ALLOWED_ORIGINS = "https://docs.gnus.ai,https://gcs.gnus.ai"
-SITE_URL = "https://gcs.gnus.ai"
 BOT_NAME = "Ask GCS AI"
 PROVIDERS = "openrouter,gemini"
 GEMINI_MODEL = "gemini-2.5-flash"

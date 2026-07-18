@@ -1,196 +1,7 @@
 {
   "docs": {
-    "docs:./execution-integrity-system.md": {
-      "hash": "f229c5ea198c2668",
-      "description": "How does GCS verify that nodes ran the declared model, adapter, and container rather than a cheaper substitute? Defines the Execution Integrity System (EIS), determinism classes A/B/C, checkpoint-band matching, and teacher-forced spot-checks.",
-      "category": "architecture",
-      "optional": false,
-      "exclude": false,
-      "pinned": true,
-      "nav_section": "Architecture"
-    },
-    "docs:./executive-summary.md": {
-      "hash": "a3f457179c4774f5",
-      "description": "What is the Genius Cognitive System at a high level? Covers primary/secondary goals, cognitive architecture components, Genius ELM role, and the system's positioning as a Specialized Adaptable Intelligence Fabric.",
-      "category": "architecture",
-      "optional": false,
-      "exclude": false,
-      "pinned": true,
-      "nav_section": "Architecture"
-    },
-    "docs:./system-overview.md": {
-      "hash": "855d5a3c8d7cb78d",
-      "description": "How are GCS components connected? Maps the compute layer (MNN, Vulkan, SGFP4, EIS), the component topology, and the data flow from client API through routing, execution, verification, consensus, and grounding.",
-      "category": "architecture",
-      "optional": false,
-      "exclude": false,
-      "nav_section": "Architecture"
-    },
-    "docs:./model-and-router.md": {
-      "hash": "2572aaa0e0ff8dc7",
-      "description": "What is the Semantic Core model and how does expert routing work? Defines the base model selection criteria, SGFP4 quantization strategy, ELM categories (role-based, domain-specific), and the router/planner architecture.",
-      "category": "architecture",
-      "optional": false,
-      "exclude": false,
-      "nav_section": "Architecture"
-    },
-    "docs:./reputation-consensus.md": {
-      "hash": "51d6a5d065850e02",
-      "description": "How does the reputation system score nodes and weight consensus? Defines the role-aware/domain-aware reputation data model, update formulas (accuracy, latency, safety), CRDT replication, and sybil resistance.",
-      "category": "nodes",
-      "optional": false,
-      "exclude": false,
-      "nav_section": "Architecture"
-    },
-    "docs:./grounding.md": {
-      "hash": "7b8b00c9da243400",
-      "description": "How does GCS anchor outputs to verified data? Covers the Grokipedia retrieval pipeline, private knowledge grounding, post-generation validation, and how grounding evidence feeds reputation scoring.",
-      "category": "technical",
-      "optional": false,
-      "exclude": false,
-      "nav_section": "Architecture"
-    },
-    "docs:./agentic-memory-layer.md": {
-      "hash": "65af549b213e8bd1",
-      "description": "How does GAML provide governed long-term memory with cognitive assets, privacy scopes, surprise-gated writes, and swarm consensus resolution?",
-      "category": "architecture",
-      "optional": false,
-      "exclude": false,
-      "nav_section": "Architecture"
-    },
-    "docs:./execution-and-performance.md": {
-      "hash": "51e6852c722b79e1",
-      "description": "What execution modes does GCS support? Compares single-node, ELM-assisted, swarm, and agent modes. Defines local-first execution, small effective cognitive sets, and performance targets.",
-      "category": "architecture",
-      "optional": false,
-      "exclude": false,
-      "nav_section": "Architecture"
-    },
-    "docs:./roadmap-and-risks.md": {
-      "hash": "94ce688a8109c3d4",
-      "description": "What are the phased milestones for building GCS? Covers Phase 1 (Semantic Core) through Phase 6 (Ecosystem), with deliverables, hardware requirements, market risks, and technical risks.",
-      "category": "technical",
-      "optional": false,
-      "exclude": false,
-      "nav_section": "Architecture"
-    },
-    "docs:./future-and-positioning.md": {
-      "hash": "3d09777b8d729d9b",
-      "description": "How does GCS prepare for future reasoning substrates? Describes how the modular architecture survives replacement of the Semantic Core with latent world models while preserving specialists, memory, and consensus.",
-      "category": "technical",
-      "optional": false,
-      "exclude": false,
-      "nav_section": "Architecture"
-    },
-    "docs:./ai-safety.md": {
-      "hash": "f6ac6a2ff3c4f348",
-      "description": "How does GCS enforce safety without a central gateway? Defines the multi-layer safety model: node-local enforcement, reputation penalties, EIS attestation, and client-selectable safety policies for decentralized deployment.",
-      "category": "technical",
-      "optional": false,
-      "exclude": false,
-      "nav_section": "Architecture"
-    },
-    "docs:./distributed-swarm-thinking-context.md": {
-      "hash": "fd6b21930ff3761c",
-      "description": "How does the swarm coordinate distributed reasoning? Defines the five-layer swarm thinking context: context/memory, routing/planning, expert execution, verification/synthesis, and user-visible thinking traces.",
-      "category": "nodes",
-      "optional": false,
-      "exclude": false,
-      "pinned": true,
-      "nav_section": "Architecture"
-    },
-    "docs:./sgfp4-format.md": {
-      "hash": "45ce5f4fdbf19d65",
-      "description": "How does the SGFP4 quantization format compress model weights? Specifies the 64x64 macroblock tiling, FP4_AFFINE/T158_AFFINE dual-mode encoding, flags-in-offsets, and GPU decode kernel design.",
-      "category": "technical",
-      "optional": false,
-      "exclude": false,
-      "nav_section": "Architecture"
-    },
-    "docs:./secure-agent-architecture.md": {
-      "hash": "eb63a8f816ec1f50",
-      "description": "How does secure agent execution work in GCS? Defines the tool intermediary sandbox, policy-constrained execution, capability-scoped security choke-point, and zero-trust agent boundaries.",
-      "category": "nodes",
-      "optional": false,
-      "exclude": false,
-      "pinned": true,
-      "nav_section": "Architecture"
-    },
-    "docs:./eggroll-swarm-retraining.md": {
-      "hash": "d77d2010c674018a",
-      "description": "How does distributed retraining work on the GNUS swarm? Defines the EGGROLL evolutionary optimization workflow for specialist refresh using perturbation reconstruction, compact fitness communication, and reputation-gated promotion.",
-      "category": "technical",
-      "optional": false,
-      "exclude": false,
-      "nav_section": "Architecture"
-    },
-    "docs:./cognitive-retaining-system.md": {
-      "hash": "45449ae36f87d463",
-      "description": "How does targeted retraining adapt cognition per user? Defines lightweight adaptation of adapters, routing weights, critic weights, and arbitration logic without full model retraining, using EGGROLL-style optimization.",
-      "category": "technical",
-      "optional": false,
-      "exclude": false,
-      "nav_section": "Architecture"
-    },
-    "docs:./epistemic-arbitration-and-cognitive-os.md": {
-      "hash": "0129e52860ba7159",
-      "description": "How does the Cognitive OS judge, challenge, and synthesize competing outputs? Defines the epistemic arbitration layer with configurable reasoning frameworks (Nyaya, modal, hybrid), JSON reasoning machines, and WASM plugins.",
-      "category": "architecture",
-      "optional": false,
-      "exclude": false,
-      "pinned": true,
-      "nav_section": "Architecture"
-    },
-    "docs:./objective-memory-vtg.md": {
-      "hash": "65f82b9a5b6db2c4",
-      "description": "How does the Verified Transition Graph record reusable inference patterns? Distinguishes VTG from GAML: VTG stores verified low-entropy cognitive transitions discovered during inference, verification, and consensus.",
-      "category": "technical",
-      "optional": false,
-      "exclude": false,
-      "nav_section": "Architecture"
-    },
-    "docs:./speculative-decoding-and-vtg.md": {
-      "hash": "654cab37bcce5cf0",
-      "description": "How does micro-speculation accelerate inference on constrained nodes? Defines short local continuation proposals with local verification, accepted-prefix-only commitment, and compact outcome metadata fed back to VTG and EGGROLL.",
-      "category": "technical",
-      "optional": false,
-      "exclude": false,
-      "nav_section": "Architecture"
-    },
-    "docs:./frozen-mtp-and-vtg.md": {
-      "hash": "40795a0f46510e56",
-      "description": "How does Frozen Micro-MTP enable edge inference? Defines attaching small multi-token prediction heads to frozen backbones for 1-4 token proposals, verified against VTG before commitment.",
-      "category": "technical",
-      "optional": false,
-      "exclude": false,
-      "nav_section": "Architecture"
-    },
-    "docs:./openai-compatible-api-router-and-gcs-job-queue.md": {
-      "hash": "be937c350269fb50",
-      "description": "How does the OpenAI-compatible API router integrate with the GCS job queue? Specifies an API router that translates OpenAI-compatible calls into signed GNUS.ai democratized queue jobs, covering API surface design, streaming proxy, job lifecycle, pub/sub channels, node registration, and security.",
-      "category": "architecture",
-      "optional": false,
-      "exclude": false,
-      "nav_section": "Architecture"
-    },
-    "docs:./local-cognitive-second-brain.md": {
-      "hash": "dd1b60bebb7188cb",
-      "description": "How does GCS operate as a private, user-owned memory and reasoning system? Defines Local Cognitive Second Brain Mode backed by GAML, using local or private ELMs with the orchestration layer, supporting privacy modes, memory lifecycle, context assembly, and example workflows.",
-      "category": "architecture",
-      "optional": false,
-      "exclude": false,
-      "nav_section": "Architecture"
-    },
-    "docs:./agent-module-development-inventory.md": {
-      "hash": "aa62bd49eae1027e",
-      "description": "What agents, modules, and services need building? Consolidates architecture requirements into an implementation inventory for milestone planning.",
-      "category": "architecture",
-      "optional": false,
-      "exclude": false,
-      "nav_section": "Architecture"
-    },
     "set:neoswarm:dd/d89/classsgns_1_1neoswarm_1_1api_1_1_api_server": {
-      "hash": "37fe4bdfcfa58f41",
+      "hash": "a81f420b40104ffe",
       "description": "Orchestrates the full inference pipeline.",
       "category": "api",
       "optional": true,
@@ -198,7 +9,7 @@
       "nav_section": "Source Reference"
     },
     "set:neoswarm:d5/dca/struct_args": {
-      "hash": "f9e09a143d491ddf",
+      "hash": "3ce2de1dec98d96d",
       "description": "Args",
       "category": "api",
       "optional": true,
@@ -206,7 +17,7 @@
       "nav_section": "Source Reference"
     },
     "set:neoswarm:d1/d6c/structsgns_1_1neoswarm_1_1api_1_1_api_server_1_1_config": {
-      "hash": "8e5ad0e084471d10",
+      "hash": "2e0ff126ce234012",
       "description": "Config",
       "category": "api",
       "optional": true,
@@ -261,17 +72,9 @@
       "exclude": false,
       "nav_section": "Source Reference"
     },
-    "set:neoswarm:d8/d2b/structsgns_1_1neoswarm_1_1network_1_1_s_g_channel_manager_1_1_config": {
-      "hash": "90a5b2b2a0c0ce6b",
-      "description": "Config",
-      "category": "api",
-      "optional": true,
-      "exclude": false,
-      "nav_section": "Source Reference"
-    },
     "set:neoswarm:df/dca/structsgns_1_1neoswarm_1_1network_1_1_s_g_client_1_1_config": {
-      "hash": "40b39eafb35b66a8",
-      "description": "Configuration for SuperGenius network connectivity.",
+      "hash": "f673afbca1e3342b",
+      "description": "Config",
       "category": "api",
       "optional": true,
       "exclude": false,
@@ -541,14 +344,6 @@
       "exclude": false,
       "nav_section": "Source Reference"
     },
-    "set:neoswarm:d1/d1d/structsgns_1_1neoswarm_1_1core_1_1_sentence_piece_tokenizer_1_1_impl": {
-      "hash": "dcd8fdcca2b07655",
-      "description": "Impl",
-      "category": "api",
-      "optional": true,
-      "exclude": false,
-      "nav_section": "Source Reference"
-    },
     "set:neoswarm:db/d6e/structsgns_1_1neoswarm_1_1knowledge_1_1_knowledge_retrieval_1_1_impl": {
       "hash": "cb8f2c43053d0738",
       "description": "Impl",
@@ -566,23 +361,7 @@
       "nav_section": "Source Reference"
     },
     "set:neoswarm:d9/d1e/structsgns_1_1neoswarm_1_1network_1_1_s_g_client_1_1_impl": {
-      "hash": "7b06d1f9b6b270e3",
-      "description": "Impl",
-      "category": "api",
-      "optional": true,
-      "exclude": false,
-      "nav_section": "Source Reference"
-    },
-    "set:neoswarm:da/d6d/structsgns_1_1neoswarm_1_1network_1_1_s_g_job_submitter_1_1_impl": {
-      "hash": "6fffc6cbeefae0f6",
-      "description": "Impl",
-      "category": "api",
-      "optional": true,
-      "exclude": false,
-      "nav_section": "Source Reference"
-    },
-    "set:neoswarm:d8/d21/structsgns_1_1neoswarm_1_1network_1_1_s_g_message_authenticator_1_1_impl": {
-      "hash": "595b1bedd9433800",
+      "hash": "7ee4f77cb9bac007",
       "description": "Impl",
       "category": "api",
       "optional": true,
@@ -590,7 +369,7 @@
       "nav_section": "Source Reference"
     },
     "set:neoswarm:d6/d08/structsgns_1_1neoswarm_1_1network_1_1_s_g_result_collector_1_1_impl": {
-      "hash": "85936e894a3aa2bc",
+      "hash": "edb4ea8c9974ac25",
       "description": "Impl",
       "category": "api",
       "optional": true,
@@ -678,7 +457,7 @@
       "nav_section": "Source Reference"
     },
     "set:neoswarm:db/d49/classsgns_1_1neoswarm_1_1core_1_1_m_n_n_inference_engine": {
-      "hash": "34ce46d441bb59e9",
+      "hash": "0fe8dfdaef7e7366",
       "description": "MNN-backed inference engine with composable configuration.",
       "category": "api",
       "optional": true,
@@ -686,7 +465,7 @@
       "nav_section": "Source Reference"
     },
     "set:neoswarm:d6/d99/classsgns_1_1neoswarm_1_1security_1_1_node_identity": {
-      "hash": "3e7c8e21e3b7d6fb",
+      "hash": "168a864a406dc761",
       "description": "Manages a secp256k1 keypair and derives the node's PeerId.",
       "category": "api",
       "optional": true,
@@ -758,7 +537,7 @@
       "nav_section": "Source Reference"
     },
     "set:neoswarm:d4/dc5/structsgns_1_1neoswarm_1_1_prompt_features": {
-      "hash": "6ef621b2338d72db",
+      "hash": "a5f7016b68b838a1",
       "description": "PromptFeatures",
       "category": "api",
       "optional": true,
@@ -782,7 +561,7 @@
       "nav_section": "Source Reference"
     },
     "set:neoswarm:dd/d0a/classsgns_1_1neoswarm_1_1reputation_1_1_reputation_storage": {
-      "hash": "1be40fbf93a6e26a",
+      "hash": "9b15ce07d2ad9671",
       "description": "Persists NodeReputation records to RocksDB. Falls back to an in-memory store when RocksDB is not compiled in.",
       "category": "api",
       "optional": true,
@@ -813,41 +592,17 @@
       "exclude": false,
       "nav_section": "Source Reference"
     },
-    "set:neoswarm:d6/d8a/classsgns_1_1neoswarm_1_1core_1_1_sentence_piece_tokenizer": {
-      "hash": "fc3c9dcd7eddd3e3",
-      "description": "SentencePiece tokenizer.",
-      "category": "api",
-      "optional": true,
-      "exclude": false,
-      "nav_section": "Source Reference"
-    },
-    "set:neoswarm:d7/dce/classsgns_1_1neoswarm_1_1network_1_1_s_g_channel_manager": {
-      "hash": "e9e6c1da7c38bfc7",
-      "description": "Manages a persistent gRPC channel to a SuperGenius node.",
-      "category": "api",
-      "optional": true,
-      "exclude": false,
-      "nav_section": "Source Reference"
-    },
     "set:neoswarm:d4/d9a/classsgns_1_1neoswarm_1_1network_1_1_s_g_client": {
-      "hash": "a1b88b63e87bbfd0",
-      "description": "Client that bridges GNUS NEO SWARM to the SuperGenius blockchain compute network via PubSub-based gRPC dispatch.",
+      "hash": "d3c5fed753bb9a34",
+      "description": "SGClient",
       "category": "api",
       "optional": true,
       "exclude": false,
       "nav_section": "Source Reference"
     },
     "set:neoswarm:de/d51/classsgns_1_1neoswarm_1_1network_1_1_s_g_job_submitter": {
-      "hash": "48560a8edb74a340",
-      "description": "Signs and publishes Task messages to the SuperGenius grid channel.",
-      "category": "api",
-      "optional": true,
-      "exclude": false,
-      "nav_section": "Source Reference"
-    },
-    "set:neoswarm:d0/d6c/classsgns_1_1neoswarm_1_1network_1_1_s_g_message_authenticator": {
-      "hash": "0631d5cdcbcd5b28",
-      "description": "Wraps NodeIdentity and MessageSigning for SuperGenius dispatch.",
+      "hash": "1e5cc61d05f0b2df",
+      "description": "Dispatches GNUS schema JSON to GeniusSDK in-process.",
       "category": "api",
       "optional": true,
       "exclude": false,
@@ -862,15 +617,15 @@
       "nav_section": "Source Reference"
     },
     "set:neoswarm:de/d02/classsgns_1_1neoswarm_1_1network_1_1_s_g_result_collector": {
-      "hash": "eac0dcddc62240d5",
-      "description": "Collects inference results from SuperGenius PubSub result channels.",
+      "hash": "bcdc91c79bc23cb1",
+      "description": "Collects inference results via GeniusSDK processing status polling.",
       "category": "api",
       "optional": true,
       "exclude": false,
       "nav_section": "Source Reference"
     },
     "set:neoswarm:d1/dd3/structsgns_1_1neoswarm_1_1network_1_1_s_g_result_collector_config": {
-      "hash": "e1ac0df6d58ee0f1",
+      "hash": "cf8739d05d55c8e0",
       "description": "SGResultCollectorConfig",
       "category": "api",
       "optional": true,
@@ -1061,14 +816,6 @@
       "exclude": false,
       "nav_section": "Source Reference"
     },
-    "set:neoswarm:d4/d4f/namespacegrpc": {
-      "hash": "set",
-      "description": "grpc",
-      "category": "api",
-      "optional": true,
-      "exclude": false,
-      "nav_section": "Source Reference"
-    },
     "set:neoswarm:d1/d90/namespace_m_n_n": {
       "hash": "set",
       "description": "MNN",
@@ -1094,7 +841,7 @@
       "nav_section": "Source Reference"
     },
     "set:neoswarm:d6/d33/namespacesgns_1_1neoswarm": {
-      "hash": "07b6e44774277918",
+      "hash": "a452599021135b4f",
       "description": "neoswarm",
       "category": "api",
       "optional": true,
@@ -1149,14 +896,6 @@
       "exclude": false,
       "nav_section": "Source Reference"
     },
-    "set:neoswarm:d6/d92/namespacesgns_1_1neoswarm_1_1core_1_1_0d235123307061045033236364112247321156114344331235": {
-      "hash": "set",
-      "description": "@235123307061045033236364112247321156114344331235",
-      "category": "api",
-      "optional": true,
-      "exclude": false,
-      "nav_section": "Source Reference"
-    },
     "set:neoswarm:db/daf/namespacesgns_1_1neoswarm_1_1fp4": {
       "hash": "baf13dcc72ab20fc",
       "description": "fp4",
@@ -1205,14 +944,6 @@
       "exclude": false,
       "nav_section": "Source Reference"
     },
-    "set:neoswarm:d5/d91/namespacesgns_1_1neoswarm_1_1network_1_1_0d025340357202165304306037125141165007052257245334": {
-      "hash": "set",
-      "description": "@025340357202165304306037125141165007052257245334",
-      "category": "api",
-      "optional": true,
-      "exclude": false,
-      "nav_section": "Source Reference"
-    },
     "set:neoswarm:d3/d91/namespacesgns_1_1neoswarm_1_1network_1_1_0d116030302037337374226026341333141320225263306317": {
       "hash": "set",
       "description": "@116030302037337374226026341333141320225263306317",
@@ -1224,14 +955,6 @@
     "set:neoswarm:d2/db4/namespacesgns_1_1neoswarm_1_1network_1_1_0d116122176034027045275204132264313116122073117324": {
       "hash": "set",
       "description": "@116122176034027045275204132264313116122073117324",
-      "category": "api",
-      "optional": true,
-      "exclude": false,
-      "nav_section": "Source Reference"
-    },
-    "set:neoswarm:df/d7e/namespacesgns_1_1neoswarm_1_1network_1_1_0d140206013363205261357075334345345050230267213224": {
-      "hash": "set",
-      "description": "@140206013363205261357075334345345050230267213224",
       "category": "api",
       "optional": true,
       "exclude": false,
@@ -1486,7 +1209,7 @@
       "nav_section": "Source Reference"
     },
     "set:neoswarm:dd/de3/types_8hpp": {
-      "hash": "aa9568b6f4b65666",
+      "hash": "b4971097d076b704",
       "description": "Shared data types for the GNUS NEO SWARM engine.",
       "category": "api",
       "optional": true,
@@ -1565,17 +1288,9 @@
       "exclude": false,
       "nav_section": "Source Reference"
     },
-    "set:neoswarm:df/d85/sentence__piece__tokenizer_8cpp": {
-      "hash": "d0575b00c975ed4d",
-      "description": "SentencePiece tokenizer implementation.",
-      "category": "api",
-      "optional": true,
-      "exclude": false,
-      "nav_section": "Source Reference"
-    },
     "set:neoswarm:d1/db4/tokenizer_8hpp": {
-      "hash": "8e48cebd6a727b4f",
-      "description": "Abstract tokenizer interface and SentencePiece implementation.",
+      "hash": "9aefde005db5e34a",
+      "description": "Abstract tokenizer interface.",
       "category": "api",
       "optional": true,
       "exclude": false,
@@ -1685,81 +1400,49 @@
       "exclude": false,
       "nav_section": "Source Reference"
     },
-    "set:neoswarm:da/dd8/sg__channel__manager_8cpp": {
-      "hash": "81ece112976a6269",
-      "description": "gRPC channel lifecycle implementation \u2014 TLS, keepalive, reconnect",
-      "category": "api",
-      "optional": true,
-      "exclude": false,
-      "nav_section": "Source Reference"
-    },
-    "set:neoswarm:d6/da5/sg__channel__manager_8hpp": {
-      "hash": "6d1bb631fdde2e9e",
-      "description": "Manages gRPC channel lifecycle \u2014 create, keepalive, reconnect, health check.",
-      "category": "api",
-      "optional": true,
-      "exclude": false,
-      "nav_section": "Source Reference"
-    },
     "set:neoswarm:d5/d97/sg__job__submitter_8cpp": {
-      "hash": "7f579e4231da67f2",
-      "description": "Publishes signed Task messages to the SuperGenius grid channel via PubSub.",
+      "hash": "e3f4227becb47e24",
+      "description": "Dispatches GNUS schema JSON directly to GeniusSDKProcess.",
       "category": "api",
       "optional": true,
       "exclude": false,
       "nav_section": "Source Reference"
     },
     "set:neoswarm:d4/d72/sg__job__submitter_8hpp": {
-      "hash": "7f579e4231da67f2",
-      "description": "Publishes signed Task messages to the SuperGenius grid channel via PubSub.",
-      "category": "api",
-      "optional": true,
-      "exclude": false,
-      "nav_section": "Source Reference"
-    },
-    "set:neoswarm:d6/d66/sg__message__authenticator_8cpp": {
-      "hash": "1b7d131ac6102f5a",
-      "description": "Signs and verifies messages via hardened NodeIdentity + MessageSigning.",
-      "category": "api",
-      "optional": true,
-      "exclude": false,
-      "nav_section": "Source Reference"
-    },
-    "set:neoswarm:d6/d2b/sg__message__authenticator_8hpp": {
-      "hash": "5e4d3586caebe997",
-      "description": "Signs and verifies messages using the node's secp256k1 identity.",
+      "hash": "e3f4227becb47e24",
+      "description": "Dispatches GNUS schema JSON directly to GeniusSDKProcess.",
       "category": "api",
       "optional": true,
       "exclude": false,
       "nav_section": "Source Reference"
     },
     "set:neoswarm:d6/d9e/sg__result__collector_8cpp": {
-      "hash": "9512a193ce39da24",
-      "description": "Timeout-bounded result collection from SuperGenius PubSub result channels.",
+      "hash": "5b795e6034ce5f80",
+      "description": "GeniusSDK processing status polling with exponential backoff.",
       "category": "api",
       "optional": true,
       "exclude": false,
       "nav_section": "Source Reference"
     },
     "set:neoswarm:d4/d81/sg__result__collector_8hpp": {
-      "hash": "f9861beb21964358",
-      "description": "Subscribes to per-job result channels and collects TaskResult messages.",
+      "hash": "67963380c47efd57",
+      "description": "Collects inference results via GeniusSDK processing status polling.",
       "category": "api",
       "optional": true,
       "exclude": false,
       "nav_section": "Source Reference"
     },
     "set:neoswarm:d9/db5/super__genius__client_8cpp": {
-      "hash": "2b1dee914d2d3f64",
-      "description": "Bridges GNUS NEO SWARM to SuperGenius via PubSub gRPC dispatch.",
+      "hash": "a69c2d4a6a5b62c1",
+      "description": "Bridges GNUS NEO SWARM to SuperGenius via GeniusSDK dispatch.",
       "category": "api",
       "optional": true,
       "exclude": false,
       "nav_section": "Source Reference"
     },
     "set:neoswarm:db/d7a/super__genius__client_8hpp": {
-      "hash": "0dc633145f9417a3",
-      "description": "Client for SuperGenius blockchain compute network dispatch via PubSub gRPC.",
+      "hash": "4f90e5bf2dfa41e8",
+      "description": "Client for SuperGenius blockchain compute network dispatch via GeniusSDK.",
       "category": "api",
       "optional": true,
       "exclude": false,
@@ -2046,7 +1729,7 @@
       "nav_section": "Source Reference"
     },
     "set:neoswarm:dc/d40/test__message__signing_8cpp": {
-      "hash": "86789db573929bcd",
+      "hash": "744c9f9259a59ef3",
       "description": "Unit tests for MessageSigning \u2014 verify, tamper rejection, replay protection.",
       "category": "api",
       "optional": true,
@@ -2054,7 +1737,7 @@
       "nav_section": "Source Reference"
     },
     "set:neoswarm:df/d83/test__node__identity_8cpp": {
-      "hash": "2c9d142403e4a9ba",
+      "hash": "e1cb158993ec9e03",
       "description": "Unit tests for NodeIdentity \u2014 key generation, sign/verify, encrypted save/load.",
       "category": "api",
       "optional": true,
@@ -2765,14 +2448,6 @@
       "exclude": false,
       "nav_section": "Source Reference"
     },
-    "set:gnus-poc:d7/d5a/classeval_1_1adaptive__gating_1_1_adaptive_gating": {
-      "hash": "18e40814ec00b284",
-      "description": "AdaptiveGating",
-      "category": "api",
-      "optional": true,
-      "exclude": false,
-      "nav_section": "Source Reference"
-    },
     "set:gnus-poc:d6/d29/classdistill_1_1backends_1_1anthropic__backend_1_1_anthropic_backend": {
       "hash": "cdc504c87e8fa742",
       "description": "AnthropicBackend",
@@ -2790,7 +2465,7 @@
       "nav_section": "Source Reference"
     },
     "set:gnus-poc:d6/db5/classeval_1_1benchmarker_1_1_benchmarker": {
-      "hash": "b6f275d43c7f343f",
+      "hash": "d7c453167a3b3695",
       "description": "Benchmarker",
       "category": "api",
       "optional": true,
@@ -2861,24 +2536,8 @@
       "exclude": false,
       "nav_section": "Source Reference"
     },
-    "set:gnus-poc:de/dd4/classdistill_1_1convergence_1_1_convergence_tracker": {
-      "hash": "1410821224f69b29",
-      "description": "ConvergenceTracker",
-      "category": "api",
-      "optional": true,
-      "exclude": false,
-      "nav_section": "Source Reference"
-    },
-    "set:gnus-poc:d2/d54/classdistill_1_1distillation_1_1_distillation_aborted_error": {
-      "hash": "52ab15025dcc48c2",
-      "description": "DistillationAbortedError",
-      "category": "api",
-      "optional": true,
-      "exclude": false,
-      "nav_section": "Source Reference"
-    },
     "set:gnus-poc:d1/d3c/classdistill_1_1distillation_1_1_distiller": {
-      "hash": "d913819e4c877c0f",
+      "hash": "08d907861bfc758f",
       "description": "Distiller",
       "category": "api",
       "optional": true,
@@ -2918,7 +2577,7 @@
       "nav_section": "Source Reference"
     },
     "set:gnus-poc:de/de1/classeval_1_1metric__store_1_1_metric_store": {
-      "hash": "03c17c1d69e8d94e",
+      "hash": "3d9e7abf2f740880",
       "description": "MetricStore",
       "category": "api",
       "optional": true,
@@ -2965,32 +2624,8 @@
       "exclude": false,
       "nav_section": "Source Reference"
     },
-    "set:gnus-poc:db/d0a/classrouter_1_1classifier_1_1_router_classifier": {
-      "hash": "296dbc372fb14c8e",
-      "description": "RouterClassifier",
-      "category": "api",
-      "optional": true,
-      "exclude": false,
-      "nav_section": "Source Reference"
-    },
-    "set:gnus-poc:d6/d8d/classrouter_1_1engine_1_1_router_state_machine": {
-      "hash": "0226d2516c67e9af",
-      "description": "RouterStateMachine",
-      "category": "api",
-      "optional": true,
-      "exclude": false,
-      "nav_section": "Source Reference"
-    },
-    "set:gnus-poc:da/d8d/classrouter_1_1rules_1_1_rule_matcher": {
-      "hash": "8306dfb15e729ed0",
-      "description": "RuleMatcher",
-      "category": "api",
-      "optional": true,
-      "exclude": false,
-      "nav_section": "Source Reference"
-    },
     "set:gnus-poc:d0/d3a/classeval_1_1evaluator_1_1_specialist_evaluator": {
-      "hash": "4b3e6deeb6ce290f",
+      "hash": "90a194bee4b22358",
       "description": "SpecialistEvaluator",
       "category": "api",
       "optional": true,
@@ -3133,16 +2768,8 @@
       "exclude": false,
       "nav_section": "Source Reference"
     },
-    "set:gnus-poc:d5/d7d/namespacedistill_1_1convergence": {
-      "hash": "1cf2c3d4f83b3e66",
-      "description": "convergence",
-      "category": "api",
-      "optional": true,
-      "exclude": false,
-      "nav_section": "Source Reference"
-    },
     "set:gnus-poc:dd/d2b/namespacedistill_1_1distillation": {
-      "hash": "8160c7acca979c5c",
+      "hash": "981f65ee60f5adca",
       "description": "distillation",
       "category": "api",
       "optional": true,
@@ -3176,14 +2803,6 @@
     "set:gnus-poc:dd/df7/namespaceeval": {
       "hash": "11a945de2b0c2e4d",
       "description": "eval",
-      "category": "api",
-      "optional": true,
-      "exclude": false,
-      "nav_section": "Source Reference"
-    },
-    "set:gnus-poc:d6/d1e/namespaceeval_1_1adaptive__gating": {
-      "hash": "8e3116886a8c0e42",
-      "description": "adaptive_gating",
       "category": "api",
       "optional": true,
       "exclude": false,
@@ -3254,7 +2873,7 @@
       "nav_section": "Source Reference"
     },
     "set:gnus-poc:df/d87/namespaceeval_1_1evaluator": {
-      "hash": "a5f7e93ddda92716",
+      "hash": "15dd33c9268456ad",
       "description": "evaluator",
       "category": "api",
       "optional": true,
@@ -3333,46 +2952,6 @@
       "exclude": false,
       "nav_section": "Source Reference"
     },
-    "set:gnus-poc:d3/d81/namespacerouter": {
-      "hash": "81585196a911b230",
-      "description": "router",
-      "category": "api",
-      "optional": true,
-      "exclude": false,
-      "nav_section": "Source Reference"
-    },
-    "set:gnus-poc:dc/d1a/namespacerouter_1_1classifier": {
-      "hash": "c40d3573e9e9e92c",
-      "description": "classifier",
-      "category": "api",
-      "optional": true,
-      "exclude": false,
-      "nav_section": "Source Reference"
-    },
-    "set:gnus-poc:d1/dea/namespacerouter_1_1engine": {
-      "hash": "4ef1a754e33de2bf",
-      "description": "engine",
-      "category": "api",
-      "optional": true,
-      "exclude": false,
-      "nav_section": "Source Reference"
-    },
-    "set:gnus-poc:d5/d64/namespacerouter_1_1rules": {
-      "hash": "de3cbd8372f58ea2",
-      "description": "rules",
-      "category": "api",
-      "optional": true,
-      "exclude": false,
-      "nav_section": "Source Reference"
-    },
-    "set:gnus-poc:de/d27/namespacerouter_1_1schema": {
-      "hash": "55ee5cf989d42b11",
-      "description": "schema",
-      "category": "api",
-      "optional": true,
-      "exclude": false,
-      "nav_section": "Source Reference"
-    },
     "set:gnus-poc:df/d75/namespacescripts": {
       "hash": "2bacdd80531f0b2e",
       "description": "scripts",
@@ -3422,7 +3001,7 @@
       "nav_section": "Source Reference"
     },
     "set:gnus-poc:d9/de8/namespacetraining_1_1config": {
-      "hash": "5a9e3cf1b4fa6195",
+      "hash": "c87209d5c051a978",
       "description": "config",
       "category": "api",
       "optional": true,
@@ -3470,16 +3049,8 @@
       "nav_section": "Source Reference"
     },
     "set:gnus-poc:d7/df6/namespacetraining_1_1train__specialists__mlx": {
-      "hash": "d5d9e8586b404aa2",
+      "hash": "0ceadb62e1592a7f",
       "description": "train_specialists_mlx",
-      "category": "api",
-      "optional": true,
-      "exclude": false,
-      "nav_section": "Source Reference"
-    },
-    "set:gnus-poc:d9/d6a/namespacetraining_1_1validation": {
-      "hash": "1262aedb36652f9a",
-      "description": "validation",
       "category": "api",
       "optional": true,
       "exclude": false,
@@ -3549,16 +3120,8 @@
       "exclude": false,
       "nav_section": "Source Reference"
     },
-    "set:gnus-poc:d9/d10/convergence_8py": {
-      "hash": "69750a8546891f04",
-      "description": "convergence.py",
-      "category": "api",
-      "optional": true,
-      "exclude": false,
-      "nav_section": "Source Reference"
-    },
     "set:gnus-poc:d9/dd2/distillation_8py": {
-      "hash": "2eff5e6641b973d4",
+      "hash": "be4a63b63080ee43",
       "description": "distillation.py",
       "category": "api",
       "optional": true,
@@ -3584,14 +3147,6 @@
     "set:gnus-poc:d8/d16/teacher__errors_8py": {
       "hash": "set",
       "description": "teacher_errors.py",
-      "category": "api",
-      "optional": true,
-      "exclude": false,
-      "nav_section": "Source Reference"
-    },
-    "set:gnus-poc:da/d8f/adaptive__gating_8py": {
-      "hash": "f177acac08349012",
-      "description": "adaptive_gating.py",
       "category": "api",
       "optional": true,
       "exclude": false,
@@ -3662,7 +3217,7 @@
       "nav_section": "Source Reference"
     },
     "set:gnus-poc:d3/d4a/evaluator_8py": {
-      "hash": "6c2b8a8de868e41c",
+      "hash": "86876f625a0245fc",
       "description": "evaluator.py",
       "category": "api",
       "optional": true,
@@ -3749,14 +3304,6 @@
       "exclude": false,
       "nav_section": "Source Reference"
     },
-    "set:gnus-poc:d1/dfc/router_2____init_____8py": {
-      "hash": "55c684579c3e3f3c",
-      "description": "__init__.py",
-      "category": "api",
-      "optional": true,
-      "exclude": false,
-      "nav_section": "Source Reference"
-    },
     "set:gnus-poc:dc/de3/training_2____init_____8py": {
       "hash": "set",
       "description": "__init__.py",
@@ -3797,40 +3344,8 @@
       "exclude": false,
       "nav_section": "Source Reference"
     },
-    "set:gnus-poc:d1/d7b/classifier_8py": {
-      "hash": "9fae9a3622516b60",
-      "description": "classifier.py",
-      "category": "api",
-      "optional": true,
-      "exclude": false,
-      "nav_section": "Source Reference"
-    },
-    "set:gnus-poc:da/db5/engine_8py": {
-      "hash": "8897551a51687c54",
-      "description": "engine.py",
-      "category": "api",
-      "optional": true,
-      "exclude": false,
-      "nav_section": "Source Reference"
-    },
-    "set:gnus-poc:d0/dd8/rules_8py": {
-      "hash": "4669841eb40760f0",
-      "description": "rules.py",
-      "category": "api",
-      "optional": true,
-      "exclude": false,
-      "nav_section": "Source Reference"
-    },
-    "set:gnus-poc:dd/d8d/schema_8py": {
-      "hash": "c04dad7b70ca2d90",
-      "description": "schema.py",
-      "category": "api",
-      "optional": true,
-      "exclude": false,
-      "nav_section": "Source Reference"
-    },
     "set:gnus-poc:dd/deb/config_8py": {
-      "hash": "4aa4ee18395d72cc",
+      "hash": "set",
       "description": "config.py",
       "category": "api",
       "optional": true,
@@ -3878,36 +3393,340 @@
       "nav_section": "Source Reference"
     },
     "set:gnus-poc:df/d23/train__specialists__mlx_8py": {
-      "hash": "812bbc2ebdcbd69f",
+      "hash": "870c57b8589c180d",
       "description": "train_specialists_mlx.py",
       "category": "api",
       "optional": true,
       "exclude": false,
       "nav_section": "Source Reference"
     },
-    "set:gnus-poc:d0/d19/validation_8py": {
-      "hash": "63ae48fac4bcc466",
-      "description": "validation.py",
+    "set:neoswarm:d1/df7/structsgns_1_1neoswarm_1_1_chain_step": {
+      "hash": "6d3696f368a67b0c",
+      "description": "ChainStep",
       "category": "api",
       "optional": true,
       "exclude": false,
       "nav_section": "Source Reference"
     },
+    "set:neoswarm:dd/dae/structsgns_1_1neoswarm_1_1_e_l_m_context": {
+      "hash": "3becf826d9b02132",
+      "description": "ELMContext",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d0/d14/structsgns_1_1neoswarm_1_1_execution_chain": {
+      "hash": "b3b29cc45aa90e3f",
+      "description": "ExecutionChain",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d4/d28/classsgns_1_1neoswarm_1_1elm_1_1_i_e_l_m": {
+      "hash": "ed716b5fe4eff548",
+      "description": "Abstract interface for Expert Language Models.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:df/de8/struct_symbolic_fallback_1_1_parser": {
+      "hash": "7f488a6190f105ec",
+      "description": "Parser",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d6/d3f/class_symbolic_fallback": {
+      "hash": "34aed540cd4ee7a4",
+      "description": "Evaluates mathematical expressions symbolically.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d4/d7a/namespace_0d060210237370006244221351142064222313323311373045": {
+      "hash": "set",
+      "description": "@060210237370006244221351142064222313323311373045",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d8/d98/namespace_0d252307004210221064044234302314271071156276021257": {
+      "hash": "set",
+      "description": "@252307004210221064044234302314271071156276021257",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d5/d10/namespacesgns_1_1neoswarm_1_1elm": {
+      "hash": "set",
+      "description": "elm",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:df/da8/elm__stub_8cpp": {
+      "hash": "2980a4c745f0d179",
+      "description": "Minimal compilation unit for the neoswarm_elm library (Wave 1).",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d4/d01/i__elm_8hpp": {
+      "hash": "77e467aa0fcb2849",
+      "description": "Abstract interface for Expert Language Models (doc 03 \u00a75.2).",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d4/d52/test__types_8cpp": {
+      "hash": "b73c4db3c1841ca4",
+      "description": "test_types.cpp",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:d1/d17/test__context__injection_8cpp": {
+      "hash": "2ffa30cee77eb19a",
+      "description": "test_context_injection.cpp",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:df/d0a/test__knowledge__retrieval_8cpp": {
+      "hash": "948c165544b5ae41",
+      "description": "test_knowledge_retrieval.cpp",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:df/d00/test__sg__client_8cpp": {
+      "hash": "8c55c8c944043573",
+      "description": "Unit tests for SGJobSubmitter and SGResultCollector.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "set:neoswarm:db/d23/test__symbolic__fallback_8cpp": {
+      "hash": "4184f6bc70373384",
+      "description": "Unit tests for SymbolicFallback expression parser \u2014 happy, unhappy, fuzz.",
+      "category": "api",
+      "optional": true,
+      "exclude": false,
+      "nav_section": "Source Reference"
+    },
+    "docs:./executive-summary.md": {
+      "hash": "a3f457179c4774f5",
+      "description": null,
+      "category": null,
+      "optional": false,
+      "exclude": false,
+      "nav_section": "**Genius Cognitive System Architecture Documentation**"
+    },
+    "docs:./system-overview.md": {
+      "hash": "855d5a3c8d7cb78d",
+      "description": null,
+      "category": null,
+      "optional": false,
+      "exclude": false,
+      "nav_section": "**Genius Cognitive System Architecture Documentation**"
+    },
+    "docs:./model-and-router.md": {
+      "hash": "2572aaa0e0ff8dc7",
+      "description": null,
+      "category": null,
+      "optional": false,
+      "exclude": false,
+      "nav_section": "**Genius Cognitive System Architecture Documentation**"
+    },
+    "docs:./reputation-consensus.md": {
+      "hash": "51d6a5d065850e02",
+      "description": null,
+      "category": null,
+      "optional": false,
+      "exclude": false,
+      "nav_section": "**Genius Cognitive System Architecture Documentation**"
+    },
+    "docs:./grounding.md": {
+      "hash": "7b8b00c9da243400",
+      "description": null,
+      "category": null,
+      "optional": false,
+      "exclude": false,
+      "nav_section": "**Genius Cognitive System Architecture Documentation**"
+    },
+    "docs:./agentic-memory-layer.md": {
+      "hash": "65af549b213e8bd1",
+      "description": null,
+      "category": null,
+      "optional": false,
+      "exclude": false,
+      "nav_section": "**Genius Cognitive System Architecture Documentation**"
+    },
+    "docs:./execution-and-performance.md": {
+      "hash": "51e6852c722b79e1",
+      "description": null,
+      "category": null,
+      "optional": false,
+      "exclude": false,
+      "nav_section": "**Genius Cognitive System Architecture Documentation**"
+    },
+    "docs:./roadmap-and-risks.md": {
+      "hash": "94ce688a8109c3d4",
+      "description": null,
+      "category": null,
+      "optional": false,
+      "exclude": false,
+      "nav_section": "**Genius Cognitive System Architecture Documentation**"
+    },
+    "docs:./future-and-positioning.md": {
+      "hash": "3d09777b8d729d9b",
+      "description": null,
+      "category": null,
+      "optional": false,
+      "exclude": false,
+      "nav_section": "**Genius Cognitive System Architecture Documentation**"
+    },
+    "docs:./ai-safety.md": {
+      "hash": "f6ac6a2ff3c4f348",
+      "description": null,
+      "category": null,
+      "optional": false,
+      "exclude": false,
+      "nav_section": "**Genius Cognitive System Architecture Documentation**"
+    },
+    "docs:./distributed-swarm-thinking-context.md": {
+      "hash": "fd6b21930ff3761c",
+      "description": null,
+      "category": null,
+      "optional": false,
+      "exclude": false,
+      "nav_section": "**Genius Cognitive System Architecture Documentation**"
+    },
+    "docs:./sgfp4-format.md": {
+      "hash": "45ce5f4fdbf19d65",
+      "description": null,
+      "category": null,
+      "optional": false,
+      "exclude": false,
+      "nav_section": "**Genius Cognitive System Architecture Documentation**"
+    },
+    "docs:./secure-agent-architecture.md": {
+      "hash": "eb63a8f816ec1f50",
+      "description": null,
+      "category": null,
+      "optional": false,
+      "exclude": false,
+      "nav_section": "**Genius Cognitive System Architecture Documentation**"
+    },
+    "docs:./eggroll-swarm-retraining.md": {
+      "hash": "d77d2010c674018a",
+      "description": null,
+      "category": null,
+      "optional": false,
+      "exclude": false,
+      "nav_section": "**Genius Cognitive System Architecture Documentation**"
+    },
+    "docs:./cognitive-retaining-system.md": {
+      "hash": "45449ae36f87d463",
+      "description": null,
+      "category": null,
+      "optional": false,
+      "exclude": false,
+      "nav_section": "**Genius Cognitive System Architecture Documentation**"
+    },
+    "docs:./epistemic-arbitration-and-cognitive-os.md": {
+      "hash": "0129e52860ba7159",
+      "description": null,
+      "category": null,
+      "optional": false,
+      "exclude": false,
+      "nav_section": "**Genius Cognitive System Architecture Documentation**"
+    },
+    "docs:./objective-memory-vtg.md": {
+      "hash": "65f82b9a5b6db2c4",
+      "description": null,
+      "category": null,
+      "optional": false,
+      "exclude": false,
+      "nav_section": "**Genius Cognitive System Architecture Documentation**"
+    },
+    "docs:./speculative-decoding-and-vtg.md": {
+      "hash": "654cab37bcce5cf0",
+      "description": null,
+      "category": null,
+      "optional": false,
+      "exclude": false,
+      "nav_section": "**Genius Cognitive System Architecture Documentation**"
+    },
+    "docs:./frozen-mtp-and-vtg.md": {
+      "hash": "40795a0f46510e56",
+      "description": null,
+      "category": null,
+      "optional": false,
+      "exclude": false,
+      "nav_section": "**Genius Cognitive System Architecture Documentation**"
+    },
+    "docs:./openai-compatible-api-router-and-gcs-job-queue.md": {
+      "hash": "be937c350269fb50",
+      "description": null,
+      "category": null,
+      "optional": false,
+      "exclude": false,
+      "nav_section": "**Genius Cognitive System Architecture Documentation**"
+    },
+    "docs:./local-cognitive-second-brain.md": {
+      "hash": "dd1b60bebb7188cb",
+      "description": null,
+      "category": null,
+      "optional": false,
+      "exclude": false,
+      "nav_section": "**Genius Cognitive System Architecture Documentation**"
+    },
     "docs:./forecast-driven-cognition.md": {
       "hash": "27cad78c577dd43f",
-      "description": "How does GCS anticipate what it will need next? Defines ACE forecasting, CES scheduling, multi-hypothesis branching, and personal forecast models.",
-      "category": "architecture",
+      "description": null,
+      "category": null,
       "optional": false,
       "exclude": false,
-      "nav_section": "Architecture"
+      "nav_section": "**Genius Cognitive System Architecture Documentation**"
+    },
+    "docs:./execution-integrity-system.md": {
+      "hash": "77780a98b9156118",
+      "description": null,
+      "category": null,
+      "optional": false,
+      "exclude": false,
+      "nav_section": "**Genius Cognitive System Architecture Documentation**"
     },
     "docs:./capability-system.md": {
-      "hash": "319286b4628b31c6",
-      "description": "How does GCS discover and govern external capabilities? Defines canonical contracts, MCP adapters, and Tool Intermediary enforcement.",
-      "category": "architecture",
+      "hash": "055c52effcc2c5b6",
+      "description": null,
+      "category": null,
       "optional": false,
       "exclude": false,
-      "nav_section": "Architecture"
+      "nav_section": "**Genius Cognitive System Architecture Documentation**"
+    },
+    "docs:./agent-module-development-inventory.md": {
+      "hash": "baa649a388394c75",
+      "description": null,
+      "category": null,
+      "optional": false,
+      "exclude": false,
+      "nav_section": "**Genius Cognitive System Architecture Documentation**"
     }
   }
 }
