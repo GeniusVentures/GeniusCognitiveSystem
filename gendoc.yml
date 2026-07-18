@@ -23,4 +23,101 @@ mkdocs:
   use_directory_urls: true
   strict: false
 
-# ── Doxygen configuration (shared by all source reference sets
+# ── Doxygen configuration (shared by all source reference sets) ─────────────
+doxygen:
+  output_dir: "gendoc-template/doxygen-output"
+  generate_xml: true
+  generate_html: false
+  recursive: true
+  strip_from_path: ""
+
+# ── Source reference sets (doxygen → doxybook2) ─────────────────────────────
+# One entry per body of source code to document.  Each set runs its own
+# doxygen + doxybook2 pass and becomes its own nav section.  Global
+# paths.exclude_patterns above apply to every set; per-set exclude_patterns
+# are appended.
+source_references:
+  - name: "neoswarm"
+    label: "GNUS-NEO-SWARM Source"
+    language: "C++"
+    source: "GNUS-NEO-SWARM"
+    file_patterns:
+      - "*.c"
+      - "*.cpp"
+      - "*.cxx"
+      - "*.h"
+      - "*.hpp"
+      - "*.hxx"
+    output_subdir: "GNUSNeoSwarm"
+    base_url: "/GNUSNeoSwarm/"
+
+  - name: "gnus-poc"
+    label: "Python (gnus-poc)"
+    language: "Python"
+    source: "GNUS-NEO-SWARM/gnus-poc"
+    file_patterns:
+      - "*.py"
+    exclude_patterns:
+      - "*/tests/*"
+      - "*/__pycache__/*"
+    output_subdir: "PythonOrchestratedCompression"
+    base_url: "/PythonOrchestratedCompression/"
+
+# ── Navigation ────────────────────────────────────────────────────────────────
+# Configure how the root navigation (SUMMARY_EXT.md) is built from hand-written
+# docs and the generated source reference sets.
+navigation:
+  generate_index: true                          # Rebuild SUMMARY.md from SUMMARY.md.template during build
+  index_template: "SUMMARY.md.template"
+  index_output: "SUMMARY.md"
+  # Hand-written doc sections merged into the nav before the source reference.
+  # Order in this array = order in the nav sidebar.
+  sections:
+    - label: "Architecture"
+      source_file: "SUMMARY.md"
+      extract_heading: "Architecture Index"    # The readable section tree in SUMMARY.md
+      promote_page_roots: false                  # Set true to collapse per-page TOC to page roots (adds breadcrumbs, may duplicate)
+
+# ── Deploy (Cloudflare Pages via Wrangler) ──────────────────────────────────
+deploy:
+  cloudflare:
+    pages_project_name: "genius-cognitive-system-docs"
+    compatibility_date: "2024-01-01"
+    branch: "main"                             # Cloudflare Pages production branch
+    custom_domain: "gcs.gnus.ai"               # Optional: custom domain (e.g. docs.example.com)
+
+llms:
+  enabled: true
+  site_url: "https://gcs.gnus.ai"            # canonical URL of the deployed site
+  corpus_cache: "llms-corpus"                # committed cache of fetched external docs
+  meta_file: "llms-meta.json"                # committed editorial metadata
+
+  # Audience catalogs and which categories feed them. Categories are
+  # assigned per-document in llms-meta.json (the editorial pass).
+  audiences:
+    llms-technical.txt:
+      title: "Architecture & Developer Reference"
+      categories: [technical, architecture, api, nodes]
+
+  related_catalogs:
+    - url: "https://docs.gnus.ai/llms.txt"
+      title: "The GNUS.AI Operating System"
+      description: "Documents on the complete GNUS.ai Network Operating System"
+      audiences: [llms-technical.txt]
+
+  # -- Ask AI Widget (optional) -------------------------------------------------
+  # Floating "Ask" button + chat drawer that answers questions only from your
+  # docs. Requires a Cloudflare Worker (deployed by setup.sh).  When
+  # `endpoint` is set, setup.sh injects a route into the wrangler config so
+  # traffic to that domain reaches this worker -- use this for sharing one
+  # worker across multiple projects.
+  ask:
+    enabled: true
+    title: "Ask GCS AI"
+    endpoint: "https://ask.gnus.ai/api/ask"   # custom-domain / shared-worker (optional)
+    allowed_origins:                             # default: [site_url]
+      - "https://docs.gnus.ai"
+      - "https://gcs.gnus.ai"
+    providers: "openrouter,gemini"
+    gemini_model: "gemini-2.5-flash"
+    openrouter_models: "nvidia/nemotron-3-super-120b-a12b:free,nvidia/nemotron-3-ultra-550b-a55b:free,nvidia/nemotron-3-nano-30b-a3b:free"
