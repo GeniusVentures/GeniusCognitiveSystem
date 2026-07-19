@@ -1,0 +1,9 @@
+{
+  "submodule": "GNUS-NEO-SWARM",
+  "planning_root": "GNUS-NEO-SWARM/.planning",
+  "description": "GNUS NEO Swarm — swarm intelligence framework and cognitive execution runtime",
+  "workflow": {
+    "nyquist_validation": false,
+    "_auto_chain_active": false
+  }
+}
