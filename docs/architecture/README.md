@@ -10,4 +10,4 @@ This documentation is a combined product requirements document, technical design
 
 Use the left navigation to browse the generated architecture index and source-reference documentation.
 
-A good starting path is the executive summary and system overview, followed by the model, routing, consensus, grounding, memory, secure-agent architecture, retraining layers, execution integrity, capability system, and agent/module development inventory.
+A good starting path is the executive summary and system overview, followed by the model, routing, consensus, grounding, memory, secure-agent architecture, retraining layers, execution integrity, capability system, agent/module development inventory, and the context efficiency, prefix caching, and compaction contract.
