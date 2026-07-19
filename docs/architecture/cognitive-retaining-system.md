@@ -1,5 +1,5 @@
-# 19. Targeted Retraining and Hierarchical Critical Thinking Specialists
-## 19.1 Overview
+# 20. Targeted Retraining and Hierarchical Critical Thinking Specialists
+## 20.1 Overview
 
 GNUS Cognitive Systems introduce a **Targeted Retraining** framework combined with a **Hierarchical Critical Thinking Specialist (HCTS)** architecture to enable continuously improving, personalized cognition without requiring full model retraining.
 
@@ -7,13 +7,13 @@ This approach maintains a **stable Semantic Core** while dynamically adapting re
 
 ---
 
-## 19.2 Targeted Retraining
+## 20.2 Targeted Retraining
 
 Targeted Retraining is defined as:
 
 > Continuous, fine-grained adaptation of user-specific and role-specific cognitive behavior through lightweight updates to adapters, routing weights, critic weights, verification behavior, memory, and arbitration behavior—without requiring full base-model replacement.
 
-### 19.2.1 Key Properties
+### 20.2.1 Key Properties
 
 - **Local Adaptation**
   - Updates occur at the user, tenant, or node level
@@ -33,11 +33,11 @@ Targeted Retraining is defined as:
 
 ---
 
-## 19.3 EGGROLL-Based Optimization
+## 20.3 EGGROLL-Based Optimization
 
 GNUS leverages **EGGROLL-style retraining** for optimizing cognitive behavior under noisy, non-differentiable conditions.
 
-### 19.3.1 Why EGGROLL
+### 20.3.1 Why EGGROLL
 
 Traditional gradient-based training is insufficient for:
 
@@ -52,7 +52,7 @@ EGGROLL enables:
 - **efficient on-device or swarm-assisted training**
 - **optimization without explicit loss functions**
 
-### 19.3.2 Optimization Targets
+### 20.3.2 Optimization Targets
 
 - Adapter parameters
 - Routing decisions
@@ -60,7 +60,7 @@ EGGROLL enables:
 - Exploration vs alignment balance
 - Arbitration strategies
 
-### 19.3.3 Reward Signals
+### 20.3.3 Reward Signals
 
 - user acceptance / rejection
 - user edits (delta-based correction)
@@ -70,11 +70,11 @@ EGGROLL enables:
 
 ---
 
-## 19.4 Hierarchical Critical Thinking Specialists (HCTS)
+## 20.4 Hierarchical Critical Thinking Specialists (HCTS)
 
 The HCTS system introduces multiple layers of structured critique aligned with the broader cognitive hierarchy.
 
-### 19.4.1 Hierarchical Structure
+### 20.4.1 Hierarchical Structure
 
 - Generic Human Critic
 - Country / Cultural Critic
@@ -96,7 +96,7 @@ Representative evaluation perspectives include:
 
 ---
 
-## 19.5 Functional Responsibilities
+## 20.5 Functional Responsibilities
 
 Each HCTS layer performs:
 
@@ -111,7 +111,7 @@ Outputs are not binary judgments, but **multi-perspective evaluations**.
 
 ---
 
-## 19.6 Bias-Aware Reasoning
+## 20.6 Bias-Aware Reasoning
 
 GNUS does not attempt to eliminate bias. Instead:
 
@@ -129,18 +129,18 @@ The system compares conclusions across contexts to detect instability and hidden
 
 ---
 
-## 19.7 Cognitive Resistance Layer
+## 20.7 Cognitive Resistance Layer
 
 The HCTS feeds into a **Cognitive Resistance Layer**, which determines the level of challenge applied to the user.
 
-### 19.7.1 Modes
+### 20.7.1 Modes
 
 - Mirror Mode → minimal resistance  
 - Nudge Mode → light alternative framing  
 - Challenge Mode → explicit tradeoffs and contradictions  
 - Adversarial Mode → strong opposing arguments  
 
-### 19.7.2 Adaptive Friction Triggers
+### 20.7.2 Adaptive Friction Triggers
 
 - high-confidence / low-evidence outputs
 - high-impact decisions
@@ -150,7 +150,7 @@ The HCTS feeds into a **Cognitive Resistance Layer**, which determines the level
 
 ---
 
-## 19.8 Integration with Cognitive Twin
+## 20.8 Integration with Cognitive Twin
 
 The Cognitive Twin provides:
 
@@ -164,7 +164,7 @@ The HCTS evaluates:
 
 ---
 
-## 19.9 Continuous Learning Loop
+## 20.9 Continuous Learning Loop
 
 Each interaction generates a **Cognitive Training Event**:
 
@@ -191,7 +191,7 @@ This data drives Targeted Retraining via:
 
 ---
 
-## 19.10 System Outcome
+## 20.10 System Outcome
 
 This combined architecture enables:
 
@@ -203,7 +203,7 @@ This combined architecture enables:
 
 ---
 
-## 19.11 Summary
+## 20.11 Summary
 
 > GNUS Cognitive Systems maintain a stable Semantic Core while continuously improving personalized cognition through targeted retraining and hierarchical critical thinking.
 
