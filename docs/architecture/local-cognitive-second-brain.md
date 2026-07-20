@@ -1,6 +1,6 @@
-# **25. Local Cognitive Second Brain Mode**
+# **27. Local Cognitive Second Brain Mode**
 
-## **25.1 Purpose**
+## **27.1 Purpose**
 
 This document defines **Local Cognitive Second Brain Mode** for **GeniusCognitiveSystem (GCS)**.
 
@@ -16,7 +16,7 @@ It is a local cognitive operating mode inside the broader GCS architecture.
 
 ---
 
-## **25.2 Architectural Position**
+## **27.2 Architectural Position**
 
 Local Cognitive Second Brain Mode uses five GCS components:
 
@@ -30,7 +30,7 @@ Together, these components provide private memory, local reasoning, tool executi
 
 ---
 
-## **25.3 Orchestration Layer Role**
+## **27.3 Orchestration Layer Role**
 
 The orchestration layer supervises second-brain execution.
 
@@ -46,7 +46,7 @@ The orchestration layer controls how the second-brain workflow runs.
 
 ---
 
-## **25.4 GAML Role**
+## **27.4 GAML Role**
 
 **GAML** is the memory substrate for Local Cognitive Second Brain Mode.
 
@@ -80,7 +80,7 @@ This allows the local second brain to track state across conversations, document
 
 ---
 
-## **25.5 Local and Private ELM Role**
+## **27.5 Local and Private ELM Role**
 
 Local or private **Expert Language Models (ELMs)** perform reasoning over private memory.
 
@@ -108,7 +108,7 @@ The local ELM receives compact, structured context packets assembled from GAML.
 
 ---
 
-## **25.6 Second Brain Agent Role**
+## **27.6 Second Brain Agent Role**
 
 The **Second Brain Agent** provides the user-facing workflow layer for local memory.
 
@@ -134,7 +134,7 @@ The Second Brain Agent is responsible for:
 * writing confirmed updates back into GAML
 * emitting adaptation signals to EGGROLL when appropriate
 
-### **25.6.1 Supporting Agents and Modules**
+### **27.6.1 Supporting Agents and Modules**
 
 The Second Brain Agent coordinates several specialized agents and modules.
 
@@ -153,7 +153,7 @@ These agents keep the second-brain workflow modular and testable.
 
 ---
 
-## **25.7 EGGROLL Role**
+## **27.7 EGGROLL Role**
 
 In this mode, **EGGROLL** supports private and local adaptation in addition to swarm retraining.
 
@@ -185,7 +185,7 @@ Private EGGROLL signals remain scoped to the user or enterprise unless broader s
 
 ---
 
-## **25.8 High-Level Flow**
+## **27.8 High-Level Flow**
 
 ```text
 Local Sources
@@ -201,7 +201,7 @@ Local Sources
 
 ---
 
-## **25.9 Local Data Sources**
+## **27.9 Local Data Sources**
 
 The local second brain may ingest private or local context from:
 
@@ -235,7 +235,7 @@ By default, second-brain memory belongs to the user, local device, enterprise ac
 
 ---
 
-## **25.10 Structured Memory Objects**
+## **27.10 Structured Memory Objects**
 
 Local Cognitive Second Brain Mode stores memory as typed GAML objects.
 
@@ -257,7 +257,7 @@ Core memory object classes include:
 
 ---
 
-## **25.11 Memory Lifecycle**
+## **27.11 Memory Lifecycle**
 
 Each memory item moves through a lifecycle before it becomes trusted operational state.
 
@@ -265,55 +265,55 @@ Each memory item moves through a lifecycle before it becomes trusted operational
 Observe -> Extract -> Normalize -> Link -> Score -> Store -> Retrieve -> Reason -> Verify -> Write Back -> Adapt
 ```
 
-### **25.11.1 Observe**
+### **27.11.1 Observe**
 
 Observer agents monitor permitted local sources and identify new or changed information.
 
-### **25.11.2 Extract**
+### **27.11.2 Extract**
 
 Ingestion agents extract typed entities, facts, claims, commitments, decisions, deadlines, tasks, and preferences.
 
-### **25.11.3 Normalize**
+### **27.11.3 Normalize**
 
 The system resolves names, aliases, duplicate entities, date formats, references, and source metadata.
 
-### **25.11.4 Link**
+### **27.11.4 Link**
 
 New memory objects are linked to existing people, projects, organizations, topics, prior decisions, and related tasks.
 
-### **25.11.5 Score**
+### **27.11.5 Score**
 
 GAML assigns or updates confidence using source reliability, recency, repetition, user confirmation, contradiction status, and trust weight.
 
-### **25.11.6 Store**
+### **27.11.6 Store**
 
 Memory is stored in the local or private GAML store using version-aware records and immutable source references where possible.
 
-### **25.11.7 Retrieve**
+### **27.11.7 Retrieve**
 
 The Second Brain Agent retrieves the memory needed for the current task.
 
 Retrieval is structured and reasoning-driven.
 
-### **25.11.8 Reason**
+### **27.11.8 Reason**
 
 The selected local or private ELM reasons over the assembled memory packet, current user request, available tools, and relevant constraints.
 
-### **25.11.9 Verify**
+### **27.11.9 Verify**
 
 For higher-risk outputs, the system checks source grounding, contradictions, stale assumptions, and possible missing context before responding.
 
-### **25.11.10 Write Back**
+### **27.11.10 Write Back**
 
 The result may update GAML with new tasks, decisions, confirmations, corrections, changed deadlines, user preferences, or reasoning traces.
 
-### **25.11.11 Adapt**
+### **27.11.11 Adapt**
 
 EGGROLL converts repeated corrections, successful outcomes, failed retrievals, preferred phrasing, and workflow patterns into adaptation signals.
 
 ---
 
-## **25.12 Context Packet Assembly**
+## **27.12 Context Packet Assembly**
 
 The Second Brain Agent assembles compact context packets for local or private ELM execution.
 
@@ -336,7 +336,7 @@ The goal is to give small local ELMs enough structured context to act intelligen
 
 ---
 
-## **25.13 Human-Readable Memory Mirror**
+## **27.13 Human-Readable Memory Mirror**
 
 GAML is the structured memory substrate.
 
@@ -365,31 +365,31 @@ It is an inspectable view over GAML so users can see what the system stores, whe
 
 ---
 
-## **25.14 Privacy Modes**
+## **27.14 Privacy Modes**
 
 Local Cognitive Second Brain Mode supports explicit privacy boundaries.
 
-### **25.14.1 Local-Only Mode**
+### **27.14.1 Local-Only Mode**
 
 All memory, inference, retrieval, writeback, and adaptation remain on the device.
 
-### **25.14.2 Private Enterprise Mode**
+### **27.14.2 Private Enterprise Mode**
 
 Memory may be shared inside a controlled enterprise subnet according to permissions, roles, and organizational policy.
 
-### **25.14.3 Hybrid Mode**
+### **27.14.3 Hybrid Mode**
 
 Private memory stays local or enterprise-contained, while non-private tasks may use public GNUS compute or public knowledge grounding.
 
-### **25.14.4 Explicit Swarm Contribution Mode**
+### **27.14.4 Explicit Swarm Contribution Mode**
 
 Approved, filtered, anonymized, or deliberately shared adaptation signals may contribute to broader swarm learning.
 
 ---
 
-## **25.15 Example Workflows**
+## **27.15 Example Workflows**
 
-### **25.15.1 Meeting Prep**
+### **27.15.1 Meeting Prep**
 
 ```text
 User: Prep me for my 2pm meeting with Sarah.
@@ -404,7 +404,7 @@ Second Brain Agent:
   -> Writes any user corrections back into GAML
 ```
 
-### **25.15.2 Project Drift Detection**
+### **27.15.2 Project Drift Detection**
 
 ```text
 User: What changed on the Nexlogic rollout this week?
@@ -417,7 +417,7 @@ Second Brain Agent:
   -> Flags stale commitments
 ```
 
-### **25.15.3 Personal Daily Brief**
+### **27.15.3 Personal Daily Brief**
 
 ```text
 Scheduled agent:
@@ -427,7 +427,7 @@ Scheduled agent:
   -> Optionally generates voice summary locally
 ```
 
-### **25.15.4 Private ELM Adaptation**
+### **27.15.4 Private ELM Adaptation**
 
 ```text
 Repeated user corrections:
@@ -439,7 +439,7 @@ Repeated user corrections:
 
 ---
 
-## **25.16 Implementation Requirements**
+## **27.16 Implementation Requirements**
 
 A first implementation should include:
 
@@ -454,7 +454,7 @@ A first implementation should include:
 
 ---
 
-## **25.17 Design Principle**
+## **27.17 Design Principle**
 
 Local Cognitive Second Brain Mode should be private, inspectable, and operationally useful.
 
@@ -470,7 +470,7 @@ It preserves user and enterprise control through explicit privacy boundaries and
 
 ---
 
-## **25.18 Summary**
+## **27.18 Summary**
 
 Local Cognitive Second Brain Mode turns GCS into a private memory and reasoning system for individuals, teams, SMBs, and enterprises.
 

@@ -1,6 +1,6 @@
-# **29. Agent and Module Development Inventory**
+# **31. Agent and Module Development Inventory**
 
-## **29.1 Purpose**
+## **31.1 Purpose**
 
 This document consolidates the agents, deterministic services, runtime modules, data stores, adapters, user interfaces, security boundaries, and distributed infrastructure required across the GeniusCognitiveSystem architecture.
 
@@ -56,9 +56,9 @@ The architecture should prefer the smallest implementation that satisfies the re
 
 ---
 
-## **29.2 Inventory Conventions**
+## **31.2 Inventory Conventions**
 
-### **29.2.1 Component Classes**
+### **31.2.1 Component Classes**
 
 GCS components fall into six primary implementation classes.
 
@@ -98,7 +98,7 @@ Deterministic services remain authoritative for:
 * retention and deletion
 * billing and settlement
 
-### **29.2.2 Required Definition for Each Component**
+### **31.2.2 Required Definition for Each Component**
 
 Each production component should eventually declare:
 
@@ -123,7 +123,7 @@ deployment profiles
 upgrade and rollback behavior
 ```
 
-### **29.2.3 Trust Tiers**
+### **31.2.3 Trust Tiers**
 
 Suggested component trust tiers are:
 
@@ -138,7 +138,7 @@ A lower-tier component may propose work to a higher-tier component but may not g
 
 ---
 
-## **29.3 Reference Runtime Topology**
+## **31.3 Reference Runtime Topology**
 
 ```text
 Client / Application / API Consumer
@@ -186,9 +186,9 @@ EIS, Reputation, VTG, Benchmark, and EGGROLL Signals
 
 ---
 
-# **29.4 Executive Control and Orchestration Inventory**
+# **31.4 Executive Control and Orchestration Inventory**
 
-## **29.4.1 Ingress Service**
+## **31.4.1 Ingress Service**
 
 **Class:** Deterministic Service
 
@@ -222,7 +222,7 @@ Outputs:
 * policy references
 * initial privacy envelope
 
-## **29.4.2 Session and Identity Context Service**
+## **31.4.2 Session and Identity Context Service**
 
 **Class:** Deterministic Service
 
@@ -236,7 +236,7 @@ Responsibilities:
 * maintain revocation state
 * prevent cross-tenant context leakage
 
-## **29.4.3 Executive Controller**
+## **31.4.3 Executive Controller**
 
 **Class:** Deterministic Service with optional model assistance
 
@@ -266,7 +266,7 @@ scheduled_workflow
 streaming_voice
 ```
 
-## **29.4.4 Intent and Risk Classifier**
+## **31.4.4 Intent and Risk Classifier**
 
 **Class:** Hybrid Agent and Deterministic Service
 
@@ -283,7 +283,7 @@ Responsibilities:
 
 The classifier may be model-assisted, but deterministic policy rules may override its output.
 
-## **29.4.5 Router**
+## **31.4.5 Router**
 
 **Class:** Deterministic Service with learned or heuristic ranking
 
@@ -299,7 +299,7 @@ Responsibilities:
 * use privacy and tenant restrictions
 * use historical task outcomes
 
-## **29.4.6 Planner**
+## **31.4.6 Planner**
 
 **Class:** Role-Based ELM or Hybrid Service
 
@@ -316,7 +316,7 @@ Responsibilities:
 
 The Planner proposes an execution graph. The Executive Controller and policy services approve it.
 
-## **29.4.7 Execution Graph Compiler**
+## **31.4.7 Execution Graph Compiler**
 
 **Class:** Deterministic Service
 
@@ -331,7 +331,7 @@ Responsibilities:
 * attach retry and fallback policies
 * generate signed execution-plan artifacts
 
-## **29.4.8 Policy Evaluator**
+## **31.4.8 Policy Evaluator**
 
 **Class:** Deterministic Service
 
@@ -347,7 +347,7 @@ Responsibilities:
 * determine training and adaptation restrictions
 * reject invalid execution plans
 
-## **29.4.9 Budget and Constraint Manager**
+## **31.4.9 Budget and Constraint Manager**
 
 **Class:** Deterministic Service
 
@@ -362,7 +362,7 @@ Responsibilities:
 * enforce connector rate limits
 * report budget exhaustion to the Executive Controller
 
-## **29.4.10 Task Coordinator**
+## **31.4.10 Task Coordinator**
 
 **Class:** Deterministic Service
 
@@ -378,7 +378,7 @@ Responsibilities:
 * coordinate cancellation
 * package final task outcomes
 
-## **29.4.11 Scheduler and Dispatcher**
+## **31.4.11 Scheduler and Dispatcher**
 
 **Class:** Deterministic Service
 
@@ -393,7 +393,7 @@ Responsibilities:
 * reassign failed tasks
 * support priority classes
 
-## **29.4.12 Execution Trace Recorder**
+## **31.4.12 Execution Trace Recorder**
 
 **Class:** Data Service
 
@@ -410,9 +410,9 @@ Responsibilities:
 
 ---
 
-# **29.5 Semantic Core and Expert Execution Inventory**
+# **31.5 Semantic Core and Expert Execution Inventory**
 
-## **29.5.1 Semantic Core Runtime**
+## **31.5.1 Semantic Core Runtime**
 
 **Class:** Runtime Module
 
@@ -427,7 +427,7 @@ Responsibilities:
 * emit execution metadata required by EIS
 * support quantized and non-quantized model variants
 
-## **29.5.2 Model Runtime Abstraction**
+## **31.5.2 Model Runtime Abstraction**
 
 The runtime abstraction should support:
 
@@ -442,7 +442,7 @@ The runtime abstraction should support:
 * private enterprise runtimes
 * future latent or world-model substrates
 
-## **29.5.3 Model and Artifact Registry**
+## **31.5.3 Model and Artifact Registry**
 
 **Class:** Data Service
 
@@ -459,7 +459,7 @@ Responsibilities:
 * store benchmark and compatibility metadata
 * support deprecation and rollback
 
-## **29.5.4 Expert Registry**
+## **31.5.4 Expert Registry**
 
 **Class:** Data Service
 
@@ -474,7 +474,7 @@ Responsibilities:
 * expose expected cost and latency
 * expose version and compatibility metadata
 
-## **29.5.5 Role-Based ELMs**
+## **31.5.5 Role-Based ELMs**
 
 Initial role-based experts include:
 
@@ -492,7 +492,7 @@ Initial role-based experts include:
 | **Contradiction ELM** | Identify conflicts across evidence, memory, plans, and outputs             |
 | **Synthesis ELM**     | Combine verified specialist outputs into a coherent response               |
 
-## **29.5.6 Domain-Specific ELMs**
+## **31.5.6 Domain-Specific ELMs**
 
 Initial domain classes may include:
 
@@ -511,7 +511,7 @@ Initial domain classes may include:
 
 Domain ELMs must declare their evaluation set, expected limitations, and permitted tool and memory access.
 
-## **29.5.7 Expert Output Packager**
+## **31.5.7 Expert Output Packager**
 
 **Class:** Deterministic Service
 
@@ -526,7 +526,7 @@ Responsibilities:
 * sign output where required
 * reject malformed or unsigned outputs
 
-## **29.5.8 Private and Local ELM Manager**
+## **31.5.8 Private and Local ELM Manager**
 
 Responsibilities:
 
@@ -539,7 +539,7 @@ Responsibilities:
 * protect private prompts and memory
 * report runtime capabilities to the Router
 
-## **29.5.9 Expert Evaluation Harness**
+## **31.5.9 Expert Evaluation Harness**
 
 Responsibilities:
 
@@ -553,9 +553,9 @@ Responsibilities:
 
 ---
 
-# **29.6 Forecast-Driven Cognition Inventory**
+# **31.6 Forecast-Driven Cognition Inventory**
 
-## **29.6.1 Anticipatory Cognition Engine**
+## **31.6.1 Anticipatory Cognition Engine**
 
 **Class:** Hybrid Agent and Deterministic Service
 
@@ -570,7 +570,7 @@ Responsibilities:
 * assign probabilities, costs, and expiration times
 * avoid committing speculative output as fact
 
-## **29.6.2 Personal Forecast Model**
+## **31.6.2 Personal Forecast Model**
 
 Responsibilities:
 
@@ -580,7 +580,7 @@ Responsibilities:
 * remain private to the user or tenant unless explicitly shared
 * generate forecast features without exposing raw private memory
 
-## **29.6.3 Forecast Hypothesis Manager**
+## **31.6.3 Forecast Hypothesis Manager**
 
 Responsibilities:
 
@@ -590,7 +590,7 @@ Responsibilities:
 * associate hypotheses with budgets
 * mark hypotheses as confirmed, rejected, expired, or unresolved
 
-## **29.6.4 Prefetch Planner**
+## **31.6.4 Prefetch Planner**
 
 Responsibilities:
 
@@ -602,7 +602,7 @@ Responsibilities:
 * reserve local or network resources
 * avoid external side effects
 
-## **29.6.5 Cognitive Execution Scheduler**
+## **31.6.5 Cognitive Execution Scheduler**
 
 Responsibilities:
 
@@ -613,7 +613,7 @@ Responsibilities:
 * ensure speculative work does not starve confirmed execution
 * track preparation cost and realized latency savings
 
-## **29.6.6 Speculative State Store**
+## **31.6.6 Speculative State Store**
 
 Rules:
 
@@ -623,7 +623,7 @@ Rules:
 * speculative state must expire
 * only confirmed and policy-approved outcomes may enter durable memory
 
-## **29.6.7 Streaming Voice Predictor**
+## **31.6.7 Streaming Voice Predictor**
 
 Responsibilities:
 
@@ -634,7 +634,7 @@ Responsibilities:
 * support low-latency bidirectional conversation
 * cancel predictions when user intent changes
 
-## **29.6.8 Forecast Outcome Evaluator**
+## **31.6.8 Forecast Outcome Evaluator**
 
 Responsibilities:
 
@@ -645,7 +645,7 @@ Responsibilities:
 * measure wrong-path cost
 * emit training and EGGROLL signals
 
-## **29.6.9 Anticipatory Distillation Exporter**
+## **31.6.9 Anticipatory Distillation Exporter**
 
 Responsibilities:
 
@@ -658,9 +658,9 @@ Responsibilities:
 
 ---
 
-# **29.7 GAML and Cognitive Asset Inventory**
+# **31.7 GAML and Cognitive Asset Inventory**
 
-## **29.7.1 Cognitive Asset Schema Registry**
+## **31.7.1 Cognitive Asset Schema Registry**
 
 **Class:** Deterministic Service
 
@@ -710,7 +710,7 @@ Core asset types include:
 * Capability Execution Record
 * Memory Trace
 
-## **29.7.2 GAML Memory API**
+## **31.7.2 GAML Memory API**
 
 Responsibilities:
 
@@ -724,7 +724,7 @@ Responsibilities:
 * retrieve timelines and contradictions
 * expose provenance and source evidence
 
-## **29.7.3 Local Memory Store**
+## **31.7.3 Local Memory Store**
 
 **Class:** Data Service
 
@@ -744,7 +744,7 @@ Responsibilities:
 * encrypted private scopes
 * fast metadata lookup
 
-## **29.7.4 Content-Addressed Artifact Store**
+## **31.7.4 Content-Addressed Artifact Store**
 
 Responsibilities:
 
@@ -755,7 +755,7 @@ Responsibilities:
 * support IPFS-lite or another approved content-addressed mechanism
 * preserve privacy through encryption before replication
 
-## **29.7.5 Graph Relationship Service**
+## **31.7.5 Graph Relationship Service**
 
 Responsibilities:
 
@@ -772,7 +772,7 @@ Responsibilities:
 
 The graph service is part of GAML’s canonical state. External graph databases may be used as rebuildable indexes, not independent sources of truth.
 
-## **29.7.6 Metadata, Semantic, and Graph Index Manager**
+## **31.7.6 Metadata, Semantic, and Graph Index Manager**
 
 Responsibilities:
 
@@ -785,7 +785,7 @@ Responsibilities:
 * inherit privacy scope from source assets
 * delete derived index entries when source data is revoked
 
-## **29.7.7 Source Observer Agents**
+## **31.7.7 Source Observer Agents**
 
 Responsibilities:
 
@@ -813,7 +813,7 @@ Source types include:
 * local operating-system services
 * approved external APIs
 
-## **29.7.8 Ingestion and Normalization Service**
+## **31.7.8 Ingestion and Normalization Service**
 
 Responsibilities:
 
@@ -825,7 +825,7 @@ Responsibilities:
 * canonicalize identities and date formats
 * route candidate content to extraction services
 
-## **29.7.9 Extraction Agents**
+## **31.7.9 Extraction Agents**
 
 Responsibilities:
 
@@ -842,7 +842,7 @@ Responsibilities:
 
 Extracted information remains a candidate until it passes deterministic validation and memory-write policy.
 
-## **29.7.10 Entity Resolution Service**
+## **31.7.10 Entity Resolution Service**
 
 Responsibilities:
 
@@ -853,7 +853,7 @@ Responsibilities:
 * support user-confirmed merges and splits
 * avoid cross-tenant identity correlation
 
-## **29.7.11 Temporal and Supersession Resolver**
+## **31.7.11 Temporal and Supersession Resolver**
 
 Responsibilities:
 
@@ -864,7 +864,7 @@ Responsibilities:
 * retain historical versions
 * expose valid-time and transaction-time semantics where needed
 
-## **29.7.12 Contradiction Detection Service**
+## **31.7.12 Contradiction Detection Service**
 
 Responsibilities:
 
@@ -877,7 +877,7 @@ Responsibilities:
 * request arbitration when necessary
 * avoid silently overwriting contested state
 
-## **29.7.13 Provenance and Lineage Service**
+## **31.7.13 Provenance and Lineage Service**
 
 Responsibilities:
 
@@ -890,7 +890,7 @@ Responsibilities:
 * distinguish direct observation from inference
 * distinguish user-confirmed state from model-generated state
 
-## **29.7.14 Memory Scoring and Write Gate**
+## **31.7.14 Memory Scoring and Write Gate**
 
 Responsibilities:
 
@@ -922,7 +922,7 @@ trust_score =
   + approved_consensus
 ```
 
-## **29.7.15 Private-Memory Authorization Service**
+## **31.7.15 Private-Memory Authorization Service**
 
 Privacy is independent of trust.
 
@@ -967,7 +967,7 @@ Freshness and temporal validity
 Semantic and graph relevance
 ```
 
-## **29.7.16 Private-Memory Encryption and Key Reference Service**
+## **31.7.16 Private-Memory Encryption and Key Reference Service**
 
 Responsibilities:
 
@@ -981,7 +981,7 @@ Responsibilities:
 
 GAML stores key references and policy metadata, not raw encryption keys.
 
-## **29.7.17 Derived-Artifact Privacy Inheritance**
+## **31.7.17 Derived-Artifact Privacy Inheritance**
 
 The following must inherit or strengthen the privacy of their source data:
 
@@ -1002,7 +1002,7 @@ The following must inherit or strengthen the privacy of their source data:
 
 A derived artifact may not receive a broader privacy scope unless an explicit redaction, anonymization, and approval process authorizes it.
 
-## **29.7.18 Memory Governor**
+## **31.7.18 Memory Governor**
 
 **Class:** Deterministic Service with model-assisted ranking
 
@@ -1017,7 +1017,7 @@ Responsibilities:
 * assemble the smallest useful memory set
 * prevent private memory from reaching unauthorized execution nodes
 
-## **29.7.19 Retrieval Planner**
+## **31.7.19 Retrieval Planner**
 
 Responsibilities:
 
@@ -1030,7 +1030,7 @@ Responsibilities:
 * retrieve related procedures and policies
 * return ranked, explainable memory candidates
 
-## **29.7.20 Bridge Block Generator**
+## **31.7.20 Bridge Block Generator**
 
 Responsibilities:
 
@@ -1042,7 +1042,7 @@ Responsibilities:
 * avoid introducing unsupported facts
 * inherit privacy from source context
 
-## **29.7.21 Context Packet Builder**
+## **31.7.21 Context Packet Builder**
 
 Responsibilities:
 
@@ -1056,7 +1056,7 @@ Responsibilities:
 * generate specialist-specific context packets
 * hash canonical packets for trace and VTG use
 
-## **29.7.22 CRDT Replication and Convergence Service**
+## **31.7.22 CRDT Replication and Convergence Service**
 
 Responsibilities:
 
@@ -1068,7 +1068,7 @@ Responsibilities:
 * handle tombstones and revocation
 * support policy-aware conflict resolution
 
-## **29.7.23 Human-Readable Memory Mirror**
+## **31.7.23 Human-Readable Memory Mirror**
 
 Responsibilities:
 
@@ -1080,7 +1080,7 @@ Responsibilities:
 * treat human edits as proposed GAML mutations
 * validate imports before changing canonical state
 
-## **29.7.24 Retention, Deletion, and Revocation Service**
+## **31.7.24 Retention, Deletion, and Revocation Service**
 
 Responsibilities:
 
@@ -1092,7 +1092,7 @@ Responsibilities:
 * handle source-linked deletion
 * preserve legally required audit evidence without retaining unauthorized payloads
 
-## **29.7.25 Memory-to-Learning Export Gate**
+## **31.7.25 Memory-to-Learning Export Gate**
 
 Responsibilities:
 
@@ -1105,9 +1105,9 @@ Responsibilities:
 
 ---
 
-# **29.8 Objective Memory and VTG Inventory**
+# **31.8 Objective Memory and VTG Inventory**
 
-## **29.8.1 VTG State Canonicalizer**
+## **31.8.1 VTG State Canonicalizer**
 
 Responsibilities:
 
@@ -1116,7 +1116,7 @@ Responsibilities:
 * use tenant-scoped keyed hashes for private states
 * avoid storing raw private prompts unless explicitly permitted
 
-## **29.8.2 Transition Edge Store**
+## **31.8.2 Transition Edge Store**
 
 Responsibilities:
 
@@ -1129,7 +1129,7 @@ Responsibilities:
 * store policy and tenant scope
 * support decay and invalidation
 
-## **29.8.3 Candidate Frontier Service**
+## **31.8.3 Candidate Frontier Service**
 
 Responsibilities:
 
@@ -1139,7 +1139,7 @@ Responsibilities:
 * never treat a cache or transition hit as truth
 * expose confidence and required verification path
 
-## **29.8.4 Transition Validation Collector**
+## **31.8.4 Transition Validation Collector**
 
 Responsibilities:
 
@@ -1150,7 +1150,7 @@ Responsibilities:
 * consume user acceptance or rejection
 * update transition evidence
 
-## **29.8.5 Transition Decay and Compatibility Manager**
+## **31.8.5 Transition Decay and Compatibility Manager**
 
 Responsibilities:
 
@@ -1160,7 +1160,7 @@ Responsibilities:
 * isolate tenant-specific transitions
 * prevent transition reuse across unsafe context changes
 
-## **29.8.6 VTG Trace Integration**
+## **31.8.6 VTG Trace Integration**
 
 Responsibilities:
 
@@ -1173,9 +1173,9 @@ Responsibilities:
 
 ---
 
-# **29.9 Grounding, Verification, Arbitration, and Synthesis Inventory**
+# **31.9 Grounding, Verification, Arbitration, and Synthesis Inventory**
 
-## **29.9.1 Claim Extraction Service**
+## **31.9.1 Claim Extraction Service**
 
 Responsibilities:
 
@@ -1187,7 +1187,7 @@ Responsibilities:
 * classify which claims require verification
 * link claims to evidence requests
 
-## **29.9.2 Public Grounding Service**
+## **31.9.2 Public Grounding Service**
 
 Responsibilities:
 
@@ -1198,7 +1198,7 @@ Responsibilities:
 * mark externally derived content as lower-trust until verified
 * protect prompts from external instructions
 
-## **29.9.3 Private Grounding Service**
+## **31.9.3 Private Grounding Service**
 
 Responsibilities:
 
@@ -1207,7 +1207,7 @@ Responsibilities:
 * preserve local or private execution boundaries
 * generate evidence packets without broadening privacy scope
 
-## **29.9.4 Evidence Packager**
+## **31.9.4 Evidence Packager**
 
 Responsibilities:
 
@@ -1219,7 +1219,7 @@ Responsibilities:
 * identify conflicting evidence
 * expose bounded excerpts rather than unrestricted documents
 
-## **29.9.5 Specialized Verifiers**
+## **31.9.5 Specialized Verifiers**
 
 Initial deterministic or model-assisted verifiers include:
 
@@ -1235,7 +1235,7 @@ Initial deterministic or model-assisted verifiers include:
 * grounding verifier
 * contradiction verifier
 
-## **29.9.6 Confidence and Uncertainty Calibrator**
+## **31.9.6 Confidence and Uncertainty Calibrator**
 
 Responsibilities:
 
@@ -1245,7 +1245,7 @@ Responsibilities:
 * avoid collapsing disagreement into false certainty
 * identify when escalation is required
 
-## **29.9.7 Epistemic Framework Registry**
+## **31.9.7 Epistemic Framework Registry**
 
 Responsibilities:
 
@@ -1257,7 +1257,7 @@ Responsibilities:
 * support constrained WASM extensions
 * prevent untrusted frameworks from acquiring tool authority
 
-## **29.9.8 Arbitration Runtime**
+## **31.9.8 Arbitration Runtime**
 
 Responsibilities:
 
@@ -1269,7 +1269,7 @@ Responsibilities:
 * record the arbitration decision
 * preserve lineage for later evaluation
 
-## **29.9.9 Reputation-Weighted Consensus Coordinator**
+## **31.9.9 Reputation-Weighted Consensus Coordinator**
 
 Responsibilities:
 
@@ -1280,7 +1280,7 @@ Responsibilities:
 * trigger arbitration or fallback
 * produce a signed consensus record
 
-## **29.9.10 Synthesis Service**
+## **31.9.10 Synthesis Service**
 
 Responsibilities:
 
@@ -1291,7 +1291,7 @@ Responsibilities:
 * produce the final response artifact
 * attach selected evidence and lineage
 
-## **29.9.11 Final Formatter**
+## **31.9.11 Final Formatter**
 
 Responsibilities:
 
@@ -1303,9 +1303,9 @@ Responsibilities:
 
 ---
 
-# **29.10 Reputation and Consensus Infrastructure**
+# **31.10 Reputation and Consensus Infrastructure**
 
-## **29.10.1 Reputation Store**
+## **31.10.1 Reputation Store**
 
 Responsibilities:
 
@@ -1316,7 +1316,7 @@ Responsibilities:
 * maintain role- and domain-specific scores
 * preserve evidence for score changes
 
-## **29.10.2 Reputation Update Engine**
+## **31.10.2 Reputation Update Engine**
 
 Inputs may include:
 
@@ -1332,7 +1332,7 @@ Inputs may include:
 * fraud verdicts
 * benchmark outcomes
 
-## **29.10.3 Sybil and Abuse Resistance**
+## **31.10.3 Sybil and Abuse Resistance**
 
 Responsibilities:
 
@@ -1343,7 +1343,7 @@ Responsibilities:
 * integrate EIS fraud evidence
 * apply economic or participation penalties
 
-## **29.10.4 Reputation Replication**
+## **31.10.4 Reputation Replication**
 
 Responsibilities:
 
@@ -1355,9 +1355,9 @@ Responsibilities:
 
 ---
 
-# **29.11 Execution Integrity System Inventory**
+# **31.11 Execution Integrity System Inventory**
 
-## **29.11.1 Execution Contract Builder**
+## **31.11.1 Execution Contract Builder**
 
 Responsibilities:
 
@@ -1371,7 +1371,7 @@ Responsibilities:
 * declare hardware or runtime profile
 * sign the contract
 
-## **29.11.2 Kernel and Runtime Registry**
+## **31.11.2 Kernel and Runtime Registry**
 
 Responsibilities:
 
@@ -1382,7 +1382,7 @@ Responsibilities:
 * support revocation
 * detect unsupported execution combinations
 
-## **29.11.3 Determinism Certification Service**
+## **31.11.3 Determinism Certification Service**
 
 Responsibilities:
 
@@ -1391,7 +1391,7 @@ Responsibilities:
 * measure expected drift
 * publish allowed verification strategies
 
-## **29.11.4 Checkpoint Calibration Service**
+## **31.11.4 Checkpoint Calibration Service**
 
 Responsibilities:
 
@@ -1401,7 +1401,7 @@ Responsibilities:
 * store model- and kernel-specific calibration
 * update calibration after approved runtime changes
 
-## **29.11.5 Execution Claim Collector**
+## **31.11.5 Execution Claim Collector**
 
 Responsibilities:
 
@@ -1411,7 +1411,7 @@ Responsibilities:
 * store checkpoint digests and token metadata
 * reject malformed or incompatible claims
 
-## **29.11.6 Spot-Check Scheduler**
+## **31.11.6 Spot-Check Scheduler**
 
 Responsibilities:
 
@@ -1422,7 +1422,7 @@ Responsibilities:
 * avoid predictable checking schedules
 * control verification cost
 
-## **29.11.7 Teacher-Forced Execution Checker**
+## **31.11.7 Teacher-Forced Execution Checker**
 
 Responsibilities:
 
@@ -1431,7 +1431,7 @@ Responsibilities:
 * identify possible substitution
 * generate signed check results
 
-## **29.11.8 Fraud Verdict Service**
+## **31.11.8 Fraud Verdict Service**
 
 Responsibilities:
 
@@ -1441,7 +1441,7 @@ Responsibilities:
 * feed reputation and settlement
 * preserve auditable evidence
 
-## **29.11.9 EIS Evidence Store**
+## **31.11.9 EIS Evidence Store**
 
 Responsibilities:
 
@@ -1453,7 +1453,7 @@ Responsibilities:
 * expose policy-scoped audit access
 * integrate with GAML as Cognitive Assets
 
-## **29.11.10 Future Hardware Attestation Adapter**
+## **31.11.10 Future Hardware Attestation Adapter**
 
 Potential responsibilities:
 
@@ -1464,9 +1464,9 @@ Potential responsibilities:
 
 ---
 
-# **29.12 GCS Capability System and Connector Inventory**
+# **31.12 GCS Capability System and Connector Inventory**
 
-## **29.12.1 Capability Registry**
+## **31.12.1 Capability Registry**
 
 **Class:** Data Service
 
@@ -1482,7 +1482,7 @@ Responsibilities:
 * store reliability, latency, and cost
 * store deprecation and revocation state
 
-## **29.12.2 Connector Registry**
+## **31.12.2 Connector Registry**
 
 Responsibilities:
 
@@ -1494,7 +1494,7 @@ Responsibilities:
 * identify connector trust class
 * expose health and version state
 
-## **29.12.3 Connector Discovery Manager**
+## **31.12.3 Connector Discovery Manager**
 
 Responsibilities:
 
@@ -1507,7 +1507,7 @@ Responsibilities:
 * detect connector changes
 * prevent automatic authority escalation
 
-## **29.12.4 Capability Translation Agent**
+## **31.12.4 Capability Translation Agent**
 
 **Class:** Model-Assisted Agent
 
@@ -1524,7 +1524,7 @@ Responsibilities:
 
 Its output is a proposal and must pass deterministic validation.
 
-## **29.12.5 Capability Contract Validator**
+## **31.12.5 Capability Contract Validator**
 
 **Class:** Deterministic Service
 
@@ -1540,7 +1540,7 @@ Responsibilities:
 * require version and provider identity
 * prevent broader permissions than connector configuration allows
 
-## **29.12.6 Capability Contract Signer and Version Manager**
+## **31.12.6 Capability Contract Signer and Version Manager**
 
 Responsibilities:
 
@@ -1552,7 +1552,7 @@ Responsibilities:
 * require re-review after material changes
 * support rollback to prior approved versions
 
-## **29.12.7 Policy Binder**
+## **31.12.7 Policy Binder**
 
 Responsibilities:
 
@@ -1563,7 +1563,7 @@ Responsibilities:
 * attach approval requirements
 * attach retention and memorization rules
 
-## **29.12.8 Credential Broker**
+## **31.12.8 Credential Broker**
 
 Responsibilities:
 
@@ -1576,7 +1576,7 @@ Responsibilities:
 
 Raw credentials must not be stored in GAML.
 
-## **29.12.9 Capability Router**
+## **31.12.9 Capability Router**
 
 Responsibilities:
 
@@ -1588,7 +1588,7 @@ Responsibilities:
 * select fallback connectors
 * avoid external providers when local capabilities satisfy the request
 
-## **29.12.10 Provider Health and Reputation Monitor**
+## **31.12.10 Provider Health and Reputation Monitor**
 
 Responsibilities:
 
@@ -1601,7 +1601,7 @@ Responsibilities:
 * measure sandbox or sanitizer findings
 * update connector and capability reputation
 
-## **29.12.11 Connector Drift Detector**
+## **31.12.11 Connector Drift Detector**
 
 Responsibilities:
 
@@ -1612,7 +1612,7 @@ Responsibilities:
 * suspend affected capabilities
 * trigger contract regeneration and review
 
-## **29.12.12 GCS Capability Server**
+## **31.12.12 GCS Capability Server**
 
 Responsibilities:
 
@@ -1623,7 +1623,7 @@ Responsibilities:
 * prevent external clients from directly mutating higher-trust memory
 * route external calls through the same Tool Intermediary
 
-## **29.12.13 Initial Connector Families**
+## **31.12.13 Initial Connector Families**
 
 ### Local Personal Data
 
@@ -1733,7 +1733,7 @@ External AI providers may be implemented as optional connectors for:
 
 They are not required components of the GCS cognitive core.
 
-## **29.12.14 Initial Connector Priority**
+## **31.12.14 Initial Connector Priority**
 
 **Priority 0**
 
@@ -1766,9 +1766,9 @@ They are not required components of the GCS cognitive core.
 
 ---
 
-# **29.13 Secure Tool Intermediary Inventory**
+# **31.13 Secure Tool Intermediary Inventory**
 
-## **29.13.1 Tool Proposal Intake**
+## **31.13.1 Tool Proposal Intake**
 
 Responsibilities:
 
@@ -1778,7 +1778,7 @@ Responsibilities:
 * resolve the canonical capability contract
 * reject calls that bypass capability registration
 
-## **29.13.2 Capability Enforcement Engine**
+## **31.13.2 Capability Enforcement Engine**
 
 Responsibilities:
 
@@ -1789,7 +1789,7 @@ Responsibilities:
 * enforce network, filesystem, credential, and device permissions
 * default deny any undeclared behavior
 
-## **29.13.3 Dry-Run Engine**
+## **31.13.3 Dry-Run Engine**
 
 Responsibilities:
 
@@ -1801,7 +1801,7 @@ Responsibilities:
 * produce a bounded mock result
 * fail closed when safe simulation is unavailable
 
-## **29.13.4 Sandbox Orchestrator**
+## **31.13.4 Sandbox Orchestrator**
 
 Supported sandbox implementations may include:
 
@@ -1821,7 +1821,7 @@ Responsibilities:
 * isolate credentials
 * capture execution evidence
 
-## **29.13.5 Output Sanitizer**
+## **31.13.5 Output Sanitizer**
 
 Responsibilities:
 
@@ -1834,7 +1834,7 @@ Responsibilities:
 * preserve source data separately for audit
 * return sanitized structured output
 
-## **29.13.6 Prompt-Injection and Trap Detector**
+## **31.13.6 Prompt-Injection and Trap Detector**
 
 Detection categories include:
 
@@ -1848,7 +1848,7 @@ Detection categories include:
 * capability-escalation instructions
 * memory-poisoning attempts
 
-## **29.13.7 Human Approval Service**
+## **31.13.7 Human Approval Service**
 
 Approval should normally be required when a capability:
 
@@ -1862,7 +1862,7 @@ Approval should normally be required when a capability:
 * produces severe risk findings
 * is required by user or workspace policy
 
-## **29.13.8 Execution Broker**
+## **31.13.8 Execution Broker**
 
 Responsibilities:
 
@@ -1874,7 +1874,7 @@ Responsibilities:
 * support compensation or rollback metadata
 * prevent the proposing ELM from receiving credentials
 
-## **29.13.9 Tool Attestation Signer**
+## **31.13.9 Tool Attestation Signer**
 
 The attestation should distinguish:
 
@@ -1894,7 +1894,7 @@ Responsibilities:
 * bind output to request and tool call
 * expose verification to synthesis and GAML
 
-## **29.13.10 Tool Result Normalizer**
+## **31.13.10 Tool Result Normalizer**
 
 Responsibilities:
 
@@ -1906,7 +1906,7 @@ Responsibilities:
 * attach sanitizer findings
 * attach attestation references
 
-## **29.13.11 Memory Writeback Gate for Tool Results**
+## **31.13.11 Memory Writeback Gate for Tool Results**
 
 Responsibilities:
 
@@ -1920,9 +1920,9 @@ Responsibilities:
 
 ---
 
-# **29.14 Local Cognitive Second Brain Inventory**
+# **31.14 Local Cognitive Second Brain Inventory**
 
-## **29.14.1 Second Brain Agent**
+## **31.14.1 Second Brain Agent**
 
 Responsibilities:
 
@@ -1935,7 +1935,7 @@ Responsibilities:
 * propose confirmed writeback
 * emit adaptation signals
 
-## **29.14.2 Local Source Observer**
+## **31.14.2 Local Source Observer**
 
 Responsibilities:
 
@@ -1945,7 +1945,7 @@ Responsibilities:
 * emit normalized events
 * avoid unnecessary cloud access
 
-## **29.14.3 Personal Entity and Project Resolver**
+## **31.14.3 Personal Entity and Project Resolver**
 
 Responsibilities:
 
@@ -1957,7 +1957,7 @@ Responsibilities:
 * connect messages, documents, and tasks
 * preserve user corrections
 
-## **29.14.4 Commitment and Deadline Tracker**
+## **31.14.4 Commitment and Deadline Tracker**
 
 Responsibilities:
 
@@ -1969,7 +1969,7 @@ Responsibilities:
 * prepare follow-up suggestions
 * retain source evidence
 
-## **29.14.5 Meeting Preparation Service**
+## **31.14.5 Meeting Preparation Service**
 
 Responsibilities:
 
@@ -1980,7 +1980,7 @@ Responsibilities:
 * identify open questions
 * produce source-backed meeting briefs
 
-## **29.14.6 Daily Brief Service**
+## **31.14.6 Daily Brief Service**
 
 Responsibilities:
 
@@ -1990,7 +1990,7 @@ Responsibilities:
 * preserve privacy
 * support local text or voice delivery
 
-## **29.14.7 Project Drift Detector**
+## **31.14.7 Project Drift Detector**
 
 Responsibilities:
 
@@ -2002,7 +2002,7 @@ Responsibilities:
 * identify stale plans
 * produce material-change summaries
 
-## **29.14.8 Local Email Capability**
+## **31.14.8 Local Email Capability**
 
 Implementations may include:
 
@@ -2029,7 +2029,7 @@ Read operations and write operations must remain separate capabilities.
 
 Sending, deleting, moving, or modifying email requires explicit policy and normally human approval.
 
-## **29.14.9 Personal Vault Mirror**
+## **31.14.9 Personal Vault Mirror**
 
 Responsibilities:
 
@@ -2039,7 +2039,7 @@ Responsibilities:
 * allow proposed corrections
 * avoid treating arbitrary local edits as trusted memory automatically
 
-## **29.14.10 Private Device Synchronization**
+## **31.14.10 Private Device Synchronization**
 
 Responsibilities:
 
@@ -2049,7 +2049,7 @@ Responsibilities:
 * preserve CRDT convergence
 * prevent public swarm access
 
-## **29.14.11 User Correction and Confirmation Service**
+## **31.14.11 User Correction and Confirmation Service**
 
 Responsibilities:
 
@@ -2062,9 +2062,9 @@ Responsibilities:
 
 ---
 
-# **29.15 OpenAI-Compatible API and GCS Job Queue Inventory**
+# **31.15 OpenAI-Compatible API and GCS Job Queue Inventory**
 
-## **29.15.1 OpenAI-Compatible API Router**
+## **31.15.1 OpenAI-Compatible API Router**
 
 Responsibilities:
 
@@ -2079,7 +2079,7 @@ Responsibilities:
 * translate internal errors
 * handle client cancellation
 
-## **29.15.2 Authentication and Rate-Limit Service**
+## **31.15.2 Authentication and Rate-Limit Service**
 
 Responsibilities:
 
@@ -2090,7 +2090,7 @@ Responsibilities:
 * support revocation
 * preserve audit records
 
-## **29.15.3 API Request Job Builder**
+## **31.15.3 API Request Job Builder**
 
 Responsibilities:
 
@@ -2101,7 +2101,7 @@ Responsibilities:
 * preserve external response format
 * identify whether child processing jobs are required
 
-## **29.15.4 GCS Gateway Node**
+## **31.15.4 GCS Gateway Node**
 
 Responsibilities:
 
@@ -2114,7 +2114,7 @@ Responsibilities:
 * expose job status
 * emit metering records
 
-## **29.15.5 API Request Queue**
+## **31.15.5 API Request Queue**
 
 Responsibilities:
 
@@ -2125,7 +2125,7 @@ Responsibilities:
 * support cancellation
 * support blocking and streaming requests
 
-## **29.15.6 Processing Chunk Queue**
+## **31.15.6 Processing Chunk Queue**
 
 Responsibilities:
 
@@ -2137,7 +2137,7 @@ Responsibilities:
 * support failed-task blacklisting
 * support deterministic result storage
 
-## **29.15.7 Node Capability Registration**
+## **31.15.7 Node Capability Registration**
 
 Responsibilities:
 
@@ -2147,7 +2147,7 @@ Responsibilities:
 * publish hardware and runtime constraints
 * publish reputation and health references
 
-## **29.15.8 Streaming Channel Manager**
+## **31.15.8 Streaming Channel Manager**
 
 Responsibilities:
 
@@ -2158,7 +2158,7 @@ Responsibilities:
 * prevent cross-request stream leakage
 * convert internal chunks to API-compatible SSE
 
-## **29.15.9 Result Aggregator**
+## **31.15.9 Result Aggregator**
 
 Responsibilities:
 
@@ -2169,7 +2169,7 @@ Responsibilities:
 * package attestations
 * produce final external response metadata
 
-## **29.15.10 Usage, Metering, and Settlement Adapter**
+## **31.15.10 Usage, Metering, and Settlement Adapter**
 
 Responsibilities:
 
@@ -2182,9 +2182,9 @@ Responsibilities:
 
 ---
 
-# **29.16 Distributed Infrastructure Inventory**
+# **31.16 Distributed Infrastructure Inventory**
 
-## **29.16.1 libp2p Node Service**
+## **31.16.1 libp2p Node Service**
 
 Responsibilities:
 
@@ -2195,7 +2195,7 @@ Responsibilities:
 * peer health
 * connection management
 
-## **29.16.2 Pub/Sub Topic Manager**
+## **31.16.2 Pub/Sub Topic Manager**
 
 Responsibilities:
 
@@ -2206,7 +2206,7 @@ Responsibilities:
 * enforce tenant-private topic boundaries
 * prevent unauthorized subscriptions
 
-## **29.16.3 Distributed Task Queue**
+## **31.16.3 Distributed Task Queue**
 
 Responsibilities:
 
@@ -2218,7 +2218,7 @@ Responsibilities:
 * preserve task identity
 * integrate with reputation and settlement
 
-## **29.16.4 Node Discovery and Capability Advertisement**
+## **31.16.4 Node Discovery and Capability Advertisement**
 
 Responsibilities:
 
@@ -2230,7 +2230,7 @@ Responsibilities:
 * advertise privacy placement
 * advertise availability
 
-## **29.16.5 Distributed Artifact Manager**
+## **31.16.5 Distributed Artifact Manager**
 
 Responsibilities:
 
@@ -2241,7 +2241,7 @@ Responsibilities:
 * verify content hashes
 * respect private artifact boundaries
 
-## **29.16.6 CRDT State Manager**
+## **31.16.6 CRDT State Manager**
 
 Responsibilities:
 
@@ -2252,7 +2252,7 @@ Responsibilities:
 * support policy-aware conflict handling
 * preserve tombstones
 
-## **29.16.7 gRPC Service Interface Layer**
+## **31.16.7 gRPC Service Interface Layer**
 
 Responsibilities:
 
@@ -2261,7 +2261,7 @@ Responsibilities:
 * support local and private-service communication
 * avoid replacing GNUS distributed coordination semantics
 
-## **29.16.8 Node Health Monitor**
+## **31.16.8 Node Health Monitor**
 
 Responsibilities:
 
@@ -2272,7 +2272,7 @@ Responsibilities:
 * publish scheduling signals
 * trigger route exclusion
 
-## **29.16.9 Node Identity and Signing**
+## **31.16.9 Node Identity and Signing**
 
 Responsibilities:
 
@@ -2285,9 +2285,9 @@ Responsibilities:
 
 ---
 
-# **29.17 EGGROLL and Adaptive Learning Inventory**
+# **31.17 EGGROLL and Adaptive Learning Inventory**
 
-## **29.17.1 Learning Signal Collector**
+## **31.17.1 Learning Signal Collector**
 
 Inputs include:
 
@@ -2303,7 +2303,7 @@ Inputs include:
 * VTG accept and reject events
 * benchmarks
 
-## **29.17.2 Privacy and Curation Gate**
+## **31.17.2 Privacy and Curation Gate**
 
 Responsibilities:
 
@@ -2314,7 +2314,7 @@ Responsibilities:
 * filter lower-trust data
 * require stronger provenance for adaptation than retrieval
 
-## **29.17.3 Distillation Sample Builder**
+## **31.17.3 Distillation Sample Builder**
 
 Responsibilities:
 
@@ -2327,7 +2327,7 @@ Responsibilities:
 * create forecast samples
 * preserve evidence and outcome metadata
 
-## **29.17.4 Fitness Evaluator**
+## **31.17.4 Fitness Evaluator**
 
 Responsibilities:
 
@@ -2336,7 +2336,7 @@ Responsibilities:
 * evaluate specialist and policy variants
 * prevent optimization on a single misleading metric
 
-## **29.17.5 Perturbation and Training Coordinator**
+## **31.17.5 Perturbation and Training Coordinator**
 
 Responsibilities:
 
@@ -2346,7 +2346,7 @@ Responsibilities:
 * collect results
 * preserve experiment lineage
 
-## **29.17.6 Promotion Gate**
+## **31.17.6 Promotion Gate**
 
 Responsibilities:
 
@@ -2357,7 +2357,7 @@ Responsibilities:
 * support staged rollout
 * support rollback
 
-## **29.17.7 Local and Tenant Adaptation Manager**
+## **31.17.7 Local and Tenant Adaptation Manager**
 
 Responsibilities:
 
@@ -2367,7 +2367,7 @@ Responsibilities:
 * manage memory-scoring preferences
 * prevent unauthorized global promotion
 
-## **29.17.8 Learning Artifact Registry**
+## **31.17.8 Learning Artifact Registry**
 
 Responsibilities:
 
@@ -2380,9 +2380,9 @@ Responsibilities:
 
 ---
 
-# **29.18 Security, Privacy, and Governance Inventory**
+# **31.18 Security, Privacy, and Governance Inventory**
 
-## **29.18.1 Identity and Authorization Service**
+## **31.18.1 Identity and Authorization Service**
 
 Responsibilities:
 
@@ -2394,7 +2394,7 @@ Responsibilities:
 * role and attribute authorization
 * revocation
 
-## **29.18.2 Privacy Policy Engine**
+## **31.18.2 Privacy Policy Engine**
 
 Responsibilities:
 
@@ -2407,7 +2407,7 @@ Responsibilities:
 * purpose limitation
 * export and training restrictions
 
-## **29.18.3 Key Management Service**
+## **31.18.3 Key Management Service**
 
 Responsibilities:
 
@@ -2418,7 +2418,7 @@ Responsibilities:
 * expose key references
 * support hardware-backed storage where available
 
-## **29.18.4 Secrets Service**
+## **31.18.4 Secrets Service**
 
 Responsibilities:
 
@@ -2428,7 +2428,7 @@ Responsibilities:
 * audit secret use
 * support rotation and revocation
 
-## **29.18.5 Sandbox Profile Registry**
+## **31.18.5 Sandbox Profile Registry**
 
 Responsibilities:
 
@@ -2439,7 +2439,7 @@ Responsibilities:
 * define CPU, memory, and time limits
 * version and sign profiles
 
-## **29.18.6 Audit Event Store**
+## **31.18.6 Audit Event Store**
 
 Responsibilities:
 
@@ -2451,7 +2451,7 @@ Responsibilities:
 * store key and permission changes
 * support tamper-evident audit chains
 
-## **29.18.7 Consent and Approval Record Service**
+## **31.18.7 Consent and Approval Record Service**
 
 Responsibilities:
 
@@ -2462,7 +2462,7 @@ Responsibilities:
 * record training opt-in
 * record revocation
 
-## **29.18.8 Threat Detection Service**
+## **31.18.8 Threat Detection Service**
 
 Responsibilities:
 
@@ -2476,9 +2476,9 @@ Responsibilities:
 
 ---
 
-# **29.19 User and Operator Interface Inventory**
+# **31.19 User and Operator Interface Inventory**
 
-## **29.19.1 Cognitive Client Interface**
+## **31.19.1 Cognitive Client Interface**
 
 Responsibilities:
 
@@ -2490,7 +2490,7 @@ Responsibilities:
 * support cancellation
 * expose privacy mode
 
-## **29.19.2 Capability Approval Interface**
+## **31.19.2 Capability Approval Interface**
 
 Responsibilities:
 
@@ -2502,7 +2502,7 @@ Responsibilities:
 * display dry-run findings
 * approve once, approve by policy, or reject
 
-## **29.19.3 Memory Inspector**
+## **31.19.3 Memory Inspector**
 
 Responsibilities:
 
@@ -2514,7 +2514,7 @@ Responsibilities:
 * correct or revoke memory
 * export approved memory
 
-## **29.19.4 Connector Administration Interface**
+## **31.19.4 Connector Administration Interface**
 
 Responsibilities:
 
@@ -2526,7 +2526,7 @@ Responsibilities:
 * review drift
 * disable or revoke connectors
 
-## **29.19.5 Node and Swarm Operations Interface**
+## **31.19.5 Node and Swarm Operations Interface**
 
 Responsibilities:
 
@@ -2538,7 +2538,7 @@ Responsibilities:
 * view model and artifact versions
 * manage maintenance and revocation
 
-## **29.19.6 Evaluation and Benchmark Interface**
+## **31.19.6 Evaluation and Benchmark Interface**
 
 Responsibilities:
 
@@ -2551,9 +2551,9 @@ Responsibilities:
 
 ---
 
-# **29.20 Observability and Operational Services**
+# **31.20 Observability and Operational Services**
 
-## **29.20.1 Canonical Event Bus**
+## **31.20.1 Canonical Event Bus**
 
 Minimum events include:
 
@@ -2575,7 +2575,7 @@ Minimum events include:
 * forecast created and resolved
 * learning signal emitted
 
-## **29.20.2 Trace Service**
+## **31.20.2 Trace Service**
 
 Responsibilities:
 
@@ -2585,7 +2585,7 @@ Responsibilities:
 * expose failure and fallback
 * preserve privacy-aware trace views
 
-## **29.20.3 Metrics Service**
+## **31.20.3 Metrics Service**
 
 Primary metrics include:
 
@@ -2603,7 +2603,7 @@ Primary metrics include:
 * quality regression
 * cost per request
 
-## **29.20.4 Logging Service**
+## **31.20.4 Logging Service**
 
 Responsibilities:
 
@@ -2614,7 +2614,7 @@ Responsibilities:
 * correlation identifiers
 * incident export
 
-## **29.20.5 Alerting Service**
+## **31.20.5 Alerting Service**
 
 Critical alerts include:
 
@@ -2628,7 +2628,7 @@ Critical alerts include:
 * sanitizer failure
 * cross-tenant leakage
 
-## **29.20.6 Configuration and Feature-Flag Service**
+## **31.20.6 Configuration and Feature-Flag Service**
 
 Responsibilities:
 
@@ -2641,7 +2641,7 @@ Responsibilities:
 
 ---
 
-# **29.21 Canonical Interface and Schema Inventory**
+# **31.21 Canonical Interface and Schema Inventory**
 
 The initial schema package should include:
 
@@ -2707,9 +2707,9 @@ Each schema should define:
 
 ---
 
-# **29.22 Deployment Profiles**
+# **31.22 Deployment Profiles**
 
-## **29.22.1 Single-Device Local Profile**
+## **31.22.1 Single-Device Local Profile**
 
 Includes:
 
@@ -2722,7 +2722,7 @@ Includes:
 * optional human-readable vault
 * no public swarm requirement
 
-## **29.22.2 Personal Multi-Device Profile**
+## **31.22.2 Personal Multi-Device Profile**
 
 Adds:
 
@@ -2732,7 +2732,7 @@ Adds:
 * device revocation
 * user-private forecast model
 
-## **29.22.3 Private Enterprise Profile**
+## **31.22.3 Private Enterprise Profile**
 
 Includes:
 
@@ -2745,7 +2745,7 @@ Includes:
 * tenant-specific observability
 * optional private GNUS subnet
 
-## **29.22.4 Public GNUS Swarm Profile**
+## **31.22.4 Public GNUS Swarm Profile**
 
 Includes:
 
@@ -2757,7 +2757,7 @@ Includes:
 * public artifact distribution
 * no access to private memory without explicit protected routing
 
-## **29.22.5 Hybrid Profile**
+## **31.22.5 Hybrid Profile**
 
 Includes:
 
@@ -2767,7 +2767,7 @@ Includes:
 * private final synthesis
 * explicit privacy and attestation boundaries
 
-## **29.22.6 Dedicated Tool Intermediary Profile**
+## **31.22.6 Dedicated Tool Intermediary Profile**
 
 Includes:
 
@@ -2778,7 +2778,7 @@ Includes:
 * attestation signer
 * no general expert execution
 
-## **29.22.7 Dedicated Verification and EIS Profile**
+## **31.22.7 Dedicated Verification and EIS Profile**
 
 Includes:
 
@@ -2790,7 +2790,7 @@ Includes:
 
 ---
 
-# **29.23 Logical Workstreams and Package Boundaries**
+# **31.23 Logical Workstreams and Package Boundaries**
 
 Initial logical workstreams should be:
 
@@ -2829,9 +2829,9 @@ Premature repository fragmentation should be avoided.
 
 ---
 
-# **29.24 Recommended Delivery Sequence**
+# **31.24 Recommended Delivery Sequence**
 
-## **29.24.1 Milestone 0 — Contracts and Security Boundaries**
+## **31.24.1 Milestone 0 — Contracts and Security Boundaries**
 
 Deliver:
 
@@ -2845,7 +2845,7 @@ Deliver:
 * execution contract and claim
 * signed audit events
 
-## **29.24.2 Milestone 1 — Local Cognitive Baseline**
+## **31.24.2 Milestone 1 — Local Cognitive Baseline**
 
 Deliver:
 
@@ -2858,7 +2858,7 @@ Deliver:
 * local response synthesis
 * basic observability
 
-## **29.24.3 Milestone 2 — Private Memory and Second Brain**
+## **31.24.3 Milestone 2 — Private Memory and Second Brain**
 
 Deliver:
 
@@ -2871,7 +2871,7 @@ Deliver:
 * daily brief
 * human-readable memory mirror
 
-## **29.24.4 Milestone 3 — Capability System and Secure Tool Path**
+## **31.24.4 Milestone 3 — Capability System and Secure Tool Path**
 
 Deliver:
 
@@ -2884,7 +2884,7 @@ Deliver:
 * sanitization
 * signed tool attestations
 
-## **29.24.5 Milestone 4 — Verification and Distributed Execution**
+## **31.24.5 Milestone 4 — Verification and Distributed Execution**
 
 Deliver:
 
@@ -2896,7 +2896,7 @@ Deliver:
 * reputation-weighted consensus
 * multi-node execution
 
-## **29.24.6 Milestone 5 — Execution Integrity**
+## **31.24.6 Milestone 5 — Execution Integrity**
 
 Deliver:
 
@@ -2908,7 +2908,7 @@ Deliver:
 * fraud verdicts
 * reputation integration
 
-## **29.24.7 Milestone 6 — VTG, Forecasting, and Learning**
+## **31.24.7 Milestone 6 — VTG, Forecasting, and Learning**
 
 Deliver:
 
@@ -2920,7 +2920,7 @@ Deliver:
 * EGGROLL learning signals
 * promotion and rollback gates
 
-## **29.24.8 Milestone 7 — Ecosystem Hardening**
+## **31.24.8 Milestone 7 — Ecosystem Hardening**
 
 Deliver:
 
@@ -2934,9 +2934,9 @@ Deliver:
 
 ---
 
-# **29.25 Validation and Test Inventory**
+# **31.25 Validation and Test Inventory**
 
-## **29.25.1 Unit Tests**
+## **31.25.1 Unit Tests**
 
 Required for:
 
@@ -2951,7 +2951,7 @@ Required for:
 * EIS calibration logic
 * queue and lock behavior
 
-## **29.25.2 Integration Tests**
+## **31.25.2 Integration Tests**
 
 Required paths include:
 
@@ -2965,7 +2965,7 @@ memory write → replication → retrieval → revocation
 forecast → prefetch → confirmed use or cancellation
 ```
 
-## **29.25.3 Security Tests**
+## **31.25.3 Security Tests**
 
 Required scenarios include:
 
@@ -2986,7 +2986,7 @@ Required scenarios include:
 * memory poisoning
 * training-data contamination
 
-## **29.25.4 Privacy Tests**
+## **31.25.4 Privacy Tests**
 
 Required assertions include:
 
@@ -2998,7 +2998,7 @@ Required assertions include:
 * public workers cannot infer raw private entity identities from context packets
 * private memory does not enter training without authorization
 
-## **29.25.5 Reliability Tests**
+## **31.25.5 Reliability Tests**
 
 Required scenarios include:
 
@@ -3014,7 +3014,7 @@ Required scenarios include:
 * duplicate tool invocation
 * partial execution completion
 
-## **29.25.6 Performance Tests**
+## **31.25.6 Performance Tests**
 
 Measure:
 
@@ -3028,7 +3028,7 @@ Measure:
 * VTG hit rate and savings
 * private-memory synchronization cost
 
-## **29.25.7 Quality Evaluation**
+## **31.25.7 Quality Evaluation**
 
 Measure:
 
@@ -3047,7 +3047,7 @@ Measure:
 
 ---
 
-# **29.26 Component Definition of Done**
+# **31.26 Component Definition of Done**
 
 A production component is not complete until it has:
 
@@ -3094,7 +3094,7 @@ A connector also requires:
 
 ---
 
-# **29.27 Summary**
+# **31.27 Summary**
 
 The GeniusCognitiveSystem implementation is not a single model, agent, database, or protocol.
 

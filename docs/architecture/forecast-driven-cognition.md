@@ -1,6 +1,6 @@
-# **26. Forecast-Driven Cognition and Predictive Prefetching**
+# **28. Forecast-Driven Cognition and Predictive Prefetching**
 
-## **26.1 Purpose**
+## **28.1 Purpose**
 
 This document defines **Forecast-Driven Cognition (FDC)** for **GeniusCognitiveSystem (GCS)**.
 
@@ -16,7 +16,7 @@ The first high-value application is low-latency, bidirectional voice communicati
 
 ---
 
-## **26.2 Inspiration and Scope**
+## **28.2 Inspiration and Scope**
 
 Research such as **SparDA** demonstrates a narrow but useful principle: a model can forecast which KV-cache blocks a future transformer layer will require, allowing memory movement to overlap current computation.
 
@@ -51,7 +51,7 @@ SparDA is an inspiration, not the definition of the GCS architecture. GCS adopts
 
 ---
 
-## **26.3 Biological and Conversational Motivation**
+## **28.3 Biological and Conversational Motivation**
 
 Human conversation is not a sequence of complete utterances followed by complete responses.
 
@@ -84,7 +84,7 @@ Observe
 
 ---
 
-## **26.4 Architectural Position**
+## **28.4 Architectural Position**
 
 Forecast-Driven Cognition sits between observation and execution.
 
@@ -115,7 +115,7 @@ CES decides **what to prepare, where to prepare it, when to start, and when to c
 
 ---
 
-## **26.5 Anticipatory Cognition Engine (ACE)**
+## **28.5 Anticipatory Cognition Engine (ACE)**
 
 The **Anticipatory Cognition Engine (ACE)** is the runtime subsystem responsible for generating probabilistic forecasts of future cognitive state.
 
@@ -168,9 +168,9 @@ ACE must support rapid revision as new evidence arrives.
 
 ---
 
-## **26.6 Forecast Domains**
+## **28.6 Forecast Domains**
 
-### **26.6.1 Intent Forecasting**
+### **28.6.1 Intent Forecasting**
 
 Predicts what the user, agent, or workflow is likely trying to accomplish.
 
@@ -188,25 +188,25 @@ Examples:
 
 Intent forecasting should operate on partial input and maintain multiple hypotheses until confidence becomes sufficient.
 
-### **26.6.2 Semantic-Trajectory Forecasting**
+### **28.6.2 Semantic-Trajectory Forecasting**
 
 Predicts where a conversation or reasoning process is likely to go next.
 
 This may include expected topics, likely objections, required supporting concepts, and probable follow-up questions.
 
-### **26.6.3 Memory Forecasting**
+### **28.6.3 Memory Forecasting**
 
 Predicts which GAML objects, graph neighborhoods, source references, project states, people, decisions, commitments, or preferences will likely become relevant.
 
 Memory forecasting should stage likely objects into a low-latency working set without treating speculative retrieval as verified context.
 
-### **26.6.4 Expert and Model Forecasting**
+### **28.6.4 Expert and Model Forecasting**
 
 Predicts which ELMs, micro-experts, adapters, tokenizers, inference backends, and quantization variants will probably be required.
 
 This allows CES to begin loading or warming likely experts before a complete routing decision is available.
 
-### **26.6.5 Tool Forecasting**
+### **28.6.5 Tool Forecasting**
 
 Predicts likely tool and API requirements.
 
@@ -221,7 +221,7 @@ Preparation may include:
 
 Forecasting a tool must not itself grant permission to use that tool.
 
-### **26.6.6 Network and Node Forecasting**
+### **28.6.6 Network and Node Forecasting**
 
 Predicts which local, private, or public GNUS nodes are likely to participate.
 
@@ -237,13 +237,13 @@ Forecasts may consider:
 * expected cost
 * data locality
 
-### **26.6.7 Verification Forecasting**
+### **28.6.7 Verification Forecasting**
 
 Predicts whether the likely output will require grounding, consensus, adversarial review, source validation, policy checking, or epistemic arbitration.
 
 CES may warm verification resources while generation is still underway.
 
-### **26.6.8 Response and Turn-Taking Forecasting**
+### **28.6.8 Response and Turn-Taking Forecasting**
 
 For voice interaction, predicts likely response direction, conversational turn completion, interruption, pause, correction, and barge-in behavior.
 
@@ -251,7 +251,7 @@ This forecast supports natural timing but must not cause the system to ignore th
 
 ---
 
-## **26.7 Cognitive Execution Scheduler (CES)**
+## **28.7 Cognitive Execution Scheduler (CES)**
 
 The **Cognitive Execution Scheduler (CES)** converts a Forecast Graph into a resource-bounded execution plan.
 
@@ -280,7 +280,7 @@ A high-confidence forecast may justify loading an expert into GPU memory. A lowe
 
 ---
 
-## **26.8 Confidence-Based Preparation Policy**
+## **28.8 Confidence-Based Preparation Policy**
 
 Forecast confidence alone is not sufficient. CES must consider confidence, preparation cost, latency saved, reversibility, privacy risk, and resource contention.
 
@@ -320,7 +320,7 @@ CES should optimize total conversational or workflow latency, not merely maximiz
 
 ---
 
-## **26.9 Multi-Hypothesis Forecasting**
+## **28.9 Multi-Hypothesis Forecasting**
 
 ACE should preserve several plausible branches rather than prematurely committing to one interpretation.
 
@@ -349,7 +349,7 @@ The system must distinguish **prepared state** from **trusted state**. Speculati
 
 ---
 
-## **26.10 Bidirectional Voice Communication**
+## **28.10 Bidirectional Voice Communication**
 
 Low-latency voice interaction is the initial killer application for FDC.
 
@@ -398,7 +398,7 @@ Future visual inputs may be added as additional evidence without replacing ACE o
 
 ---
 
-## **26.11 Personal Forecast Models**
+## **28.11 Personal Forecast Models**
 
 GCS should improve as it becomes familiar with a user, team, device, enterprise, or recurring workflow.
 
@@ -432,7 +432,7 @@ Personalization must remain inspectable, correctable, portable, and removable.
 
 ---
 
-## **26.12 Anticipatory Distillation**
+## **28.12 Anticipatory Distillation**
 
 GCS distillation should teach students not only to produce good answers, but also to anticipate future cognitive requirements.
 
@@ -473,7 +473,7 @@ The teacher does not need to explicitly verbalize every forecast. Many labels ca
 
 ---
 
-## **26.13 Forecast Training Objectives**
+## **28.13 Forecast Training Objectives**
 
 A distilled model may use multiple forecast heads or structured outputs.
 
@@ -505,7 +505,7 @@ The model should not be rewarded merely for predicting everything. Useful antici
 
 ---
 
-## **26.14 Distillation Data Generation**
+## **28.14 Distillation Data Generation**
 
 Training examples should be generated from actual or simulated cognitive executions.
 
@@ -540,7 +540,7 @@ Training data must preserve privacy scope. Personal or enterprise forecast trace
 
 ---
 
-## **26.15 EGGROLL Integration**
+## **28.15 EGGROLL Integration**
 
 EGGROLL should treat anticipation quality as a first-class adaptation signal.
 
@@ -583,7 +583,7 @@ EGGROLL may improve:
 
 ---
 
-## **26.16 GAML Integration**
+## **28.16 GAML Integration**
 
 GAML supports FDC in two distinct roles.
 
@@ -616,7 +616,7 @@ Prefetched GAML objects remain speculative until normal authorization and verifi
 
 ---
 
-## **26.17 Distributed GNUS Integration**
+## **28.17 Distributed GNUS Integration**
 
 Forecasting is especially valuable when resources are remote.
 
@@ -648,7 +648,7 @@ Remote speculative work must be bounded and cancelable. Nodes should not perform
 
 ---
 
-## **26.18 Privacy, Safety, and User Control**
+## **28.18 Privacy, Safety, and User Control**
 
 Forecasting introduces risks because the system prepares for inferred intent before the user has completed an explicit request.
 
@@ -669,9 +669,9 @@ Unsafe preparation includes sending messages, making purchases, changing records
 
 ---
 
-## **26.19 Failure Modes**
+## **28.19 Failure Modes**
 
-### **26.19.1 Over-Prefetching**
+### **28.19.1 Over-Prefetching**
 
 The system predicts too many branches and wastes memory, compute, or bandwidth.
 
@@ -683,7 +683,7 @@ Mitigation:
 * branch limits
 * useful-prefetch metrics
 
-### **26.19.2 Premature Semantic Commitment**
+### **28.19.2 Premature Semantic Commitment**
 
 The system assumes an early interpretation and ignores later evidence.
 
@@ -694,7 +694,7 @@ Mitigation:
 * rapid cancellation
 * final-input verification
 
-### **26.19.3 Cache Pollution**
+### **28.19.3 Cache Pollution**
 
 Speculative resources evict resources required by active authoritative work.
 
@@ -705,7 +705,7 @@ Mitigation:
 * admission control
 * protected working sets
 
-### **26.19.4 Privacy Leakage**
+### **28.19.4 Privacy Leakage**
 
 A forecast causes retrieval or transfer outside the allowed privacy scope.
 
@@ -716,7 +716,7 @@ Mitigation:
 * local-only forecast processing for private state
 * audit logging
 
-### **26.19.5 Feedback Collapse**
+### **28.19.5 Feedback Collapse**
 
 The system repeatedly predicts familiar paths and becomes less responsive to novel requests.
 
@@ -727,7 +727,7 @@ Mitigation:
 * calibration against actual outcomes
 * periodic evaluation on unfamiliar tasks
 
-### **26.19.6 Incorrect Turn-Taking**
+### **28.19.6 Incorrect Turn-Taking**
 
 The voice system begins responding before the user has finished.
 
@@ -740,7 +740,7 @@ Mitigation:
 
 ---
 
-## **26.20 Observability and Evaluation**
+## **28.20 Observability and Evaluation**
 
 Every forecast should be traceable from prediction through outcome.
 
@@ -780,9 +780,9 @@ The primary success criterion is not perfect prediction. It is a better cognitiv
 
 ---
 
-## **26.21 Initial Implementation Phases**
+## **28.21 Initial Implementation Phases**
 
-### **26.21.1 Phase One: Local Voice and Text Forecasting**
+### **28.21.1 Phase One: Local Voice and Text Forecasting**
 
 Implement:
 
@@ -794,7 +794,7 @@ Implement:
 * basic CES budgets and cancellation
 * forecast telemetry
 
-### **26.21.2 Phase Two: Personal Forecast Models**
+### **28.21.2 Phase Two: Personal Forecast Models**
 
 Implement:
 
@@ -804,7 +804,7 @@ Implement:
 * confidence calibration
 * inspectable personalization controls
 
-### **26.21.3 Phase Three: Anticipatory Distillation**
+### **28.21.3 Phase Three: Anticipatory Distillation**
 
 Implement:
 
@@ -815,7 +815,7 @@ Implement:
 * offline forecast evaluation
 * EGGROLL fitness integration
 
-### **26.21.4 Phase Four: Distributed Predictive Scheduling**
+### **28.21.4 Phase Four: Distributed Predictive Scheduling**
 
 Implement:
 
@@ -825,7 +825,7 @@ Implement:
 * distributed cancellation
 * cost settlement rules for useful and canceled preparation
 
-### **26.21.5 Phase Five: Future Multimodal Evidence**
+### **28.21.5 Phase Five: Future Multimodal Evidence**
 
 Future inputs may include:
 
@@ -840,7 +840,7 @@ These are additional ACE evidence channels, not separate cognitive architectures
 
 ---
 
-## **26.22 Implementation Requirements**
+## **28.22 Implementation Requirements**
 
 A first production-capable implementation should include:
 
@@ -859,7 +859,7 @@ A first production-capable implementation should include:
 
 ---
 
-## **26.23 Design Principle**
+## **28.23 Design Principle**
 
 GCS should behave less like a request-response endpoint and more like a cognitive system continuously preparing for probable futures.
 
