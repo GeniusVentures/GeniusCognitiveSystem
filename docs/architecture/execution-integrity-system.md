@@ -1,4 +1,4 @@
-# **27. Execution Integrity System (EIS)**
+# **29. Execution Integrity System (EIS)**
 
 **Status:** Draft for review  
 **Applies to:** SGFP4 kernel specification, Reputation-Weighted Consensus, Speculative Decoding, GAML / Cognitive Asset Model  
@@ -6,7 +6,7 @@
 
 ---
 
-## **27.1 Purpose**
+## **29.1 Purpose**
 
 The **Execution Integrity System (EIS)** is the GCS subsystem responsible for verifying that distributed computation was executed faithfully according to a declared execution contract.
 
@@ -24,15 +24,15 @@ This separation is foundational. Semantic consensus is good at evaluating answer
 
 ---
 
-## **27.2 Motivation and Threat Model**
+## **29.2 Motivation and Threat Model**
 
-### **27.2.1 Why zk is out of scope at the GCS layer**
+### **29.2.1 Why zk is out of scope at the GCS layer**
 
 Zero-knowledge computation verification remains available at the substrate layer for low-level deterministic computation verification. It is deliberately not required for GCS inference.
 
 zk proofs can verify deterministic execution, but they cannot verify that an answer is true, useful, safe, or high quality. For interactive inference, proof generation also creates an unacceptable latency and energy tax. Semantic quality is therefore handled by reputation-weighted consensus, grounding, verification, and synthesis. EIS addresses the remaining gap when zk is not used for inference: **execution honesty**.
 
-### **27.2.2 The lazy-node / model-substitution attack**
+### **29.2.2 The lazy-node / model-substitution attack**
 
 With no execution attestation, the cheapest rational attack on a decentralized inference network is not producing obviously bad answers. It is producing cheap answers.
 
@@ -46,7 +46,7 @@ Examples:
 
 On easy queries, the smaller or stale substitute may be semantically close enough that consensus does not detect the substitution quickly. This is especially dangerous because easy queries are common and economically important.
 
-### **27.2.3 Security economics**
+### **29.2.3 Security economics**
 
 EIS is designed to make honesty the best economic strategy.
 
@@ -76,7 +76,7 @@ Running the declared model becomes the higher expected-return strategy
 
 EIS does not make cheating impossible. It makes the cheapest cheating strategy economically irrational by combining unpredictable spot checks, execution claims, checkpoint-band comparison, fraud verdicts, slashing, and reputation penalties.
 
-### **27.2.4 Design principles**
+### **29.2.4 Design principles**
 
 1. **Integrity is independent of semantic correctness.** EIS proves whether the declared computation was executed, not whether the answer is good.
 2. **Verification must be cheaper than execution.** Checking should be cheaper than serving so a verification market is economically viable.
@@ -87,9 +87,9 @@ EIS does not make cheating impossible. It makes the cheapest cheating strategy e
 
 ---
 
-## **27.3 Execution Contracts**
+## **29.3 Execution Contracts**
 
-### **27.3.1 Definition**
+### **29.3.1 Definition**
 
 An **Execution Contract** is the concrete, attestable profile a node accepts before running a job.
 
@@ -107,7 +107,7 @@ At minimum, it includes:
 
 A node accepting a job attests that it executed under exactly this contract. Serving under any other profile is a substitution.
 
-### **27.3.2 Contract pinning**
+### **29.3.2 Contract pinning**
 
 The execution contract pins every property that can materially affect output or verification:
 
@@ -120,9 +120,9 @@ This turns distributed inference from a vague promise into a numerical contract 
 
 ---
 
-## **27.4 Determinism Classes**
+## **29.4 Determinism Classes**
 
-### **27.4.1 Definition**
+### **29.4.1 Definition**
 
 Bit-exact reproducibility across heterogeneous hardware is not always achievable once FP16 accumulation, fused kernels, or vendor NPU graphs enter the path. EIS therefore assigns each `(kernel implementation × hardware path)` combination a **determinism class** in its kernel manifest.
 
@@ -134,7 +134,7 @@ Cross-node verification is performed only within compatible classes. Each class 
 | **B** | Bounded-drift | Deterministic per device; bounded numeric drift across devices | Checkpoint-band match | k = 2-3 |
 | **C** | Non-deterministic | No cross-run guarantee, such as vendor-fused NPU graphs or nondeterministic atomics | Checkpoint-band match with widened bands | k = 3-5, scaled by observed variance |
 
-### **27.4.2 Class A - Reference-integer semantics**
+### **29.4.2 Class A - Reference-integer semantics**
 
 The SGFP4 ternary path can be integer-dominant and should target **reference integer semantics**: a normative specification of accumulation order, kernel fusion order, rounding mode, and seeded sampling such that conforming implementations produce bit-identical outputs for identical inputs.
 
@@ -142,7 +142,7 @@ Verification is an output hash comparison. This is the cheapest possible attesta
 
 A kernel claiming Class A must pass bit-exact conformance vectors before registration.
 
-### **27.4.3 Class B - Bounded-drift semantics**
+### **29.4.3 Class B - Bounded-drift semantics**
 
 FP4-affine paths with FP16 accumulation on well-behaved hardware are often deterministic on a given device but may drift across devices. Class B kernels must declare:
 
@@ -154,13 +154,13 @@ FP4-affine paths with FP16 accumulation on well-behaved hardware are often deter
 
 Class B verification uses checkpoint-band matching rather than raw equality.
 
-### **27.4.4 Class C - Non-deterministic paths**
+### **29.4.4 Class C - Non-deterministic paths**
 
 Vendor-fused NPU graphs and kernels using nondeterministic parallel reductions may not guarantee same-device reproducibility. These are not banned because excluding NPUs would forfeit important perf/watt advantages, especially on mobile.
 
 Class C kernels carry higher redundancy, wider bands, and lower effective reward after verification cost. This creates a natural economic gradient toward Class A and Class B without banning useful hardware.
 
-### **27.4.5 Constraints on kernel authors**
+### **29.4.5 Constraints on kernel authors**
 
 These constraints are normative from the first release:
 
@@ -172,9 +172,9 @@ These constraints are normative from the first release:
 
 ---
 
-## **27.5 Checkpoint-Band Matching**
+## **29.5 Checkpoint-Band Matching**
 
-### **27.5.1 Checkpoints, not per-op comparison**
+### **29.5.1 Checkpoints, not per-op comparison**
 
 Per-op tolerance comparison fails in deep networks because small allowed differences compound across transformer blocks. Honest hardware variants may begin failing at deep layers even though every local operation stayed inside tolerance.
 
@@ -188,7 +188,7 @@ Representative checkpoints:
 
 Bands at each checkpoint are sized for accumulated drift up to that depth, not single-op drift.
 
-### **27.5.2 Comparison domain**
+### **29.5.2 Comparison domain**
 
 Raw FP16/FP32 equality is neither achievable nor required for Class B/C paths. Checkpoint tensors are compared in a reduced-precision comparison domain. The default target is an FP12-width rounded or truncated representation, though the exact comparison domain is declared in the kernel manifest.
 
@@ -198,7 +198,7 @@ Two executions match at a checkpoint if their domain-reduced tensors agree withi
 - **Class B:** per-element agreement in the reduced domain at sampled positions, with an allowed exception rate `epsilon` for tie-straddling elements near rounding boundaries.
 - **Class C:** Class B semantics with widened bands and higher `epsilon`, derived from measured cross-device variance during registration.
 
-### **27.5.3 Registration invariant: the band forgives hardware, not weights**
+### **29.5.3 Registration invariant: the band forgives hardware, not weights**
 
 The security argument depends on a separation of scales: honest hardware drift must be materially smaller than the checkpoint-tensor distance between the declared model and plausible substitutes.
 
@@ -216,7 +216,7 @@ Registration fails if the band required to keep honest false-positive rates belo
 
 This turns "the band forgives hardware, not weights" into an enforced registration invariant.
 
-### **27.5.4 Calibration and drift monitoring**
+### **29.5.4 Calibration and drift monitoring**
 
 Band parameters are stored as Cognitive Assets with provenance:
 
@@ -235,15 +235,15 @@ Verifier disagreement statistics feed the same reputation and telemetry pipeline
 
 ---
 
-## **27.6 Teacher-Forced Spot-Check Protocol**
+## **29.6 Teacher-Forced Spot-Check Protocol**
 
-### **27.6.1 The autoregressive divergence problem**
+### **29.6.1 The autoregressive divergence problem**
 
 Free-running generation cannot be compared reliably across nodes. Near a tie-break token, a sub-band numeric wiggle can legitimately flip the argmax or the seeded sampler choice. From that token onward the two sequences diverge, even if both executions are honest.
 
 A scheme that regenerates and diffs sequences will therefore false-accuse honest nodes after the first close call.
 
-### **27.6.2 Teacher-forced replay**
+### **29.6.2 Teacher-forced replay**
 
 EIS never lets verification branch.
 
@@ -256,7 +256,7 @@ Protocol:
 
 The server cannot know in advance which token positions and checkpoints will be tested, making precomputed partial honesty unattractive.
 
-### **27.6.3 Cost profile**
+### **29.6.3 Cost profile**
 
 Teacher-forced verification is `O(prefill)` rather than `O(generation)`: one parallel forward pass over the full sequence, no sequential decode loop.
 
@@ -264,13 +264,13 @@ For typical response lengths, this makes checking cheaper than serving. That is 
 
 The same machinery is also used by speculative decoding. Verifying claimed tokens against full-model logits in a single pass is the acceptance step of speculative decoding, so the speculative decode path and the EIS verification path can share kernels, scheduling, and SGFP4 container handling.
 
-### **27.6.4 Sampling-consistency check**
+### **29.6.4 Sampling-consistency check**
 
 Because sampling is seeded by the execution contract, the checker also verifies that each claimed token is consistent with the seeded sampler applied to the recomputed domain-reduced logits at that position, within the tie-straddle exception rate `epsilon`.
 
 This closes the loophole where a node computes honest logits but emits tokens from a different or cheaper decode process.
 
-### **27.6.5 Scheduling and economics**
+### **29.6.5 Scheduling and economics**
 
 - Spot-check rate: `k` randomized checks per node per epoch, set by determinism class and modulated by reputation.
 - New, low-reputation, recently flagged, or high-value nodes are checked more aggressively.
@@ -284,7 +284,7 @@ All claims, check results, and verdicts are recorded as Cognitive Assets with pr
 
 ---
 
-## **27.7 Interaction with Semantic Consensus**
+## **29.7 Interaction with Semantic Consensus**
 
 | Concern | Mechanism | Cost |
 |---------|-----------|------|
@@ -303,7 +303,7 @@ Consequences:
 
 ---
 
-## **27.8 Interaction with GAML and Cognitive Assets**
+## **29.8 Interaction with GAML and Cognitive Assets**
 
 EIS produces and consumes Cognitive Assets.
 
@@ -327,7 +327,7 @@ This makes EIS auditable by the same memory machinery that stores reasoning trac
 
 ---
 
-## **27.9 Open Items**
+## **29.9 Open Items**
 
 1. **Checkpoint stride tuning** per model depth and size, balancing digest bandwidth against mismatch localization.
 2. **Epsilon calibration methodology** for tie-straddle rates per determinism class during kernel registration.
@@ -339,7 +339,7 @@ This makes EIS auditable by the same memory machinery that stores reasoning trac
 
 ---
 
-## **27.10 Cross-References**
+## **29.10 Cross-References**
 
 - **SGFP4 container/kernel spec:** determinism-class manifest fields, reference integer semantics for the ternary path, and conformance vectors.
 - **Reputation-weighted consensus:** verdict ingestion, slashing, checker selection, and Sybil economics.

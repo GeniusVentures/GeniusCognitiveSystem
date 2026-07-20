@@ -10,4 +10,4 @@ This documentation is a combined product requirements document, technical design
 
 Use the left navigation to browse the generated architecture index and source-reference documentation.
 
-A good starting path is the executive summary and system overview, followed by the model, routing, consensus, grounding, memory, distributed swarm thinking, the Context Lifecycle, Caching, and Governance contract, secure-agent architecture, retraining layers, execution integrity, capability system, and the agent/module development inventory.
+A good starting path is the executive summary and system overview, followed by the model, routing, consensus, grounding, memory, distributed swarm thinking, the Context Lifecycle, Caching, and Governance contract, secure-agent architecture, the retraining layers, epistemic arbitration, SGFP4, Objective Memory / VTG, speculative decoding, Frozen Micro-MTP, the OpenAI-compatible API router, Local Cognitive Second Brain Mode, Forecast-Driven Cognition, the Execution Integrity System, the GCS Capability System, and the Agent and Module Development Inventory.

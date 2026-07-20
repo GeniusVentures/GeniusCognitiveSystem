@@ -1,6 +1,6 @@
-# 20. Data-Driven Epistemic Arbitration and Cognitive OS Extensions
+# 21. Data-Driven Epistemic Arbitration and Cognitive OS Extensions
 
-## 20.1 Purpose
+## 21.1 Purpose
 
 This document extends the GeniusCognitiveSystem with a formal Epistemic Arbitration Layer implemented as part of the emerging Cognitive OS.
 
@@ -31,7 +31,7 @@ The resulting system allows Genius to move from routed inference and weighted sy
 
 ---
 
-## 20.2 Why this section exists
+## 21.2 Why this section exists
 
 The existing PTDS already defines many of the ingredients required for a Cognitive OS.
 
@@ -71,7 +71,7 @@ The Genius system already contains the right primitives. This section makes thos
 
 ---
 
-## 20.3 Architectural intent
+## 21.3 Architectural intent
 
 Genius Cognitive System should evolve from a routed expert architecture into a more complete Cognitive OS with six cooperating layers:
 
@@ -112,9 +112,9 @@ This preserves the value of reputation and grounding while adding a missing laye
 
 ---
 
-## 20.4 Core design principles
+## 21.4 Core design principles
 
-### 20.4.1 Arbitration is a first-class cognitive function
+### 21.4.1 Arbitration is a first-class cognitive function
 
 In most LLM systems, arbitration is either hidden inside the model or treated as a loose orchestration heuristic.
 
@@ -128,7 +128,7 @@ Genius should instead treat arbitration as an explicit reasoning layer with:
 
 This allows the system to reason not only about answers, but about answer quality, evidence validity, contradiction pressure, and failure modes.
 
-### 20.4.2 Epistemic frameworks are modular and swappable
+### 21.4.2 Epistemic frameworks are modular and swappable
 
 The system must not hardcode a single reasoning tradition into the core architecture.
 
@@ -142,7 +142,7 @@ Instead, the Cognitive OS should support multiple epistemic frameworks that can 
 
 This makes the arbitration layer future-compatible.
 
-### 20.4.3 Framework logic should be data-driven
+### 21.4.3 Framework logic should be data-driven
 
 A major design goal is to keep epistemic behavior out of deeply embedded handwritten orchestration logic wherever possible.
 
@@ -156,7 +156,7 @@ The reasoning machine itself should be definable through:
 
 This gives the system the ability to evolve arbitration behavior without modifying inference kernels, router code, or expert weights.
 
-### 20.4.4 The Requestor Node is the correct control point
+### 21.4.4 The Requestor Node is the correct control point
 
 The Requestor Node already receives:
 
@@ -173,7 +173,7 @@ It is therefore the natural location for a formal epistemic arbiter.
 
 This architecture does not require introducing a new external subsystem. It deepens the role of a node that already exists.
 
-### 20.4.5 Inspectable reasoning should not depend on raw chain-of-thought exposure
+### 21.4.5 Inspectable reasoning should not depend on raw chain-of-thought exposure
 
 The arbitration layer should output a structured, high-level trace of:
 
@@ -185,7 +185,7 @@ The arbitration layer should output a structured, high-level trace of:
 
 This supports trust and debugging without relying on unrestricted chain-of-thought disclosure.
 
-### 20.4.6 Plugins should remain extremely small
+### 21.4.6 Plugins should remain extremely small
 
 The long-term operational model assumes that new epistemic frameworks will be delivered as tiny shared objects or equivalent modules.
 
@@ -201,9 +201,9 @@ This is aligned with the deployment model of GNUS nodes and edge devices.
 
 ---
 
-## 20.5 Relationship to the existing Genius architecture
+## 21.5 Relationship to the existing Genius architecture
 
-### 20.5.1 Relation to the Semantic Core
+### 21.5.1 Relation to the Semantic Core
 
 The Semantic Core remains the primary broad reasoning and generation substrate.
 It is not replaced by epistemic arbitration.
@@ -217,7 +217,7 @@ The Semantic Core still provides:
 
 Epistemic arbitration operates after candidate outputs exist.
 
-### 20.5.2 Relation to ELMs and experts
+### 21.5.2 Relation to ELMs and experts
 
 The arbitration layer depends on ELMs and specialists, including but not limited to:
 
@@ -236,7 +236,7 @@ The arbitration layer depends on ELMs and specialists, including but not limited
 It does not replace them.
 It governs how their outputs are evaluated, challenged, and merged.
 
-### 20.5.3 Relation to consensus
+### 21.5.3 Relation to consensus
 
 Consensus answers the question:
 
@@ -251,7 +251,7 @@ This distinction is essential.
 Consensus is a trust-weighting and coordination mechanism.
 Epistemic arbitration is a reasoning and judgment mechanism.
 
-### 20.5.4 Relation to grounding
+### 21.5.4 Relation to grounding
 
 Grounding remains part of the factual validation pipeline.
 
@@ -263,7 +263,7 @@ It may use grounded artifacts to:
 - enrich knowledge-source tagging
 - refine the synthesis rationale
 
-### 20.5.5 Relation to GAML
+### 21.5.5 Relation to GAML
 
 GAML memory is a critical upstream input.
 
@@ -280,7 +280,7 @@ The arbitration layer may consume:
 
 This gives the arbitration layer structured evidence rather than only prompt text.
 
-### 20.5.6 Relation to HCTS
+### 21.5.6 Relation to HCTS
 
 HCTS is a natural critique source for epistemic arbitration.
 
@@ -298,9 +298,9 @@ This makes HCTS more than a generic critique mechanism. It becomes a formal sour
 
 ---
 
-## 20.6 Requestor Node as Epistemic Arbiter
+## 21.6 Requestor Node as Epistemic Arbiter
 
-### 20.6.1 Current role of the Requestor Node
+### 21.6.1 Current role of the Requestor Node
 
 Within the Genius architecture, the Requestor Node already behaves like:
 
@@ -312,7 +312,7 @@ Within the Genius architecture, the Requestor Node already behaves like:
 
 It effectively acts as the final cognitive assembly point for many tasks.
 
-### 20.6.2 Extended role
+### 21.6.2 Extended role
 
 This document extends the Requestor Node into the system's Epistemic Arbiter.
 
@@ -329,7 +329,7 @@ Its responsibilities now include:
 - emitting a structured arbitration trace
 - returning the final synthesis decision
 
-### 20.6.3 Why this is the right place
+### 21.6.3 Why this is the right place
 
 This is the right place for epistemic arbitration because the Requestor Node already has access to the richest possible context:
 
@@ -345,7 +345,7 @@ This is the right place for epistemic arbitration because the Requestor Node alr
 
 No other node in the architecture naturally has the same complete view.
 
-### 20.6.4 Cognitive OS implication
+### 21.6.4 Cognitive OS implication
 
 With this extension, the Requestor Node becomes more than a coordinator.
 It becomes the local execution engine for a configurable reasoning framework.
@@ -360,9 +360,9 @@ to:
 
 ---
 
-## 20.7 Why GQHSM is the correct runtime
+## 21.7 Why GQHSM is the correct runtime
 
-### 20.7.1 Problem shape
+### 21.7.1 Problem shape
 
 The arbitration problem is not a single function call.
 It is a staged, hierarchical, guard-driven reasoning process.
@@ -380,7 +380,7 @@ It must support:
 
 This naturally maps to a hierarchical state machine.
 
-### 20.7.2 GQHSM as the execution substrate
+### 21.7.2 GQHSM as the execution substrate
 
 Genius already has a more advanced, data-driven hierarchical state machine system:
 
@@ -398,7 +398,7 @@ It provides the key property classical QHSM usage would lack in a pure hardcoded
 
 This makes it an ideal fit for Cognitive OS arbitration.
 
-### 20.7.3 Why not hardcode the frameworks directly
+### 21.7.3 Why not hardcode the frameworks directly
 
 A hardcoded Sanskrit or Kripke arbiter would work for a prototype, but it would create the wrong long-term shape.
 
@@ -417,7 +417,7 @@ GQHSM avoids that by separating:
 - runtime execution
 - framework-specific behavior
 
-### 20.7.4 Determinism and inspectability
+### 21.7.4 Determinism and inspectability
 
 Because GQHSM is an explicit runtime with states, guards, entry actions, exit actions, and internal actions, it naturally supports:
 
@@ -431,9 +431,9 @@ These are all desirable properties for the arbitration layer.
 
 ---
 
-## 20.8 Native implementation model: C++, MNN, and separation of concerns
+## 21.8 Native implementation model: C++, MNN, and separation of concerns
 
-### 20.8.1 Execution stack
+### 21.8.1 Execution stack
 
 The Genius stack already relies on:
 
@@ -444,7 +444,7 @@ The Genius stack already relies on:
 
 The epistemic arbitration layer should preserve this philosophy.
 
-### 20.8.2 Separation of concerns
+### 21.8.2 Separation of concerns
 
 The proposed separation is:
 
@@ -456,7 +456,7 @@ The proposed separation is:
 
 This keeps each layer focused.
 
-### 20.8.3 Why this is efficient
+### 21.8.3 Why this is efficient
 
 The arbitration layer is not a heavy inference subsystem.
 It is mostly:
@@ -469,7 +469,7 @@ It is mostly:
 
 This means it is lightweight enough to run comfortably even on constrained devices compared to the actual model compute path.
 
-### 20.8.4 Why this fits mobile and desktop deployment
+### 21.8.4 Why this fits mobile and desktop deployment
 
 The arbitration runtime should be small, predictable, and updateable.
 This matches the GNUS deployment model well:
@@ -482,11 +482,11 @@ This is especially important because new epistemologies are not expected to appe
 
 ---
 
-## 20.9 Supported epistemic framework families
+## 21.9 Supported epistemic framework families
 
 The Cognitive OS should support multiple families of reasoning frameworks.
 
-### 20.9.1 Sanskrit epistemology
+### 21.9.1 Sanskrit epistemology
 
 The first major family is Sanskrit epistemology, especially Nyaya and pramana-based reasoning.
 
@@ -509,7 +509,7 @@ This fits the Genius architecture extremely well because it naturally maps onto:
 - synthesis as Nirnaya
 - thinking trace as the inspectable record of the process
 
-### 20.9.2 Kripke and modal reasoning
+### 21.9.2 Kripke and modal reasoning
 
 The second framework family is Kripke-style modal reasoning.
 
@@ -531,7 +531,7 @@ In this framing, candidate outputs may be treated as possible worlds or belief s
 
 This is especially useful when the task is not simply "which answer is right," but "which interpretation survives structured possibility analysis."
 
-### 20.9.3 Hybrid frameworks
+### 21.9.3 Hybrid frameworks
 
 Hybrid frameworks should be supported as first-class configurations.
 
@@ -544,7 +544,7 @@ Examples:
 
 This preserves flexibility and avoids false architectural rigidity.
 
-### 20.9.4 Future frameworks
+### 21.9.4 Future frameworks
 
 The system should remain compatible with future additions such as:
 
@@ -559,9 +559,9 @@ The plugin and callback system should be designed around this expectation.
 
 ---
 
-## 20.10 Sanskrit epistemology as a practical arbitration model
+## 21.10 Sanskrit epistemology as a practical arbitration model
 
-### 20.10.1 Why Sanskrit reasoning is useful here
+### 21.10.1 Why Sanskrit reasoning is useful here
 
 A Sanskrit-inspired epistemic framework is not being introduced as a purely philosophical embellishment.
 
@@ -574,7 +574,7 @@ It is useful because it provides a staged reasoning discipline for exactly the k
 - fallacy detection
 - final ascertainment
 
-### 20.10.2 Mapping the phases into Genius
+### 21.10.2 Mapping the phases into Genius
 
 #### Samshaya
 
@@ -629,7 +629,7 @@ Maps to:
 - trace emission
 - decision that the answer is good enough to return
 
-### 20.10.3 Why this is better than simple weighted merge
+### 21.10.3 Why this is better than simple weighted merge
 
 A weighted merge assumes good answers emerge from ranking and blending.
 A Sanskrit-inspired pipeline assumes:
@@ -643,9 +643,9 @@ This makes the final response more epistemically disciplined.
 
 ---
 
-## 20.11 Kripke modal arbitration in practical system terms
+## 21.11 Kripke modal arbitration in practical system terms
 
-### 20.11.1 Why modal reasoning belongs here
+### 21.11.1 Why modal reasoning belongs here
 
 Some Genius tasks will produce multiple answers that are all locally plausible.
 This is especially true when:
@@ -657,7 +657,7 @@ This is especially true when:
 
 A modal framework gives the arbiter a structured way to reason across these alternatives.
 
-### 20.11.2 World construction
+### 21.11.2 World construction
 
 The system may construct candidate worlds from:
 
@@ -669,7 +669,7 @@ The system may construct candidate worlds from:
 
 Each candidate becomes a structured hypothesis state.
 
-### 20.11.3 Accessibility and survivability
+### 21.11.3 Accessibility and survivability
 
 The arbiter can then reason over:
 
@@ -678,7 +678,7 @@ The arbiter can then reason over:
 - which worlds contradict grounded or trusted memory
 - which worlds remain consistent after verifier passes
 
-### 20.11.4 Fixed-point resolution
+### 21.11.4 Fixed-point resolution
 
 Some contradictions only collapse after repeated evaluation.
 A modal machine can support:
@@ -691,9 +691,9 @@ This is valuable for uncertain multi-step tasks and conflicting swarm outputs.
 
 ---
 
-## 20.12 Hybrid arbitration strategies
+## 21.12 Hybrid arbitration strategies
 
-### 20.12.1 Sequential hybrid
+### 21.12.1 Sequential hybrid
 
 A sequential hybrid pipeline may:
 
@@ -704,7 +704,7 @@ A sequential hybrid pipeline may:
 5. run contradiction and accessibility checks
 6. synthesize from surviving world states
 
-### 20.12.2 Parallel hybrid
+### 21.12.2 Parallel hybrid
 
 A parallel hybrid pipeline may run:
 
@@ -713,7 +713,7 @@ A parallel hybrid pipeline may run:
 
 in separate regions and then merge through a weighted synthesis strategy.
 
-### 20.12.3 Why hybridization matters
+### 21.12.3 Why hybridization matters
 
 Different epistemologies are strong at different things.
 
@@ -725,9 +725,9 @@ For example:
 
 ---
 
-## 20.13 GQHSM machine structure
+## 21.13 GQHSM machine structure
 
-### 20.13.1 Structural requirements
+### 21.13.1 Structural requirements
 
 The arbitration runtime must support:
 
@@ -741,7 +741,7 @@ The arbitration runtime must support:
 - recovery transitions
 - final trace emission
 
-### 20.13.2 Representative machine outline
+### 21.13.2 Representative machine outline
 
 A top-level machine may include:
 
@@ -753,7 +753,7 @@ A top-level machine may include:
 - `Finalize`
 - `Escalate`
 
-### 20.13.3 Sanskrit branch outline
+### 21.13.3 Sanskrit branch outline
 
 A Sanskrit branch may include:
 
@@ -764,7 +764,7 @@ A Sanskrit branch may include:
 - `Hetvabhasa`
 - `Nirnaya`
 
-### 20.13.4 Kripke branch outline
+### 21.13.4 Kripke branch outline
 
 A Kripke branch may include:
 
@@ -775,7 +775,7 @@ A Kripke branch may include:
 - `FixedPointResolution`
 - `WorldSelection`
 
-### 20.13.5 Hybrid branch outline
+### 21.13.5 Hybrid branch outline
 
 A hybrid branch may:
 
@@ -786,9 +786,9 @@ A hybrid branch may:
 
 ---
 
-## 20.14 JSON-defined machine configuration
+## 21.14 JSON-defined machine configuration
 
-### 20.14.1 Why configuration matters
+### 21.14.1 Why configuration matters
 
 The machine definition should live in JSON or equivalent structured configuration.
 
@@ -800,7 +800,7 @@ This allows:
 - auditability
 - deterministic deployment across nodes
 
-### 20.14.2 Example machine definition
+### 21.14.2 Example machine definition
 
 ```json
 {
@@ -899,7 +899,7 @@ This allows:
 }
 ```
 
-### 20.14.3 Why this matters
+### 21.14.3 Why this matters
 
 A JSON machine like this is:
 
@@ -913,13 +913,13 @@ This is one of the strongest arguments for GQHSM as the runtime.
 
 ---
 
-## 20.15 Generic callback model
+## 21.15 Generic callback model
 
 The callback registry should remain generic and framework-neutral.
 
 The goal is to define a small, stable callback vocabulary that Sanskrit, Kripke, and future frameworks can all implement differently.
 
-### 20.15.1 Context and lifecycle callbacks
+### 21.15.1 Context and lifecycle callbacks
 
 Recommended generic callbacks:
 
@@ -936,7 +936,7 @@ Responsibilities:
 - finalize response output
 - write memory or log artifacts
 
-### 20.15.2 Core reasoning callbacks
+### 21.15.2 Core reasoning callbacks
 
 Recommended generic callbacks:
 
@@ -956,7 +956,7 @@ These names are deliberately generic so they can map to:
 - Bayesian belief revision
 - future custom frameworks
 
-### 20.15.3 Guard callbacks
+### 21.15.3 Guard callbacks
 
 Recommended generic guards:
 
@@ -968,16 +968,16 @@ Recommended generic guards:
 
 These can control transitions without embedding framework-specific names into the runtime.
 
-### 20.15.4 Why generic callbacks matter
+### 21.15.4 Why generic callbacks matter
 
 This allows the machine format to remain stable while plugins change behavior.
 That makes framework delivery much easier.
 
 ---
 
-## 20.16 Plugin architecture
+## 21.16 Plugin architecture
 
-### 20.16.1 Why plugins are the right shape
+### 21.16.1 Why plugins are the right shape
 
 Each new epistemic framework should be delivered as a small shared library.
 
@@ -996,14 +996,14 @@ This is preferred because plugins are expected to be:
 
 This is ideal for phones, desktops, and other GNUS nodes.
 
-### 20.16.2 What a plugin does
+### 21.16.2 What a plugin does
 
 A plugin registers callback implementations into the GQHSM registry.
 
 It does not need to define the entire runtime.
 It only supplies behavior for generic callback names.
 
-### 20.16.3 Stable plugin ABI
+### 21.16.3 Stable plugin ABI
 
 A minimal shared header should define the ABI.
 
@@ -1022,7 +1022,7 @@ extern "C" {
 }
 ```
 
-### 20.16.4 Example plugin shape
+### 21.16.4 Example plugin shape
 
 A Sanskrit plugin may register:
 
@@ -1037,7 +1037,7 @@ with Sanskrit-specific function bodies.
 
 A Kripke plugin may register the exact same names with modal logic implementations.
 
-### 20.16.5 Operational advantages
+### 21.16.5 Operational advantages
 
 This gives the system a deployment model in which:
 
@@ -1048,13 +1048,13 @@ This gives the system a deployment model in which:
 
 ---
 
-## 20.17 Future WASM extension path
+## 21.17 Future WASM extension path
 
 The initial implementation should favor native shared libraries for simplicity and speed.
 
 However, the architecture should remain compatible with a later WASM path.
 
-### 20.17.1 Why WASM is attractive later
+### 21.17.1 Why WASM is attractive later
 
 WASM would enable:
 
@@ -1064,23 +1064,23 @@ WASM would enable:
 - deterministic runtime behavior
 - sandboxed experimental frameworks
 
-### 20.17.2 Why not require it first
+### 21.17.2 Why not require it first
 
 The current need is speed and simplicity.
 
 Because the plugins are expected to be tiny and infrequently updated, native `.so` and `.dll` delivery is the easiest initial path.
 
-### 20.17.3 Forward compatibility
+### 21.17.3 Forward compatibility
 
 The plugin contract should therefore be designed so that a future WASM module can export behavior equivalent to the native ABI.
 
 ---
 
-## 20.18 Epistemic context model
+## 21.18 Epistemic context model
 
 The arbitration runtime needs a structured context object shared across states and callbacks.
 
-### 20.18.1 Required inputs
+### 21.18.1 Required inputs
 
 A representative `EpistemicContext` should include:
 
@@ -1100,16 +1100,16 @@ A representative `EpistemicContext` should include:
 - arbitration trace object
 - final synthesis buffer
 
-### 20.18.2 Why this context matters
+### 21.18.2 Why this context matters
 
 A generic context object keeps the runtime uniform.
 It allows plugins and machines to focus on reasoning rather than plumbing.
 
 ---
 
-## 20.19 Example plugin and loader behavior
+## 21.19 Example plugin and loader behavior
 
-### 20.19.1 Example registration flow
+### 21.19.1 Example registration flow
 
 At startup or framework activation:
 
@@ -1120,7 +1120,7 @@ At startup or framework activation:
 5. bind callback names to machine states
 6. execute machine against `EpistemicContext`
 
-### 20.19.2 Example loader shape
+### 21.19.2 Example loader shape
 
 The loader scans a plugin directory for shared objects, loads them, and registers any valid epistemic plugins into the runtime registry.
 
@@ -1133,11 +1133,11 @@ This architecture supports:
 
 ---
 
-## 20.20 Output model and thinking trace
+## 21.20 Output model and thinking trace
 
 The arbitration layer should emit a structured JSON trace rather than opaque raw text.
 
-### 20.20.1 Example trace artifact
+### 21.20.1 Example trace artifact
 
 ```json
 {
@@ -1174,7 +1174,7 @@ The arbitration layer should emit a structured JSON trace rather than opaque raw
 }
 ```
 
-### 20.20.2 Why this is important
+### 21.20.2 Why this is important
 
 This trace can be used for:
 
@@ -1190,9 +1190,9 @@ This extends the existing thinking trace concept into a more explicit cognitive 
 
 ---
 
-## 20.21 Integration with memory writeback and retraining
+## 21.21 Integration with memory writeback and retraining
 
-### 20.21.1 Memory writeback
+### 21.21.1 Memory writeback
 
 The arbitration layer should influence what gets written back to GAML.
 
@@ -1205,7 +1205,7 @@ For example:
 - user preference effects
 - escalation outcomes
 
-### 20.21.2 Retraining implications
+### 21.21.2 Retraining implications
 
 The arbitration trace also creates new retraining opportunities.
 
@@ -1223,9 +1223,9 @@ This makes epistemic arbitration not only a control layer but a learning signal 
 
 ---
 
-## 20.22 Strategic implications
+## 21.22 Strategic implications
 
-### 20.22.1 Why this matters competitively
+### 21.22.1 Why this matters competitively
 
 Many systems now recognize the need for a reasoning layer above base models.
 
@@ -1241,7 +1241,7 @@ What differentiates Genius is that it can combine:
 
 This is a much more complete Cognitive OS stack than a simple reasoning shell over one centralized LLM.
 
-### 20.22.2 Why this matters architecturally
+### 21.22.2 Why this matters architecturally
 
 The system is no longer only:
 
@@ -1266,7 +1266,7 @@ That is a materially different system category.
 
 ---
 
-## 20.23 Risks and open questions
+## 21.23 Risks and open questions
 
 Several questions remain open and should be treated as active design areas.
 
@@ -1286,7 +1286,7 @@ These are real design questions, not blockers.
 
 ---
 
-## 20.24 Summary
+## 21.24 Summary
 
 This document adds a missing control layer to the Genius Cognitive System:
 
