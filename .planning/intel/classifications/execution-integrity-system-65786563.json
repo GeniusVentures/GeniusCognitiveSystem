@@ -1,0 +1,33 @@
+{
+  "source_path": "/Users/Shared/SSDevelopment/Development/GeniusVentures/GeniusNetwork/GeniusCogntiveSystem/docs/architecture/execution-integrity-system.md",
+  "type": "DOC",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "29. Execution Integrity System (EIS)",
+  "summary": "Describes the EIS subsystem that verifies distributed computation was executed faithfully according to a declared execution contract, focusing on execution honesty rather than semantic answer quality.",
+  "scope": [
+    "Execution Integrity System",
+    "execution contracts",
+    "determinism classes",
+    "checkpoint-band matching",
+    "teacher-forced spot-check protocol",
+    "semantic consensus interaction",
+    "GAML",
+    "Cognitive Assets",
+    "SGFP4 kernel specification",
+    "speculative decoding",
+    "reputation-weighted consensus",
+    "lazy-node attack",
+    "model-substitution attack"
+  ],
+  "cross_refs": [
+    "SGFP4 container/kernel spec",
+    "Reputation-weighted consensus",
+    "Speculative decoding",
+    "GAML / Cognitive Asset Model",
+    "Executive Controller"
+  ],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}

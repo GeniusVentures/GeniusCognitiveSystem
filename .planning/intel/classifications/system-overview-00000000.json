@@ -1,0 +1,37 @@
+{
+  "source_path": "/Users/Shared/SSDevelopment/Development/GeniusVentures/GeniusNetwork/GeniusCogntiveSystem/docs/architecture/system-overview.md",
+  "type": "DOC",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "System Architecture Overview",
+  "summary": "High-level overview of GeniusCognitiveSystem architecture: system flow from Client API through execution nodes to final response, and GNUS component mapping across compute, distributed, and security layers.",
+  "scope": [
+    "GeniusCognitiveSystem architecture",
+    "Compute Layer",
+    "MNN model runtime",
+    "Vulkan/MoltenVK GPU acceleration",
+    "SGFP4 adaptive quantization format",
+    "Distributed Layer",
+    "libp2p",
+    "IPFS-lite",
+    "RocksDB",
+    "CRDTs",
+    "gRPC",
+    "Security Layer",
+    "libsecp256k1",
+    "ed25519",
+    "OpenSSL",
+    "wallet-core",
+    "Semantic Core",
+    "Expert Language Models (ELMs)",
+    "Execution Integrity System (EIS)",
+    "Layered Cognitive Stack",
+    "Tool Intermediary"
+  ],
+  "cross_refs": [
+    "./sgfp4-format.md"
+  ],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}

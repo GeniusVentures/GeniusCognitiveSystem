@@ -1,0 +1,26 @@
+{
+  "source_path": "/Users/Shared/SSDevelopment/Development/GeniusVentures/GeniusNetwork/GeniusCogntiveSystem/docs/architecture/local-cognitive-second-brain.md",
+  "type": "DOC",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "27. Local Cognitive Second Brain Mode",
+  "summary": "Defines Local Cognitive Second Brain Mode for GCS as a private, user-owned memory and reasoning system on local devices using GAML, ELMs, and EGGROLL adaptation.",
+  "scope": [
+    "GeniusCognitiveSystem (GCS)",
+    "Local Cognitive Second Brain Mode",
+    "GAML",
+    "Expert Language Models (ELMs)",
+    "Orchestration Layer",
+    "Second Brain Agent",
+    "EGGROLL",
+    "Structured Memory Objects",
+    "Context Packet Assembly",
+    "Privacy Modes",
+    "Human-Readable Memory Mirror",
+    "Memory Lifecycle"
+  ],
+  "cross_refs": [],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}

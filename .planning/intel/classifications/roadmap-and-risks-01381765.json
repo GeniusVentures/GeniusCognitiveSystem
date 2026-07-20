@@ -1,0 +1,23 @@
+{
+  "source_path": "/Users/Shared/SSDevelopment/Development/GeniusVentures/GeniusNetwork/GeniusCogntiveSystem/docs/architecture/roadmap-and-risks.md",
+  "type": "DOC",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "Execution Roadmap and Risk Analysis",
+  "summary": "Outlines the four-phase execution roadmap for Genius Cognitive System from core model quantization through production beta, paired with a risk analysis table covering seven identified risks and their mitigations.",
+  "scope": [
+    "Genius Cognitive System",
+    "FP4 quantization",
+    "expert routing",
+    "swarm consensus",
+    "reputation system",
+    "grounding",
+    "CRDT sync",
+    "memory governance",
+    "risk analysis"
+  ],
+  "cross_refs": [],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}

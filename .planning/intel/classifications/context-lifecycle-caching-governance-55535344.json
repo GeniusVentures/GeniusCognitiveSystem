@@ -1,0 +1,33 @@
+{
+  "source_path": "/Users/Shared/SSDevelopment/Development/GeniusVentures/GeniusNetwork/GeniusCogntiveSystem/docs/architecture/context-lifecycle-caching-governance.md",
+  "type": "DOC",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "17. Context Lifecycle, Caching, and Governance",
+  "summary": "Defines the normative context-efficiency contract for GeniusCognitiveSystem, specifying how context compilation, prefix caching, expert isolation, compaction, and token budgeting must interoperate to minimize repeated prompt work.",
+  "scope": [
+    "Context Compiler",
+    "Prefix Cache Manager",
+    "Context Compaction Manager",
+    "Context Inspector",
+    "ExpertDigest contract",
+    "hierarchical token budgets",
+    "stable-prefix construction",
+    "cache compatibility",
+    "off-window artifacts",
+    "privacy governance",
+    "Bridge Blocks"
+  ],
+  "cross_refs": [
+    "distributed-swarm-thinking-context.md",
+    "agentic-memory-layer.md",
+    "openai-compatible-api-router-and-gcs-job-queue.md",
+    "local-cognitive-second-brain.md",
+    "forecast-driven-cognition.md",
+    "capability-system.md",
+    "agent-module-development-inventory.md"
+  ],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}

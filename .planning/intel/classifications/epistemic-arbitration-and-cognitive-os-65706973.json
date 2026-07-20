@@ -1,0 +1,32 @@
+{
+  "source_path": "/Users/Shared/SSDevelopment/Development/GeniusVentures/GeniusNetwork/GeniusCogntiveSystem/docs/architecture/epistemic-arbitration-and-cognitive-os.md",
+  "type": "DOC",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "21. Data-Driven Epistemic Arbitration and Cognitive OS Extensions",
+  "summary": "Describes how the Requestor Node evolves into a formal epistemic arbitration layer using data-driven GQHSM state machines, modular reasoning framework plugins, and structured thinking traces for the Genius Cognitive OS.",
+  "scope": [
+    "Requestor Node",
+    "Epistemic Arbitration Layer",
+    "Cognitive OS",
+    "GQHSM",
+    "Sanskrit Epistemology",
+    "Kripke Modal Reasoning",
+    "Hybrid Arbitration",
+    "Plugin Architecture",
+    "WASM Extensions",
+    "EpistemicContext",
+    "Thinking Trace",
+    "GAML Memory",
+    "Semantic Core",
+    "HCTS"
+  ],
+  "cross_refs": [
+    "https://github.com/Super-Genius/GQHSM",
+    "GQHSM.h",
+    "EpistemicContext.h"
+  ],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}

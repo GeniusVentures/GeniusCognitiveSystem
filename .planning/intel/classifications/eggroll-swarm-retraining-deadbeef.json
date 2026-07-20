@@ -1,0 +1,27 @@
+{
+  "source_path": "/Users/Shared/SSDevelopment/Development/GeniusVentures/GeniusNetwork/GeniusCogntiveSystem/docs/architecture/eggroll-swarm-retraining.md",
+  "type": "DOC",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "EGGROLL Swarm Retraining Architecture",
+  "summary": "Defines a swarm-native distributed retraining architecture using deterministic perturbation reconstruction and compact fitness aggregation mapped onto GNUS.ai infrastructure.",
+  "scope": [
+    "EGGROLL Swarm Retraining",
+    "GeniusCognitiveSystem",
+    "Semantic Core",
+    "Expert Adapters",
+    "Router",
+    "GAML",
+    "Reputation System",
+    "GNUS Processing Rooms",
+    "Beehives",
+    "IPFS-lite",
+    "Deterministic Perturbation Reconstruction",
+    "Fitness Packets",
+    "Hierarchical Aggregation"
+  ],
+  "cross_refs": [],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}
