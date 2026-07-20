@@ -1,10 +1,10 @@
-# 16 SGFP4 Adaptive Quantization Format
+# 22 SGFP4 Adaptive Quantization Format
 
 This section defines the **SGFP4** weight compression format used across GeniusCognitiveSystem. It replaces the earlier FP4 v3 codec with an adaptive mixed-bit scheme designed for GPU-friendly decode, consistent cross-device fidelity, and minimal per-block metadata overhead.
 
 ---
 
-## 16.1 Design Goals
+## 22.1 Design Goals
 
 - **Runs everywhere:** Vulkan, MoltenVK, and MNN-compatible decode kernels suitable for low-end devices through high-end GPUs.
 - **Consistent answers:** Devices differ in throughput and caching, not in model precision tiers.
@@ -13,7 +13,7 @@ This section defines the **SGFP4** weight compression format used across GeniusC
 
 ---
 
-## 16.2 Macroblocks (Tiling)
+## 22.2 Macroblocks (Tiling)
 
 Weight tensors of shape `[O, I]` are partitioned into **64x64 macroblocks**:
 
@@ -26,7 +26,7 @@ Each block `b` maps to row-major grid coordinates `(by, bx)` within the padded t
 
 ---
 
-## 16.3 Container Layout
+## 22.3 Container Layout
 
 A quantized tensor is stored as three parallel arrays plus shape metadata:
 
@@ -37,7 +37,7 @@ A quantized tensor is stored as three parallel arrays plus shape metadata:
 | `codes_blob[]` | `bytes` | `B * 2048` bytes | Concatenated fixed-size per-block payloads |
 | Shape | — | metadata | Original `(O, I)` tensor dimensions |
 
-### 16.3.1 Alignment and Flags-in-Offsets
+### 22.3.1 Alignment and Flags-in-Offsets
 
 Each 2048-byte payload MUST be 16-byte aligned, guaranteeing `codesOffsetBytes % 16 == 0`. The low 4 bits of the stored offset are thus free for per-block mode flags:
 
@@ -52,7 +52,7 @@ This embeds mode selection at zero additional memory cost.
 
 ---
 
-## 16.4 Header (Scale + Bias Affine Decode)
+## 22.4 Header (Scale + Bias Affine Decode)
 
 Every macroblock uses a unified affine decode:
 
@@ -69,7 +69,7 @@ Decoded on GPU via `unpackHalf2x16(headers[b])` or equivalent.
 
 ---
 
-## 16.5 Per-Block Mode Flags
+## 22.5 Per-Block Mode Flags
 
 `flags4` (low 4 bits of `offsets[b]`):
 
@@ -84,18 +84,18 @@ Only **bit 0** (MODE) is required for decode.
 
 ---
 
-## 16.6 Quantization Modes
+## 22.6 Quantization Modes
 
 Both modes produce a fixed **2048-byte payload** (512 `uint32` words) per block.
 
-### 16.6.1 FP4_AFFINE (MODE = 0)
+### 22.6.1 FP4_AFFINE (MODE = 0)
 
 4-bit signed codes `q ∈ [-8, 7]` (two's complement nibbles):
 
 - **Packing:** 8 codes per `uint32`, 4 bits each. Total: 4096 codes × 4 bits = **2048 bytes**.
 - **Decode:** `w_hat = S * q + Bias`
 
-### 16.6.2 T158_AFFINE (MODE = 1)
+### 22.6.2 T158_AFFINE (MODE = 1)
 
 Ternary codes `t ∈ {-1, 0, +1}` stored as 2-bit symbols:
 
@@ -113,7 +113,7 @@ The ternary codebook plus affine scale/bias keeps this in the **~1.58-bit class*
 
 ---
 
-## 16.7 Adaptive Mode Selection (Encoding)
+## 22.7 Adaptive Mode Selection (Encoding)
 
 The encoder evaluates both modes per block and chooses the better one:
 
@@ -132,7 +132,7 @@ The encoder evaluates both modes per block and chooses the better one:
 
 ---
 
-## 16.8 GPU Decode Procedure
+## 22.8 GPU Decode Procedure
 
 For each block `b`:
 
@@ -148,7 +148,7 @@ A single GPU workgroup decodes one macroblock, with each thread processing multi
 
 ---
 
-## 16.9 Cross-Referencing
+## 22.9 Cross-Referencing
 
 - **Semantic Core quantization** is described in [03 Model and Router §5.1.2](./model-and-router.md).
 - **FP4 design overview** is in [02 System Overview §4.1.1](./system-overview.md).
