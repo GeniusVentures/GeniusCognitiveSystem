@@ -1,0 +1,24 @@
+{
+  "source_path": "/Users/Shared/SSDevelopment/Development/GeniusVentures/GeniusNetwork/GeniusCogntiveSystem/docs/architecture/reputation-consensus.md",
+  "type": "DOC",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "7 Reputation-Based Consensus System",
+  "summary": "Describes the reputation-based consensus system including data model, weighted update formulas, consensus protocol, swarm execution flow, and Byzantine tolerance mechanisms for swarm inference coordination.",
+  "scope": [
+    "reputation consensus",
+    "weighted consensus algorithm",
+    "swarm execution flow",
+    "libp2p",
+    "Byzantine tolerance",
+    "CRDT state",
+    "RocksDB",
+    "wallet-core",
+    "reputation data model",
+    "consensus engine"
+  ],
+  "cross_refs": [],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}

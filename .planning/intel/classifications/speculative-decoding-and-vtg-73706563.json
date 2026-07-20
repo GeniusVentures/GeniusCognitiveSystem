@@ -1,0 +1,13 @@
+{
+  "source_path": "/Users/Shared/SSDevelopment/Development/GeniusVentures/GeniusNetwork/GeniusCogntiveSystem/docs/architecture/speculative-decoding-and-vtg.md",
+  "type": "DOC",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "24 Speculative Decoding and VTG Candidate Scheduling",
+  "summary": "Defines the speculative decoding architecture using micro-speculation, local verification, and swarm-level learning for resource-constrained GNUS edge nodes.",
+  "scope": ["speculative decoding", "micro-speculation", "VTG", "Micro Drafter", "Confidence Scheduler", "Local Verifier", "VTG Hot Shard", "Swarm Learning Loop", "Frozen Micro-MTP", "EGGROLL", "Micro-Diffusion Block Drafter", "VTG Lookup Drafter", "Rule/Schema Drafter", "Tiny Causal Tree Drafting", "GNUS nodes", "Node Capability Advertisement", "Router", "ELM", "Semantic Core"],
+  "cross_refs": ["./objective-memory-vtg.md", "./frozen-mtp-and-vtg.md"],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}

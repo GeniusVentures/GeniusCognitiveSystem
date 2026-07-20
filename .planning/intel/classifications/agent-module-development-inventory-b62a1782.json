@@ -1,0 +1,26 @@
+{
+  "source_path": "/Users/Shared/SSDevelopment/Development/GeniusVentures/GeniusNetwork/GeniusCogntiveSystem/docs/architecture/agent-module-development-inventory.md",
+  "type": "DOC",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "31. Agent and Module Development Inventory",
+  "summary": "Consolidates agents, deterministic services, runtime modules, data stores, adapters, UIs, security boundaries, and distributed infrastructure required across the GeniusCognitiveSystem architecture into an implementation inventory.",
+  "scope": [
+    "GeniusCognitiveSystem",
+    "agents",
+    "deterministic services",
+    "runtime modules",
+    "data stores",
+    "connector adapters",
+    "user interfaces",
+    "security boundaries",
+    "distributed infrastructure",
+    "implementation inventory",
+    "deployment profiles",
+    "workstreams"
+  ],
+  "cross_refs": [],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}

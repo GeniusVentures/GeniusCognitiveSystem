@@ -1,0 +1,13 @@
+{
+  "source_path": "/Users/Shared/SSDevelopment/Development/GeniusVentures/GeniusNetwork/GeniusCogntiveSystem/docs/architecture/grounding.md",
+  "type": "DOC",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "8 Grounding and Retrieval",
+  "summary": "Describes the grounding and retrieval architecture including Grokipedia role, retrieval pipeline, validation layer, private knowledge grounding, grounding modes, and grounding as an expert role.",
+  "scope": ["Grokipedia", "retrieval pipeline", "validation layer", "private knowledge grounding", "grounding modes", "Grounding ELM", "GAML v1", "GNUS Agentic Memory Layer"],
+  "cross_refs": ["./agentic-memory-layer.md"],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}
