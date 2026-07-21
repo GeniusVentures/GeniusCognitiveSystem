@@ -1,106 +1,41 @@
-# **2 System Overview**
+# **3 System Architecture Overview**
+
+Client API  
+↓ Executive Controller / Router / Planner Layer  
+↓ Memory Governor + Grounding Selection  
+↓ Execution Contract + EIS Policy Selection  
+↓ Execution Nodes      
+├── Semantic Core      
+├── Role-Based ELMs      
+├── Domain-Specific ELMs      
+└── Tool-Support / Verification Services  
+↓ Verification / Arbitration / Synthesis  
+↓ Reputation-Weighted Consensus  
+↓ Grokipedia Grounding & Private Knowledge Validation  
+↓ Final Response
+
+EIS verification is normally sampled and asynchronous rather than a blocking step in the interactive inference path. The execution contract is selected before dispatch, while EIS validates execution integrity through claims, spot-checks, and reputation evidence outside semantic answer scoring.
 
 ---
 
-## **2.1 Architectural Vision**
+# **4 GNUS Component Mapping**
 
-The GeniusCognitiveSystem addresses the fundamental limitations of both centralized AI services and current decentralized AI networks by combining Small Language Model (SLM) efficiency with Swarm Intelligence quality through blockchain-verified consensus. It is built on four foundational innovations:
+## 4.1 Compute Layer
 
-1. **Hierarchical Intelligence Distribution** – Tiered participation from lightweight mobile nodes to high-performance elite swarm validators.
-2. **Domain-Specific Specialization** – Purpose-built ELMs and specialist modules deliver expert-level accuracy within defined verticals.
-3. **Consensus-Driven Quality Assurance** – Byzantine fault tolerant validation ensures high-quality outputs in trustless environments.
-4. **Quantum-Resistant Infrastructure** – Future-proof security with post-quantum cryptography readiness.
+The Compute Layer handles the hardware-level execution and optimization of the Semantic Core and expert modules on GNUS nodes, ensuring high-throughput and energy-efficient inference in line with the system's primary goals.
 
----
+* **MNN: Model runtime**  
+  This serves as the optimized deep learning inference engine responsible for executing the Semantic Core and expert modules efficiently on the diverse hardware found across the GNUS network.
+* **Vulkan / MoltenVK: GPU acceleration**  
+  These components provide GPU acceleration for inference operations. Vulkan is the cross-platform standard, while MoltenVK specifically enables Vulkan compatibility on Apple platforms, ensuring wide hardware reach.
+* **SGFP4 codec: Weight compression**  
+   This component manages weight compression via the SGFP4 adaptive format, directly enabling efficient low-bit deployment of the Semantic Core and selected expert modules.
+* **CUDA/Vulkan shaders: Tile-based decode & matmul**  
+  These are leveraged for high-performance, optimized numerical operations, specifically for tile-based decode and matrix multiplication of compressed weights during runtime.
+* **Execution Integrity System (EIS): Execution-contract verification**  
+  EIS validates that distributed compute providers execute the declared model, adapter, SGFP4 container, kernel manifest, determinism class, sampling seed, and execution profile. It is concerned with execution honesty rather than semantic answer quality.
 
-## **2.2 Core System Architecture**
-
-The system is organized into five major subsystems:
-
-1. **Genius Cognitive Model (GCM):** Multi-tiered inference engine with efficient base model.
-2. **Cognitive Task Manager:** Executive layer orchestrating requests across specialists and validation stages.
-3. **Swarm Coordination Layer:** Elite validator swarm providing consensus and quality assurance.
-4. **Blockchain Coordination:** Immutable record-keeping, incentive distribution, and governance.
-5. **P2P Communication Layer:** Distributed hash table routing and secure node communication.
-
----
-
-## **2.3 Genius Cognitive Model (GCM)**
-
-The GCM is the central reasoning engine of the system. It is based on a high-performing, medium-sized SLM backbone optimized for distributed deployment, with enhanced inference capabilities including:
-
-* **Dynamic Context Management:** Optimized handling of long inputs through chunked processing and semantic caching.
-* **Adaptive Token Generation:** Variable-length output with early termination based on confidence thresholds.
-* **Quantization Optimization:** SGFP4 custom weight compression providing high quality-to-size ratios and rapid GPU decode.
-
-The GCM runs efficiently on GNUS compute nodes using the MNN model runtime and GPU acceleration via Vulkan / MoltenVK.
-
----
-
-## **2.4 Enhanced Router & Cognitive Task Manager**
-
-The Cognitive Task Manager acts as the central orchestration hub, responsible for:
-
-* **Task Analysis:** Parsing user requests and determining required capabilities.
-* **Resource Allocation:** Selecting appropriate ELM(s) and validation tier.
-* **Workflow Coordination:** Managing multi-step reasoning and validation processes.
-* **Quality Gates:** Enforcing minimum quality thresholds before response delivery.
-
-The Enhanced Router provides intelligent task routing based on:
-
-* Prompt content analysis (code, mathematical, grounding, formatting cues).
-* Historical performance data and reputation scores.
-* Node capabilities and current load.
-* Execution mode (local, private swarm, public swarm).
-
----
-
-## **2.5 Validation Tiers**
-
-The system implements a multi-tier validation approach to ensure output quality:
-
-* **Tier 1 – Automated Verification:** Automated checks for formatting, basic factual accuracy, and policy compliance.
-* **Tier 2 – Specialist Review:** Domain expert models (ELMs) review and score responses.
-* **Tier 3 – Swarm Consensus:** Final arbitration by the elite validator swarm for high-stakes outputs.
-
-This structure enables scalable quality assurance while controlling computational overhead.
-
----
-
-## **2.6 Reputation and Incentive Model**
-
-The system integrates a comprehensive reputation tracking and incentive distribution model that rewards high-quality contributions and penalizes poor performance or malicious behavior. Node operators earn GNUS tokens based on contribution quality and resource provision, with reputation scores affecting task routing and reward multipliers.
-
----
-
-## **2.7 Security Architecture**
-
-The security model includes multiple layers of protection:
-
-* **Model Integrity:** Cryptographic verification of model weights and adapter versions.
-* **Secure Execution:** Isolated execution environments for sensitive tasks.
-* **Data Privacy:** Client-side encryption for sensitive inputs; optional zero-knowledge proof verification.
-* **Network Security:** End-to-end encrypted P2P communication with reputation-based node selection.
-* **Quantum Resistance:** Post-quantum cryptographic primitives for long-term security.
-
----
-
-## **2.8 Implementation Status**
-
-Current implementation status:
-
-* Base model evaluation and selection: **Complete**
-* Core Semantic Core and Router: **MVP Complete**
-* Cognitive Task Manager: **In Development**
-* Swarm Consensus: **In Development**
-* Blockchain Integration: **Planned**
-* Security Audit: **Planned**
-
-The system is being developed with an iterative approach, focusing on core functionality before expanding to advanced features.
-
----
-
-## **2.9 Custom Quantization: SGFP4 Adaptive Format**
+### 4.1.1 SGFP4 Design
 
 The custom quantization uses the **SGFP4 adaptive format**, designed for minimal overhead and maximum efficiency across diverse GPU hardware. Full details are in [22 SGFP4 Adaptive Quantization Format](./sgfp4-format.md).
 
@@ -113,4 +48,56 @@ Key properties:
 - **Normative decode semantics:** independent decoders produce bit-identical tensors, making container decode a contract-grade artifact for the Execution Integrity System.
 - Compressed weights are **decoded in shared memory at inference time** by GPU compute shaders with per-workgroup branching.
 
-The SGFP4 encoder applies Laplacian pyramid error analysis during quantization to improve accuracy-per-bit over naive scalar quantization (see [22 SGFP4 Adaptive Quantization Format](./sgfp4-format.md)).
+The Semantic Core is expected to be the primary beneficiary of aggressive compression, while role-based and domain-specific experts may use different quantization tradeoffs depending on whether they optimize for breadth, control, verification quality, deterministic formatting, or workflow specialization.
+
+---
+
+## **4.2 Distributed Layer**
+
+The **Distributed Layer** is fundamental to operating GeniusCognitiveSystem as a decentralized cognitive system across GNUS nodes. It utilizes specialized technologies to manage communication, data transfer, memory convergence, task coordination, and execution-integrity evidence.
+
+* **libp2p:** This is used for **task broadcast, distributed coordination, and result aggregation**. It handles propagation of execution plans from the orchestration layer to participating nodes and the subsequent collection of expert results for verification, arbitration, and reputation-weighted consensus.
+* **IPFS-lite:** The system relies on IPFS-lite for **model and artifact distribution**, ensuring that the Semantic Core, expert modules, manifests, and supporting assets are efficiently available to participating nodes.
+* **RocksDB:** Serves as the component for **local caching and structured memory support**. It is used for general-purpose local storage and for maintaining local copies of memory objects, indexes, execution claims, verification evidence, and reputation data.
+* **CRDTs:** These Conflict-free Replicated Data Types are critical for **reputation synchronization and memory convergence**. They are used to replicate selected state across the distributed network while preserving consistency under concurrent updates.
+* **gRPC:** This functions as a primary **API and service interface**, providing the mechanism for external clients and internal services to interact with the system.
+
+### **4.2.1 Layered Cognitive Stack**
+
+The broader cognitive stack is organized into the following layers:
+
+1. **Client and API Layer** — session lifecycle, authentication, request submission, policy attachment, and response delivery.
+2. **Orchestration Layer** — router, planner, memory governor, execution mode selector, EIS policy selector, policy evaluator, and task decomposition logic.
+3. **Expert Execution Layer** — Semantic Core, role-based ELMs, domain-specific ELMs, and local or distributed inference services.
+4. **Execution Integrity Layer** — execution contracts, determinism classes, kernel manifests, checkpoint-band calibration, teacher-forced spot-checks, and fraud verdicts.
+5. **Consensus and Grounding Layer** — reputation-weighted consensus, verification, critique, arbitration, Grokipedia integration, and private knowledge grounding.
+6. **Security and Tool Intermediary Layer** — dry-run, sanitization, permission checks, approval gates, and execution attestations.
+7. **Memory Layer** — GAML-based structured memory, bridge blocks, facts, policies, retrieval pipelines, EIS evidence assets, and CRDT-backed replication.
+8. **Distributed Infrastructure Layer** — messaging, discovery, storage propagation, scheduling, health monitoring, and settlement integration.
+
+---
+
+## **4.3 Security Layer**
+
+The **4.3 Security Layer** is designed to establish trust, ensure data integrity, and protect communication and execution boundaries across the decentralized network.
+
+* **libsecp256k1: Node Identity**  
+   This elliptic curve digital signature algorithm is foundational for establishing unique identities within the GeniusCognitiveSystem ecosystem. It is used to generate the cryptographic keys that uniquely identify GNUS nodes, which is a prerequisite for participation, attestation, and reputation-weighted coordination.
+* **ed25519: Message Signing**  
+  A high-speed, secure public-key signature system is employed for message signing across the network. This ensures the authenticity and integrity of inter-node communications, such as plan distribution, expert result submission, tool attestations, execution claims, and finalization records.
+* **OpenSSL: Secure Transport**  
+  The system relies on OpenSSL to provide secure, encrypted transport layers (TLS/SSL) for network communication. This secures data in transit, protecting sensitive information and maintaining the confidentiality of communication between the Client API, orchestration services, and execution nodes.
+* **wallet-core: Reputation and secure state storage**  
+  This component is used for secure and robust storage of reputation-related data and other persistent trust state required by distributed task execution.
+* **Tool Intermediary boundary:**  
+  Secure agent execution requires a mandatory intermediary choke-point between expert reasoning and real-world side effects. This boundary enforces deterministic dry-runs, sanitization, capability checks, approvals, and tool attestations before any side effect is allowed.
+
+### **4.3.1 Core Architectural Distinction**
+
+The system is built around three main execution and reasoning classes:
+
+* **Semantic Core** — a broadly capable reasoning substrate responsible for general understanding, synthesis, and default response generation.
+* **Expert Language Models (ELMs)** — narrower specialized units invoked when additional expertise, verification, structure, grounding, or action competence is required.
+* **Execution Integrity System (EIS)** — the integrity subsystem that verifies execution contracts and detects model, adapter, kernel, quantization, or sampling substitution.
+
+This distinction is foundational. GNUS.ai does not assume that every task should be solved by a single general-purpose model, and it does not assume semantic consensus alone is sufficient to prove that the declared computation was honestly executed.

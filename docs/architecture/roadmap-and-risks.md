@@ -1,55 +1,85 @@
-**A.2**
+# **11 Execution Roadmap**
 
-### **Objective**
+---
 
-Design and build the complete system architecture for the GeniusCognitiveSystem — a decentralized AI ecosystem integrating SLM-based agents, blockchain coordination, and P2P networking to achieve high-quality, verified inference.
+## **11.1 Phase 1 — Semantic Core Foundations**
 
-### **Deliverables**
+* Base model selection.
+* SGFP4 quantization pipeline (v1 fixed-payload and v2 quadtree-adaptive profiles).
+* Validate activation error.
+* Deploy across initial nodes.
 
-1. Genius Cognitive Model (GCM) architecture specification.
-2. Cognitive Task Manager / Executive Controller design.
-3. Enhanced Router and integration plan.
-4. Elite swarm architecture and security model.
-5. Integration plan with blockchain and DHT coordination.
-6. SGFP4 quantization pipeline (v1 fixed-payload and v2 quadtree-adaptive profiles).
-7. Testing, evaluation, and deployment roadmap.
+Deliverable: `genius-core-alpha`
 
-### **Evaluation Metrics**
+---
 
-| Category | Metric | Target |
-| --- | --- | --- |
-| **Performance** | Token throughput | ≥ 15 t/s (low-end) |
-| **Accuracy** | GSM8K improvement | +8–15% over baseline |
-| **Latency** | 95th percentile | < 8 s |
-| **Consensus** | Byzantine fault tolerance | 33% malicious nodes |
-| **Efficiency** | Tokens per joule | ≥ 100 |
-| **Quality** | User satisfaction | > 85% |
+## **11.2 Phase 2 — Experts + Router / Planner**
 
-### **Risks and Mitigations**
+* Initial role-based expert integration.
+* Initial domain-specialist integration.
+* Routing and planning logic implementation.
+* Grounding path selection.
+* Memory governor introduction.
 
-| Risk | Mitigation |
-| --- | --- |
-| Model hallucination | Multi-node consensus, verifier agents, grounded answers |
-| Scalability bottleneck | Elite swarm tiering, MNN optimization, SGFP4 compression |
-| Integration complexity | Modular architecture, MNN + Libp2p abstraction |
-| GPU limits | SGFP4 + Turbo Quant |
-| Node heterogeneity | Tiered participation (full, light, mobile) |
-| SGFP4 underperforms | Fallback to INT4 or adjusted quantization policy |
-| Latency on mobile | Early exit, async consensus |
-| Consensus overhead | Adaptive consensus depth, reputation-weighted voting |
+Deliverable: `genius-modular-alpha`
 
-### **Timeline (12 Weeks)**
+---
 
-| Phase | Weeks | Deliverables |
-| --- | --- | --- |
-| Foundation | 1–3 | Core architecture, base model selection, development environment |
-| Core Development | 4–6 | Enhanced router, Cognitive Task Manager, blockchain integration |
-| Advanced Features | 7–9 | Elite swarm, SGFP4 optimization, security hardening |
-| Testing & Deployment | 10–12 | E2E testing, documentation, deployment pipeline |
+## **11.3 Phase 3 — Reputation, Memory, and Consensus**
 
-### **Success Criteria**
+* Implement reputation storage.
+* Implement weighted consensus and arbiter path.
+* Sync via CRDT.
+* Structured memory retrieval and write governance.
+* Multi-node task execution.
 
-* Functional end-to-end system prototype.
-* Documented improvements in accuracy and latency.
-* Security audit passed.
-* Deployable packages for all supported platforms.
+Deliverable: `genius-swarm-beta`
+
+---
+
+## **11.4 Phase 4 — Grounding, Private Customization, Secure Agent Path, and Benchmarks**
+
+* Grokipedia retrieval integration.
+* Private grounding support.
+* Private memory and private ELM customization path.
+* Tool intermediary and attestation path.
+* Stress test.
+* Publish benchmark comparison.
+
+Deliverable: `GeniusCognitiveSystem v1 Beta`
+
+---
+
+# **12 Risk Analysis**
+
+Risk
+
+Mitigation
+
+SGFP4 underperforms
+
+Fallback to INT4 or adjusted quantization policy
+
+Reputation gaming
+
+Require minimum history and verifier-aware scoring
+
+Swarm latency high
+
+Limit swarm width and prefer smallest effective cognitive set
+
+Routing instability
+
+Keep rule-based v1 and phase in learned routing carefully
+
+Memory contamination
+
+Use provenance-aware write gates and trust classes
+
+Unsafe tool execution
+
+Require intermediary attestation and approval gates
+
+Customization path confusion
+
+Keep retrieval, memory, and private ELM adaptation as separate governed levers
