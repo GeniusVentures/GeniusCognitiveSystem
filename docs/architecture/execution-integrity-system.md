@@ -341,7 +341,7 @@ This makes EIS auditable by the same memory machinery that stores reasoning trac
 
 ## **29.10 Cross-References**
 
-- **SGFP4 container/kernel spec:** determinism-class manifest fields, reference integer semantics for the ternary path, and conformance vectors.
+- **SGFP4 container/kernel spec** ([22 SGFP4 Adaptive Quantization Format](./sgfp4-format.md)): determinism-class manifest fields, reference integer semantics for the ternary path, and conformance vectors. Both profiles (v1 fixed-payload, v2 quadtree-adaptive) have normative decode semantics and a shared reference decoder; the T158 ternary path in either profile is the preferred Class A target.
 - **Reputation-weighted consensus:** verdict ingestion, slashing, checker selection, and Sybil economics.
 - **Speculative decoding:** shared teacher-forced acceptance machinery.
 - **GAML / Cognitive Asset Model:** execution claims, calibration parameters, registration records, and verdicts stored as Cognitive Assets with provenance and trust class.
