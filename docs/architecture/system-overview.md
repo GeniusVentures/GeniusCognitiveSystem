@@ -113,4 +113,4 @@ Key properties:
 - **Normative decode semantics:** independent decoders produce bit-identical tensors, making container decode a contract-grade artifact for the Execution Integrity System.
 - Compressed weights are **decoded in shared memory at inference time** by GPU compute shaders with per-workgroup branching.
 
-The SGFP4 encoder applies Laplacian pyramid error analysis during quantization to improve accuracy-per-bit over naive scalar quantization (see [16 SGFP4 Adaptive Quantization Format](./sgfp4-format.md)).
+The SGFP4 encoder applies Laplacian pyramid error analysis during quantization to improve accuracy-per-bit over naive scalar quantization (see [22 SGFP4 Adaptive Quantization Format](./sgfp4-format.md)).
