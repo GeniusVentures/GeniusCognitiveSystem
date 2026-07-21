@@ -58,7 +58,7 @@ Consensus and routing should consider role-specific and domain-specific reputati
 
 ### 16.4.5 Quantization-aware modularity
 
-Specialist boundaries should be chosen so that FP4 Ultra, Turbo Quant, and Sparse-V can be applied efficiently to the Semantic Core, experts, and execution stages without unnecessary coupling.
+Specialist boundaries should be chosen so that SGFP4 (FP4 Ultra v1 and quadtree v2 profiles), Turbo Quant, and Sparse-V can be applied efficiently to the Semantic Core, experts, and execution stages without unnecessary coupling.
 
 ## 16.5 System overview
 
@@ -360,7 +360,7 @@ The current design tracks global and skill-oriented scores such as math, groundi
 
 This allows the swarm to weight outputs not only by node quality but also by demonstrated competence in specific reasoning roles.
 
-## 16.14 Interaction with FP4 Ultra, Turbo Quant, and Sparse-V
+## 16.14 Interaction with SGFP4, Turbo Quant, and Sparse-V
 
 ### 16.14.1 Semantic Core
 
