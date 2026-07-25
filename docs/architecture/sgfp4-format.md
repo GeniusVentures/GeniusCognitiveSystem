@@ -1,5 +1,8 @@
 # 22 SGFP4 Adaptive Quantization Format
 
+**Specification status:** Normative  
+**Implementation status:** In progress
+
 This section defines the **SGFP4** weight compression format used across GeniusCognitiveSystem. It replaces the earlier FP4 v3 codec with a dual-profile mixed-bit scheme designed for GPU-friendly decode, consistent cross-device fidelity, minimal per-block metadata overhead, and bit-exact replay for execution attestation.
 
 SGFP4 has two profiles:
@@ -9,7 +12,7 @@ SGFP4 has two profiles:
 
 Both profiles share the same code modes (FP4_AFFINE, T158_AFFINE), the same affine reconstruction, and the same normative code packing. Decode semantics for both profiles are closed and normative: independent implementations must produce bit-identical tensors from the same container.
 
-The reference implementation lives in `GNUS-NEO-SWARM/gnus-poc/quantize/` (`fp4_exporter.py`, `quadtree.py`, `sgfp4_format.py`, and the independent reference decoder `sgfp4_decoder.py`).
+The SGFP4 paper is the normative specification. Implementation work is in progress on [`GNUS-NEO-SWARM/develop`](https://github.com/GeniusVentures/GNUS-NEO-SWARM/tree/develop/gnus-poc/quantize), including `fp4_exporter.py`, `quadtree.py`, `sgfp4_format.py`, and the independent reference decoder `sgfp4_decoder.py`.
 
 ---
 
