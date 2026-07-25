@@ -8,9 +8,9 @@ This section defines the **SGFP4** weight compression format used across GeniusC
 SGFP4 has two profiles:
 
 - **Profile v1 (fixed-payload):** the original layout. Every 64x64 macroblock carries a fixed 2048-byte payload. Uniform addressing; simplest possible decode. Files use the `.fp4` extension.
-- **Profile v2 (quadtree-adaptive):** a self-framed stream (`'SGF4'` magic, version `0x02`) in which each macroblock is subdivided by a quadtree into variable-sized leaves (64x64 down to 4x4) chosen by Laplacian-weighted error. Files use the `.sgfp4` extension.
+- **Profile v2 (quadtree-adaptive):** a container-framed stream (`'SGF4'` magic, version `0x02`) in which each macroblock is subdivided by a quadtree into variable-sized leaves (64x64 down to 4x4) chosen by Laplacian-weighted error. The original tensor shape is supplied by the enclosing model manifest. Files use the `.sgfp4` extension.
 
-Both profiles share the same code modes (FP4_AFFINE, T158_AFFINE), the same affine reconstruction, and the same normative code packing. Decode semantics for both profiles are closed and normative: independent implementations must produce bit-identical tensors from the same container.
+Both profiles share the same code modes (FP4_AFFINE, T158_AFFINE), the same affine reconstruction, and the same normative code packing. Decode semantics for both profiles are closed and normative: independent implementations must produce bit-identical tensors from the same container and tensor-shape metadata.
 
 The SGFP4 paper is the normative specification. Implementation work is in progress on [`GNUS-NEO-SWARM/develop`](https://github.com/GeniusVentures/GNUS-NEO-SWARM/tree/develop/gnus-poc/quantize), including `fp4_exporter.py`, `quadtree.py`, `sgfp4_format.py`, and the independent reference decoder `sgfp4_decoder.py`.
 
@@ -178,11 +178,15 @@ Default `delta = 0.10` (typical range 0.05–0.20). The Laplacian-weighted error
 
 ```
 magic[4] 'SGF4' | version[1] = 0x02 | num_superblocks B (uint32 LE) |
-pad[7] zero | record_offsets[B] (uint32 LE) | records[0..B-1]
+pad[7] zero | record_offsets[B] (uint32 LE) | offset_table_pad[0-15] zero |
+records[0..B-1]
 ```
 
-- The 7-byte pad aligns the header to 16 bytes; the record region begins at byte `16 + 4*B`.
-- `record_offsets[b]` is relative to the record region and MUST be a multiple of 16. Each record is zero-padded to a 16-byte multiple, so record alignment is preserved across the stream.
+The stream header frames the record table but does not repeat the original tensor geometry. The enclosing model manifest MUST supply `(O, I)`. A decoder computes `tiles_y = ceil(O / 64)` and `tiles_x = ceil(I / 64)`, verifies `B = tiles_y * tiles_x`, uses `tiles_x` to map row-major record index `b` to `(by, bx)`, and crops the padded decode back to `(O, I)`. A bare v2 byte stream without this shape metadata is incomplete.
+
+- The 7-byte pad aligns the fixed header to 16 bytes.
+- After the `4*B`-byte offset table, `offset_table_pad` contains the minimum number of zero bytes needed to align the record-region base: `record_region_base = align16(16 + 4*B)`.
+- `record_offsets[b]` is relative to this aligned record-region base and MUST be a multiple of 16. Each record is zero-padded to a 16-byte multiple, so record and leaf-payload alignment is preserved in absolute stream addresses.
 
 ### 22.8.2 Record Layout
 
@@ -210,14 +214,15 @@ pad[0-15] zero | payloads[N] (each 16-byte padded)
 
 **Block headers:** N packed half2 words as in §22.4, with low 4 bits replaced by flags (Eq. 22.1).
 
-**Payloads:** sizes per §22.6, each zero-padded to a 16-byte multiple. Because the record itself is 16-byte aligned and the header section is padded, intra-record alignment implies absolute-address alignment.
+**Payloads:** sizes per §22.6, each zero-padded to a 16-byte multiple. Because the record-region base, record, and header section are aligned, intra-record alignment implies absolute-address alignment.
 
 ### 22.8.3 v2 Decode Procedure
 
-1. Verify magic/version; read `B` and the offset table.
-2. Per record: read layout. For uniform layouts, generate raster leaf positions; for MIXED, walk the split map to recover leaf positions in DFS order.
-3. Per leaf: unpack `S` and `Bias` (bias via `header & 0xFFF0`), branch on mode bit 0, extract codes per §22.6, reconstruct `w = S * code + Bias`, and place the leaf at `(y, x)` within the 64x64 macroblock.
-4. Assemble macroblocks in row-major grid order; crop the tensor to `(O, I)`.
+1. Obtain `(O, I)` from the enclosing model manifest; compute `tiles_y`, `tiles_x`, and expected `B`.
+2. Verify magic/version, read `B`, require it to equal the expected value, read the offset table, and skip the required zero padding to `record_region_base = align16(16 + 4*B)`.
+3. Per record: read layout. For uniform layouts, generate raster leaf positions; for MIXED, walk the split map to recover leaf positions in DFS order.
+4. Per leaf: unpack `S` and `Bias` (bias via `header & 0xFFF0`), branch on mode bit 0, extract codes per §22.6, reconstruct `w = S * code + Bias`, and place the leaf at `(y, x)` within the 64x64 macroblock.
+5. Assemble macroblocks in row-major grid order using `tiles_x`; crop the tensor to `(O, I)`.
 
 ---
 
