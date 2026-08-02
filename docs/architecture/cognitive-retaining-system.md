@@ -181,6 +181,8 @@ Each interaction generates a **Cognitive Training Event**:
 }
 ```
 
+Cognitive Training Events use the shared Qualified Cognitive Event envelope defined by [Cognitive Evolution Coordination](./cognitive-evolution-control.md). The shared envelope supplies request, tenant, policy, privacy, provenance, component-version, replay, and promotion metadata while this document retains the HCTS-specific feedback fields.
+
 This data drives Targeted Retraining via:
 
 - weight adjustments
@@ -188,6 +190,8 @@ This data drives Targeted Retraining via:
 - critic influence tuning
 - routing refinement
 - arbitration refinement
+
+Candidate updates follow the validation, replay, canary, and promotion contract of the target subsystem.
 
 ---
 
