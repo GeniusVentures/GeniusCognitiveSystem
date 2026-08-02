@@ -12,7 +12,11 @@ Client API
 ↓ Verification / Arbitration / Synthesis  
 ↓ Reputation-Weighted Consensus  
 ↓ Grokipedia Grounding & Private Knowledge Validation  
-↓ Final Response
+↓ Final Response  
+↓ Qualified Cognitive Events  
+↓ GAML / VTG / Routing / Arbitration / EGGROLL Adaptation Paths
+
+The RuntimeCoordinator owns the request lifecycle and the coordination of qualified post-execution events. Cognitive evolution is not a separate runtime: it routes policy-approved Cognitive Assets and outcome signals to the existing memory, transition, policy, benchmark, and retraining subsystems through the shared contracts defined in [Cognitive Evolution Coordination](./cognitive-evolution-control.md).
 
 EIS verification is normally sampled and asynchronous rather than a blocking step in the interactive inference path. The execution contract is selected before dispatch, while EIS validates execution integrity through claims, spot-checks, and reputation evidence outside semantic answer scoring.
 
@@ -57,7 +61,7 @@ The **Distributed Layer** is fundamental to operating GeniusCognitiveSystem as a
 
 * **libp2p:** This is used for **task broadcast, distributed coordination, and result aggregation**. It handles propagation of execution plans from the orchestration layer to participating nodes and the subsequent collection of expert results for verification, arbitration, and reputation-weighted consensus.
 * **IPFS-lite:** The system relies on IPFS-lite for **model and artifact distribution**, ensuring that the Semantic Core, expert modules, manifests, and supporting assets are efficiently available to participating nodes.
-* **RocksDB:** Serves as the component for **local caching and structured memory support**. It is used for general-purpose local storage and for maintaining local copies of memory objects, indexes, execution claims, verification evidence, and reputation data.
+* **RocksDB:** Serves as the component for **local caching and structured memory support**. It is used for general-purpose local storage and for maintaining local copies of memory objects, indexes, execution claims, verification evidence, reputation data, qualified cognitive events, and adaptive artifact metadata.
 * **CRDTs:** These Conflict-free Replicated Data Types are critical for **reputation synchronization and memory convergence**. They are used to replicate selected state across the distributed network while preserving consistency under concurrent updates.
 * **gRPC:** This functions as a primary **API and service interface**, providing the mechanism for external clients and internal services to interact with the system.
 
@@ -66,12 +70,12 @@ The **Distributed Layer** is fundamental to operating GeniusCognitiveSystem as a
 The broader cognitive stack is organized into the following layers:
 
 1. **Client and API Layer** — session lifecycle, authentication, request submission, policy attachment, and response delivery.
-2. **Orchestration Layer** — router, planner, memory governor, execution mode selector, EIS policy selector, policy evaluator, and task decomposition logic.
+2. **Orchestration Layer** — router, planner, memory governor, execution mode selector, EIS policy selector, policy evaluator, task decomposition logic, and cognitive evolution coordination.
 3. **Expert Execution Layer** — Semantic Core, role-based ELMs, domain-specific ELMs, and local or distributed inference services.
 4. **Execution Integrity Layer** — execution contracts, determinism classes, kernel manifests, checkpoint-band calibration, teacher-forced spot-checks, and fraud verdicts.
 5. **Consensus and Grounding Layer** — reputation-weighted consensus, verification, critique, arbitration, Grokipedia integration, and private knowledge grounding.
 6. **Security and Tool Intermediary Layer** — dry-run, sanitization, permission checks, approval gates, and execution attestations.
-7. **Memory Layer** — GAML-based structured memory, bridge blocks, facts, policies, retrieval pipelines, EIS evidence assets, and CRDT-backed replication.
+7. **Memory and Cognitive Asset Layer** — GAML-based structured memory, bridge blocks, facts, policies, retrieval pipelines, qualified cognitive events, EIS evidence assets, and CRDT-backed replication.
 8. **Distributed Infrastructure Layer** — messaging, discovery, storage propagation, scheduling, health monitoring, and settlement integration.
 
 ---
@@ -83,7 +87,7 @@ The **4.3 Security Layer** is designed to establish trust, ensure data integrity
 * **libsecp256k1: Node Identity**  
    This elliptic curve digital signature algorithm is foundational for establishing unique identities within the GeniusCognitiveSystem ecosystem. It is used to generate the cryptographic keys that uniquely identify GNUS nodes, which is a prerequisite for participation, attestation, and reputation-weighted coordination.
 * **ed25519: Message Signing**  
-  A high-speed, secure public-key signature system is employed for message signing across the network. This ensures the authenticity and integrity of inter-node communications, such as plan distribution, expert result submission, tool attestations, execution claims, and finalization records.
+  A high-speed, secure public-key signature system is employed for message signing across the network. This ensures the authenticity and integrity of inter-node communications, such as plan distribution, expert result submission, tool attestations, execution claims, adaptive event records, and finalization records.
 * **OpenSSL: Secure Transport**  
   The system relies on OpenSSL to provide secure, encrypted transport layers (TLS/SSL) for network communication. This secures data in transit, protecting sensitive information and maintaining the confidentiality of communication between the Client API, orchestration services, and execution nodes.
 * **wallet-core: Reputation and secure state storage**  
