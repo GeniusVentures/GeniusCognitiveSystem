@@ -3537,7 +3537,7 @@
       "nav_section": "**Genius Cognitive System Architecture Documentation**"
     },
     "docs:./system-overview.md": {
-      "hash": "855d5a3c8d7cb78d",
+      "hash": "39532c9af26efa38",
       "description": "Answers what the layered pipeline looks like from client API through router, memory, execution, verification, grounding, and final response.",
       "category": "architecture",
       "optional": false,
@@ -3641,7 +3641,7 @@
       "nav_section": "**Genius Cognitive System Architecture Documentation**"
     },
     "docs:./cognitive-retaining-system.md": {
-      "hash": "c1c2bbee833279ee",
+      "hash": "5b1041a1afb7a8a9",
       "description": "Answers how targeted retraining enables continuous lightweight adaptation of user/role-specific cognition via adapters, routing weights, and critic weights without full model retraining.",
       "category": "architecture",
       "optional": false,
@@ -3731,6 +3731,14 @@
     "docs:./context-lifecycle-caching-governance.md": {
       "hash": "34b1f8642c9dcd89",
       "description": "Answers how GCS compiles minimal authorized context per task \u2014 stable-prefix/volatile-suffix separation, tenant-isolated prefix caching, context compaction, hierarchical token budgets, completion-token reservation, cache-aware routing, Context Inspector, and acceptance criteria for context efficiency without correctness or privacy regression.",
+      "category": "architecture",
+      "optional": false,
+      "exclude": false,
+      "nav_section": "**Genius Cognitive System Architecture Documentation**"
+    },
+    "docs:./cognitive-evolution-control.md": {
+      "hash": "f27594d3fc0c77c7",
+      "description": "Answers how GCS turns qualified cognitive events into governed memory, transition, routing, arbitration, benchmark, and EGGROLL adaptation workflows through shared replay and promotion contracts.",
       "category": "architecture",
       "optional": false,
       "exclude": false,
