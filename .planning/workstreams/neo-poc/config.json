@@ -1,6 +1,7 @@
 {
   "submodule": "GNUS-NEO-SWARM",
   "planning_root": "GNUS-NEO-SWARM/.planning",
+  "workstream_name": "poc",
   "description": "GNUS NEO Swarm — swarm intelligence framework and cognitive execution runtime",
   "workflow": {
     "nyquist_validation": false,
