@@ -4,3 +4,6 @@
 [submodule "gendoc-template"]
 	path = gendoc-template
 	url = ../gendoc-template.git
+[submodule "build"]
+	path = build
+	url = ../cmaketemplate.git
