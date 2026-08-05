@@ -43,11 +43,9 @@ endif()
 if(NOT DEFINED Protobuf_DIR)
     set(Protobuf_DIR "${THIRDPARTY_BUILD_DIR}/protobuf/lib/cmake/protobuf")
 endif()
-if(NOT DEFINED grpc_INCLUDE_DIR)
-    set(grpc_INCLUDE_DIR "${THIRDPARTY_BUILD_DIR}/grpc/include")
-endif()
+# No gRPC: protobuf headers resolve from protobuf's own include tree.
 if(NOT DEFINED Protobuf_INCLUDE_DIR)
-    set(Protobuf_INCLUDE_DIR "${grpc_INCLUDE_DIR}/google/protobuf")
+    set(Protobuf_INCLUDE_DIR "${THIRDPARTY_BUILD_DIR}/protobuf/include")
 endif()
 find_package(Protobuf CONFIG REQUIRED)
 
