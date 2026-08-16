@@ -32,7 +32,15 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. Flutter app can call into C++ via FFI and receive a response
   4. GossipSub topics can be created and joined from the C++ core
   5. CI/CD pipeline builds and tests on self-hosted runners for macOS, Linux, Windows, iOS, Android
-**Plans**: TBD
+**Plans:** 6 plans
+
+Plans:
+- [ ] 01-01-PLAN.md — Wave 1 — GcsGlobalDb pass-through accessors (GNUS-NEO-SWARM submodule branch, stacked on feature/app-restructure)
+- [ ] 01-02-PLAN.md — Wave 2 (depends: 01-01) — Wire gcs_core to neoswarm_storage; create gcs::CoreSession class
+- [ ] 01-03-PLAN.md — Wave 3 (depends: 01-01, 01-02) — gcs_ffi SHARED library + single opaque-handle C API
+- [ ] 01-04-PLAN.md — Wave 3 (depends: 01-01, 01-02) — Test scaffolding + CORE-05 smoke tests (lifecycle, CRDT round-trip, FFI option-C init)
+- [ ] 01-05-PLAN.md — Wave 4 (depends: 01-03, 01-04) — Dart NativePort callback spike + ffigen bindings + Dart smoke test (owns all on_message tests)
+- [ ] 01-06-PLAN.md — Wave 5 (depends: 01-03, 01-04) — CI workflow (.github/workflows/cmake.yml) for all 5 platforms
 
 ### Phase 2: Spaces & Rooms
 **Goal**: Users can create spaces and rooms with configurable inheritance, and the entity hierarchy is persisted via CRDT.
@@ -115,7 +123,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation | 0/TBD | Not started | - |
+| 1. Foundation | 0/6 | Not started | - |
 | 2. Spaces & Rooms | 0/TBD | Not started | - |
 | 3. Messaging | 0/TBD | Not started | - |
 | 4. Membership & Invites | 0/TBD | Not started | - |
