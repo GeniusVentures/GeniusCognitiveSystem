@@ -3,6 +3,7 @@ title: Design message CRDT schema for chat room ops
 date: 2026-08-15
 priority: high
 context: gs-explore --ws app
+resolves_phase: 3
 ---
 
 # Design message CRDT schema
