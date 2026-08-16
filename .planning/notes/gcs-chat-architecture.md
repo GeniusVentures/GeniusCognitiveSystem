@@ -47,6 +47,56 @@ Single unified model. Per-participant `autoAnswer` policy controls bot behavior:
 | **None** | `@gcs` mention only | Multi-party human chat |
 | **GCS** | Every message | Q&A mode, solo chat |
 
+## Membership Types
+
+| Level | Capabilities | Constraints |
+|-------|-----------|-------------|
+| **Super Admin** | Full control; cannot be demoted by other admins | Singular — creator only |
+| **Admin** | Full control: config, membership, moderation | Multiple allowed |
+| **Moderator** | Manage members, delete messages, pin content | Trusted participants |
+| **Member** | Read, write, invite (if allowed) | Standard participant |
+| **Guest** | Read-only | Temporary access |
+
+### Invite Permission
+
+Configurable per space/room: `membersCanInvite: true/false`
+
+### Destructive Action Rules
+
+| Condition | Required Approvals |
+|-----------|------------------|
+| Only 1 admin exists | 1 (that admin) |
+| 2+ admins exist | Super Admin (creator) must approve |
+
+No timeouts — actions execute immediately once threshold met.
+
+### Membership CRDT Op
+
+```
+Op::Membership {
+  target: <user_id>,
+  action: Add | Remove | ChangeRole,
+  role: SuperAdmin | Admin | Moderator | Member | Guest,
+  scope: Space | Room,
+  author: <actor_id>,
+  approvals: [<super_admin_id>]?,  // required for destructive when >1 admin
+  timestamp: <lamport>
+}
+```
+
+### Moderation CRDT Op
+
+```
+Op::Moderation {
+  action: DeleteMessage | PinMessage | KickUser | BanUser,
+  target: <message_id | user_id>,
+  reason: <optional_string>,
+  author: <moderator_id>
+}
+```
+
+Moderation ops are tombstones — content preserved in CRDT, filtered from display.
+
 ## Privacy
 
 App-layer encryption (not libp2p PSK). Per-room symmetric key encrypts message payloads before CRDT publish. Existence visible on pubsub network, content hidden. Key rotation deferred to post-MVP.
