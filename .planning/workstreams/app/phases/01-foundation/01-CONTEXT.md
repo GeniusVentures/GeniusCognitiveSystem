@@ -18,7 +18,7 @@ The C++ chat core compiles, links against GlobalDB (via GNUS-NEO-SWARM's `neoswa
 
 ### FFI Boundary / Library Layout
 - **D-02:** Separate `gcs_ffi` **shared library** target (not folded into `gcs_core` static lib). `gcs_ffi` links `gcs_core` (and transitively `neoswarm_storage` → `sgns::crdt_globaldb` / `sgns::GeniusSDK_shared`). Flutter loads the shared lib (dylib/so/dll) directly. Mirrors the `neoswarm_ffi` plugin pattern but as a plain shared library the app links.
-- **D-03:** `neoswarm_ffi` (GNUS-NEO-SWARM) may no longer be needed by the app once `gcs_ffi` exists — its SLM-facing functions get absorbed behind the GCS session API over time. Do NOT remove it in this phase; leave it working. Re-evaluate at Phase 6 (GCS Bot) when the bot path is wired through gcs_core.
+- **D-03:** [informational] `neoswarm_ffi` (GNUS-NEO-SWARM) may no longer be needed by the app once `gcs_ffi` exists — its SLM-facing functions get absorbed behind the GCS session API over time. Do NOT remove it in this phase; leave it working. Re-evaluate at Phase 6 (GCS Bot) when the bot path is wired through gcs_core.
 
 ### Async / Event Model Across FFI
 - **D-04:** C++ owns essentially all state and logic. Dart is a thin wrapper: input (send text, select channel, change config) and output (render what C++ gives it).
