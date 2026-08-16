@@ -83,32 +83,32 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CORE-01 | TBD | Pending |
-| CORE-02 | TBD | Pending |
-| CORE-03 | TBD | Pending |
-| CORE-04 | TBD | Pending |
-| CORE-05 | TBD | Pending |
-| MEMB-01 | TBD | Pending |
-| MEMB-02 | TBD | Pending |
-| MEMB-03 | TBD | Pending |
-| MEMB-04 | TBD | Pending |
-| MEMB-05 | TBD | Pending |
-| MODR-01 | TBD | Pending |
-| MODR-02 | TBD | Pending |
-| MODR-03 | TBD | Pending |
-| GCSB-01 | TBD | Pending |
-| GCSB-02 | TBD | Pending |
-| GCSB-03 | TBD | Pending |
-| GCSB-04 | TBD | Pending |
-| DISC-01 | TBD | Pending |
-| DISC-02 | TBD | Pending |
-| DISC-03 | TBD | Pending |
+| CORE-01 | Phase 2 | Pending |
+| CORE-02 | Phase 2 | Pending |
+| CORE-03 | Phase 2 | Pending |
+| CORE-04 | Phase 3 | Pending |
+| CORE-05 | Phase 1 | Pending |
+| MEMB-01 | Phase 4 | Pending |
+| MEMB-02 | Phase 4 | Pending |
+| MEMB-03 | Phase 4 | Pending |
+| MEMB-04 | Phase 4 | Pending |
+| MEMB-05 | Phase 4 | Pending |
+| MODR-01 | Phase 5 | Pending |
+| MODR-02 | Phase 5 | Pending |
+| MODR-03 | Phase 5 | Pending |
+| GCSB-01 | Phase 6 | Pending |
+| GCSB-02 | Phase 6 | Pending |
+| GCSB-03 | Phase 6 | Pending |
+| GCSB-04 | Phase 6 | Pending |
+| DISC-01 | Phase 7 | Pending |
+| DISC-02 | Phase 7 | Pending |
+| DISC-03 | Phase 7 | Pending |
 
 **Coverage:**
 - v1 requirements: 20 total
-- Mapped to phases: 0
-- Unmapped: 20 ⚠️
+- Mapped to phases: 20
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-08-15*
-*Last updated: 2026-08-15 after milestone v1.0 creation*
+*Last updated: 2026-08-15 after roadmap creation*
