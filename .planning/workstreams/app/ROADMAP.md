@@ -12,7 +12,7 @@ Build a working multi-party chat application where users create spaces and rooms
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Foundation** - C++ core scaffolding, GlobalDB CRDT integration, FFI bridge to Flutter, and cross-platform CI/CD
+- [ ] **Phase 1: Foundation** - C++ core scaffolding, GlobalDB CRDT integration, FFI bridge to Flutter, and cross-platform CI/CD (macOS, Linux, Windows, iOS, Android)
 - [ ] **Phase 2: Spaces & Rooms** - Space and room creation with configurable inheritance
 - [ ] **Phase 3: Messaging** - Real-time text messaging with CRDT sync across participants
 - [ ] **Phase 4: Membership & Invites** - Roles, capability tokens, and permission model
@@ -27,11 +27,11 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Depends on**: Nothing (first phase)
 **Requirements**: CORE-05
 **Success Criteria** (what must be TRUE):
-  1. C++ core library builds on macOS, Linux, and Windows without errors
+  1. C++ core library builds on macOS, Linux, Windows, iOS, and Android without errors
   2. GlobalDB CRDT instance can be initialized and a test op can be published/subscribed locally
   3. Flutter app can call into C++ via FFI and receive a response
   4. GossipSub topics can be created and joined from the C++ core
-  5. CI/CD pipeline builds and tests on self-hosted runners for macOS, Linux, Windows
+  5. CI/CD pipeline builds and tests on self-hosted runners for macOS, Linux, Windows, iOS, Android
 **Plans**: TBD
 
 ### Phase 2: Spaces & Rooms
