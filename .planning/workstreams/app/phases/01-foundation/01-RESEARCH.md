@@ -398,22 +398,25 @@ endif()
 | A4 | Plain `ctest` suffices for GCS smoke tests on Linux (no gnome-keyring wrapper needed) because tests use the injected-pubsub seam and never init GeniusSDK | CI/CD item 5 | Low — copying the dbus-run-session wrapper verbatim is zero-cost insurance if wrong. |
 | A5 | Letting cmaketemplate's zkLLVM auto-download run in CI (headers only) satisfies D-09's "skip zkLLVM" intent | CI/CD item 3 | Low — worst case CI downloads a tarball it doesn't compile against; confirm with user if "skip" meant "zero zkLLVM artifacts". |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **D-05 references a neoswarm_ffi callback mechanism that doesn't exist.**
    - What we know: neoswarm_ffi is the stock Flutter plugin template; zero `Dart_PostCObject`/`NativePort` usage anywhere in the workspace's C++/Dart code.
    - What's unclear: Whether the user has seen this pattern in some other repo (GeniusWallet? a branch not fetched?) that should be the reference instead of the standard Dart API_DL idiom.
    - Recommendation: Plan a small spike task ("stand up minimal NativePort echo through gcs_ffi locally") before the full FFI task; implement the standard mechanism; flag to user at plan review.
+   - **RESOLVED (2026-08-15):** Plan 01-05 spike implements the standard Dart API_DL NativePort pattern (`Dart_InitializeApiDL` + `Dart_PostCObject` + `ReceivePort`). No alternate in-repo reference surfaced; the standard mechanism is the design.
 
 2. **CRDT round-trip needs GcsGlobalDb accessors (Put/Get/AddBroadcastTopic) that don't exist yet.**
    - What we know: `GcsGlobalDb` public API is lifecycle-only (Initialize/Shutdown/IsRunning); `m_db` is private.
    - What's unclear: Whether Phase 1 may extend `GcsGlobalDb` in the GNUS-NEO-SWARM submodule (separate branch/PR there) or whether CORE-05's smoke proof should use raw `GossipPubSub::Publish` + GlobalDB accessed some other way.
    - Recommendation: Planner sequences a submodule task adding minimal read-only accessors (or pass-throughs) to `GcsGlobalDb`, committed on a neoswarm branch, before the GCS smoke test task. Confirm scope with user since STATE.md lists "Phase 1 depends on GlobalDB CRDT integration from GNUS-NEO-SWARM Phase 3" as a concern.
+   - **RESOLVED (2026-08-15):** Plan 01-01 adds the four pass-through accessors (`AddBroadcastTopic`, `AddListenTopic`, `Put`, `Get`) to `GcsGlobalDb` on a GNUS-NEO-SWARM feature branch (`feature/gcs-globaldb-passthrough`, stacked on `feature/app-restructure`).
 
 3. **zkLLVM in CI: header-only consumption vs. full skip.**
    - What we know: `CommonCompilerOptions.cmake` auto-downloads zkLLVM when absent; `neoswarm_storage` adds its include dir conditionally; D-09 says skip zkLLVM.
    - What's unclear: Whether "skip" means "no explicit CI step" (auto-download still runs, headers only) or "zero zkLLVM presence" (requires a CMake skip flag that doesn't exist yet).
    - Recommendation: Default to no-explicit-step (option 1); if the user wants zero-presence, planner adds a `GCS_SKIP_ZKLLVM`-style guard to CommonCompilerOptions — small but touches the cmaketemplate submodule.
+   - **RESOLVED (2026-08-15):** Plan 01-06 keeps cmaketemplate's auto-download (headers-only consumption at configure time) and adds no explicit zkLLVM CI step. D-09 is interpreted as "no explicit CI step" — zero-presence is not required.
 
 ## Environment Availability
 
