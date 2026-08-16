@@ -8,7 +8,37 @@ context: gs-explore --ws app
 
 Multi-party group chat where one participant is the GCS system (ELM router / specialist models).
 
-## Room Types
+## Entity Hierarchy
+
+| Layer | Purpose | Topic | Access |
+|-------|---------|-------|--------|
+| **Space** | Container, invite management, room grouping | `gcs/spaces/<space_name>` | Public or private |
+| **Room** | Chat, message sync | `gcs/chat/<room_name>` | Public or private |
+| **DM** | 1:1 private chat | `gcs/chat/<dm_id>` | Private (auto-generated) |
+| **Lobby** | Global discovery of public spaces | `gcs/spaces/lobby` | Public registry |
+
+## Space Configuration
+
+Space CRDT carries config ops controlling room inheritance:
+
+| Config | Behavior |
+|--------|----------|
+| `autoJoinRooms: true` | Space members auto-join all rooms; space key unlocks everything |
+| `autoJoinRooms: false` | Rooms independent; space membership ≠ room access |
+
+Config ops are CRDT writes to the space topic. Clients process changes and update local join behavior.
+
+## Invite Model
+
+| Entity | Mechanism | Format |
+|--------|-----------|--------|
+| Space | Space key → unlocks all rooms (if autoJoin) | `gcs://invite/space/<id>?key=<key>` |
+| Room | Room key → unlocks single room | `gcs://invite/room/<id>?key=<key>` |
+| DM | Auto-generated room key | Implicit on creation |
+
+Room invites work standalone or reference a parent space. A user can be in a space without being in a private room within it.
+
+## Room Types (by auto-answer policy)
 
 Single unified model. Per-participant `autoAnswer` policy controls bot behavior:
 
@@ -17,16 +47,11 @@ Single unified model. Per-participant `autoAnswer` policy controls bot behavior:
 | **None** | `@gcs` mention only | Multi-party human chat |
 | **GCS** | Every message | Q&A mode, solo chat |
 
-## Pub/Sub Topics
-
-- **Room topic:** `ipfs-pubsub://gcs/chat/<roomname>`
-- **Lobby topic:** `ipfs-pubsub://gcs/chat/lobby` — public room registry (CRDT)
-
-Public rooms publish existence to lobby. Private rooms never publish to lobby.
-
 ## Privacy
 
 App-layer encryption (not libp2p PSK). Per-room symmetric key encrypts message payloads before CRDT publish. Existence visible on pubsub network, content hidden. Key rotation deferred to post-MVP.
+
+Public rooms publish existence to lobby. Private rooms never publish to lobby.
 
 ## Message Flow
 
@@ -38,13 +63,16 @@ App-layer encryption (not libp2p PSK). Per-room symmetric key encrypts message p
 
 ## MVP Scope
 
-- Room creation (name → topic)
+- Space creation (public → lobby, private → invite link)
+- Room creation within space or standalone
 - Message send/receive with CRDT sync
 - GCS bot participant with mention/every-message auto-answer
-- No encryption yet (public rooms only)
+- Space/room invites via capability tokens
+- No encryption yet (public spaces/rooms only)
 
 ## Deferred
 
-- Private room key rotation
+- Private room/space key rotation
 - Room archive / lifecycle management
-- Room discovery beyond lobby (search, QR codes)
+- Space discovery beyond lobby (search, QR codes)
+- DM auto-creation on first message
