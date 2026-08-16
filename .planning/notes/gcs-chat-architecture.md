@@ -120,6 +120,26 @@ Public rooms publish existence to lobby. Private rooms never publish to lobby.
 - Space/room invites via capability tokens
 - No encryption yet (public spaces/rooms only)
 
+## Extension Model
+
+The chat system is designed as a **core library** that can be embedded or extended:
+
+```
+gcs-chat-core/          ← this repo (src/lib/)
+  ├── CRDT sync engine (GlobalDB)
+  ├── Membership model (roles, permissions)
+  ├── Encryption layer (app-layer, per-room keys)
+  └── Pub/Sub topics (spaces, rooms, lobby)
+
+genius-tube/            ← separate repo (superset)
+  ├── Channel = Space + creator branding + monetization
+  ├── Stream/VOD = Room + video metadata ops
+  ├── Subscriber/Follower = Member + payment state
+  └── Uses gcs-chat-core as dependency (submodule or linked lib)
+```
+
+Genius-tube extends but does not modify core primitives. Channel ops (PublishStream, Monetization) are new CRDT types registered alongside core ops.
+
 ## Deferred
 
 - Private room/space key rotation
