@@ -3,6 +3,7 @@ title: Define GCS bot participant identity mapping
 date: 2026-08-15
 priority: high
 context: gs-explore --ws app
+resolves_phase: 6
 ---
 
 # Define GCS bot participant identity mapping
