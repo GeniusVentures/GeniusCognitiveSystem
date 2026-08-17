@@ -2,7 +2,7 @@
 # Built as part of the parent GeniusCogntiveSystem build (root CMakeLists add_subdirectory(src)).
 
 add_library(gcs_core
-    gcs_core.cpp
+        lib/gcs_core.cpp
 )
 
 target_include_directories(gcs_core PUBLIC
