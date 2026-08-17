@@ -7,6 +7,7 @@
     <mapping directory="$PROJECT_DIR$/GNUS-NEO-SWARM/GQHSM/StateProto" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/GNUS-NEO-SWARM/GQHSM/qf4net" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/GNUS-NEO-SWARM/build" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/build" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/gendoc-template" vcs="Git" />
   </component>
 </project>

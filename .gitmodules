@@ -7,6 +7,6 @@
 [submodule "build"]
 	path = build
 	url = ../cmaketemplate.git
-[submodule "app/src/scaffold"]
-	path = app/src/scaffold
-	url = git@github.com:GeniusVentures/openapi-client-scaffold.git
+[submodule "/src/app/scaffold"]
+	path = src/app/scaffold
+	url = ../openapi-client-scaffold.git
