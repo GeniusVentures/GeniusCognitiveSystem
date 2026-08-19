@@ -64,3 +64,58 @@
 - zkLLVM in CI — not needed by GCS
 - Message CRDT schema → Phase 3 (todo tracked)
 - GCS bot identity mapping → Phase 6 (todo tracked)
+
+---
+
+# Round 2 — Scaffold / Flutter UI (2026-08-19)
+
+**Trigger:** "the submodule under src/app/scaffold has been updated and will be updated some more with new widgets."
+
+**Areas discussed:** Scaffold widget adoption, app shell structure, theming, scaffold update workflow, codegen drift guard, build system integration.
+
+## Scaffold Widget Adoption
+
+| Option | Description | Selected |
+|--------|-------------|----------|
+| A — Pure scaffold | Drop flutter_chat_ui/flutter_chat_core; compose chat from ScaffoldComposer + surfaces/cards; adopt Phase 9 StreamingRichText when it lands | ✓ |
+| B — Hybrid bridge | Keep flutter_chat_ui Chat widget this phase, scaffold for chrome; swap in Phase 3 | |
+
+**User's choice:** "A." (after "might as well compose chat from our scaffold primitives")
+**Notes:** Recorded as D-10. Scaffold Phases 9–11 (genius-tube .planning/ROADMAP.md) reviewed — StreamingRichText/CodeBlock/SelectionActions/Chart are additive atoms, no blocker. Current pin 1cd3759 is 49 commits behind origin/develop (2da6c0d) and lacks ALL Phase 8 atoms (ScaffoldComposer, Chip/ChipGroup, Disclosure, TraceList, light palette) — pin bump is a prerequisite (D-13).
+
+## App Shell Structure
+
+**User's choice:** "scaffold structure, that's the whole point."
+**Notes:** Recorded as D-11 — app_screen_view pattern, per-screen Cubits, session Cubit owns FFI handle.
+
+## Theming
+
+**User's choice:** "use scaffold theming"
+**Notes:** Recorded as D-12 — design_tokens.json + scaffold theme/; delete hardcoded ColorScheme.fromSeed in main.dart.
+
+## Scaffold Update Workflow
+
+**User's choice:** "track scaffold develop"
+**Notes:** Recorded as D-13 — bump pin to 2da6c0d immediately; track develop going forward.
+
+## Codegen Drift Guard
+
+**User's choice:** "never edit generated families and you shouldn't need to, we've made this where you would never edit generated files... look at ../apps/genius-ai-boss/backend and ../apps/genius-ai-boss/frontend for how to do it."
+**Notes:** Recorded as D-14. ai-boss pattern verified: consumer-space widgets import package:frontend_scaffold atoms; scaffold lib/ is read-only contract; generated families (scaffold_{animated_display,formatted_value,...}) are committed Jinja2 output edited only via templates/components/*.jinja2 + regenerate (scaffold CLAUDE.md).
+
+## Build System Integration
+
+**User's choice:** Build from root: `mkdir -p build/OSX/Debug && cd build/OSX/Debug && cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Debug && ninja`. "cmake/CommonBuildParameters.cmake includes the other CMakeLists.txt files for submodule building. You can model this off of ../apps/genius-ai-boss repo."
+**Correction (user):** "this front end is under src/app and it's src/CMakeLists.txt builds the ffi, libs and flutter app" — D-16 revised: frontend add_subdirectory lives in src/CMakeLists.txt (not cmake/CommonBuildParameters.cmake); dart/flutter gating inside src/ tree.
+**Notes:** Recorded as D-15/D-16. ai-boss CommonBuildParameters.cmake reviewed (FRONTEND_BUILD_ENABLED + dart/flutter detection pattern). Verified `frontend_template` target does not exist (scaffold pin, scaffold origin/develop, ai-boss, genius-tube all checked) — actual template targets: scaffold_generate_templates / generate_all_components; flagged to user.
+
+## Round 2 Claude's Discretion
+
+- Exact src/app/CMakeLists.txt layout (custom targets for pub get / analyze / test)
+- Message-list composition details from scaffold atoms (grouping, timestamps) until Phase 9 atoms land
+- Timing of the scaffold pin bump within the plan wave structure
+
+## Round 2 Deferred Ideas
+
+- ScaffoldChart/Scrubber/SelectionActions adoption beyond chat → evaluate when shipped
+- flutter_chat_ui capability gaps, if any surface → Phase 3 (Messaging), don't re-add dep

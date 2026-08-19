@@ -27,8 +27,17 @@ The C++ chat core compiles, links against GlobalDB (via GNUS-NEO-SWARM's `neoswa
 ### CI/CD
 - **D-06:** Follow the SuperGenius CI pattern (`.github/workflows/cmake.yml` in `../SuperGenius`): a `resolve-runners` job picks self-hosted runners by label (`sg-ubuntu-linux`, `sg-arm-linux`, `SG-WIN11`, `gv-OSX-Large`) with GitHub-hosted fallbacks, then a matrix job builds **Android (arm64-v8a, armeabi-v7a), iOS, OSX, Linux (x86_64, aarch64), Windows × Debug/Release**.
 - **D-07:** Dependencies are **downloaded as prebuilt release tarballs** (thirdparty from `GeniusVentures/thirdparty` releases; additionally SuperGenius and GeniusSDK releases, tagged per `Target-ABI-branch-buildtype`) — NOT built per-run. GeniusSDK's workflow is the template for a consumer repo that downloads its deps this way.
-- **D-08:** CI builds and ctests the **C++ core only** in Phase 1 (no Flutter app build in CI yet — desktop-first; Flutter smoke test of FFI is a local/dev-loop concern this phase).
+- **D-08:** CI builds and ctests the **C++ core only** in Phase 1 (no Flutter app build in CI yet — desktop-first; Flutter smoke test of FFI is a local/dev-loop concern this phase). The Flutter gate in D-16 must default OFF / skip cleanly when dart+flutter are absent so this CI path is unaffected.
 - **D-09:** Self-hosted runner cleanup + container usage (`ghcr.io/geniusventures/debian-bullseye` for Linux/Android) copied from SuperGenius workflow; skip zkLLVM (GCS doesn't need it).
+
+### Flutter UI & Scaffold (added 2026-08-19)
+- **D-10:** **Pure-scaffold chat UI.** Drop `flutter_chat_ui` + `flutter_chat_core` from `src/app/pubspec.yaml`. Chat UI is composed from scaffold primitives: `ScaffoldComposer` (message input), surfaces/cards for the message list, state views/toasts for chrome. Adopt `ScaffoldStreamingRichText` / `ScaffoldCodeBlock` for bot responses when scaffold Phases 9–11 land on develop (in progress — additive atoms, no blocker).
+- **D-11:** **Scaffold app-shell structure.** Screens follow the scaffold `app_screen_view` pattern with per-screen Cubits; a session Cubit owns the FFI session handle (D-01/D-04). App-specific composites live in `src/app/lib/` — the ai-boss consumer pattern (`../apps/genius-ai-boss/frontend`).
+- **D-12:** **Scaffold theming is the source of truth.** `src/app/scaffold/design_tokens.json` + scaffold `theme/` package. Delete the hardcoded purple `ColorScheme.fromSeed` in `src/app/lib/main.dart`.
+- **D-13:** **Track scaffold `develop`.** Immediate follow-up: bump submodule pin `1cd3759` → `2da6c0d` (49 commits behind; gains Phase 8 atoms — `ScaffoldComposer`, `ScaffoldChip/ChipGroup`, `ScaffoldDisclosure`, `ScaffoldTraceList`, light palette — all absent from the current pin). Scaffold Phases 9–11 land automatically thereafter.
+- **D-14:** **Never edit scaffold generated families** (`scaffold_{animated_display,formatted_value,image_placeholder,selection_indicator}_*`, `scaffold_{card,state_view,search_bar}*` — committed Jinja2 output; edit `templates/components/*.jinja2` + regenerate instead, per `src/app/scaffold/CLAUDE.md`). App-side composites/wrappers import `package:frontend_scaffold` atoms; scaffold `lib/` is a read-only public contract (ai-boss pattern — consumer-space widgets in `../apps/genius-ai-boss/frontend`, backend CMake consumption in `../apps/genius-ai-boss/backend`).
+- **D-15:** **Build from repo root:** `mkdir -p build/OSX/Debug && cd build/OSX/Debug && cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Debug && ninja`. Entry chain: `build/OSX/CMakeLists.txt` → `build/CommonBuildParameters.cmake` → `cmake/CommonBuildParameters.cmake` (the add_subdirectory hub, modeled on `../apps/genius-ai-boss`). Template-only regeneration: scaffold's `scaffold_generate_templates` / `generate_all_components` targets (note: no `frontend_template` target exists anywhere — verified against scaffold pin, scaffold origin/develop, ai-boss, genius-tube).
+- **D-16:** **`src/CMakeLists.txt` owns the whole src tree** — `gcs_core` lib, `src/ffi/` `gcs_ffi` shared lib (D-02), AND the Flutter app under `src/app/` (via `add_subdirectory(app)`). No frontend wiring in `cmake/CommonBuildParameters.cmake` — its existing `add_subdirectory(src)` pulls everything through the one hub. Dart/flutter detection + gating (ai-boss `FRONTEND_BUILD_ENABLED` style) lives inside `src/CMakeLists.txt` / `src/app/CMakeLists.txt`, keeping the C++-only CI path clean (D-08).
 
 ### Claude's Discretion
 - Exact C API function names/signatures in the session header (planner/researcher design; must stay C-only, opaque handle, C++17).
@@ -56,6 +65,14 @@ The C++ chat core compiles, links against GlobalDB (via GNUS-NEO-SWARM's `neoswa
 ### FFI pattern to reuse
 - `GNUS-NEO-SWARM/neoswarm_ffi/ffigen.yaml` + `GNUS-NEO-SWARM/neoswarm_ffi/src/flutter_slm_bridge.c/.h` — working C-header → ffigen Dart bindings → callback pattern.
 
+### Scaffold (Flutter widget library)
+- `src/app/scaffold/CLAUDE.md` — submodule contract: `lib/` is a public API surface consumed by 3 repos; generated widget families are committed Jinja2 output (edit templates, never the .dart); pre-finish checks (`dart analyze --fatal-infos`, `flutter test`).
+- `src/app/scaffold/lib/components/` — ~60 M3 atoms incl. Cubit-pattern widgets (`scaffold_card_cubit`, `scaffold_state_view_cubit`, `scaffold_search_bar_cubit`).
+- `src/app/scaffold/design_tokens.json` + `src/app/scaffold/lib/theme/` — theming source of truth (D-12).
+- `../apps/genius-tube/src/scaffold/.planning/ROADMAP.md` — scaffold's own roadmap: Phases 9–11 in flight (StreamingRichText, CodeBlock, SelectionActions, Chart/Scrubber, coverage gate). D-10 adopts Phase 9 atoms when they land.
+- `../apps/genius-ai-boss/frontend/` + `../apps/genius-ai-boss/backend/` — canonical consumer pattern (D-11/D-14): consumer-space widgets import `package:frontend_scaffold`; CMake submodule consumption.
+- `../apps/genius-ai-boss/cmake/CommonBuildParameters.cmake` — frontend gating pattern (dart/flutter detection); GCS applies the gating inside `src/CMakeLists.txt` instead (D-16).
+
 </canonical_refs>
 
 <code_context>
@@ -76,7 +93,9 @@ The C++ chat core compiles, links against GlobalDB (via GNUS-NEO-SWARM's `neoswa
 
 ### Integration Points
 - Root `CMakeLists.txt` already does `add_subdirectory(GNUS-NEO-SWARM)` and `add_subdirectory(src)` — `gcs_ffi` slots into `src/` without touching the root file (only `src/CMakeLists.txt` + new `src/ffi/CMakeLists.txt`).
-- Flutter app at `src/app/` (pubspec already has `ffi: ^2.2.0`); `src/app/pubspec.yaml` currently depends on `neoswarm_ffi` via path — will migrate to gcs bindings as they appear (not this phase).
+- Flutter app at `src/app/` (pubspec already has `ffi: ^2.2.0`); `src/app/pubspec.yaml` currently depends on `neoswarm_ffi` via path — will migrate to gcs bindings as they appear (not this phase). It also depends on `flutter_chat_ui`/`flutter_chat_core` (dropped per D-10) and `frontend_scaffold` via `path: scaffold` (kept, becomes the sole UI kit).
+- `src/app/lib/main.dart` — legacy single-screen SLM chat (hardcoded Mistral path, `neoswarm_ffi` bridge, stock `Chat` widget); rewritten per D-10/D-11/D-12 in the 01-05 Dart spike.
+- Scaffold pin bump (D-13) is a prerequisite for the Dart UI work — `ScaffoldComposer` et al. don't exist at the current pin.
 
 </code_context>
 
@@ -86,6 +105,10 @@ The C++ chat core compiles, links against GlobalDB (via GNUS-NEO-SWARM's `neoswa
 - "Cubit style C++ state storage with a thin flutter UI wrapper" — the Bloc/Cubit state objects live in C++; Flutter only renders and forwards user input.
 - "probably only send/receive FFI calls to dart... C++ handles most everything" + callbacks instead of polling for arriving data.
 - CI/CD: "kick-off those builds on our self-hosted runners and they will pick-up thirdparty & SuperGenius & GeniusSDK and download dependencies" — realized as the SuperGenius/GeniusSDK release-download pattern (D-07).
+- "might as well compose chat from our scaffold primitives" (2026-08-19) — D-10 pure-scaffold UI, chosen over keeping `flutter_chat_ui` as a bridge.
+- "scaffold structure, that's the whole point" — D-11 app-shell from scaffold patterns.
+- "we've made this where you would never edit generated files" — D-14, pointing at ai-boss as the worked example.
+- "this front end is under src/app and it's src/CMakeLists.txt builds the ffi, libs and flutter app" — D-16 correction: frontend wiring lives in `src/CMakeLists.txt`, not `cmake/CommonBuildParameters.cmake`.
 
 </specifics>
 
@@ -97,10 +120,12 @@ The C++ chat core compiles, links against GlobalDB (via GNUS-NEO-SWARM's `neoswa
 - zkLLVM in CI — not needed by GCS; skip.
 - Message CRDT schema design — tracked in `.planning/todos/pending/design-message-crdt-schema.md`, resolves Phase 3.
 - GCS bot identity mapping — tracked in `.planning/todos/pending/define-gcs-bot-identity-mapping.md`, resolves Phase 6.
+- Adopting scaffold Phase 9–10 atoms beyond chat (`ScaffoldChart`/`ScaffoldChartScrubber`, `ScaffoldSelectionActions`) — evaluate when they ship on scaffold develop; not Phase 1 scope.
+- `flutter_chat_ui`/`flutter_chat_core` removal lands with the 01-05 Dart rewrite (D-10); if any chat-kit capability is missed, note it for Phase 3 (Messaging) rather than re-adding the dep.
 
 </deferred>
 
 ---
 
 *Phase: 1-Foundation*
-*Context gathered: 2026-08-15*
+*Context gathered: 2026-08-15; updated 2026-08-19 (scaffold/UI decisions D-10..D-16)*
