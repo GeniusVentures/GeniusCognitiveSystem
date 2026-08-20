@@ -119,3 +119,9 @@
 
 - ScaffoldChart/Scrubber/SelectionActions adoption beyond chat → evaluate when shipped
 - flutter_chat_ui capability gaps, if any surface → Phase 3 (Messaging), don't re-add dep
+
+## Round 2 Amendment — Data-driven composites (2026-08-20)
+
+**Trigger:** "I don't agree... the whole point of the jinja2 is so we use data driven development, not hardcoding with dart."
+**Root cause of the original D-10/D-11 implication:** the hand-written-Dart assumption was a remnant of `flutter_chat_ui` (Flutter's LLM chat widgets) carried over when D-10 dropped it.
+**Resolution:** D-17 — multi-variant chat composites (message bubble roles × states) are generated from our own `.jinja2` + `_vars.json` via the scaffold `engine.py` (repeatable `--template-dir`, `--tokens` + `--vars`, StrictUndefined). Built-in `generate_all_components` is a closed 6-composite list and does NOT read `TEMPLATES_DIR` (the Source B comment claiming otherwise is aspirational); the engine itself is general-purpose, so we drive it from `src/app/CMakeLists.txt`. One-off screens stay plain Dart.
