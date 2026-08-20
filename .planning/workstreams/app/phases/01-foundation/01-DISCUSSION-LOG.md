@@ -125,3 +125,43 @@
 **Trigger:** "I don't agree... the whole point of the jinja2 is so we use data driven development, not hardcoding with dart."
 **Root cause of the original D-10/D-11 implication:** the hand-written-Dart assumption was a remnant of `flutter_chat_ui` (Flutter's LLM chat widgets) carried over when D-10 dropped it.
 **Resolution:** D-17 — multi-variant chat composites (message bubble roles × states) are generated from our own `.jinja2` + `_vars.json` via the scaffold `engine.py` (repeatable `--template-dir`, `--tokens` + `--vars`, StrictUndefined). Built-in `generate_all_components` is a closed 6-composite list and does NOT read `TEMPLATES_DIR` (the Source B comment claiming otherwise is aspirational); the engine itself is general-purpose, so we drive it from `src/app/CMakeLists.txt`. One-off screens stay plain Dart.
+
+---
+
+# Round 3 — Chat Variant Taxonomy & App Shell (2026-08-20)
+
+**Trigger:** Replan prep for scope-B Phase 1 (C++ skeleton + Flutter app shell + theming + message-bubble composite). D-17's guessed taxonomy (`user`/`assistant`/`system` × `streaming`/`thinking`/`error`/`complete`) needed locking before UI-SPEC + replan.
+
+**Areas discussed:** (1) bubble roles, (2) bubble states, (3) message payload/composition, (4) app-shell left rail, (5) theming application.
+
+## Roles
+
+**User's choice:** "yes, all that" (user / assistant / system), with error as a state not a role.
+**Notes:** Recorded as D-18. `user` carries a `self`/`peer` distinction (mine vs theirs alignment/color) exposed as a variant flag, not a fourth role. `system` = join/leave/moderation notices.
+
+## States
+
+**User's choice:** "all and thinking is a state, but visual just like the ... animating when getting a message"
+**Notes:** Recorded as D-19. Five states: `pending` (send in-flight), `streaming`, `thinking`, `complete`, `error`. `thinking` is a distinct visual state (the "…" typing-style animation shown pre-generation) — NOT collapsed into `streaming`, which implies tokens are already arriving.
+
+## Message Payload / Composition
+
+**User's choice:** "message bubbles should be for text only, so for chat text only, other parts, like media, code, etc, don't appear in a bubble just like iMessage." Follow-up: interleaving flow vs text-only-Phase-1 → "Correct" (to the interleave-capable reading).
+**Notes:** Recorded as D-20. Bubble payload = text only. Code/media are separate composites rendered inline in the flow, not wrapped in bubble chrome (iMessage model — photo/link-card sits outside the bubble). Three message composites (text bubble, code block, media) share an interleave-capable message-flow envelope from the start; Phase 1 only exercises text, but the flow supports mixed lists. Non-text content data flows through the same FFI stream; only rendering branches.
+
+## App Shell / Left Rail
+
+**User's choice:** "Rooms, etc, can be in left bar, just like any other chat system." Follow-up: flat room list vs space→room tree → "b, not really premature, as you have to be able to switch" (space→room tree).
+**Notes:** Recorded as D-21. Left rail = space→room tree (spaces expand to rooms); switching spaces/rooms from the rail is Phase 1 scope (navigation, not full space management). Main pane = active room's message flow + composer. (A doc link was attached to the reply and later rescinded by the user — decision stands on the text alone.)
+
+## Theming Application
+
+**User's choice:** "light/dark toggle is already implemented in scaffold so might as well use it."
+**Notes:** Recorded as D-22. Reuse scaffold's existing light/dark toggle (Phase 8 `ScaffoldPalette.lightPalette` + theme/) as-is; no new toggle work. D-12's design_tokens.json drives both palettes.
+
+## Round 3 Claude's Discretion
+
+- Exact variant axes naming in `_vars.json` (role/state enum values, self/peer flag) — planner + UI-SPEC detail.
+- Which scaffold atom hosts the "…" thinking animation (likely a state/pending atom) — UI-SPEC.
+- Whether the code-block composite wraps scaffold's Phase 9 `ScaffoldCodeBlock` directly or a placeholder until it lands on develop — research refresh.
+
