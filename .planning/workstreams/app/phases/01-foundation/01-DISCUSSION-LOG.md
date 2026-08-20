@@ -81,7 +81,7 @@
 | B — Hybrid bridge | Keep flutter_chat_ui Chat widget this phase, scaffold for chrome; swap in Phase 3 | |
 
 **User's choice:** "A." (after "might as well compose chat from our scaffold primitives")
-**Notes:** Recorded as D-10. Scaffold Phases 9–11 (genius-tube .planning/ROADMAP.md) reviewed — StreamingRichText/CodeBlock/SelectionActions/Chart are additive atoms, no blocker. Current pin 1cd3759 is 49 commits behind origin/develop (2da6c0d) and lacks ALL Phase 8 atoms (ScaffoldComposer, Chip/ChipGroup, Disclosure, TraceList, light palette) — pin bump is a prerequisite (D-13).
+**Notes:** Recorded as D-10. Scaffold Phases 9–11 (genius-tube .planning/ROADMAP.md) reviewed — StreamingRichText/CodeBlock/SelectionActions/Chart are additive atoms, no blocker. Pin at discussion time (1cd3759) was 49 commits behind origin/develop and lacked ALL Phase 8 atoms — pin bumped 2026-08-20 to ef16a0c (D-13), which also includes the Source A template-dir and --api-specs-dir bug fixes.
 
 ## App Shell Structure
 
@@ -96,7 +96,7 @@
 ## Scaffold Update Workflow
 
 **User's choice:** "track scaffold develop"
-**Notes:** Recorded as D-13 — bump pin to 2da6c0d immediately; track develop going forward.
+**Notes:** Recorded as D-13 — pin bumped 2026-08-20: 1cd3759 → ef16a0c (includes Phase 8 atoms + Source A template-dir fix + --api-specs-dir override fix); track develop going forward.
 
 ## Codegen Drift Guard
 
