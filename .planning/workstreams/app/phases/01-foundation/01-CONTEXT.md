@@ -30,6 +30,9 @@ The C++ chat core compiles, links against GlobalDB (via GNUS-NEO-SWARM's `neoswa
 - **D-08:** CI builds and ctests the **C++ core only** in Phase 1 (no Flutter app build in CI yet — desktop-first; Flutter smoke test of FFI is a local/dev-loop concern this phase). The Flutter gate in D-16 must default OFF / skip cleanly when dart+flutter are absent so this CI path is unaffected.
 - **D-09:** Self-hosted runner cleanup + container usage (`ghcr.io/geniusventures/debian-bullseye` for Linux/Android) copied from SuperGenius workflow; skip zkLLVM (GCS doesn't need it).
 
+### Storage Component Location
+- **D-25:** **`GcsGlobalDb` moves into the root repo.** Relocate `GNUS-NEO-SWARM/src/storage/gcs_global_db.{hpp,cpp}` + `GNUS-NEO-SWARM/test/storage/test_gcs_global_db.cpp` into the app structure under `src/lib/` (and the root test tree), as its own CMake target (e.g. `gcs_storage`) linking `sgns::crdt_globaldb` / pubsub directly. `gcs_core` (01-02) links the moved target in `src/lib/` — NOT `neoswarm_storage`. Rationale: it is GCS's storage component, misplaced in the neoswarm submodule by neoswarm workstream Phase 03-01 (`bc6ab3c`) before `feature/app-restructure` established `src/lib/` as the app C++ home. The neoswarm `03-gcs-globaldb-integration` phase (03-02/03-03 pending) gets a pointer-update note; 01-01 becomes "move + extend" (git mv preserves history, then add the data-plane accessors).
+
 ### Flutter UI & Scaffold (added 2026-08-19)
 - **D-10:** **Pure-scaffold chat UI.** Drop `flutter_chat_ui` + `flutter_chat_core` from `src/app/pubspec.yaml`. Chat UI is composed from scaffold primitives: `ScaffoldComposer` (message input), surfaces/cards for the message list, state views/toasts for chrome. Multi-variant chat widgets (message bubble — roles × states) are data-driven composites per D-17, not hand-switched Dart. Adopt `ScaffoldStreamingRichText` / `ScaffoldCodeBlock` for bot responses when scaffold Phases 9–11 land on develop (in progress — additive atoms, no blocker).
 - **D-11:** **Scaffold app-shell structure.** Screens follow the scaffold `app_screen_view` pattern with per-screen Cubits; a session Cubit owns the FFI session handle (D-01/D-04). App-specific one-off screens live in `src/app/lib/` as plain Dart — the ai-boss consumer pattern (`../apps/genius-ai-boss/frontend`); multi-variant composites are generated per D-17 (templates + vars in our repo, e.g. `src/app/templates/`).
@@ -138,4 +141,4 @@ The C++ chat core compiles, links against GlobalDB (via GNUS-NEO-SWARM's `neoswa
 ---
 
 *Phase: 1-Foundation*
-*Context gathered: 2026-08-15; updated 2026-08-19 (scaffold/UI decisions D-10..D-16); updated 2026-08-20 (D-17 data-driven composites; D-18..D-22 chat variant taxonomy + app shell); updated 2026-08-21 (D-23 GCSChat app class + widget_test; D-24 both-halves C++ Cubit-state)*
+*Context gathered: 2026-08-15; updated 2026-08-19 (scaffold/UI decisions D-10..D-16); updated 2026-08-20 (D-17 data-driven composites; D-18..D-22 chat variant taxonomy + app shell); updated 2026-08-21 (D-23 GCSChat app class + widget_test; D-24 both-halves C++ Cubit-state; D-25 GcsGlobalDb moves to root src/lib)*
