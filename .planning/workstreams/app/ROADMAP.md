@@ -36,12 +36,12 @@ Decimal phases appear between their surrounding integers in numeric order.
   4. GossipSub topics can be created and joined from the C++ core
   5. CI/CD pipeline builds and tests on self-hosted runners for macOS, Linux, Windows, iOS, Android
 
-**Plans:** 11 plans
+**Plans:** 1/11 plans executed
 
 Plans:
 **Wave 1**
 
-- [ ] 01-01-PLAN.md — Wave 1 — Move GcsGlobalDb to root src/lib/gcs_storage/ + four pass-through accessors (D-25) + staged test
+- [x] 01-01-PLAN.md — Wave 1 — Move GcsGlobalDb to root src/lib/gcs_storage/ + four pass-through accessors (D-25) + staged test
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -167,7 +167,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation | 0/11 | Not started | - |
+| 1. Foundation | 1/11 | In Progress|  |
 | 2. Spaces & Rooms | 0/TBD | Not started | - |
 | 3. Messaging | 0/TBD | Not started | - |
 | 4. Membership & Invites | 0/TBD | Not started | - |
