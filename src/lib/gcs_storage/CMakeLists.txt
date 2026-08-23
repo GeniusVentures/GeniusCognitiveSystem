@@ -3,16 +3,16 @@
 
 add_library(gcs_storage STATIC
     gcs_global_db.cpp
+    common/error.cpp
 )
 
-# Self-include resolves "gcs_storage/gcs_global_db.hpp" (parent dir = src/lib/).
+# Self-include resolves "gcs_storage/gcs_global_db.hpp" (parent dir = src/lib/);
+# current dir resolves "common/error.hpp" + "common/logging.hpp" (vendored copies —
+# gcs_storage does not depend on the GNUS-NEO-SWARM include tree).
 target_include_directories(gcs_storage PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/..>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
 )
-
-# neoswarm_common provides common/error.hpp + common/logging.hpp + the OUTCOME_HPP_DEFINE_ERROR_2
-# symbol from common/error.cpp (the moved .cpp includes common/error.hpp and common/logging.hpp).
-target_link_libraries(gcs_storage PUBLIC neoswarm_common)
 
 # SuperGenius CRDT GlobalDB — hard required (project Conditional Compilation rule:
 # missing required libraries fail at configure time, never degrade to a stub).
