@@ -166,10 +166,6 @@ set(MNN_DIR "${THIRDPARTY_BUILD_DIR}/MNN/lib/cmake/MNN")
 find_package(MNN CONFIG REQUIRED)
 include_directories(${MNN_INCLUDE_DIR})
 
-# vk-bootstrap
-set(vk-bootstrap_DIR "${THIRDPARTY_BUILD_DIR}/vk-bootstrap/lib/cmake/vk-bootstrap")
-find_package(vk-bootstrap CONFIG REQUIRED)
-
 # soralog
 set(soralog_DIR "${THIRDPARTY_BUILD_DIR}/soralog/lib/cmake/soralog")
 set(soralog_INCLUDE_DIR "${THIRDPARTY_BUILD_DIR}/soralog/include")
@@ -359,45 +355,17 @@ set(LLVM_DIR "${ZKLLVM_BUILD_DIR}/zkLLVM/lib/cmake/llvm")
 find_package(LLVM CONFIG REQUIRED)
 
 # --------------------------------------------------------
-# Vulkan (GPU acceleration — needed by MNN/SGProcessingManager via
-# GNUS-NEO-SWARM). Established here, before either add_subdirectory() call
-# below, so the resulting Vulkan::Vulkan target is visible to both the
-# GNUS-NEO-SWARM subtree and the GCS-level src/ subtree (sibling
-# add_subdirectory scopes don't share targets with each other, only with
-# their common parent). Ported from
-# GeniusNetwork/GeniusSDK/cmake/CommonBuildParameters.cmake.
-if(APPLE)
-    if(IOS)
-        # Settings specifically for iOS
-        set(Vulkan_INCLUDE_DIR "${THIRDPARTY_BUILD_DIR}/moltenvk/build/include")
-        set(Vulkan_LIBRARY "${THIRDPARTY_BUILD_DIR}/moltenvk/build/lib/MoltenVK.xcframework")
-    else()
-        # Settings for macOS
-        set(Vulkan_INCLUDE_DIR "${THIRDPARTY_BUILD_DIR}/moltenvk/build/include")
-        set(Vulkan_LIBRARY "${THIRDPARTY_BUILD_DIR}/moltenvk/build/lib/MoltenVK.xcframework")
-    endif()
-endif()
-
-set(VulkanHeaders_DIR "${THIRDPARTY_BUILD_DIR}/Vulkan-Headers/share/cmake/VulkanHeaders" CACHE PATH "Path to Vulkan-Headers install folder")
-find_package(VulkanHeaders CONFIG REQUIRED)
-find_package(Vulkan)
-
+# Vulkan — SuperGenius/SGProcessingManager exported link interfaces
+# reference Vulkan::Vulkan, so the target must exist before their
+# find_package() calls below. Nothing in GCS or GNUS-NEO-SWARM compiles
+# against Vulkan directly (MNN's own dylib carries its Vulkan backend).
 if(NOT TARGET Vulkan::Vulkan)
-    set(Vulkan_INCLUDE_DIR "${THIRDPARTY_BUILD_DIR}/Vulkan-Headers/include")
     if(NOT DEFINED $ENV{VULKAN_SDK})
         set(ENV{VULKAN_SDK} "${THIRDPARTY_BUILD_DIR}/Vulkan-Loader")
     endif()
 
     find_package(Vulkan REQUIRED)
 endif()
-
-# Force Vulkan::Vulkan to use the vendored Vulkan-Headers on every platform,
-# even when find_package(Vulkan) resolves against a system-installed SDK.
-# vk-bootstrap/MNN here are built against the vendored headers, so mixing in
-# a different system header version causes unknown-type errors downstream.
-set_target_properties(Vulkan::Vulkan PROPERTIES
-    INTERFACE_INCLUDE_DIRECTORIES "${THIRDPARTY_BUILD_DIR}/Vulkan-Headers/include"
-)
 
 # --------------------------------------------------------
 # SuperGenius (sibling repo under GeniusNetwork). Must be found BEFORE
@@ -494,6 +462,11 @@ include_directories(${PROJECT_ROOT}/src)
 # build/<Platform>/CMakeLists.txt chain runs — add_subdirectory lives here).
 # --------------------------------------------------------
 
+# Register tests with CTest at the top level (this file is include()d by the
+# build/<Platform>/ shim at top-level scope). NEO-SWARM builds its tests
+# whenever BUILD_TESTING is on, so discovery must not depend on BUILD_TESTS.
+enable_testing()
+
 # GNUS-NEO-SWARM: C++ inference engine library (neoswarm_* targets)
 add_subdirectory(${PROJECT_ROOT}/GNUS-NEO-SWARM ${CMAKE_BINARY_DIR}/GNUS-NEO-SWARM)
 
@@ -503,9 +476,10 @@ add_subdirectory(${PROJECT_ROOT}/GNUS-NEO-SWARM ${CMAKE_BINARY_DIR}/GNUS-NEO-SWA
 add_subdirectory(${PROJECT_ROOT}/src ${CMAKE_BINARY_DIR}/gcs_src)
 
 if(BUILD_TESTS)
-    enable_testing()
+    # Binary dir is gcs_test (not "test") — NEO-SWARM's CommonBuildParameters
+    # already claims ${CMAKE_BINARY_DIR}/test for its own test tree.
     if(IS_DIRECTORY "${PROJECT_ROOT}/test")
-        add_subdirectory(${PROJECT_ROOT}/test ${CMAKE_BINARY_DIR}/test)
+        add_subdirectory(${PROJECT_ROOT}/test ${CMAKE_BINARY_DIR}/gcs_test)
     endif()
 endif()
 
