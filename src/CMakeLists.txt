@@ -15,3 +15,11 @@ target_link_libraries(gcs_core PUBLIC
 )
 
 add_subdirectory(lib/gcs_storage)
+
+# gcs_storage — hard required (project Conditional Compilation rule: missing required
+# libraries fail at configure time, never degrade to a stub).
+if(TARGET gcs_storage)
+    target_link_libraries(gcs_core PUBLIC gcs_storage)
+else()
+    message(FATAL_ERROR "gcs_storage target not found — src/lib/gcs_storage must be configured before gcs_core")
+endif()
