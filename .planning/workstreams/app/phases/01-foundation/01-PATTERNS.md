@@ -9,16 +9,21 @@
 | New/Modified File | Role | Data Flow | Closest Analog | Match Quality |
 |-------------------|------|-----------|----------------|---------------|
 | `src/CMakeLists.txt` (modify) | config (CMake target) | build-graph | `GNUS-NEO-SWARM/src/storage/CMakeLists.txt` | exact (hard-required link idiom) |
-| `src/lib/gcs_core.cpp` (modify) | service (core session owner) | request-response (sync wrapper around async CRDT) | `GNUS-NEO-SWARM/src/storage/gcs_global_db.{hpp,cpp}` | exact (component lifecycle) |
+| `src/lib/gcs_core.cpp` (modify) | service (core session owner) | request-response (sync wrapper around async CRDT) | `src/lib/gcs_storage/gcs_global_db.{hpp,cpp}` (root, D-25) | exact (component lifecycle) |
 | `src/ffi/CMakeLists.txt` (new) | config (CMake SHARED lib) | build-graph | `GNUS-NEO-SWARM/neoswarm_ffi/src/CMakeLists.txt` + `src/storage/CMakeLists.txt` | exact (SHARED target) + role-match (export define) |
-| `src/ffi/gcs_core.h` (new) | FFI C header (opaque handle) | request-response | `GNUS-NEO-SWARM/src/genius_elm_chat_completions.h` | exact |
-| `src/ffi/gcs_core_ffi.cpp` (new) | FFI thunk | request-response | `GNUS-NEO-SWARM/src/genius_elm_chat_completions.cpp` | exact |
+| `src/ffi/gcs_core.h` (new) | FFI C header (opaque handle) | event-driven (native→Dart push) | `GNUS-NEO-SWARM/src/genius_elm_chat_completions.h` | exact |
+| `src/ffi/gcs_core_ffi.cpp` (new) | FFI thunk | event-driven (protobuf push + echo) | `GNUS-NEO-SWARM/src/genius_elm_chat_completions.cpp` | exact |
 | `test/CMakeLists.txt` (new) | config (test registration) | build-graph | `GNUS-NEO-SWARM/test/CMakeLists.txt` | exact |
 | `test/test_wait_condition.hpp` (new) | test utility | request-response | `GNUS-NEO-SWARM/test/storage/test_gcs_global_db.cpp:72-90` | exact (copy verbatim) |
 | `test/test_gcs_core_smoke.cpp` (new) | test | event-driven (CRDT pub/sub round-trip) | `GNUS-NEO-SWARM/test/storage/test_gcs_global_db.cpp` | exact |
-| `test/test_gcs_ffi.cpp` (new) | test | request-response (FFI echo) | `GNUS-NEO-SWARM/test/ffi/test_genius_elm_ffi.cpp` | exact |
+| `test/test_gcs_ffi.cpp` (new) | test | event-driven (push + echo) | `GNUS-NEO-SWARM/test/ffi/test_genius_elm_ffi.cpp` | exact |
 | `.github/workflows/cmake.yml` (new) | config (CI) | batch (matrix build/test/release) | `../GeniusSDK/.github/workflows/cmake.yml` | exact (consumer-repo variant) |
-| `GNUS-NEO-SWARM/src/storage/gcs_global_db.{hpp,cpp}` (submodule — add Put/Get/AddBroadcastTopic accessors) | service (CRDT pass-through) | CRUD | SuperGenius `src/crdt/globaldb/globaldb.hpp` (underlying API surface) | role-match |
+| `src/lib/gcs_storage/gcs_global_db.{hpp,cpp}` (root — moved from submodule, add Put/Get/AddBroadcastTopic/AddListenTopic accessors) | service (CRDT pass-through) | CRUD | SuperGenius `src/crdt/globaldb/globaldb.hpp` (underlying API surface) | role-match |
+| `src/proto/gcs_chat.proto` + `src/proto/CMakeLists.txt` (new) | config (protobuf wire contract) | build-graph | `GNUS-NEO-SWARM/src/proto/CMakeLists.txt` | exact (add_proto_library) |
+| `src/app/CMakeLists.txt` + `src/app/pubspec.yaml` (new) | config (FRONTEND_BUILD_ENABLED gate + Dart deps) | build-graph | `src/app/scaffold/CMakeLists.txt` | exact (scaffold include) |
+| `src/app/templates/components/*.jinja2` + `*_vars.json` (new) | template (D-17 data-driven composites) | codegen | `src/app/scaffold/templates/components/card*` | exact (stamp-triple loop) |
+| `src/app/lib/generated/chat/*.dart` (new) | generated (committed Dart) | codegen output | `src/app/lib/generated/**` | exact |
+| `src/app/lib/main.dart` + `shell/*` + `cubits/*` + `theme/*` (new) | UI (GCSChat shell) | request-response (FFI-event-driven) | scaffold app examples | role-match |
 
 ## Pattern Assignments
 
@@ -44,17 +49,17 @@ target_link_libraries(gcs_core PUBLIC
 
 **Hard-required linkage idiom to insert** (lines 14-18 of analog):
 ```cmake
-# neoswarm_storage — hard required (project Conditional Compilation rule:
+# gcs_storage — hard required (project Conditional Compilation rule:
 # missing required libraries fail at configure time, never degrade to a stub).
-if(TARGET neoswarm_storage)
-    target_link_libraries(gcs_core PUBLIC neoswarm_storage)
+if(TARGET gcs_storage)
+    target_link_libraries(gcs_core PUBLIC gcs_storage)
 else()
-    message(FATAL_ERROR "neoswarm_storage target not found — GNUS-NEO-SWARM must be configured before gcs_core")
+    message(FATAL_ERROR "gcs_storage target not found — src/lib/gcs_storage must be configured before gcs_core")
 endif()
 ```
 
 **Pattern notes:**
-- `neoswarm_storage` brings `sgns::crdt_globaldb` + `sgns::GeniusSDK_shared` transitively as `PUBLIC` links (verified: analog lines 14-47), so `gcs_core` needs no additional include dirs.
+- `gcs_storage` brings `sgns::crdt_globaldb` + `sgns::GeniusSDK_shared` + `neoswarm_common` transitively as `PUBLIC` links, so `gcs_core` needs no additional include dirs (D-25).
 - Add `add_subdirectory(ffi)` after the `gcs_core` block to wire the new FFI target.
 
 ---
@@ -80,7 +85,7 @@ if (ANDROID)
 endif()
 ```
 
-**Analog B (export-define + linkage):** pattern synthesized from `src/storage/CMakeLists.txt` + `genius_elm_chat_completions.h`:
+**Analog B (export-define + linkage):** pattern synthesized from `src/storage/CMakeLists.txt` + `genius_elm_chat_completions.h`, protobuf link per D-26:
 ```cmake
 add_library(gcs_ffi SHARED
     gcs_core_ffi.cpp
@@ -91,7 +96,11 @@ set_target_properties(gcs_ffi PROPERTIES
     OUTPUT_NAME "gcs_ffi"
 )
 
-target_link_libraries(gcs_ffi PRIVATE gcs_core)
+# Expose src/ so test/test_gcs_ffi.cpp can #include "ffi/gcs_core.h".
+target_include_directories(gcs_ffi PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/..>
+)
+target_link_libraries(gcs_ffi PRIVATE gcs_core gcs_proto)   # gcs_proto per D-26
 target_compile_definitions(gcs_ffi PRIVATE GCS_FFI_EXPORTS)   # dllexport macro
 
 if(ANDROID)
@@ -101,17 +110,27 @@ endif()
 ```
 
 **Pattern notes:**
-- `PRIVATE` linkage on `gcs_core` (not `PUBLIC`) — `gcs_ffi` is a leaf; nothing links to it from C++.
+- `PRIVATE` linkage on `gcs_core` + `gcs_proto` (not `PUBLIC`) — `gcs_ffi` is a leaf; the proto types and `CoreSession` do NOT leak into the C ABI (the header exposes only opaque `GcsSession*` + primitives).
 - Export define uses `PRIVATE` scope so consumers see `dllimport`.
+- `gcs_proto` comes from `add_proto_library(gcs_proto ...)` in `src/proto/CMakeLists.txt` (D-26); `src/CMakeLists.txt` must `add_subdirectory(proto)` BEFORE `add_subdirectory(ffi)`.
 - Unlike the neoswarm plugin template (which sets `cmake_minimum_required(VERSION 3.10)` for Flutter plugin customers), GCS's `src/ffi/CMakeLists.txt` inherits the parent build's cmake version — do **not** re-declare `cmake_minimum_required` or `project()` here.
 
 ---
 
-### `src/ffi/gcs_core.h` (new — single opaque-handle C API)
+### `src/ffi/gcs_core.h` (new — single opaque-handle C API, protobuf byte contract)
 
 **Analog:** `GNUS-NEO-SWARM/src/genius_elm_chat_completions.h` (full file — 103 lines)
 
-**Export-macro + extern "C" guard** (lines 6-22):
+**Header guard + stdint** (D-26 header guard is `GCS_CORE_FFI_H`):
+```c
+#ifndef GCS_CORE_FFI_H
+#define GCS_CORE_FFI_H
+
+#include <stddef.h>
+#include <stdint.h>   /* int64_t for Dart NativePort */
+```
+
+**Export-macro + extern "C" guard** (the ONLY permitted `_WIN32` ifdef):
 ```c
 #if defined( _WIN32 )
 #if defined( GCS_FFI_EXPORTS )
@@ -132,23 +151,26 @@ extern "C"
 #endif
 ```
 
-**Header guard + stdint** (lines 1-4):
+**Opaque handle + status enum + session API skeleton** (style modeled on lines 37, 56, 64, 96 — note Doxygen `\brief`, `\param`, `\return`, and trailing `NOEXCEPT`):
 ```c
-#ifndef GENIUS_COGNITIVE_SYSTEM_GCS_CORE_H
-#define GENIUS_COGNITIVE_SYSTEM_GCS_CORE_H
+    /** Opaque session handle — declared only, defined in the .cpp. */
+    typedef struct GcsSession GcsSession;
 
-#include <stddef.h>
-#include <stdint.h>   /* int64_t for Dart NativePort */
-```
+    /** C status codes (D-26 — NO GCS_ERROR_NOT_IMPLEMENTED; gcs_on_message is real). */
+    typedef enum GcsStatus
+    {
+        GCS_OK = 0,
+        GCS_ERROR_GENERIC,
+        GCS_ERROR_INVALID_ARGUMENT,
+        GCS_ERROR_NOT_RUNNING
+    } GcsStatus;
 
-**Opaque-handle session API skeleton** (style modeled on lines 37, 56, 64, 96 — note Doxygen `\brief`, `\param`, `\return`, and trailing `NOEXCEPT`):
-```c
     /**
      * \brief Initialises a GCS core session.
      *
      * Creates the C++-side session object that owns GcsGlobalDb. Thread-safe:
      * may be called multiple times; subsequent calls are no-ops returning the
-     * existing handle.
+     * existing handle. On success pre-joins the smoke-topic set (D-26).
      *
      * \param dbPath  Path for the CRDT store, or NULL for the default.
      * \return Opaque session handle on success, NULL on failure.
@@ -156,8 +178,22 @@ extern "C"
     GCS_FFI_API GcsSession* gcs_init( const char* dbPath ) GCS_FFI_NOEXCEPT;
 
     GCS_FFI_API int  gcs_join_topic( GcsSession* session, const char* topic ) GCS_FFI_NOEXCEPT;
+
+    /**
+     * \brief Publishes utf8Text to topic as a ChatMessageState
+     * (role=MESSAGE_ROLE_USER_SELF, state=MESSAGE_STATE_COMPLETE) and posts the
+     * serialized GcsEvent bytes to the registered port (Phase 1 echo, D-26).
+     */
     GCS_FFI_API int  gcs_publish( GcsSession* session, const char* topic,
-                                  const char* utf8Payload ) GCS_FFI_NOEXCEPT;
+                                  const char* utf8Text ) GCS_FFI_NOEXCEPT;
+
+    /**
+     * \brief Registers the Dart NativePort that receives pushed events.
+     *
+     * On registration, immediately pushes the current RoomList and a
+     * Readiness(ready=true) event (D-26 push-not-pull). No pull-style
+     * gcs_joined_topics function exists.
+     */
     GCS_FFI_API int  gcs_on_message( GcsSession* session, int64_t dartPort ) GCS_FFI_NOEXCEPT;
     GCS_FFI_API void gcs_shutdown( GcsSession* session ) GCS_FFI_NOEXCEPT;
 
@@ -165,46 +201,58 @@ extern "C"
     GCS_FFI_API void gcs_string_free( char* value ) GCS_FFI_NOEXCEPT;
 ```
 
-**Closing guard** (lines 98-102):
+**Closing guard**:
 ```c
 #if defined( __cplusplus )
 }
 #endif
 
-#endif // GENIUS_COGNITIVE_SYSTEM_GCS_CORE_H
+#endif // GCS_CORE_FFI_H
 ```
 
 **Pattern notes:**
 - Opaque type: `typedef struct GcsSession GcsSession;` — declared only, defined in the .cpp.
 - This is the **only** permitted `_WIN32` ifdef — the export-macro block. Project rule forbids OS ifdefs in logic; this is the established carve-out (confirmed in RESEARCH § Build System Wiring and CONTEXT § Established Patterns).
+- The C ABI carries **protobuf bytes only** — no `const char* json`, no message struct in the header. `gcs_publish` takes `utf8Text` and the .cpp wraps it into a `ChatMessageState` (D-26).
 - The paired `gcs_string_free` export prevents Windows cross-allocator heap mismatch (per "Don't Hand-Roll" in RESEARCH).
 
 ---
 
-### `src/ffi/gcs_core_ffi.cpp` (new — FFI thunk)
+### `src/ffi/gcs_core_ffi.cpp` (new — FFI thunk: protobuf serialize + push events)
 
 **Analog:** `GNUS-NEO-SWARM/src/genius_elm_chat_completions.cpp` (227 lines)
 
-**Includes + global state pattern** (lines 10-26):
+**Includes + global state pattern** (D-26 protobuf + push):
 ```cpp
 #include "gcs_core.h"
+#include "gcs_chat.pb.h"      // gcs::chat::GcsEvent / ChatMessageState / RoomList / Readiness
 
 #include "lib/gcs_core.hpp"   // C++ session implementation
 
+#include <atomic>
 #include <cstdlib>
 #include <cstring>
 #include <memory>
 #include <mutex>
+#include <string>
+#include <vector>
 
 namespace
 {
+    // Two pre-joined smoke topics (D-26 requires >=2) — kCamelCase, no inline magic strings.
+    constexpr const char* kSmokeTopicA = "gcs/chat/smoke-test";
+    constexpr const char* kSmokeTopicB = "gcs/chat/smoke-test-2";
+
     std::mutex g_mutex;
-    // Opaque handle = pointer into this map. Session state owned here, not in Dart.
+    // Opaque handle = pointer into this. Session state owned here, not in Dart.
     std::unique_ptr<gcs::CoreSession> g_session;   // Phase 1: single global session (mirrors g_server)
+    std::vector<std::string> g_roomTopics;          // pre-joined topic set (guarded by g_mutex)
+    std::atomic<int64_t> g_dartPort{ 0 };           // registered Dart port (0 = unregistered)
+    std::atomic<uint64_t> g_messageSeq{ 0 };        // monotonic message id salt
 }
 ```
 
-**Heap-string AllocCopy helper** (lines 28-38 — copy verbatim, rename only):
+**Heap-string AllocCopy helper** (copy verbatim, rename only):
 ```cpp
 char* AllocCopy( const std::string_view src )
 {
@@ -219,7 +267,25 @@ char* AllocCopy( const std::string_view src )
 }
 ```
 
-**extern "C" thunk with mutex + noexcept + null-tolerant** (lines 141-173, 210-225):
+**Serialize + PostToDart seam** (D-26 — replaces the old request-response echo; PostToDart is inert until Plan 05):
+```cpp
+std::string SerializeGcsEvent( const gcs::chat::GcsEvent& event )
+{
+    std::string bytes;
+    event.SerializeToString( &bytes );
+    return bytes;
+}
+
+void PostToDart( const gcs::chat::GcsEvent& event )
+{
+    const std::string bytes = SerializeGcsEvent( event );
+    // TODO(01-05): wire Dart_PostCObject here — post a Dart_CObject_kTypedData of
+    // `bytes` to g_dartPort.load(). Inert until Plan 05 fills the seam.
+    (void)bytes;
+}
+```
+
+**extern "C" thunk with mutex + noexcept + null-tolerant** (D-26 push semantics):
 ```cpp
 extern "C"
 {
@@ -245,8 +311,65 @@ extern "C"
             return nullptr;   // int → pointer return is the only semantic change vs analog
         }
 
+        // D-26: pre-join the smoke-topic set (>=2) so the pushed RoomList is non-empty.
+        session->AddBroadcastTopic( kSmokeTopicA );
+        session->AddListenTopic( kSmokeTopicA );
+        g_roomTopics.push_back( kSmokeTopicA );
+        session->AddBroadcastTopic( kSmokeTopicB );
+        session->AddListenTopic( kSmokeTopicB );
+        g_roomTopics.push_back( kSmokeTopicB );
+
         g_session = std::move( session );
         return reinterpret_cast<GcsSession*>( g_session.get() );
+    }
+
+    GCS_FFI_API int gcs_publish( GcsSession* session, const char* topic,
+                                 const char* utf8Text ) GCS_FFI_NOEXCEPT
+    {
+        std::lock_guard<std::mutex> lock( g_mutex );
+        if ( g_session == nullptr || reinterpret_cast<gcs::CoreSession*>( session ) != g_session.get()
+             || topic == nullptr || utf8Text == nullptr )
+        {
+            return GCS_ERROR_INVALID_ARGUMENT;
+        }
+
+        gcs::chat::GcsEvent event;
+        gcs::chat::ChatMessageState* msg = event.mutable_message();
+        msg->set_id( "msg-" + std::to_string( g_messageSeq.fetch_add( 1 ) ) );
+        msg->set_room_topic( topic );
+        msg->set_role( gcs::chat::MESSAGE_ROLE_USER_SELF );
+        msg->set_state( gcs::chat::MESSAGE_STATE_COMPLETE );
+        msg->set_text( utf8Text );
+        // timestamp = epoch millis (std::chrono) — no magic number.
+
+        // Phase 1 echo: store the serialized message, then push to Dart.
+        g_session->Put( topic, SerializeGcsEvent( event ) );
+        PostToDart( event );
+        return GCS_OK;
+    }
+
+    GCS_FFI_API int gcs_on_message( GcsSession* session, int64_t dartPort ) GCS_FFI_NOEXCEPT
+    {
+        std::lock_guard<std::mutex> lock( g_mutex );
+        if ( g_session == nullptr || reinterpret_cast<gcs::CoreSession*>( session ) != g_session.get() )
+        {
+            return GCS_ERROR_INVALID_ARGUMENT;
+        }
+
+        g_dartPort = dartPort;
+
+        // D-26 push-not-pull: immediately push RoomList then Readiness(ready=true).
+        gcs::chat::GcsEvent roomEvent;
+        for ( const std::string& topic : g_roomTopics )
+        {
+            roomEvent.mutable_room_list()->add_room_topic( topic );
+        }
+        PostToDart( roomEvent );
+
+        gcs::chat::GcsEvent readyEvent;
+        readyEvent.mutable_readiness()->set_ready( true );
+        PostToDart( readyEvent );
+        return GCS_OK;
     }
 
     GCS_FFI_API void gcs_string_free( char* value ) GCS_FFI_NOEXCEPT
@@ -257,13 +380,14 @@ extern "C"
     GCS_FFI_API void gcs_shutdown( GcsSession* session ) GCS_FFI_NOEXCEPT
     {
         std::lock_guard<std::mutex> lock( g_mutex );
-        // Unregister dart_port BEFORE teardown (Pitfall 6 in RESEARCH).
+        // Clear the port BEFORE teardown (Pitfall 6 in RESEARCH).
         // Shutdown ordering: clear port → Shutdown() joins io thread → free handle.
         if ( g_session && reinterpret_cast<gcs::CoreSession*>( session ) == g_session.get() )
         {
-            g_session->UnregisterMessagePort();
+            g_dartPort = 0;
             g_session->Shutdown();
             g_session.reset();
+            g_roomTopics.clear();
         }
     }
 }
@@ -272,7 +396,9 @@ extern "C"
 **Pattern notes:**
 - `g_session` is `unique_ptr` (not `shared_ptr`) per project ownership rule.
 - Every FFI function: `std::lock_guard<std::mutex>` first statement, `noexcept`, no exceptions escape.
-- Null `const char*` from Dart is valid input (treated as "use default") — mirrors `GeniusElmInit(nullptr, nullptr)` semantics (line 154-161).
+- `g_dartPort` is `std::atomic<int64_t>` — cleared first in `gcs_shutdown` (was `UnregisterMessagePort()` in the pre-D-26 shape).
+- `gcs_publish` wraps `utf8Text` into a `ChatMessageState` (USER_SELF/COMPLETE) and posts `GcsEvent` bytes — no JSON. `gcs_on_message` stores the port and immediately pushes RoomList + Readiness. `gcs_join_topic` follows the same push pattern (append topic, then PostToDart a RoomList).
+- Null `const char*` from Dart is valid input (dbPath treated as "use default") — mirrors `GeniusElmInit(nullptr, nullptr)` semantics (line 154-161).
 
 ---
 
@@ -327,8 +453,8 @@ macro(gcs_test name sources libs)
     add_test(NAME ${name} COMMAND ${name})
 endmacro()
 
-gcs_test(test_gcs_core_smoke  test_gcs_core_smoke.cpp  "gcs_core;neoswarm_storage;sgns::crdt_globaldb")
-gcs_test(test_gcs_ffi         test_gcs_ffi.cpp         "gcs_ffi;gcs_core")
+gcs_test(test_gcs_core_smoke  test_gcs_core_smoke.cpp  "gcs_core;gcs_storage;neoswarm_common")
+gcs_test(test_gcs_ffi         test_gcs_ffi.cpp         "gcs_ffi")
 ```
 
 **Pattern notes:**
@@ -567,7 +693,7 @@ TEST_F( GcsCoreSmokeTest, CrdtPutGetRoundTripsOnGcsChatTopic )
     ASSERT_TRUE( session.AddListenTopic( kSmokeTopic ).has_value() );
 
     // Put→Get round-trip via the GcsGlobalDb pass-through accessors added in the
-    // submodule task (gcs_global_db.hpp/cpp — see "GNUS-NEO-SWARM submodule" below).
+    // root src/lib/gcs_storage task (gcs_global_db.hpp/cpp).
     const std::string key   = "smoke-key";
     const std::string value = "smoke-value";
     ASSERT_TRUE( session.Put( key, value ).has_value() );
@@ -821,7 +947,7 @@ Same shape for Linux/Windows/Android/iOS. The `PROJECT_SUPER_ROOT` auto-detect r
 
 ---
 
-### `GNUS-NEO-SWARM/src/storage/gcs_global_db.{hpp,cpp}` (submodule — pass-through accessors)
+### `src/lib/gcs_storage/gcs_global_db.{hpp,cpp}` (root — pass-through accessors)
 
 **Analog:** SuperGenius `src/crdt/globaldb/globaldb.hpp:89-225` (the underlying API the accessors wrap)
 
@@ -871,8 +997,8 @@ outcome::result<void> GcsGlobalDb::AddBroadcastTopic( const std::string &topicNa
 ```
 
 **Pattern notes:**
-- This is a submodule change — must be committed on a GNUS-NEO-SWARM branch, NOT in the GCS repo directly.
-- Per RESEARCH Open Question 2, planner should sequence this as its own task with its own neoswarm-branch commit before the GCS smoke test task.
+- This is a ROOT repo change under src/lib/gcs_storage/ (D-25 moved it out of the submodule); no neoswarm branch commit needed.
+- Sequence as its own task (01-01) before the GCS smoke test task (01-04).
 - Confirm scope with the user before adding — STATE.md flags "Phase 1 depends on GlobalDB CRDT integration from GNUS-NEO-SWARM Phase 3" as a concern.
 - Match `GcsGlobalDb`'s existing error mapping (D-14): use `Error::GcsDbError` for all failures (not running + underlying errors).
 
@@ -883,7 +1009,7 @@ outcome::result<void> GcsGlobalDb::AddBroadcastTopic( const std::string &topicNa
 ### Hard-Required Dependency Linkage (no stubs)
 
 **Source:** `GNUS-NEO-SWARM/src/storage/CMakeLists.txt:14-18, 30-47`
-**Apply to:** `src/CMakeLists.txt` (gcs_core → neoswarm_storage), `src/ffi/CMakeLists.txt` (gcs_ffi → gcs_core)
+**Apply to:** `src/CMakeLists.txt` (gcs_core → gcs_storage), `src/ffi/CMakeLists.txt` (gcs_ffi → gcs_core + gcs_proto)
 
 ```cmake
 if(TARGET <required>)
