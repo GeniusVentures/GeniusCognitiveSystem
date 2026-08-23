@@ -210,4 +210,64 @@ namespace sgns::neoswarm::storage
         return m_running.load();
     }
 
+    outcome::result<void> GcsGlobalDb::AddBroadcastTopic( const std::string &topicName )
+    {
+        if ( !m_running.load() )
+        {
+            return outcome::failure( Error::GcsDbError );
+        }
+        auto result = m_db->AddBroadcastTopic( topicName );
+        if ( result.has_error() )
+        {
+            return outcome::failure( Error::GcsDbError );
+        }
+        return outcome::success();
+    }
+
+    outcome::result<void> GcsGlobalDb::AddListenTopic( const std::string &topicName )
+    {
+        if ( !m_running.load() )
+        {
+            return outcome::failure( Error::GcsDbError );
+        }
+        auto result = m_db->AddListenTopic( topicName );
+        if ( result.has_error() )
+        {
+            return outcome::failure( Error::GcsDbError );
+        }
+        return outcome::success();
+    }
+
+    outcome::result<void> GcsGlobalDb::Put( const std::string &key, const std::string &value )
+    {
+        if ( !m_running.load() )
+        {
+            return outcome::failure( Error::GcsDbError );
+        }
+        crdt::HierarchicalKey  keyTyped{ key };
+        crdt::GlobalDB::Buffer valueTyped;
+        valueTyped.put( value );
+        auto result = m_db->Put( keyTyped, valueTyped );
+        if ( result.has_error() )
+        {
+            return outcome::failure( Error::GcsDbError );
+        }
+        return outcome::success();
+    }
+
+    outcome::result<std::string> GcsGlobalDb::Get( const std::string &key )
+    {
+        if ( !m_running.load() )
+        {
+            return outcome::failure( Error::GcsDbError );
+        }
+        auto result = m_db->Get( crdt::HierarchicalKey{ key } );
+        if ( result.has_error() )
+        {
+            return outcome::failure( Error::GcsDbError );
+        }
+        const auto &buf = result.value();
+        return std::string{ buf.toString() };
+    }
+
 } // namespace sgns::neoswarm::storage
