@@ -133,6 +133,52 @@ namespace sgns::neoswarm::storage
          */
         bool IsRunning() const noexcept;
 
+        /**
+         * @brief Register a broadcast topic on the underlying GlobalDB.
+         *
+         * Wraps sgns::crdt::GlobalDB::AddBroadcastTopic.
+         *
+         * @param[in] topicName Topic identifier to broadcast on.
+         * @return outcome::success on success; Error::GcsDbError if not running or the
+         *         underlying call fails.
+         */
+        outcome::result<void> AddBroadcastTopic( const std::string &topicName );
+
+        /**
+         * @brief Register a listen topic on the underlying GlobalDB.
+         *
+         * Wraps sgns::crdt::GlobalDB::AddListenTopic.
+         *
+         * @param[in] topicName Topic identifier to subscribe to.
+         * @return outcome::success on success; Error::GcsDbError if not running or the
+         *         underlying call fails.
+         */
+        outcome::result<void> AddListenTopic( const std::string &topicName );
+
+        /**
+         * @brief Put a key/value pair into the CRDT store.
+         *
+         * Wraps sgns::crdt::GlobalDB::Put; the std::string key/value are converted to
+         * HierarchicalKey and Buffer at the call site.
+         *
+         * @param[in] key   Hierarchical key path.
+         * @param[in] value UTF-8 payload bytes.
+         * @return outcome::success on success; Error::GcsDbError if not running or the
+         *         underlying call fails.
+         */
+        outcome::result<void> Put( const std::string &key, const std::string &value );
+
+        /**
+         * @brief Get a value from the CRDT store.
+         *
+         * Wraps sgns::crdt::GlobalDB::Get; converts the returned Buffer to std::string.
+         *
+         * @param[in] key Hierarchical key path.
+         * @return outcome::success with the value on success; Error::GcsDbError if not
+         *         running or the underlying call fails.
+         */
+        outcome::result<std::string> Get( const std::string &key );
+
     private:
         Config m_cfg;                                                    ///< Component configuration
         std::shared_ptr<boost::asio::io_context> m_io;                   ///< Dedicated io_context (D-17)
