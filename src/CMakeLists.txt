@@ -13,3 +13,5 @@ target_link_libraries(gcs_core PUBLIC
     spdlog::spdlog
     fmt::fmt
 )
+
+add_subdirectory(lib/gcs_storage)
