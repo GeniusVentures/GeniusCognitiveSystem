@@ -35,3 +35,46 @@ if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "^(AppleClang|Clang|GNU)$")
   add_flag(-Werror=type-limits)      # catch always-true / always-false limit checks as build breaks
   #add_flag(-Werror=reorder)          # field '$1' will be initialized after field '$2'
 endif()
+
+# ---------------------------------------------------------------------------
+# Per-platform application link settings (BUILD_PLATFORM_NAME: OSX/Linux/
+# Windows/Android/iOS). Consume from any executable/app target:
+#   target_link_options(<app> PRIVATE ${APP_LINK_OPTIONS})
+#   target_link_libraries(<app> PRIVATE ... ${APP_LINK_LIBRARIES})
+#   set_target_properties(<app> PROPERTIES INSTALL_RPATH "${APP_RPATH_EXE}")
+# Runtime shared deps install into ${APP_RUNTIME_LIB_DIR}: lib/ for rpath
+# platforms (exe resolves them via origin-relative rpath), bin/ for Windows
+# where DLLs must sit next to the exe (no rpath mechanism). Android ships no
+# installed exe — the FFI .so is loaded from the APK, so rpaths are unused.
+#
+# This file is included before CommonCompilerOptions derives BUILD_PLATFORM_NAME,
+# so derive it here if unset (same trick: build dir name, e.g. build/OSX -> OSX).
+# ---------------------------------------------------------------------------
+if(NOT BUILD_PLATFORM_NAME)
+  get_filename_component(BUILD_PLATFORM_NAME ${CMAKE_CURRENT_SOURCE_DIR} NAME)
+endif()
+if(BUILD_PLATFORM_NAME MATCHES "^(OSX|iOS)$")
+  set(APP_RUNTIME_LIB_DIR "lib")
+  set(APP_LINK_OPTIONS "LINKER:-no_warn_duplicate_libraries")
+  set(APP_LINK_LIBRARIES "")
+  set(APP_RPATH_EXE "@executable_path/../${APP_RUNTIME_LIB_DIR}")
+  set(APP_RPATH_LIB "@loader_path")
+elseif(BUILD_PLATFORM_NAME STREQUAL "Linux")
+  set(APP_RUNTIME_LIB_DIR "lib")
+  set(APP_LINK_OPTIONS "")
+  set(APP_LINK_LIBRARIES "uuid")
+  set(APP_RPATH_EXE "\$ORIGIN/../${APP_RUNTIME_LIB_DIR}")
+  set(APP_RPATH_LIB "$ORIGIN")
+elseif(BUILD_PLATFORM_NAME STREQUAL "Windows")
+  set(APP_RUNTIME_LIB_DIR "bin")
+  set(APP_LINK_OPTIONS "")
+  set(APP_LINK_LIBRARIES "")
+  set(APP_RPATH_EXE "")
+  set(APP_RPATH_LIB "")
+else() # Android/iOS — mobile app packaging, no installed exe layout
+  set(APP_RUNTIME_LIB_DIR "lib")
+  set(APP_LINK_OPTIONS "")
+  set(APP_LINK_LIBRARIES "")
+  set(APP_RPATH_EXE "")
+  set(APP_RPATH_LIB "")
+endif()
