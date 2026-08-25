@@ -65,15 +65,32 @@ add_custom_target(app_test
 # windows/linux targets can be added the same way when those hosts are needed.
 # Same Flutter invocation `flutter run -d macos` uses under the hood.
 if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+    # Map the CMake config to Flutter's build mode/product dir so a Release
+    # CMake tree produces the Release bundle the install block looks for
+    # (Codex PR #11 P1: hardcoded --debug made non-Debug installs silently
+    # skip the app bundle).
+    string(TOUPPER "${CMAKE_BUILD_TYPE}" _gcs_build_type_upper)
+    if(_gcs_build_type_upper STREQUAL "DEBUG")
+        set(GCS_FLUTTER_CONFIG_DIR "Debug")
+        set(GCS_FLUTTER_BUILD_MODE "--debug")
+    elseif(_gcs_build_type_upper STREQUAL "RELEASE")
+        set(GCS_FLUTTER_CONFIG_DIR "Release")
+        set(GCS_FLUTTER_BUILD_MODE "--release")
+    else()
+        set(GCS_FLUTTER_CONFIG_DIR "RelWithDebInfo")
+        # Flutter has no RelWithDebInfo; --release is the closest (opt build).
+        set(GCS_FLUTTER_BUILD_MODE "--release")
+    endif()
+
     set(_app_extra_deps app_pub_get)
     if(TARGET app_stage_ffi_dylib)
         list(APPEND _app_extra_deps app_stage_ffi_dylib)
     endif()
     add_custom_target(app_build_macos
-        COMMAND ${FLUTTER_EXECUTABLE} build macos --debug
+        COMMAND ${FLUTTER_EXECUTABLE} build macos ${GCS_FLUTTER_BUILD_MODE}
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         DEPENDS ${_app_extra_deps}
-        COMMENT "Building bare Flutter app for macOS desktop"
+        COMMENT "Building bare Flutter app for macOS (${GCS_FLUTTER_BUILD_MODE})"
     )
 
     # `ninja install` copies the built .app bundle into <prefix>/bin/
@@ -82,14 +99,6 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
     # this bridges it into the CMake install tree. ditto preserves the
     # framework symlink structure. Skipped gracefully if the app hasn't been
     # built yet (ninja app_build_macos), so C++-only installs still work.
-    string(TOUPPER "${CMAKE_BUILD_TYPE}" _gcs_build_type_upper)
-    if(_gcs_build_type_upper STREQUAL "DEBUG")
-        set(GCS_FLUTTER_CONFIG_DIR "Debug")
-    elseif(_gcs_build_type_upper STREQUAL "RELEASE")
-        set(GCS_FLUTTER_CONFIG_DIR "Release")
-    else()
-        set(GCS_FLUTTER_CONFIG_DIR "RelWithDebInfo")
-    endif()
     set(GCS_FLUTTER_APP_BUNDLE
         "${CMAKE_CURRENT_SOURCE_DIR}/build/macos/Build/Products/${GCS_FLUTTER_CONFIG_DIR}/flutter_app.app")
     install(CODE "
