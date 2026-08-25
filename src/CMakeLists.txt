@@ -16,6 +16,10 @@ target_link_libraries(gcs_core PUBLIC
 
 add_subdirectory(lib/gcs_storage)
 
+# Flutter/Dart app — gated behind FRONTEND_BUILD_ENABLED (default OFF) so
+# non-frontend CI paths and platforms without dart/flutter configure cleanly.
+add_subdirectory(app)
+
 # gcs_storage — hard required (project Conditional Compilation rule: missing required
 # libraries fail at configure time, never degrade to a stub).
 if(TARGET gcs_storage)
