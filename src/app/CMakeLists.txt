@@ -44,3 +44,15 @@ add_custom_target(app_test
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
     DEPENDS app_pub_get
 )
+
+# Bare-app desktop build. Host-desktop only (macOS here) — the equivalent
+# windows/linux targets can be added the same way when those hosts are needed.
+# Same Flutter invocation `flutter run -d macos` uses under the hood.
+if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+    add_custom_target(app_build_macos
+        COMMAND ${FLUTTER_EXECUTABLE} build macos --debug
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        DEPENDS app_pub_get
+        COMMENT "Building bare Flutter app for macOS desktop"
+    )
+endif()
