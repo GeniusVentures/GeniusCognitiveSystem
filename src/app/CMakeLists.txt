@@ -24,6 +24,22 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/scaffold/CMakeLists.txt")
     add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/scaffold scaffold)
 endif()
 
+# Stage the FFI dylib into the neoswarm_ffi plugin package (macos/lib/) so the
+# podspec can reference a stable relative path instead of hardcoding the CMake
+# build directory/config. Runs on every build of the FFI target — whichever
+# config was built last is what gets staged and embedded.
+if(CMAKE_SYSTEM_NAME STREQUAL "Darwin" AND TARGET Genius-MOS-ELM-FFI)
+    set(GCS_FFI_PLUGIN_LIB_DIR
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../GNUS-NEO-SWARM/neoswarm_ffi/macos/lib")
+    add_custom_target(app_stage_ffi_dylib
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${GCS_FFI_PLUGIN_LIB_DIR}"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "$<TARGET_FILE:Genius-MOS-ELM-FFI>" "${GCS_FFI_PLUGIN_LIB_DIR}"
+        DEPENDS Genius-MOS-ELM-FFI
+        COMMENT "Staging Genius-MOS-ELM-FFI dylib into neoswarm_ffi plugin"
+    )
+endif()
+
 # App-level dev-loop targets. app_analyze/app_test DEPEND only on app_pub_get
 # for now; the DEPENDS app_generate_chat_components edge is added in 01-08 when
 # the composite codegen loop lands (avoids a dangling target reference).
@@ -49,10 +65,14 @@ add_custom_target(app_test
 # windows/linux targets can be added the same way when those hosts are needed.
 # Same Flutter invocation `flutter run -d macos` uses under the hood.
 if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+    set(_app_extra_deps app_pub_get)
+    if(TARGET app_stage_ffi_dylib)
+        list(APPEND _app_extra_deps app_stage_ffi_dylib)
+    endif()
     add_custom_target(app_build_macos
         COMMAND ${FLUTTER_EXECUTABLE} build macos --debug
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-        DEPENDS app_pub_get
+        DEPENDS ${_app_extra_deps}
         COMMENT "Building bare Flutter app for macOS desktop"
     )
 endif()
