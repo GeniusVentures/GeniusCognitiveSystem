@@ -360,7 +360,7 @@ find_package(LLVM CONFIG REQUIRED)
 # find_package() calls below. Nothing in GCS or GNUS-NEO-SWARM compiles
 # against Vulkan directly (MNN's own dylib carries its Vulkan backend).
 if(NOT TARGET Vulkan::Vulkan)
-    if(NOT DEFINED $ENV{VULKAN_SDK})
+    if(NOT DEFINED ENV{VULKAN_SDK})
         set(ENV{VULKAN_SDK} "${THIRDPARTY_BUILD_DIR}/Vulkan-Loader")
     endif()
 
