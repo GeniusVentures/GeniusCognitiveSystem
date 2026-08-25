@@ -76,13 +76,12 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
         COMMENT "Building bare Flutter app for macOS desktop"
     )
 
-    # `ninja install` copies the built .app bundle into <binary-dir>/app/
-    # (i.e. build/OSX/Debug/app/ — next to the other build outputs, not under
-    # the GeniusCogntiveSystem install prefix). Flutter always builds under
-    # src/app/build/... (not configurable), so this bridges it into the CMake
-    # build tree. ditto preserves the framework symlink structure. Skipped
-    # gracefully if the app hasn't been built yet (ninja app_build_macos), so
-    # C++-only installs still work.
+    # `ninja install` copies the built .app bundle into <prefix>/bin/
+    # (i.e. build/OSX/Debug/GeniusCogntiveSystem/bin/, next to neo-swarm).
+    # Flutter always builds under src/app/build/... (not configurable), so
+    # this bridges it into the CMake install tree. ditto preserves the
+    # framework symlink structure. Skipped gracefully if the app hasn't been
+    # built yet (ninja app_build_macos), so C++-only installs still work.
     string(TOUPPER "${CMAKE_BUILD_TYPE}" _gcs_build_type_upper)
     if(_gcs_build_type_upper STREQUAL "DEBUG")
         set(GCS_FLUTTER_CONFIG_DIR "Debug")
@@ -95,10 +94,9 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
         "${CMAKE_CURRENT_SOURCE_DIR}/build/macos/Build/Products/${GCS_FLUTTER_CONFIG_DIR}/flutter_app.app")
     install(CODE "
         if(EXISTS \"${GCS_FLUTTER_APP_BUNDLE}\")
-            file(MAKE_DIRECTORY \"${CMAKE_BINARY_DIR}/app\")
             execute_process(COMMAND ditto \"${GCS_FLUTTER_APP_BUNDLE}\"
-                    \"${CMAKE_BINARY_DIR}/app/flutter_app.app\")
-            message(STATUS \"Installing: ${CMAKE_BINARY_DIR}/app/flutter_app.app\")
+                    \"\${CMAKE_INSTALL_PREFIX}/bin/flutter_app.app\")
+            message(STATUS \"Installing: \${CMAKE_INSTALL_PREFIX}/bin/flutter_app.app\")
         else()
             message(STATUS \"Flutter app not built (ninja app_build_macos) — skipping app install\")
         endif()")
