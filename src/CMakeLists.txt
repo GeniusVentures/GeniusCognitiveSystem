@@ -14,6 +14,9 @@ target_link_libraries(gcs_core PUBLIC
     fmt::fmt
 )
 
+# gcs_proto — protobuf wire contract (D-26/D-29); leaf target, must precede ffi.
+add_subdirectory(proto)
+
 add_subdirectory(lib/gcs_storage)
 
 # Flutter/Dart app — gated behind FRONTEND_BUILD_ENABLED (default OFF) so
