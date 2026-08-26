@@ -1,9 +1,10 @@
 /**
  * @file       test_wait_condition.hpp
- * @brief      Wait-condition template (condition_variable polling, no sleep_for).
+ * @brief      Wait-condition template (condition_variable polling, never a raw
+ *             thread sleep).
  * @details    Copied verbatim from the moved test_gcs_global_db.cpp (originally
  *             GNUS-NEO-SWARM/test/storage/test_gcs_global_db.cpp) per the project
- *             testing rule (no std::this_thread::sleep_for in tests).
+ *             testing rule (raw thread sleeps are forbidden in tests).
  * @date       2026-08-15
  */
 

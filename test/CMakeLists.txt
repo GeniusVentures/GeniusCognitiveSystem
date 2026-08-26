@@ -57,8 +57,11 @@ endmacro()
 
 # Moved GlobalDB lifecycle test (01-01) — exercises the GcsGlobalDb component
 # directly; links the root-repo gcs_storage target (D-25 moved the component
-# out of the submodule).
-gcs_test(test_gcs_global_db  test_gcs_global_db.cpp  "gcs_storage;neoswarm_common;sgns::crdt_globaldb")
+# out of the submodule). Target name is test_gcs_storage (not test_gcs_global_db):
+# the submodule's own test tree still registers a test_gcs_global_db executable,
+# and duplicate target names are a CMake configure error (CMP0002) whenever both
+# test trees configure in one build. Same source file, same gcs_storage linkage.
+gcs_test(test_gcs_storage    test_gcs_global_db.cpp  "gcs_storage;neoswarm_common;sgns::crdt_globaldb")
 # CORE-05 substrate smoke (01-04 Task 2): CoreSession lifecycle + topic + Put/Get
 # round-trip over an injected port-0 GossipPubSub.
 gcs_test(test_gcs_core_smoke test_gcs_core_smoke.cpp "gcs_core;gcs_storage;neoswarm_common")

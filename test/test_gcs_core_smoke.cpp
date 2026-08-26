@@ -3,7 +3,7 @@
  * @brief      CORE-05 substrate smoke tests for gcs::CoreSession.
  * @details    Phase 1 smoke tests for the gcs_core session: GlobalDB lifecycle via
  *             the injected-pubsub seam, AddBroadcastTopic+AddListenTopic on a
- *             gcs/chat/* topic, and a Put->Get round-trip over a real
+ *             gcs/chat/<roomname> topic, and a Put->Get round-trip over a real
  *             GossipPubSub on port 0 (ephemeral). Mirrors the structure of the
  *             moved test_gcs_global_db.cpp (soralog one-time setup, per-test
  *             temp dirs, KeyPairFileStorage key bring-up). Uses the GCS
