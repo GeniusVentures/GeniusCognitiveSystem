@@ -1,0 +1,6 @@
+{
+  "widget_class_name": "ChatMessageCodeBlock",
+  "file_stem": "chat_message_code_block",
+  "states": ["pending", "streaming", "thinking", "complete", "error"],
+  "payload": "code"
+}

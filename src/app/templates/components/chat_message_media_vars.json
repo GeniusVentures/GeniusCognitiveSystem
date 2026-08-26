@@ -1,0 +1,6 @@
+{
+  "widget_class_name": "ChatMessageMedia",
+  "file_stem": "chat_message_media",
+  "states": ["pending", "streaming", "thinking", "complete", "error"],
+  "payload": "media"
+}
