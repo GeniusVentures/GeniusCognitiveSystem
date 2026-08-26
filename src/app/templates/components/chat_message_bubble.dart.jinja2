@@ -1,0 +1,408 @@
+/// {{ widget_class_name }} -- M3 chat message bubble composite (roles x states).
+///
+/// Generated from chat_message_bubble.dart.jinja2 -- do not edit by hand.
+/// Source schema: templates/components/chat_message_bubble.dart.jinja2
+/// Generator version: 0.4.0
+/// One variant widget class per role (D-18 roles axis: {{ roles | join(', ') }}).
+/// The states axis (D-19: {{ states | join(', ') }}) drives within-bubble
+/// chrome via generated per-state helpers selected from a data-driven
+/// registry -- never a runtime role/state enum switch (D-17).
+/// {{ payload }}-only payload (D-20); code and media are separate composites
+/// in the flow envelope, never wrapped in bubble chrome.
+/// The C++ half of this composite is the protobuf ChatMessageState generated
+/// from src/proto/gcs_chat.proto (D-24/D-26) -- this file is the Dart half.
+library;
+
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:frontend_scaffold/components/scaffold_surface.dart';
+import 'package:frontend_scaffold/theme/scaffold_colors.dart';
+import 'package:frontend_scaffold/theme/scaffold_theme.dart';
+
+import '{{ file_stem }}_cubit.dart';
+import '{{ file_stem }}_state.dart';
+
+/// Error-tint alpha painted over the role fill in the error state
+/// (UI-SPEC color contract; chat-domain constant, not a scaffold token).
+const double kErrorOverlayAlpha = 0.12;
+
+/// Signature of a per-state chrome builder generated from the states axis.
+///
+/// [content] is the {{ payload }} payload widget; [wrapSurface] builds the
+/// role's bubble surface (fill/border/radius) around a given content widget,
+/// so a state can restyle the content, replace it, or wrap the whole surface.
+typedef _{{ widget_class_name }}StateChromeBuilder = Widget Function(
+  BuildContext context,
+  Widget content,
+  Widget Function(Widget content) wrapSurface,
+);
+
+// ---------------------------------------------------------------------------
+// State-chrome registry (D-19 states axis)
+// ---------------------------------------------------------------------------
+
+/// State-chrome registry generated from the states axis (D-19).
+///
+/// Selection is a data-driven map lookup keyed by the pushed state string --
+/// never a hand-written switch. Append-only: adding a state to the vars axis
+/// regenerates a matching entry (identity chrome until a treatment is
+/// authored); existing entries are never renamed or removed.
+const Map<String, _{{ widget_class_name }}StateChromeBuilder> _stateChrome =
+    <String, _{{ widget_class_name }}StateChromeBuilder>{
+{%- for state in states %}
+      '{{ state }}': _chrome{{ state | capitalize }},
+{%- endfor %}
+    };
+
+/// Identity chrome: the raw surface around the content, with no state
+/// treatment. Also the fallback for state values outside the generated
+/// registry (e.g. the proto's MESSAGE_STATE_UNSPECIFIED).
+Widget _chromeIdentity(
+  BuildContext context,
+  Widget content,
+  Widget Function(Widget content) wrapSurface,
+) {
+  return wrapSurface(content);
+}
+
+// ---------------------------------------------------------------------------
+// Per-state chrome builders (generated from the states axis)
+// ---------------------------------------------------------------------------
+{%- for state in states %}
+{%- if state == 'pending' %}
+
+/// Pending chrome: the whole bubble at [ScaffoldDimens.disabledOverlayOpacity]
+/// (UI-SPEC: role fill at 40% -- the scaffold disabled/dim pattern).
+Widget _chrome{{ state | capitalize }}(
+  BuildContext context,
+  Widget content,
+  Widget Function(Widget content) wrapSurface,
+) {
+  return Opacity(
+    opacity: context.dimens.disabledOverlayOpacity,
+    child: wrapSurface(content),
+  );
+}
+{%- elif state == 'error' %}
+
+/// Error chrome: status-error tint painted over the role fill (12% alpha
+/// per the UI-SPEC color contract).
+Widget _chrome{{ state | capitalize }}(
+  BuildContext context,
+  Widget content,
+  Widget Function(Widget content) wrapSurface,
+) {
+  return _ErrorOverlay(child: wrapSurface(content));
+}
+{%- elif state == 'thinking' %}
+
+/// Thinking chrome: the pre-generation typing indicator replaces the
+/// {{ payload }} content (distinct from streaming -- no tokens yet).
+Widget _chrome{{ state | capitalize }}(
+  BuildContext context,
+  Widget content,
+  Widget Function(Widget content) wrapSurface,
+) {
+  return wrapSurface(const _ThinkingDots());
+}
+{%- else %}
+
+/// {{ state | capitalize }} chrome: no additional state treatment (identity).
+Widget _chrome{{ state | capitalize }}(
+  BuildContext context,
+  Widget content,
+  Widget Function(Widget content) wrapSurface,
+) {
+  return _chromeIdentity(context, content, wrapSurface);
+}
+{%- endif %}
+{%- endfor %}
+
+// ---------------------------------------------------------------------------
+// State helper widgets
+// ---------------------------------------------------------------------------
+
+/// Three-dot typing indicator shown while the assistant is thinking
+/// (UI-SPEC: leading dot lightGreenPrimary, then blue500 and
+/// lightGreenSecondary; no scaffold typing-indicator atom exists yet).
+class _ThinkingDots extends StatelessWidget {
+  /// Creates the typing indicator.
+  const _ThinkingDots();
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final dimens = context.dimens;
+    return Padding(
+      padding: EdgeInsets.symmetric(
+        horizontal: dimens.space6,
+        vertical: dimens.space4,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          _BubbleDot(color: palette.lightGreenPrimary),
+          SizedBox(width: dimens.space2),
+          _BubbleDot(color: palette.blue500),
+          SizedBox(width: dimens.space2),
+          _BubbleDot(color: palette.lightGreenSecondary),
+        ],
+      ),
+    );
+  }
+}
+
+/// Single dot of the [_ThinkingDots] indicator (diameter = `space4`).
+class _BubbleDot extends StatelessWidget {
+  /// Creates a dot with the given [color].
+  const _BubbleDot({required this.color});
+
+  /// Fill color of this dot.
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final dimens = context.dimens;
+    return Container(
+      width: dimens.space4,
+      height: dimens.space4,
+      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+    );
+  }
+}
+
+/// Error tint painted over the bubble's role fill (D-19 error state).
+class _ErrorOverlay extends StatelessWidget {
+  /// Creates the overlay wrapping [child].
+  const _ErrorOverlay({required this.child});
+
+  /// The bubble surface this tint is painted over.
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final dimens = context.dimens;
+    return Stack(
+      children: <Widget>[
+        child,
+        Positioned.fill(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: palette.statusError.withValues(alpha: kErrorOverlayAlpha),
+              borderRadius: BorderRadius.circular(dimens.radiusMd),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+{#- Per-role variant classes (D-18 roles axis -> one class per role). -#}
+{%- set role_chrome = {
+      'user_self': {
+        'doc': 'self-authored messages (trailing alignment, accent fill)',
+        'align': 'AlignmentDirectional.centerEnd',
+        'fill': 'palette.lightGreenPrimary',
+        'text_color': 'ScaffoldColors.btnText',
+        'border': 'null',
+        'text_align': 'null',
+        'show_sender_label': false,
+      },
+      'user_peer': {
+        'doc': 'peer user messages (leading alignment, secondary fill)',
+        'align': 'AlignmentDirectional.centerStart',
+        'fill': 'palette.deepBlueTertiary',
+        'text_color': 'palette.textPrimary',
+        'border': 'null',
+        'text_align': 'null',
+        'show_sender_label': true,
+      },
+      'assistant': {
+        'doc': 'GCS bot responses (leading alignment, secondary fill)',
+        'align': 'AlignmentDirectional.centerStart',
+        'fill': 'palette.deepBlueTertiary',
+        'text_color': 'palette.textPrimary',
+        'border': 'null',
+        'text_align': 'null',
+        'show_sender_label': true,
+      },
+      'system': {
+        'doc': 'join/leave/moderation notices (centered, transparent fill'
+            + ' with a subtle outline)',
+        'align': 'AlignmentDirectional.center',
+        'fill': 'Colors.transparent',
+        'text_color': 'palette.textSecondary',
+        'border': 'Border.all(color: palette.borderSubtle, width: 1)',
+        'text_align': 'TextAlign.center',
+        'show_sender_label': false,
+      },
+    } -%}
+{%- for role in roles %}
+{%- set chrome = role_chrome[role] %}
+{%- set class_suffix = role.split('_') | map('capitalize') | join('') %}
+
+// ---------------------------------------------------------------------------
+// {{ widget_class_name }}{{ class_suffix }} ({{ role }})
+// ---------------------------------------------------------------------------
+
+/// A chat message bubble variant for {{ role }} -- {{ chrome.doc }}.
+///
+/// Variant structure is generated from the roles axis (D-17/D-18); the state
+/// axis arrives at runtime from pushed FFI events and selects chrome from the
+/// generated registry (never a role/state switch). The {{ payload }} payload
+/// is data-only -- this widget renders, it never synthesizes message content
+/// (D-04).
+class {{ widget_class_name }}{{ class_suffix }} extends StatefulWidget {
+  /// Creates a [{{ widget_class_name }}{{ class_suffix }}].
+  const {{ widget_class_name }}{{ class_suffix }}({
+    this.instanceId = '',
+    this.text = '',
+    this.senderName,
+    this.cubit,
+    super.key,
+  });
+
+  /// Optional instance discriminator forwarded to the Cubit.
+  final String instanceId;
+
+  /// Seed {{ payload }} payload; runtime updates flow through [cubit]
+  /// (pushed FFI events).
+  final String text;
+
+  /// Optional sender label rendered above the bubble{%- if not chrome.show_sender_label %} (reserved
+  /// for API uniformity across the role variants; this role renders no label
+  /// -- alignment and fill already own the bubble visually){%- endif %}.
+  final String? senderName;
+
+  /// Optional parent-owned cubit driving this bubble (an FFI event
+  /// subscriber); when null the widget owns an internal cubit seeded from
+  /// [text].
+  final {{ widget_class_name }}Cubit? cubit;
+
+  @override
+  State<{{ widget_class_name }}{{ class_suffix }}> createState() =>
+      _{{ widget_class_name }}{{ class_suffix }}State();
+}
+
+class _{{ widget_class_name }}{{ class_suffix }}State
+    extends State<{{ widget_class_name }}{{ class_suffix }}> {
+  late {{ widget_class_name }}Cubit _cubit;
+  late bool _ownsCubit;
+
+  @override
+  void initState() {
+    super.initState();
+    _ownsCubit = widget.cubit == null;
+    _cubit = widget.cubit ??
+        {{ widget_class_name }}Cubit(
+          instanceId: widget.instanceId,
+          role: '{{ role }}',
+          initialText: widget.text,
+        );
+  }
+
+  @override
+  void didUpdateWidget({{ widget_class_name }}{{ class_suffix }} oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Only the discriminator re-seeds the internal cubit. The payload seed
+    // ([text]) deliberately does NOT: runtime text arrives via pushed FFI
+    // events through the cubit (D-04), and re-seeding on every text change
+    // would reset the state axis mid-stream.
+    final bool seedChanged = widget.instanceId != oldWidget.instanceId;
+    if (widget.cubit != oldWidget.cubit || (_ownsCubit && seedChanged)) {
+      if (_ownsCubit) {
+        _cubit.close();
+      }
+      _ownsCubit = widget.cubit == null;
+      _cubit = widget.cubit ??
+          {{ widget_class_name }}Cubit(
+            instanceId: widget.instanceId,
+            role: '{{ role }}',
+            initialText: widget.text,
+          );
+    }
+  }
+
+  @override
+  void dispose() {
+    if (_ownsCubit) {
+      _cubit.close();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocProvider<{{ widget_class_name }}Cubit>.value(
+      value: _cubit,
+      child: BlocBuilder<{{ widget_class_name }}Cubit, {{ widget_class_name }}State>(
+        builder: (context, state) {
+          final palette = context.palette;
+          final dimens = context.dimens;
+
+          Widget wrapSurface(Widget content) {
+            return ScaffoldSurface(
+              color: {{ chrome.fill }},
+              border: {{ chrome.border }},
+              elevation: 0,
+              borderRadius: BorderRadius.circular(dimens.radiusMd),
+              child: content,
+            );
+          }
+
+          final Widget textContent = Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: dimens.space6,
+              vertical: dimens.space4,
+            ),
+            child: Text(
+              state.text,
+              textAlign: {{ chrome.text_align }},
+              style: Theme.of(context)
+                  .textTheme
+                  .bodyMedium
+                  ?.copyWith(color: {{ chrome.text_color }}),
+            ),
+          );
+
+          final Widget bubble = (_stateChrome[state.state] ?? _chromeIdentity)(
+            context,
+            textContent,
+            wrapSurface,
+          );
+{%- if chrome.show_sender_label %}
+
+          final Widget labeledBubble = Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              if (widget.senderName != null)
+                Padding(
+                  padding: EdgeInsets.only(bottom: dimens.space2),
+                  child: Text(
+                    widget.senderName!,
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: palette.textSecondary,
+                        ),
+                  ),
+                ),
+              bubble,
+            ],
+          );
+{%- endif %}
+
+          return Align(
+            alignment: {{ chrome.align }},
+{%- if chrome.show_sender_label %}
+            child: labeledBubble,
+{%- else %}
+            child: bubble,
+{%- endif %}
+          );
+        },
+      ),
+    );
+  }
+}
+{%- endfor %}
