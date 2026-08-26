@@ -1,9 +1,9 @@
-/// {{ widget_class_name }} -- M3 chat message-flow envelope (D-20 interleave).
+/// ChatMessageFlow -- M3 chat message-flow envelope (D-20 interleave).
 ///
 /// Generated from chat_message_flow.dart.jinja2 -- do not edit by hand.
 /// Source schema: templates/components/chat_message_flow.dart.jinja2
 /// Generator version: 0.4.0
-/// Item-type dispatch axis (D-20): {{ item_types | join(', ') }}. The envelope
+/// Item-type dispatch axis (D-20): text_bubble, code_block, media. The envelope
 /// is a Dart 3 sealed hierarchy -- [ChatFlowItem] with one final subclass per
 /// item type -- so per-item rendering is an exhaustive compile-time switch
 /// over the sealed subclasses: a new item type without a render case is a
@@ -51,8 +51,6 @@ sealed class ChatFlowItem {
   /// Runtime state-axis value (D-19) seeding the rendered composite's chrome.
   final String state;
 }
-{%- for item_type in item_types %}
-{%- if item_type == 'text_bubble' %}
 
 /// A text-bubble flow item -- the D-20 text-only payload (role + state + text).
 ///
@@ -78,7 +76,6 @@ final class ChatFlowItemTextBubble extends ChatFlowItem {
   /// Optional sender label rendered above the bubble by the peer variants.
   final String? senderName;
 }
-{%- elif item_type == 'code_block' %}
 
 /// A code-block flow item -- the D-20 code payload, never bubble chrome.
 ///
@@ -103,7 +100,6 @@ final class ChatFlowItemCodeBlock extends ChatFlowItem {
   /// Optional filename for the code atom header (empty when unknown).
   final String filename;
 }
-{%- elif item_type == 'media' %}
 
 /// A media flow item -- the D-20 media payload (opaque reference + label).
 ///
@@ -125,21 +121,6 @@ final class ChatFlowItemMedia extends ChatFlowItem {
   /// Display label rendered in the media card metadata row.
   final String title;
 }
-{%- else %}
-UNKNOWN_ITEM_TYPE_{{ item_type | upper }}_HAS_NO_CHAT_FLOW_ITEM_SUBCLASS_BRANCH;
-{%- endif %}
-{%- endfor %}
-{#- Role -> bubble-variant-class registry. Mirrors the 01-08 roles axis
-    (chat_message_bubble_vars.json, D-18); the generated bubble exposes
-    ChatMessageBubbleState.kValidRoles and _debugCheckBubbleVariantCoverage
-    asserts the coupling at render time (append-only: a new bubble role
-    without a registry entry fails the assert, not silently mis-renders). -#}
-{%- set bubble_variants = {
-      'user_self': 'ChatMessageBubbleUserSelf',
-      'user_peer': 'ChatMessageBubbleUserPeer',
-      'assistant': 'ChatMessageBubbleAssistant',
-      'system': 'ChatMessageBubbleSystem',
-    } %}
 
 // ---------------------------------------------------------------------------
 // Bubble variant registry (D-18 roles axis -> generated variant classes)
@@ -160,9 +141,10 @@ typedef _ChatFlowBubbleVariantBuilder = Widget Function(
 /// in release builds; debug builds surface it via the cubit's axis assert.
 const Map<String, _ChatFlowBubbleVariantBuilder> _bubbleVariants =
     <String, _ChatFlowBubbleVariantBuilder>{
-{%- for role, variant in bubble_variants | dictsort %}
-      '{{ role }}': _bubble{{ role.split('_') | map('capitalize') | join('') }},
-{%- endfor %}
+      'assistant': _bubbleAssistant,
+      'system': _bubbleSystem,
+      'user_peer': _bubbleUserPeer,
+      'user_self': _bubbleUserSelf,
     };
 
 /// Seeds a bubble cubit from a pushed item snapshot (D-04): the state axis
@@ -175,22 +157,58 @@ ChatMessageBubbleCubit _bubbleCubit(ChatFlowItemTextBubble item) {
     initialText: item.text,
   );
 }
-{%- for role, variant in bubble_variants | dictsort %}
-{%- set fn_suffix = role.split('_') | map('capitalize') | join('') %}
 
-/// Builds the [{{ variant }}] variant for a pushed [ChatFlowItemTextBubble].
-Widget _bubble{{ fn_suffix }}(
+/// Builds the [ChatMessageBubbleAssistant] variant for a pushed [ChatFlowItemTextBubble].
+Widget _bubbleAssistant(
   BuildContext context,
   ChatFlowItemTextBubble item,
 ) {
-  return {{ variant }}(
+  return ChatMessageBubbleAssistant(
     instanceId: item.instanceId,
     text: item.text,
     senderName: item.senderName,
     cubit: _bubbleCubit(item),
   );
 }
-{%- endfor %}
+
+/// Builds the [ChatMessageBubbleSystem] variant for a pushed [ChatFlowItemTextBubble].
+Widget _bubbleSystem(
+  BuildContext context,
+  ChatFlowItemTextBubble item,
+) {
+  return ChatMessageBubbleSystem(
+    instanceId: item.instanceId,
+    text: item.text,
+    senderName: item.senderName,
+    cubit: _bubbleCubit(item),
+  );
+}
+
+/// Builds the [ChatMessageBubbleUserPeer] variant for a pushed [ChatFlowItemTextBubble].
+Widget _bubbleUserPeer(
+  BuildContext context,
+  ChatFlowItemTextBubble item,
+) {
+  return ChatMessageBubbleUserPeer(
+    instanceId: item.instanceId,
+    text: item.text,
+    senderName: item.senderName,
+    cubit: _bubbleCubit(item),
+  );
+}
+
+/// Builds the [ChatMessageBubbleUserSelf] variant for a pushed [ChatFlowItemTextBubble].
+Widget _bubbleUserSelf(
+  BuildContext context,
+  ChatFlowItemTextBubble item,
+) {
+  return ChatMessageBubbleUserSelf(
+    instanceId: item.instanceId,
+    text: item.text,
+    senderName: item.senderName,
+    cubit: _bubbleCubit(item),
+  );
+}
 
 /// Asserts the registry covers every role on the generated bubble's axis
 /// snapshot (T-01-10-01 for the role axis: a bubble roles-axis addition
@@ -218,11 +236,8 @@ void _debugCheckBubbleVariantCoverage() {
 /// registry (the composites' internal-cubit path is for standalone use).
 Widget _buildFlowItem(BuildContext context, ChatFlowItem item) {
   return switch (item) {
-{%- for item_type in item_types %}
-{%- if item_type == 'text_bubble' %}
     ChatFlowItemTextBubble() =>
         (_bubbleVariants[item.role] ?? _bubbleSystem)(context, item),
-{%- elif item_type == 'code_block' %}
     ChatFlowItemCodeBlock() => ChatMessageCodeBlock(
         instanceId: item.instanceId,
         code: item.code,
@@ -236,7 +251,6 @@ Widget _buildFlowItem(BuildContext context, ChatFlowItem item) {
           initialFilename: item.filename,
         ),
       ),
-{%- elif item_type == 'media' %}
     ChatFlowItemMedia() => ChatMessageMedia(
         instanceId: item.instanceId,
         mediaRef: item.mediaRef,
@@ -248,12 +262,6 @@ Widget _buildFlowItem(BuildContext context, ChatFlowItem item) {
           initialTitle: item.title,
         ),
       ),
-{%- else %}
-    !!! ITEM TYPE '{{ item_type }}' HAS NO RENDER BRANCH IN
-    chat_message_flow.dart.jinja2 -- ADD ONE; THIS DELIBERATELY BREAKS THE
-    BUILD SO A NEW ITEM TYPE IS NEVER SILENTLY MISSED (T-01-10-01) !!!
-{%- endif %}
-{%- endfor %}
   };
 }
 
@@ -272,18 +280,18 @@ Widget _buildFlowItem(BuildContext context, ChatFlowItem item) {
 /// this widget renders what it is given and holds no message state of its
 /// own. Horizontal inset uses the phone-baseline token; the desktop-wide
 /// inset refinement is a shell/template iteration.
-class {{ widget_class_name }} extends StatefulWidget {
-  /// Creates a [{{ widget_class_name }}].
-  const {{ widget_class_name }}({required this.items, super.key});
+class ChatMessageFlow extends StatefulWidget {
+  /// Creates a [ChatMessageFlow].
+  const ChatMessageFlow({required this.items, super.key});
 
   /// The pushed flow items (oldest first); rendered newest at the bottom.
   final List<ChatFlowItem> items;
 
   @override
-  State<{{ widget_class_name }}> createState() => _{{ widget_class_name }}State();
+  State<ChatMessageFlow> createState() => _ChatMessageFlowState();
 }
 
-class _{{ widget_class_name }}State extends State<{{ widget_class_name }}> {
+class _ChatMessageFlowState extends State<ChatMessageFlow> {
   @override
   Widget build(BuildContext context) {
     _debugCheckBubbleVariantCoverage();
