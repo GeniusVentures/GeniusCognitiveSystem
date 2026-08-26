@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: GCS Chat
-status: "Phase 01 partial (01-01/01-02/01-07 merged, PR #11, 2026-08-25). Design resync 2026-08-26 (CONTEXT D-29) APPLIED TO PLANS: 01-03 REPLANNED and 01-04/01-05/01-11 + PATTERNS/VALIDATION amended to the D-27/D-29 ABI — four-function topic pub/sub C API (init[config bytes]/shutdown/publish/subscribe), codec-tagged protobuf bytes (uint8_t*+len, never char*), GcsCommand/GcsEvent envelopes with oneofs, GcsConfig codec bound per store (PROTOBUF). Ready to execute: wave 3 = {01-03, 01-08}; then waves 4-6 (01-05/01-06 non-autonomous). Old six-function ABI (gcs_on_message/gcs_join_topic/gcs_string_free) is dead everywhere except historical RESEARCH/SUMMARY/REVIEW records"
-stopped_at: Phase 1 UI-SPEC approved
-last_updated: "2026-08-26T20:15:00.000Z"
+status: "Phase 01 EXECUTING on feature/app-ffi-data-plane (code branch; PR pending). Merged via PR #11: 01-01/01-02/01-07 (2026-08-25). D-29 replan applied 2026-08-26 (cf4de25 on develop). Wave 3 COMPLETE on branch 2026-08-26: 01-03 (gcs_chat.proto GcsCommand/GcsEvent oneofs + four-function gcs_ffi bytes ABI; nm=4; bf4cb06..af5d348) and 01-08 (bubble templates + codegen triple; dart analyze clean; 532faa4..8a6bdef). NEXT wave 4: {01-04 FFI tests, 01-09 code/media templates} sequential (shared build dir), tests first; then wave 5 {01-05 Dart spike, 01-06 CI, 01-10 flow}, wave 6 {01-11 cubits+shell}. 01-05/01-06 non-autonomous (human-verify checkpoints)"
+stopped_at: Phase 1 wave 3 complete
+last_updated: "2026-08-26T21:20:00.000Z"
 last_activity: 2026-08-26
 progress:
   total_phases: 7
@@ -27,7 +27,7 @@ See: .planning/workstreams/app/PROJECT.md (updated 2026-08-15)
 
 Phase: 01 (foundation) — EXECUTING
 Plan: 2 of 11
-Status: Phase 01 partial (01-01/01-02/01-07 merged, PR #11, 2026-08-25). Design resync 2026-08-26 (CONTEXT D-29) APPLIED TO PLANS: 01-03 REPLANNED and 01-04/01-05/01-11 + PATTERNS/VALIDATION amended to the D-27/D-29 ABI — four-function topic pub/sub C API (init[config bytes]/shutdown/publish/subscribe), codec-tagged protobuf bytes (uint8_t*+len, never char*), GcsCommand/GcsEvent envelopes with oneofs, GcsConfig codec bound per store (PROTOBUF). Ready to execute: wave 3 = {01-03, 01-08}; then waves 4-6 (01-05/01-06 non-autonomous). Old six-function ABI (gcs_on_message/gcs_join_topic/gcs_string_free) is dead everywhere except historical RESEARCH/SUMMARY/REVIEW records
+Status: Phase 01 EXECUTING on feature/app-ffi-data-plane (code branch; PR pending). Merged via PR #11: 01-01/01-02/01-07 (2026-08-25). D-29 replan applied 2026-08-26 (cf4de25 on develop). Wave 3 COMPLETE on branch 2026-08-26: 01-03 (gcs_chat.proto GcsCommand/GcsEvent oneofs + four-function gcs_ffi bytes ABI; nm=4; bf4cb06..af5d348) and 01-08 (bubble templates + codegen triple; dart analyze clean; 532faa4..8a6bdef). NEXT wave 4: {01-04 FFI tests, 01-09 code/media templates} sequential (shared build dir), tests first; then wave 5 {01-05 Dart spike, 01-06 CI, 01-10 flow}, wave 6 {01-11 cubits+shell}. 01-05/01-06 non-autonomous (human-verify checkpoints)
 Last activity: 2026-08-26
 
 Progress: [█░░░░░░░░░] 9%
