@@ -19,10 +19,6 @@ add_subdirectory(proto)
 
 add_subdirectory(lib/gcs_storage)
 
-# Flutter/Dart app — gated behind FRONTEND_BUILD_ENABLED (default OFF) so
-# non-frontend CI paths and platforms without dart/flutter configure cleanly.
-add_subdirectory(app)
-
 # gcs_storage — hard required (project Conditional Compilation rule: missing required
 # libraries fail at configure time, never degrade to a stub).
 if(TARGET gcs_storage)
@@ -30,3 +26,11 @@ if(TARGET gcs_storage)
 else()
     message(FATAL_ERROR "gcs_storage target not found — src/lib/gcs_storage must be configured before gcs_core")
 endif()
+
+# gcs_ffi — SHARED library exposing the topic pub/sub C ABI (D-02); after proto
+# (gcs_ffi links gcs_proto) and gcs_core.
+add_subdirectory(ffi)
+
+# Flutter/Dart app — gated behind FRONTEND_BUILD_ENABLED (default OFF) so
+# non-frontend CI paths and platforms without dart/flutter configure cleanly.
+add_subdirectory(app)
