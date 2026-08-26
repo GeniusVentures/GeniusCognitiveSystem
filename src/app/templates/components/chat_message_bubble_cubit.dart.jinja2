@@ -1,0 +1,87 @@
+/// {{ widget_class_name }}Cubit -- Cubit for the {{ widget_class_name }} variants.
+///
+/// Generated from chat_message_bubble_cubit.dart.jinja2 -- do not edit by hand.
+/// Source schema: templates/components/chat_message_bubble_cubit.dart.jinja2
+/// Generator version: 0.4.0
+/// Thin FFI-event-driven Cubit (D-04/D-27): applies pushed message-state
+/// values, never synthesizes message content. C++ owns application state;
+/// Dart renders. Role axis (D-18): {{ roles | join(', ') }}. State axis
+/// (D-19): {{ states | join(', ') }}. In-memory only -- no hydration.
+library;
+
+import 'package:flutter_bloc/flutter_bloc.dart';
+
+import '{{ file_stem }}_state.dart';
+
+// ---------------------------------------------------------------------------
+// Cubit
+// ---------------------------------------------------------------------------
+
+/// Cubit for the [{{ widget_class_name }}] role variants.
+///
+/// Owns the bubble's runtime state-axis value and {{ payload }} payload.
+/// Values arrive from pushed FFI events; the mutation methods below are thin
+/// appliers, not synthesizers (D-04).
+class {{ widget_class_name }}Cubit extends Cubit<{{ widget_class_name }}State> {
+  /// Creates a [{{ widget_class_name }}Cubit].
+  ///
+  /// [role] is the structural role variant (one of
+  /// [{{ widget_class_name }}State.kValidRoles]); [initialMessageState] seeds
+  /// the state axis (one of [{{ widget_class_name }}State.kValidStates]);
+  /// [initialText] seeds the {{ payload }} payload.
+  {{ widget_class_name }}Cubit({
+    this.instanceId = '',
+    required String role,
+    this.initialMessageState = 'complete',
+    String initialText = '',
+  })  : assert(
+          {{ widget_class_name }}State.kValidRoles.contains(role),
+          'role must be one of the generated roles axis values',
+        ),
+        assert(
+          {{ widget_class_name }}State.kValidStates.contains(initialMessageState),
+          'initialMessageState must be one of the generated states axis values',
+        ),
+        super(
+          {{ widget_class_name }}State(
+            role: role,
+            state: initialMessageState,
+            text: initialText,
+          ),
+        );
+
+  /// Optional instance discriminator (kept for API uniformity with the
+  /// scaffold component cubits; unused by the in-memory cubit).
+  final String instanceId;
+
+  /// The state-axis value used when no pushed value has been applied yet.
+  final String initialMessageState;
+
+  /// Applies a pushed state-axis value (D-19 registry in the widget file).
+  void applyState(String value) {
+    assert(
+      {{ widget_class_name }}State.kValidStates.contains(value),
+      'value must be one of the generated states axis values',
+    );
+    emit(state.copyWith(state: value));
+  }
+
+  /// Replaces the {{ payload }} payload with a pushed value. Streaming
+  /// replaces the full text: C++ pushes authoritative snapshots, Dart never
+  /// assembles content locally (D-04).
+  void updateText(String value) {
+    emit(state.copyWith(text: value));
+  }
+
+  /// Resets to the seeded state-axis value and an empty payload. The role is
+  /// structural and therefore preserved.
+  void reset() {
+    emit(
+      {{ widget_class_name }}State(
+        role: state.role,
+        state: initialMessageState,
+        text: '',
+      ),
+    );
+  }
+}
