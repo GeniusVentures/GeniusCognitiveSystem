@@ -1,12 +1,12 @@
-/// {{ widget_class_name }} -- M3 chat code-block composite (top-level flow item).
+/// ChatMessageCodeBlock -- M3 chat code-block composite (top-level flow item).
 ///
 /// Generated from chat_message_code_block.dart.jinja2 -- do not edit by hand.
 /// Source schema: templates/components/chat_message_code_block.dart.jinja2
 /// Generator version: 0.4.0
-/// Top-level flow item (D-20): renders a {{ payload }} payload with NO bubble
+/// Top-level flow item (D-20): renders a code payload with NO bubble
 /// chrome -- the header/gutter/body surface belongs to the scaffold
 /// ScaffoldCodeBlock atom, never to the bubble composite. The states axis
-/// (D-19: {{ states | join(', ') }}) drives item-level chrome via generated
+/// (D-19: pending, streaming, thinking, complete, error) drives item-level chrome via generated
 /// per-state helpers selected from a data-driven registry -- never a runtime
 /// state switch (D-17). Code content is a pushed snapshot (D-04): C++ pushes
 /// authoritative code text; Dart never tokenizes or assembles it (syntax
@@ -20,8 +20,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:frontend_scaffold/components/scaffold_code_block.dart';
 import 'package:frontend_scaffold/theme/scaffold_theme.dart';
 
-import '{{ file_stem }}_cubit.dart';
-import '{{ file_stem }}_state.dart';
+import 'chat_message_code_block_cubit.dart';
+import 'chat_message_code_block_state.dart';
 
 /// Error-tint alpha painted over the code surface in the error state
 /// (UI-SPEC color contract; chat-domain constant, not a scaffold token).
@@ -29,9 +29,9 @@ const double kErrorOverlayAlpha = 0.12;
 
 /// Signature of a per-state chrome builder generated from the states axis.
 ///
-/// [item] is the {{ payload }} payload widget (the code surface); a state
+/// [item] is the code payload widget (the code surface); a state
 /// treatment dims it, tints it, or passes it through unchanged.
-typedef _{{ widget_class_name }}StateChromeBuilder = Widget Function(
+typedef _ChatMessageCodeBlockStateChromeBuilder = Widget Function(
   BuildContext context,
   Widget item,
 );
@@ -46,11 +46,13 @@ typedef _{{ widget_class_name }}StateChromeBuilder = Widget Function(
 /// never a hand-written switch. Append-only: adding a state to the vars axis
 /// regenerates a matching entry (identity chrome until a treatment is
 /// authored); existing entries are never renamed or removed.
-const Map<String, _{{ widget_class_name }}StateChromeBuilder> _stateChrome =
-    <String, _{{ widget_class_name }}StateChromeBuilder>{
-{%- for state in states %}
-      '{{ state }}': _chrome{{ state | capitalize }},
-{%- endfor %}
+const Map<String, _ChatMessageCodeBlockStateChromeBuilder> _stateChrome =
+    <String, _ChatMessageCodeBlockStateChromeBuilder>{
+      'pending': _chromePending,
+      'streaming': _chromeStreaming,
+      'thinking': _chromeThinking,
+      'complete': _chromeComplete,
+      'error': _chromeError,
     };
 
 /// Identity chrome: the item unchanged. Also the fallback for state values
@@ -62,38 +64,42 @@ Widget _chromeIdentity(BuildContext context, Widget item) {
 // ---------------------------------------------------------------------------
 // Per-state chrome builders (generated from the states axis)
 // ---------------------------------------------------------------------------
-{%- for state in states %}
-{%- if state == 'pending' %}
 
 /// Pending chrome: the whole item at [ScaffoldDimens.disabledOverlayOpacity]
 /// (UI-SPEC: the scaffold disabled/dim pattern).
-Widget _chrome{{ state | capitalize }}(BuildContext context, Widget item) {
+Widget _chromePending(BuildContext context, Widget item) {
   return Opacity(
     opacity: context.dimens.disabledOverlayOpacity,
     child: item,
   );
 }
-{%- elif state == 'error' %}
+
+/// Streaming chrome: no additional state treatment (identity).
+Widget _chromeStreaming(BuildContext context, Widget item) {
+  return _chromeIdentity(context, item);
+}
+
+/// Thinking chrome: no additional state treatment (identity).
+Widget _chromeThinking(BuildContext context, Widget item) {
+  return _chromeIdentity(context, item);
+}
+
+/// Complete chrome: no additional state treatment (identity).
+Widget _chromeComplete(BuildContext context, Widget item) {
+  return _chromeIdentity(context, item);
+}
 
 /// Error chrome: status-error tint painted over the code surface (12% alpha
 /// per the UI-SPEC color contract).
-Widget _chrome{{ state | capitalize }}(BuildContext context, Widget item) {
+Widget _chromeError(BuildContext context, Widget item) {
   return _ErrorOverlay(child: item);
 }
-{%- else %}
-
-/// {{ state | capitalize }} chrome: no additional state treatment (identity).
-Widget _chrome{{ state | capitalize }}(BuildContext context, Widget item) {
-  return _chromeIdentity(context, item);
-}
-{%- endif %}
-{%- endfor %}
 
 // ---------------------------------------------------------------------------
 // Payload adaptation (rendering transform, not synthesis)
 // ---------------------------------------------------------------------------
 
-/// Splits a pushed {{ payload }} snapshot into the scaffold atom's line list.
+/// Splits a pushed code snapshot into the scaffold atom's line list.
 ///
 /// Pure rendering transform at the widget boundary (D-04): the snapshot
 /// string is authoritative; highlighting stays a ScaffoldCodeBlock DI hook
@@ -147,12 +153,12 @@ class _ErrorOverlay extends StatelessWidget {
 ///
 /// Variant structure is generated from the states axis (D-17/D-19); the
 /// state arrives at runtime from pushed FFI events and selects chrome from
-/// the generated registry (never a state switch). The {{ payload }} payload
+/// the generated registry (never a state switch). The code payload
 /// is data-only -- this widget renders pushed code snapshots, it never
 /// synthesizes content (D-04).
-class {{ widget_class_name }} extends StatefulWidget {
-  /// Creates a [{{ widget_class_name }}].
-  const {{ widget_class_name }}({
+class ChatMessageCodeBlock extends StatefulWidget {
+  /// Creates a [ChatMessageCodeBlock].
+  const ChatMessageCodeBlock({
     this.instanceId = '',
     this.code = '',
     this.language,
@@ -164,7 +170,7 @@ class {{ widget_class_name }} extends StatefulWidget {
   /// Optional instance discriminator forwarded to the Cubit.
   final String instanceId;
 
-  /// Seed {{ payload }} payload; runtime updates flow through [cubit]
+  /// Seed code payload; runtime updates flow through [cubit]
   /// (pushed FFI events).
   final String code;
 
@@ -177,15 +183,15 @@ class {{ widget_class_name }} extends StatefulWidget {
   /// Optional parent-owned cubit driving this item (an FFI event
   /// subscriber); when null the widget owns an internal cubit seeded from
   /// [code].
-  final {{ widget_class_name }}Cubit? cubit;
+  final ChatMessageCodeBlockCubit? cubit;
 
   @override
-  State<{{ widget_class_name }}> createState() =>
-      _{{ widget_class_name }}State();
+  State<ChatMessageCodeBlock> createState() =>
+      _ChatMessageCodeBlockState();
 }
 
-class _{{ widget_class_name }}State extends State<{{ widget_class_name }}> {
-  late {{ widget_class_name }}Cubit _cubit;
+class _ChatMessageCodeBlockState extends State<ChatMessageCodeBlock> {
+  late ChatMessageCodeBlockCubit _cubit;
   late bool _ownsCubit;
 
   @override
@@ -193,7 +199,7 @@ class _{{ widget_class_name }}State extends State<{{ widget_class_name }}> {
     super.initState();
     _ownsCubit = widget.cubit == null;
     _cubit = widget.cubit ??
-        {{ widget_class_name }}Cubit(
+        ChatMessageCodeBlockCubit(
           instanceId: widget.instanceId,
           initialCode: widget.code,
           initialLanguage: widget.language ?? '',
@@ -202,7 +208,7 @@ class _{{ widget_class_name }}State extends State<{{ widget_class_name }}> {
   }
 
   @override
-  void didUpdateWidget({{ widget_class_name }} oldWidget) {
+  void didUpdateWidget(ChatMessageCodeBlock oldWidget) {
     super.didUpdateWidget(oldWidget);
     // Only the discriminator re-seeds the internal cubit. The payload seed
     // ([code]) deliberately does NOT: runtime code arrives via pushed FFI
@@ -215,7 +221,7 @@ class _{{ widget_class_name }}State extends State<{{ widget_class_name }}> {
       }
       _ownsCubit = widget.cubit == null;
       _cubit = widget.cubit ??
-          {{ widget_class_name }}Cubit(
+          ChatMessageCodeBlockCubit(
             instanceId: widget.instanceId,
             initialCode: widget.code,
             initialLanguage: widget.language ?? '',
@@ -234,9 +240,9 @@ class _{{ widget_class_name }}State extends State<{{ widget_class_name }}> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider<{{ widget_class_name }}Cubit>.value(
+    return BlocProvider<ChatMessageCodeBlockCubit>.value(
       value: _cubit,
-      child: BlocBuilder<{{ widget_class_name }}Cubit, {{ widget_class_name }}State>(
+      child: BlocBuilder<ChatMessageCodeBlockCubit, ChatMessageCodeBlockState>(
         builder: (context, state) {
           final Widget codeBlock = ScaffoldCodeBlock(
             lines: _snapshotLines(state.code),

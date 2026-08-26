@@ -40,66 +40,84 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Darwin" AND TARGET Genius-MOS-ELM-FFI)
     )
 endif()
 
-# --- GCS chat composite codegen (D-17): bubble-only loop, Dart triple only.
-# Mirrors scaffold CMakeLists.txt §6 (one stamp per rendered file, per-stamp
-# DEPENDS on template + tokens + engine + vars for the incremental
-# re-render invariant). The C++ half of this composite is the protobuf
-# ChatMessageState generated from src/proto/gcs_chat.proto by plan 01-03
-# (D-26/D-29) — there is deliberately no C++ template rendering here.
-# 01-09 (code_block/media) and 01-10 (flow) extend the aggregate target.
+# --- GCS chat composite codegen (D-17): bubble + code_block + media (D-20)
+# payload composites, Dart triples only. Mirrors scaffold CMakeLists.txt §6
+# (one stamp per rendered file, per-stamp DEPENDS on template + tokens +
+# engine + vars for the incremental re-render invariant). The C++ half of
+# every composite is the protobuf ChatMessageState generated from
+# src/proto/gcs_chat.proto by plan 01-03 (D-26/D-29) — there is deliberately
+# no C++ template rendering here. 01-10 (flow) extends the list + aggregate.
 set(_chat_templates_dir "${CMAKE_CURRENT_SOURCE_DIR}/templates/components")
-set(_bubble_vars "${_chat_templates_dir}/chat_message_bubble_vars.json")
+set(_chat_composites
+    chat_message_bubble
+    chat_message_code_block
+    chat_message_media
+)
 
-set(_bubble_stamps "")
-set(_bubble_outputs "")
+set(_chat_stamps "")
+set(_chat_outputs "")
 if(PYTHON3_EXECUTABLE AND FRONTEND_TARGET STREQUAL "flutter")
     # List form so each flag expands to TWO argv tokens (Pitfall 1762a45: a
     # single space-embedded string reaches argparse as one token and fails).
     # OUR templates dir FIRST — FileSystemLoader is first-match-wins.
-    set(_bubble_template_dirs
+    set(_chat_template_dirs
         --template-dir "${CMAKE_CURRENT_SOURCE_DIR}/templates"
         --template-dir "${CMAKE_CURRENT_SOURCE_DIR}/scaffold/templates"
     )
 
-    foreach(_kind "" "_cubit" "_state")
-        set(_bubble_template
-            "${_chat_templates_dir}/chat_message_bubble${_kind}.dart.jinja2")
-        set(_bubble_stamp
-            "${CMAKE_CURRENT_BINARY_DIR}/template_gen/chat_message_bubble${_kind}.stamp")
-        set(_bubble_output
-            "${GENERATED_DIR}/chat/chat_message_bubble${_kind}.dart")
+    foreach(_comp ${_chat_composites})
+        set(_comp_vars "${_chat_templates_dir}/${_comp}_vars.json")
 
-        add_custom_command(
-            OUTPUT ${_bubble_stamp} ${_bubble_output}
-            COMMAND ${CMAKE_COMMAND} -E make_directory
-                "${CMAKE_CURRENT_BINARY_DIR}/template_gen"
-            COMMAND ${PYTHON3_EXECUTABLE} ${ENGINE_SCRIPT}
-                --template "components/chat_message_bubble${_kind}.dart.jinja2"
-                --tokens ${DESIGN_TOKENS}
-                --output ${_bubble_output}
-                ${_bubble_template_dirs}
-                --vars ${_bubble_vars}
-            COMMAND ${CMAKE_COMMAND} -E touch ${_bubble_stamp}
-            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-            COMMENT "Rendering chat composite: chat_message_bubble${_kind}"
-            DEPENDS ${_bubble_template} ${DESIGN_TOKENS} ${ENGINE_SCRIPT} ${_bubble_vars}
-        )
-        list(APPEND _bubble_stamps ${_bubble_stamp})
-        list(APPEND _bubble_outputs ${_bubble_output})
+        foreach(_kind "" "_cubit" "_state")
+            set(_comp_template
+                "${_chat_templates_dir}/${_comp}${_kind}.dart.jinja2")
+            set(_comp_stamp
+                "${CMAKE_CURRENT_BINARY_DIR}/template_gen/${_comp}${_kind}.stamp")
+            set(_comp_output
+                "${GENERATED_DIR}/chat/${_comp}${_kind}.dart")
+
+            add_custom_command(
+                OUTPUT ${_comp_stamp} ${_comp_output}
+                COMMAND ${CMAKE_COMMAND} -E make_directory
+                    "${CMAKE_CURRENT_BINARY_DIR}/template_gen"
+                COMMAND ${PYTHON3_EXECUTABLE} ${ENGINE_SCRIPT}
+                    --template "components/${_comp}${_kind}.dart.jinja2"
+                    --tokens ${DESIGN_TOKENS}
+                    --output ${_comp_output}
+                    ${_chat_template_dirs}
+                    --vars ${_comp_vars}
+                COMMAND ${CMAKE_COMMAND} -E touch ${_comp_stamp}
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                COMMENT "Rendering chat composite: ${_comp}${_kind}"
+                DEPENDS ${_comp_template} ${DESIGN_TOKENS} ${ENGINE_SCRIPT} ${_comp_vars}
+            )
+            list(APPEND _chat_stamps ${_comp_stamp})
+            list(APPEND _chat_outputs ${_comp_output})
+        endforeach()
     endforeach()
 endif()
 
 # Declared unconditionally (empty DEPENDS when python3 is absent) so
 # app_analyze/app_test below never reference a dangling target.
-add_custom_target(generate_composite_chat_message_bubble
-    COMMENT "Generate chat_message_bubble widget/cubit/state triple"
-    DEPENDS ${_bubble_stamps} ${_bubble_outputs}
-)
-# Aggregate for ALL chat composites (D-17) — bubble-only for now.
+# Aggregate for ALL chat composites (D-17) — bubble + code_block + media;
+# 01-10 adds the flow envelope to this aggregate.
 add_custom_target(app_generate_chat_components
     COMMENT "Generate all chat composite widget/cubit/state triples"
-    DEPENDS ${_bubble_stamps} ${_bubble_outputs}
+    DEPENDS ${_chat_stamps} ${_chat_outputs}
 )
+
+# Per-composite dev-loop targets (RESEARCH D-17 shape), declared
+# unconditionally so the target names exist even when python3 is absent
+# (the stamps then simply never exist and the targets are no-ops).
+foreach(_comp ${_chat_composites})
+    add_custom_target(generate_composite_${_comp}
+        COMMENT "Generate ${_comp} widget/cubit/state triple"
+        DEPENDS
+            "${CMAKE_CURRENT_BINARY_DIR}/template_gen/${_comp}.stamp"
+            "${CMAKE_CURRENT_BINARY_DIR}/template_gen/${_comp}_cubit.stamp"
+            "${CMAKE_CURRENT_BINARY_DIR}/template_gen/${_comp}_state.stamp"
+    )
+endforeach()
 
 # App-level dev-loop targets. app_analyze/app_test run after dependency
 # resolution AND chat composite codegen so analyze/tests always see freshly
