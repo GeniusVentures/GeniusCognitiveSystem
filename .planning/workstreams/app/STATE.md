@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: GCS Chat
-status: "Phase 01 merged to develop (PR #11, 2026-08-25). Next: plans 01-05 (main.dart UI rewrite), 01-08 (scaffold codegen → src/app/widgets)"
+status: "Phase 01 partial (01-01/01-02/01-07 merged, PR #11, 2026-08-25). Design resync 2026-08-26 (CONTEXT D-29, final): plan 01-03 needs REPLAN before execution — FFI is symmetric topic pub/sub over codec-tagged bytes (uint8_t*+len, never char*), GCS stores bind PROTOBUF; hand-authored .proto IS the schema source (broken-up messages: Command/Event envelopes with oneofs), protoc dual-targets C++ (add_proto_library) + Dart; Jinja2 stays widgets-only. Then 01-05 (main.dart UI rewrite), 01-08 (scaffold codegen → src/app/widgets)"
 stopped_at: Phase 1 UI-SPEC approved
-last_updated: "2026-08-26T01:47:33.319Z"
-last_activity: 2026-08-25
+last_updated: "2026-08-26T19:30:00.000Z"
+last_activity: 2026-08-26
 progress:
   total_phases: 7
   completed_phases: 0
@@ -27,8 +27,8 @@ See: .planning/workstreams/app/PROJECT.md (updated 2026-08-15)
 
 Phase: 01 (foundation) — EXECUTING
 Plan: 2 of 11
-Status: Phase 01 merged to develop (PR #11, 2026-08-25). Next: plans 01-05 (main.dart UI rewrite), 01-08 (scaffold codegen → src/app/widgets)
-Last activity: 2026-08-25
+Status: Phase 01 partial (01-01/01-02/01-07 merged, PR #11, 2026-08-25). Design resync 2026-08-26 (CONTEXT D-29, final): plan 01-03 needs REPLAN before execution — FFI is symmetric topic pub/sub over codec-tagged bytes (uint8_t*+len, never char*), GCS stores bind PROTOBUF; hand-authored .proto IS the schema source (broken-up messages: Command/Event envelopes with oneofs), protoc dual-targets C++ (add_proto_library) + Dart; Jinja2 stays widgets-only. Then 01-05 (main.dart UI rewrite), 01-08 (scaffold codegen → src/app/widgets)
+Last activity: 2026-08-26
 
 Progress: [█░░░░░░░░░] 9%
 
