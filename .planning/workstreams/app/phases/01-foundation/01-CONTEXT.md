@@ -22,7 +22,7 @@ The C++ chat core compiles, links against GlobalDB (via GNUS-NEO-SWARM's `neoswa
 
 ### Async / Event Model Across FFI
 - **D-04:** C++ owns essentially all state and logic. Dart is a thin wrapper: input (send text, select channel, change config) and output (render what C++ gives it).
-- **D-05:** Data arriving from the network (incoming messages, CRDT sync updates) is pushed to Dart via **native→Dart callbacks** — ffigen `Pointer<NativeFunction>` + `ReceivePort`/NativePort pattern. Dart does NOT poll. This is the same pattern `GNUS-NEO-SWARM/neoswarm_ffi` already uses — reuse that mechanism (listener registration on the session handle, e.g. `gcs_on_message(handle, dartPort)`-style).
+- **D-05:** Data arriving from the network (incoming messages, CRDT sync updates) is pushed to Dart via **native→Dart callbacks** — ffigen `Pointer<NativeFunction>` + `ReceivePort`/NativePort pattern. Dart does NOT poll. This is the same pattern `GNUS-NEO-SWARM/neoswarm_ffi` already uses — reuse that mechanism (listener registration on the session handle; amended by D-27/D-29 to `gcs_subscribe(handle, topic, dartPort)`).
 
 ### CI/CD
 - **D-06:** Follow the SuperGenius CI pattern (`.github/workflows/cmake.yml` in `../SuperGenius`): a `resolve-runners` job picks self-hosted runners by label (`sg-ubuntu-linux`, `sg-arm-linux`, `SG-WIN11`, `gv-OSX-Large`) with GitHub-hosted fallbacks, then a matrix job builds **Android (arm64-v8a, armeabi-v7a), iOS, OSX, Linux (x86_64, aarch64), Windows × Debug/Release**.

@@ -119,6 +119,20 @@ endif()
 
 ### `src/ffi/gcs_core.h` (new — single opaque-handle C API, protobuf byte contract)
 
+> **⚠ AMENDED 2026-08-26 by D-27/D-29 (see 01-03-PLAN.md — authoritative where this section differs).**
+> The API skeleton below predates the org-wide FFI data plane decision and is SUPERSEDED in three
+> ways; the export-macro/header-guard/Doxygen STYLE below remains the pattern to copy:
+> 1. The ABI is FOUR functions — `gcs_init(configBytes, configLength)` / `gcs_shutdown` /
+>    `gcs_publish(session, topic, payloadBytes, payloadLength)` /
+>    `gcs_subscribe(session, topic, dartPort)`. `gcs_join_topic`, `gcs_on_message`, and
+>    `gcs_string_free` DO NOT EXIST (join/subscribe are a GcsCommand publish + gcs_subscribe; no
+>    function returns a string).
+> 2. Payloads are codec-tagged bytes (`const uint8_t* + size_t`, never `char*`); the codec is bound
+>    per store at creation via `GcsConfig.codec` (status enum gains `GCS_ERROR_UNSUPPORTED_CODEC`).
+> 3. `gcs_publish` no longer wraps raw text — Dart publishes serialized `GcsCommand` envelopes
+>    (oneof join_topic/send_text) to the command topic; C++ parses, stamps authority fields, and
+>    pushes `GcsEvent` envelopes (oneof message/room_list/readiness/error).
+
 **Analog:** `GNUS-NEO-SWARM/src/genius_elm_chat_completions.h` (full file — 103 lines)
 
 **Header guard + stdint** (D-26 header guard is `GCS_CORE_FFI_H`):
@@ -219,6 +233,10 @@ extern "C"
 ---
 
 ### `src/ffi/gcs_core_ffi.cpp` (new — FFI thunk: protobuf serialize + push events)
+
+> **⚠ AMENDED 2026-08-26 by D-27/D-29** — same supersession as the `gcs_core.h` section above:
+> implement the four-function bytes ABI with GcsCommand parse/dispatch per 01-03-PLAN.md, not the
+> six-function text-wrapping skeleton below (style/mutex/idempotency patterns below remain valid).
 
 **Analog:** `GNUS-NEO-SWARM/src/genius_elm_chat_completions.cpp` (227 lines)
 
@@ -716,6 +734,10 @@ TEST_F( GcsCoreSmokeTest, CrdtPutGetRoundTripsOnGcsChatTopic )
 
 ### `test/test_gcs_ffi.cpp` (new — FFI init/echo/shutdown)
 
+> **⚠ AMENDED 2026-08-26 by D-27/D-29** — test list below is superseded by 01-04-PLAN.md Task 3
+> (config-bytes init failure classes, publish/subscribe arg validation; no gcs_string_free /
+> gcs_join_topic tests — those symbols no longer exist).
+
 **Analog:** `GNUS-NEO-SWARM/test/ffi/test_genius_elm_ffi.cpp` (100+ lines)
 
 **Fixture with shutdown-on-teardown** (lines 10-22):
@@ -1053,6 +1075,11 @@ The `_WIN32` ifdef here is the **only** permitted OS preprocessor guard in the G
 ---
 
 ### Heap-String Allocation + Paired Free
+
+> **⚠ RETIRED 2026-08-26 by D-29** — no FFI function returns a heap string anymore (errors arrive as
+> pushed ErrorNotice events), so `gcs_string_free` and this pattern's FFI application are dead.
+> The caller-owns-buffer direction that REPLACES it: Dart allocates/copies/calls/frees its publish
+> buffers; C++ copies inbound bytes inside the call (see T-01-03-03/T-01-05-06).
 
 **Source:** `GNUS-NEO-SWARM/src/genius_elm_chat_completions.cpp:28-38, 210-213`
 **Apply to:** `src/ffi/gcs_core_ffi.cpp`
