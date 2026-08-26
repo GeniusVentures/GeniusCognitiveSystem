@@ -41,17 +41,18 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Darwin" AND TARGET Genius-MOS-ELM-FFI)
 endif()
 
 # --- GCS chat composite codegen (D-17): bubble + code_block + media (D-20)
-# payload composites, Dart triples only. Mirrors scaffold CMakeLists.txt §6
-# (one stamp per rendered file, per-stamp DEPENDS on template + tokens +
-# engine + vars for the incremental re-render invariant). The C++ half of
-# every composite is the protobuf ChatMessageState generated from
-# src/proto/gcs_chat.proto by plan 01-03 (D-26/D-29) — there is deliberately
-# no C++ template rendering here. 01-10 (flow) extends the list + aggregate.
+# payload composites + the flow envelope (D-20 interleave), Dart triples
+# only. Mirrors scaffold CMakeLists.txt §6 (one stamp per rendered file,
+# per-stamp DEPENDS on template + tokens + engine + vars for the incremental
+# re-render invariant). The C++ half of every composite is the protobuf
+# ChatMessageState generated from src/proto/gcs_chat.proto by plan 01-03
+# (D-26/D-29) — there is deliberately no C++ template rendering here.
 set(_chat_templates_dir "${CMAKE_CURRENT_SOURCE_DIR}/templates/components")
 set(_chat_composites
     chat_message_bubble
     chat_message_code_block
     chat_message_media
+    chat_message_flow
 )
 
 set(_chat_stamps "")
@@ -99,8 +100,8 @@ endif()
 
 # Declared unconditionally (empty DEPENDS when python3 is absent) so
 # app_analyze/app_test below never reference a dangling target.
-# Aggregate for ALL chat composites (D-17) — bubble + code_block + media;
-# 01-10 adds the flow envelope to this aggregate.
+# Aggregate for ALL chat composites (D-17) — bubble + code_block + media +
+# flow (the D-20 item taxonomy, complete).
 add_custom_target(app_generate_chat_components
     COMMENT "Generate all chat composite widget/cubit/state triples"
     DEPENDS ${_chat_stamps} ${_chat_outputs}
