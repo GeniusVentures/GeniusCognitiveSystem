@@ -1,0 +1,55 @@
+/// {{ widget_class_name }}State -- immutable state for the
+/// {{ widget_class_name }} envelope.
+///
+/// Generated from chat_message_flow_state.dart.jinja2 -- do not edit by hand.
+/// Source schema: templates/components/chat_message_flow_state.dart.jinja2
+/// Generator version: 0.4.0
+/// Plain Dart state class consumed by {{ widget_class_name }}Cubit. The state
+/// IS the pushed item list (D-04: no local message synthesis, no derived
+/// fields). Mirrors the variant axis (D-20 item types:
+/// {{ item_types | join(', ') }}) whose Dart half -- the sealed ChatFlowItem
+/// hierarchy -- lives in the widget file; the protobuf ChatMessageState
+/// taxonomy from src/proto/gcs_chat.proto is the C++ half (D-24). In-memory
+/// only.
+library;
+
+import '{{ file_stem }}.dart';
+
+// ---------------------------------------------------------------------------
+// State class
+// ---------------------------------------------------------------------------
+
+/// Immutable state for the [{{ widget_class_name }}] envelope: the pushed
+/// flow items, oldest first.
+///
+/// New instances are produced exclusively via [copyWith]; the cubit emits
+/// them to drive widget rebuilds. Lists handed to the constructor should be
+/// treated as owned by the state (the cubit's appliers pass unmodifiable,
+/// capped lists).
+class {{ widget_class_name }}State {
+  /// Creates a [{{ widget_class_name }}State] with the given items.
+  const {{ widget_class_name }}State({
+    this.items = const <ChatFlowItem>[],
+  });
+
+  /// The pushed flow items, oldest first (the widget renders newest at the
+  /// bottom of the bottom-anchored flow).
+  final List<ChatFlowItem> items;
+
+  /// Item types the generator produced subclasses for (D-20 axis snapshot).
+  static const List<String> kValidItemTypes = <String>[
+{%- for item_type in item_types %}
+    '{{ item_type }}',
+{%- endfor %}
+  ];
+
+  /// Maximum retained flow items (T-01-10-02): appending past the cap drops
+  /// the OLDEST items, bounding the rendered list against unbounded growth.
+  /// Chat-domain constant (not a scaffold token); Phase 1 default value.
+  static const int kMaxFlowItems = 500;
+
+  /// Returns a copy of this state with the given fields replaced.
+  {{ widget_class_name }}State copyWith({List<ChatFlowItem>? items}) {
+    return {{ widget_class_name }}State(items: items ?? this.items);
+  }
+}
