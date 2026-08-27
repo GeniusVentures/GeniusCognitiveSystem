@@ -21,3 +21,13 @@ target_compile_definitions(gcs_ffi PRIVATE GCS_FFI_EXPORTS)   # dllexport macro
 if(ANDROID)
     target_link_options(gcs_ffi PRIVATE "-Wl,-z,max-page-size=16384")
 endif()
+# Install alongside the rest of the tree so consumers (Dart test harness,
+# plugin staging, packaging) take the artifact from one stable per-platform
+# location — never from the CMake build dir (LIBRARY: .so/.dylib, RUNTIME:
+# .dll, ARCHIVE: Windows import lib).
+install(TARGETS gcs_ffi
+    LIBRARY DESTINATION lib
+    RUNTIME DESTINATION bin
+    ARCHIVE DESTINATION lib
+    PUBLIC_HEADER DESTINATION include
+)
