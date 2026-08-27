@@ -7,18 +7,21 @@
  *             thunk parses them, dispatches through gcs::CoreSession, stamps the
  *             authoritative ChatMessageState fields (D-04 — C++ owns state), and
  *             pushes serialized gcs.chat.GcsEvent envelopes (message/room-list/
- *             readiness/raw-error-string) toward the registered Dart NativePort.
- *             The actual Dart_PostCobject posting lands in Plan 05; PostToDart
- *             below is the inert seam it fills. Thread-safe via global mutex;
- *             no exceptions escape the ABI; caller-owned payload buffers are
- *             copied inside the call and never retained.
+ *             readiness/raw-error-string) toward the registered Dart NativePort
+ *             as Dart_CObject typed-data (uint8) posted through the vendored
+ *             Dart API_DL indirection (Dart_PostCObject_DL). Thread-safe via
+ *             global mutex; no exceptions escape the ABI; caller-owned payload
+ *             buffers are copied inside the call and never retained.
  * @date       2026-08-26
  * @copyright  (c) 2026 GNUS.AI
  */
 #include "gcs_core.h"
+#include "dart_api_dl.h"
 #include "proto/gcs_chat.pb.h"
 
 #include "lib/gcs_core.hpp"
+
+#include <spdlog/spdlog.h>
 
 #include <atomic>
 #include <chrono>
@@ -43,6 +46,9 @@ namespace
     std::vector<std::string> g_roomTopics;         // joined topic set (guarded by g_mutex)
     std::atomic<int64_t> g_dartPort{ 0 };          // registered Dart port (0 = unregistered)
     std::atomic<uint64_t> g_messageSeq{ 0 };       // monotonic message id salt
+    // One-shot guard for the per-process Dart API_DL table state check in gcs_init
+    // (the table itself is initialized via the exported Dart_InitializeApiDL).
+    std::atomic<bool> g_apiDlInitialized{ false };
 
     /**
      * \brief Serializes a GcsEvent envelope to codec-encoded bytes.
@@ -60,17 +66,31 @@ namespace
     /**
      * \brief Pushes a GcsEvent envelope to the registered Dart port.
      *
-     * Serializes the event and hands the bytes to the Plan 05 posting seam.
-     * Callers must hold g_mutex when the event is built from guarded state.
+     * Serializes the event and posts it as a Dart_CObject typed-data (uint8)
+     * message through the Dart API_DL indirection (D-26: protobuf bytes, never
+     * a raw string). Callers must hold g_mutex when the event is built from
+     * guarded state.
      *
      * \param[in] event  The event envelope to push.
      */
     void PostToDart( const gcs::chat::GcsEvent& event )
     {
         const std::string bytes = SerializeGcsEvent( event );
-        // TODO(01-05): Plan 05 wires Dart_PostCobject here (Dart_CObject_kTypedData of
-        // the serialized bytes). Inert until then.
-        (void)bytes;
+        const int64_t port = g_dartPort.load();
+        if ( port == 0 || Dart_PostCObject_DL == nullptr )
+        {
+            return; // no registered port / API_DL table not initialized (no Dart VM attached)
+        }
+
+        // The local bytes buffer outlives the synchronous post — the Dart VM
+        // copies typed-data before returning, so no dangling buffer (T-01-05-02).
+        Dart_CObject message{};
+        message.type = Dart_CObject_kTypedData;
+        message.value.as_typed_data.type = Dart_TypedData_kUint8;
+        message.value.as_typed_data.length = static_cast<intptr_t>( bytes.size() );
+        message.value.as_typed_data.values = reinterpret_cast<const uint8_t*>( bytes.data() );
+        // A closed/failing port returns false — safe to ignore (Pitfall 6 / T-01-05-01).
+        (void)Dart_PostCObject_DL( port, &message );
     }
 
     /**
@@ -109,6 +129,26 @@ extern "C"
     GCS_FFI_API GcsSession* gcs_init( const uint8_t* configBytes, size_t configLength ) GCS_FFI_NOEXCEPT
     {
         std::lock_guard<std::mutex> lock( g_mutex );
+
+        // One-time Dart API_DL state check (per-process init contract of
+        // dart_api_dl.h). DEVIATION from plan text (Rule 1): the plan calls for
+        // Dart_InitializeApiDL(nullptr) here, but the vendored SDK source
+        // dereferences its argument unconditionally (dart_api_dl.c —
+        // `dart_api_data->major`), so a null table pointer would fault. The
+        // Dart VM's table pointer (NativeApi.initializeApiDLData) is not carried
+        // by the four-function ABI; the Dart side initializes the table by
+        // calling this library's exported Dart_InitializeApiDL symbol (verified
+        // exported from libgcs_ffi.dylib). Until that runs, Dart_PostCObject_DL
+        // stays null and PostToDart is a safe no-op — non-callback FFI calls
+        // remain fully usable (the plan's log-and-continue outcome).
+        if ( !g_apiDlInitialized.exchange( true ) )
+        {
+            if ( Dart_PostCObject_DL == nullptr )
+            {
+                spdlog::error( "gcs_ffi: Dart API_DL table not initialized — pushed GcsEvent "
+                               "delivery disabled until Dart calls Dart_InitializeApiDL" );
+            }
+        }
 
         if ( g_session )
         {
