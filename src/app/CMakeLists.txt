@@ -140,6 +140,26 @@ add_custom_target(app_test
     DEPENDS app_pub_get app_generate_chat_components
 )
 
+# Dart-side FFI smoke test (01-05 Task 4) — registered in the SAME ctest
+# harness as the gtests, so `ninja && ctest` is the single entry point.
+# CMake owns all path/suffix knowledge: $<TARGET_FILE:gcs_ffi> expands to
+# libgcs_ffi.dylib/.so/gcs_ffi.dll per platform and config, injected via
+# `cmake -E env` (COMMAND args support generator expressions on every CMake
+# version we target; the test ENVIRONMENT property does not). Host-only gate
+# is the platform NAME, NOT CMAKE_CROSSCOMPILING: build/apple.toolchain.cmake
+# sets CMAKE_SYSTEM_NAME even for host-matching SDKs (MAC_UNIVERSAL), which
+# forces CMAKE_CROSSCOMPILING=TRUE on plain macOS builds — verified via
+# CMakeFiles/*/CMakeSystem.cmake in the build tree. iOS/Android
+# (CMAKE_SYSTEM_NAME iOS/Android) don't match: the device-arch artifact can't
+# load in the host Dart VM — device coverage is the integration_test flavor.
+if(BUILD_TESTS AND CMAKE_SYSTEM_NAME MATCHES "Darwin|Linux|Windows" AND TARGET gcs_ffi)
+    add_test(NAME test_gcs_ffi_dart
+        COMMAND ${CMAKE_COMMAND} -E env
+            "GCS_FFI_LIBRARY=$<TARGET_FILE:gcs_ffi>"
+            ${FLUTTER_EXECUTABLE} test test/gcs_native_port_smoke_test.dart
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+endif()
+
 # Bare-app desktop build. Host-desktop only (macOS here) — the equivalent
 # windows/linux targets can be added the same way when those hosts are needed.
 # Same Flutter invocation `flutter run -d macos` uses under the hood.
