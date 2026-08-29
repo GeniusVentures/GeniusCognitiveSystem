@@ -62,7 +62,8 @@ public:
 
   /**
    * @brief Production init — delegates to GcsGlobalDb::Initialize()
-   *        (acquires the shared pubsub via GeniusSDKGetNode()).
+   *        (acquires the shared pubsub and the node's graphsync Network via
+   *        GeniusSDKGetNode()).
    *
    * @return outcome::success on a fully wired session; otherwise the
    *         propagated Error code (Error::SdkNotInitialized,
@@ -71,14 +72,19 @@ public:
   outcome::result<void> Initialize();
 
   /**
-   * @brief Injected-pubsub init — test seam (Tier 2 fixture pattern).
+   * @brief Injected pubsub + graphsync Network init — test seam (Tier 2
+   *        fixture pattern).
    *
    * @param[in] pubsub A started GossipPubSub whose lifetime outlives this
    * session.
+   * @param[in] graphsyncNetwork A graphsync Network on pubsub's host whose
+   * lifetime outlives this session; borrowed, never constructed or stopped.
    * @return outcome::success or the propagated Error code.
    */
-  outcome::result<void>
-  Initialize(std::shared_ptr<sgns::ipfs_pubsub::GossipPubSub> pubsub);
+  outcome::result<void> Initialize(
+      std::shared_ptr<sgns::ipfs_pubsub::GossipPubSub> pubsub,
+      std::shared_ptr<sgns::ipfs_lite::ipfs::graphsync::Network>
+          graphsyncNetwork);
 
   /**
    * @brief Idempotent shutdown — delegates to GcsGlobalDb::Shutdown().

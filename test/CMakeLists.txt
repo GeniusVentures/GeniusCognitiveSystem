@@ -62,6 +62,11 @@ endmacro()
 # and duplicate target names are a CMake configure error (CMP0002) whenever both
 # test trees configure in one build. Same source file, same gcs_storage linkage.
 gcs_test(test_gcs_storage    test_gcs_global_db.cpp  "gcs_storage;neoswarm_common;sgns::crdt_globaldb")
+# SDK-wiring regression (2026-08-27 handler-clobber bug): separate binary —
+# GeniusSDKInit/Shutdown toggle a process-global node, which must not leak into
+# the option-C tests above. Links gcs_storage (PUBLIC: GeniusSDK_shared +
+# SuperGenius/GeniusSDK include dirs); skips when the node cannot boot.
+gcs_test(test_gcs_global_db_sdk test_gcs_global_db_sdk.cpp "gcs_storage;neoswarm_common;sgns::crdt_globaldb")
 # CORE-05 substrate smoke (01-04 Task 2): CoreSession lifecycle + topic + Put/Get
 # round-trip over an injected port-0 GossipPubSub.
 gcs_test(test_gcs_core_smoke test_gcs_core_smoke.cpp "gcs_core;gcs_storage;neoswarm_common")

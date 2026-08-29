@@ -27,8 +27,10 @@ CoreSession::~CoreSession() {
 outcome::result<void> CoreSession::Initialize() { return m_db->Initialize(); }
 
 outcome::result<void> CoreSession::Initialize(
-    std::shared_ptr<sgns::ipfs_pubsub::GossipPubSub> pubsub) {
-  return m_db->Initialize(std::move(pubsub));
+    std::shared_ptr<sgns::ipfs_pubsub::GossipPubSub> pubsub,
+    std::shared_ptr<sgns::ipfs_lite::ipfs::graphsync::Network>
+        graphsyncNetwork) {
+  return m_db->Initialize(std::move(pubsub), std::move(graphsyncNetwork));
 }
 
 void CoreSession::Shutdown() noexcept {

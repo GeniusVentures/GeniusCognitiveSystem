@@ -15,6 +15,7 @@
  */
 
 #include "lib/gcs_core.hpp"
+#include "test_graphsync_network.hpp"
 #include "test_wait_condition.hpp"
 
 #include <chrono>
@@ -142,12 +143,13 @@ namespace gcs::test
     {
         auto pubsub = MakeStartedPubSub( m_tempPath + "/key" );
         ASSERT_NE( pubsub, nullptr );
+        auto graphsync = gcs::test::MakeGraphsyncContext( pubsub );
 
         gcs::CoreSession::Config cfg{};
         cfg.m_dbPath = m_tempPath + "/db";
         gcs::CoreSession session( cfg );
 
-        auto res = session.Initialize( pubsub );
+        auto res = session.Initialize( pubsub, graphsync.network );
         ASSERT_TRUE( res.has_value() );
         EXPECT_TRUE( session.IsRunning() );
 
@@ -171,11 +173,12 @@ namespace gcs::test
     {
         auto pubsub = MakeStartedPubSub( m_tempPath + "/key" );
         ASSERT_NE( pubsub, nullptr );
+        auto graphsync = gcs::test::MakeGraphsyncContext( pubsub );
 
         gcs::CoreSession::Config cfg{};
         cfg.m_dbPath = m_tempPath + "/db";
         gcs::CoreSession session( cfg );
-        ASSERT_TRUE( session.Initialize( pubsub ).has_value() );
+        ASSERT_TRUE( session.Initialize( pubsub, graphsync.network ).has_value() );
         EXPECT_TRUE( session.IsRunning() );
 
         // The db directory may be created lazily — wait for it via the wait-condition

@@ -30,6 +30,8 @@
 #include <soralog/impl/configurator_from_yaml.hpp>
 #include <soralog/logging_system.hpp>
 
+#include "test_graphsync_network.hpp"
+
 namespace
 {
     /// Upper bound for a single wait-condition call (mirrors the fixture's WAIT_TIMEOUT).
@@ -201,12 +203,13 @@ namespace sgns::neoswarm::storage::test
     {
         auto pubsub = MakeStartedPubSub( m_tempPath + "/key" );
         ASSERT_NE( pubsub, nullptr );
+        auto graphsync = ::gcs::test::MakeGraphsyncContext( pubsub );
 
         GcsGlobalDb::Config cfg{};
         cfg.m_dbPath = m_tempPath + "/db";
         GcsGlobalDb db( cfg );
 
-        auto res = db.Initialize( pubsub );
+        auto res = db.Initialize( pubsub, graphsync.network );
         ASSERT_TRUE( res.has_value() );
         EXPECT_TRUE( db.IsRunning() );
 
@@ -229,18 +232,46 @@ namespace sgns::neoswarm::storage::test
     {
         auto pubsub = MakeStartedPubSub( m_tempPath + "/key" );
         ASSERT_NE( pubsub, nullptr );
+        auto graphsync = ::gcs::test::MakeGraphsyncContext( pubsub );
 
         GcsGlobalDb::Config cfg{};
         cfg.m_dbPath = m_tempPath + "/db";
         GcsGlobalDb db( cfg );
 
-        auto first = db.Initialize( pubsub );
+        auto first = db.Initialize( pubsub, graphsync.network );
         ASSERT_TRUE( first.has_value() );
         EXPECT_TRUE( db.IsRunning() );
 
-        auto second = db.Initialize( pubsub );
+        auto second = db.Initialize( pubsub, graphsync.network );
         ASSERT_FALSE( second.has_value() );
         EXPECT_EQ( second.error(), Error::GcsDbError );
+
+        db.Shutdown();
+        pubsub->Stop();
+    }
+
+    /**
+     * @brief Regression (2026-08-27 handler-clobber bug): the injected graphsync
+     *        Network must be BORROWED, never re-constructed. A libp2p host keeps
+     *        one protocol-handler slot per protocol — a locally constructed
+     *        Network would silently replace the injector's registration. Pointer
+     *        equality against the injected instance proves no re-registration.
+     */
+    TEST_F( GcsGlobalDbTest, InjectedGraphsyncNetworkIsBorrowedNotReplaced )
+    {
+        auto pubsub = MakeStartedPubSub( m_tempPath + "/key" );
+        ASSERT_NE( pubsub, nullptr );
+        auto graphsync = ::gcs::test::MakeGraphsyncContext( pubsub );
+
+        GcsGlobalDb::Config cfg{};
+        cfg.m_dbPath = m_tempPath + "/db";
+        GcsGlobalDb db( cfg );
+
+        ASSERT_TRUE( db.GraphsyncNetwork() == nullptr );
+
+        auto res = db.Initialize( pubsub, graphsync.network );
+        ASSERT_TRUE( res.has_value() );
+        EXPECT_EQ( db.GraphsyncNetwork().get(), graphsync.network.get() );
 
         db.Shutdown();
         pubsub->Stop();
