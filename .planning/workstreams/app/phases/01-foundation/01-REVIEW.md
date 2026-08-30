@@ -1,175 +1,382 @@
 ---
 phase: 01-foundation
-reviewed: 2026-08-25T00:00:00Z
+reviewed: 2026-08-30T00:05:26Z
 depth: standard
-files_reviewed: 20
+files_reviewed: 51
 files_reviewed_list:
-  - CMakeLists.txt
-  - cmake/CommonBuildParameters.cmake
-  - cmake/CompilationFlags.cmake
-  - cmake/toolchain/cxx17.cmake
-  - cmake/config.cmake.in
   - src/CMakeLists.txt
   - src/app/CMakeLists.txt
+  - src/app/ffigen.yaml
+  - src/app/lib/gcs_bindings_generated.dart
+  - src/app/lib/generated/chat/chat_message_bubble.dart
+  - src/app/lib/generated/chat/chat_message_bubble_cubit.dart
+  - src/app/lib/generated/chat/chat_message_bubble_state.dart
+  - src/app/lib/generated/chat/chat_message_code_block.dart
+  - src/app/lib/generated/chat/chat_message_code_block_cubit.dart
+  - src/app/lib/generated/chat/chat_message_code_block_state.dart
+  - src/app/lib/generated/chat/chat_message_flow.dart
+  - src/app/lib/generated/chat/chat_message_flow_cubit.dart
+  - src/app/lib/generated/chat/chat_message_flow_state.dart
+  - src/app/lib/generated/chat/chat_message_media.dart
+  - src/app/lib/generated/chat/chat_message_media_cubit.dart
+  - src/app/lib/generated/chat/chat_message_media_state.dart
+  - src/app/lib/generated/proto/gcs_chat.pb.dart
   - src/app/pubspec.yaml
-  - src/app/lib/main.dart
-  - src/lib/gcs_core.cpp
-  - src/lib/gcs_core.hpp
+  - src/app/templates/components/chat_message_bubble.dart.jinja2
+  - src/app/templates/components/chat_message_bubble_cubit.dart.jinja2
+  - src/app/templates/components/chat_message_bubble_state.dart.jinja2
+  - src/app/templates/components/chat_message_bubble_vars.json
+  - src/app/templates/components/chat_message_code_block.dart.jinja2
+  - src/app/templates/components/chat_message_code_block_cubit.dart.jinja2
+  - src/app/templates/components/chat_message_code_block_state.dart.jinja2
+  - src/app/templates/components/chat_message_code_block_vars.json
+  - src/app/templates/components/chat_message_flow.dart.jinja2
+  - src/app/templates/components/chat_message_flow_cubit.dart.jinja2
+  - src/app/templates/components/chat_message_flow_state.dart.jinja2
+  - src/app/templates/components/chat_message_flow_vars.json
+  - src/app/templates/components/chat_message_media.dart.jinja2
+  - src/app/templates/components/chat_message_media_cubit.dart.jinja2
+  - src/app/templates/components/chat_message_media_state.dart.jinja2
+  - src/app/templates/components/chat_message_media_vars.json
+  - src/app/test/gcs_native_port_smoke_test.dart
+  - src/ffi/CMakeLists.txt
+  - src/ffi/dart_api_dl.c
+  - src/ffi/dart_api_dl.h
+  - src/ffi/dart_native_api.h
+  - src/ffi/gcs_core.h
+  - src/ffi/gcs_core_ffi.cpp
   - src/lib/gcs_storage/CMakeLists.txt
-  - src/lib/gcs_storage/common/error.cpp
-  - src/lib/gcs_storage/common/error.hpp
-  - src/lib/gcs_storage/common/logging.hpp
   - src/lib/gcs_storage/gcs_global_db.cpp
   - src/lib/gcs_storage/gcs_global_db.hpp
+  - src/proto/CMakeLists.txt
+  - src/proto/gcs_chat.proto
   - test/CMakeLists.txt
-  - GNUS-NEO-SWARM/CMakeLists.txt
-  - GNUS-NEO-SWARM/cmake/CommonBuildParameters.cmake
-  - GNUS-NEO-SWARM/cmake/CompilationFlags.cmake
-  - GNUS-NEO-SWARM/neoswarm_ffi/lib/flutter_slm_bridge.dart
-  - GNUS-NEO-SWARM/neoswarm_ffi/macos/neoswarm_ffi.podspec
-  - build/CompilationFlags.cmake
+  - test/test_gcs_core_smoke.cpp
+  - test/test_gcs_ffi.cpp
+  - test/test_gcs_global_db.cpp
+  - test/test_wait_condition.hpp
 findings:
   critical: 1
-  warning: 8
-  info: 6
-  total: 15
+  warning: 7
+  info: 10
+  total: 18
 status: issues_found
 ---
 
-# Phase 01-foundation: Code Review Report
+# Phase 01: Code Review Report
 
+**Reviewed:** 2026-08-30T00:05:26Z
 **Depth:** standard
+**Files Reviewed:** 51
 **Status:** issues_found
 
 ## Summary
 
-Foundation wiring for the app restructure (GCS root CMake, CommonBuildParameters port, gcs_storage/gcs_core, CoreSession, Flutter app skeleton + FFI bridge, NEO-SWARM nested-build support). The NEO-SWARM nested-build refactor (NEOSWARM_ROOT) and the GcsGlobalDb/CoreSession lifecycle code are solid. The dominant defect class is undefined/misspelled CMake variables: one Critical (`GENIUS_SDK_*` never defined, making the dylib-redirect and the `GeniusSDK.hpp` include path silent no-ops that resolve to a machine-root `/src` path), plus a `DEFINED $ENV{...}` misuse that clobbers the user's `VULKAN_SDK`. Only OSX/Debug was exercised; several Linux/Windows paths carry untested assumptions flagged below.
+Reviewed the phase-01 FFI data plane (gcs_core.h ABI + gcs_core_ffi.cpp thunk), the
+GcsGlobalDb/CoreSession storage layer, the protobuf chat codec, the vendored Dart
+API_DL set, ffigen bindings, the Dart smoke test, the chat widget codegen
+(templates + committed generated output), and the C++ test tree. Cross-checked
+called-function contracts against `src/lib/gcs_core.{hpp,cpp}`,
+`SuperGenius/src/crdt/globaldb/globaldb.hpp`, and the `frontend_scaffold` atom
+APIs the generated widgets import. `dart analyze --fatal-infos` was executed
+against `src/app` to verify the analyze-gate findings empirically.
 
-## Critical
+Overall: the C ABI surface is careful (null/zero validation, handle-equality
+shutdown, buffer copy inside the lock, atomic port registration), and the
+generated Dart widget/cubit/state triples faithfully match their templates with
+correct registry/exhaustive-switch patterns. However, there is one data-loss
+defect in the `send_text` storage key, several state-consistency defects in the
+join/init paths, a cubit-lifecycle defect baked into the generated flow
+envelope, and the `app_analyze`/`app_test` CMake gates currently cannot pass
+(verified: 52 analyzer issues, one of which is in this phase's committed
+generated file).
 
-### CR-01: Undefined `GENIUS_SDK_BUILD_DIR` / `GENIUS_SDK_DIR` — GeniusSDK redirect and include path are silent no-ops resolving to machine-root `/src`
+Files under `src/app/lib/generated/` and `src/app/lib/gcs_bindings_generated.dart`
+are codegen OUTPUT; findings in them note the template origin. The vendored Dart
+SDK files (`dart_api_dl.c`, `dart_api_dl.h`, `dart_native_api.h`) carry only a
+provenance comment on top of verbatim SDK source — no findings filed against SDK
+code.
 
-**File:** `src/lib/gcs_storage/CMakeLists.txt:36-43,74`
-**Issue:** The file references `${GENIUS_SDK_BUILD_DIR}` and `${GENIUS_SDK_DIR}` (underscore between GENIUS and SDK), but `cmake/CommonBuildParameters.cmake:428-446` defines `GENIUSSDK_BUILD_DIR` / `GENIUSSDK_DIR` (no underscore). Both variables are therefore always empty:
-1. Line 36-43: `if(EXISTS "${_GENIUSSDK_BUILD_DYLIB}")` tests `EXISTS "/src/libGeniusSDK_shared.dylib"` — always false, so the build-tree dylib redirect documented as required for `GeniusSDKGetNode()` never applies. The fallback is a stale install-prefix dylib and an "Undefined symbols: GeniusSDKGetNode" link failure — exactly the failure this block was written to prevent — and the `message(STATUS ... redirected ...)` never prints, so the misconfiguration is invisible.
-2. Line 74: `target_include_directories(gcs_storage PUBLIC "${GENIUS_SDK_DIR}/src")` expands to `/src` — an absolute machine-root include directory. If any machine happens to have a `/src` tree it silently picks up whatever headers live there; otherwise the intended `GeniusSDK.hpp` include is simply missing.
+## Critical Issues
 
+### CR-01: `send_text` stores every message under the room-topic key — each new message in a room silently overwrites the previous one
+
+**File:** `src/ffi/gcs_core_ffi.cpp:256`
+**Issue:** The authoritative ChatMessageState is persisted with
+`g_session->Put( sendText.room_topic(), SerializeGcsEvent( event ) )` — the CRDT
+store key is the room topic, not the message id. The C++-stamped unique id
+(`message->id()`, set three lines above at line 245) is never used in the key.
+The second `send_text` to the same room replaces the first message's stored
+record; per-room history is reduced to the single latest message. This is a
+by-construction data-loss risk in the persistence path the moment anything reads
+the store (later phases, other peers via the CRDT sync), and it contradicts the
+"store the authoritative record" comment — a record that is destroyed by the next
+write is not a record. Note the value is also the whole serialized `GcsEvent`
+envelope rather than the `ChatMessageState` payload, coupling the stored schema
+to the push-event envelope.
 **Fix:**
-```cmake
-# line 36
-set(_GENIUSSDK_BUILD_DYLIB "${GENIUSSDK_BUILD_DIR}/src/libGeniusSDK_shared.dylib")
-# line 74
-target_include_directories(gcs_storage PUBLIC "${GENIUSSDK_DIR}/src")
+```cpp
+// Key by the C++-stamped authority id (D-04) so per-room history survives;
+// store the payload message, not the push envelope.
+if ( !g_session->Put( sendText.room_topic() + "/" + message->id(),
+                      message->SerializeAsString() ).has_value() )
+{
+    return GCS_ERROR_GENERIC;
+}
 ```
-(Or uniformly rename the canonical variables, but the two-line fix is minimal.) Add a `if(NOT DEFINED GENIUSSDK_BUILD_DIR) message(FATAL_ERROR ...)` guard so this class of typo fails loudly in the future.
+(Or a hierarchical key scheme per the storage design, e.g.
+`"chat/<room>/<id>"` — the essential part is that the unique id participates in
+the key.)
 
-## Warning
+## Warnings
 
-### WR-01: `if(NOT DEFINED $ENV{VULKAN_SDK})` is wrong CMake syntax — user's VULKAN_SDK always clobbered
+### WR-01: Committed `gcs_chat.pb.dart` imports `fixnum` which `pubspec.yaml` does not declare — `app_analyze` (`dart analyze --fatal-infos`) fails
 
-**File:** `cmake/CommonBuildParameters.cmake` (Vulkan block, `if(NOT DEFINED $ENV{VULKAN_SDK})`)
-**Issue:** `DEFINED` takes a variable *name*; `$ENV{VULKAN_SDK}` is substituted to the env *value* first, so the test is `if(NOT DEFINED <value>)` — almost always true. The `set(ENV{VULKAN_SDK} "${THIRDPARTY_BUILD_DIR}/Vulkan-Loader")` therefore runs even when the developer has a real VULKAN_SDK exported, silently overriding it and changing which Vulkan loader `find_package(Vulkan)` resolves.
-**Fix:** `if(NOT DEFINED ENV{VULKAN_SDK})` (drop the `$`).
+**File:** `src/app/lib/generated/proto/gcs_chat.pb.dart:15` and `src/app/pubspec.yaml:30-43`
+**Issue:** Verified by running `dart analyze --fatal-infos` in `src/app`:
+`info - lib/generated/proto/gcs_chat.pb.dart:15:8 - The imported package 'fixnum' isn't a dependency of the importing package. - depend_on_referenced_packages`.
+`fixnum` resolves only transitively via `protobuf`, so the build works today but
+breaks silently if `protobuf` ever drops it, and with `--fatal-infos` (the flag
+the `app_analyze` target uses, `src/app/CMakeLists.txt:133`) this Info is fatal —
+the gate cannot pass. The generated file's `ignore_for_file` list does not cover
+this lint, and `analysis_options.yaml` does not exclude generated files.
+**Fix:** Add the direct dependency to `src/app/pubspec.yaml`:
+```yaml
+dependencies:
+  fixnum: ^1.1.0
+```
+(Alternatively regenerate with `protobuf.omit_field_names`-style config that
+avoids fixnum — not possible for `int64` fields — so declaring the dependency is
+the correct fix.)
 
-### WR-02: GCS root `CMakeLists.txt` is not a viable entry point — undefined vars and missing package hints
+### WR-02: The `app_analyze` / `app_test` CMake gates cannot pass — app-package compile error plus 50 scaffold-example errors in the recursive run
 
-**File:** `CMakeLists.txt:14-47`
-**Issue:** The root CMakeLists calls `find_package(ZLIB/libsecp256k1/fmt/spdlog/Boost ...)` without any of the `*_DIR` hints that `cmake/CommonBuildParameters.cmake` sets, and then `add_subdirectory(GNUS-NEO-SWARM)` whose `CommonBuildParameters.cmake` requires the parent-provided `_THIRDPARTY_BUILD_DIR` / `PROJECT_SUPER_ROOT` / `ZKLLVM_BUILD_DIR` — none of which the root file sets (they come from `build/CommonCompilerOptions.cmake` in the build-wrapper chain). Configuring the repo root directly either fails at `find_package` or sets `THIRDPARTY_BUILD_DIR` to an empty forced cache value. Also `include_directories(${GSL_INCLUDE_DIR})` (line 22) runs before `GSL_INCLUDE_DIR` is defined anywhere in this path (it is set later inside the submodule's CommonBuildParameters) — a silent no-op.
-**Fix:** Either document that the root CMakeLists is only consumed via the build wrapper (and delete the duplicated find_package block), or set the same `*_DIR` hints / require `_THIRDPARTY_BUILD_DIR` explicitly with a `FATAL_ERROR` guard.
+**File:** `src/app/CMakeLists.txt:132-141` (gates); out-of-scope triggers `src/app/test/widget_test.dart:16`, `src/app/scaffold/example/test/capture_images_test.dart`
+**Issue:** `dart analyze --fatal-infos` from `src/app` reports 52 issues. Beyond
+WR-01: (a) `test/widget_test.dart:16` instantiates `MyApp`, but
+`lib/main.dart` (this phase's bare-app placeholder) defines `GeniusSwarmApp` — a
+hard compile error that also breaks `app_test` (`flutter test` compiles the whole
+test suite); (b) 50 pre-existing errors under `scaffold/example/...`
+(`frontend_scaffold_example` demo URIs missing) are swept in because
+`dart analyze` walks the directory recursively. The phase's own quality gates are
+therefore red even after fixing WR-01. `widget_test.dart`/`main.dart` are
+outside this review's file list, but the failing targets are declared in an
+in-scope file.
+**Fix:** Update `test/widget_test.dart` to pump `GeniusSwarmApp` (or delete the
+leftover counter-template test), and exclude `scaffold/` from the analyze gate:
+`COMMAND ${DART_EXECUTABLE} analyze --fatal-infos lib test` (analyze explicit
+directories instead of the whole tree), or add an `exclude:` to
+`src/app/analysis_options.yaml`.
 
-### WR-03: NEO-SWARM standalone `BUILD_PLATFORM_NAME` fallback derives the wrong platform in the nested-via-root path
+### WR-03: `join_topic` partial failure leaves the session in an inconsistent state — no rollback, no error event, room list diverges from the store
 
-**File:** `GNUS-NEO-SWARM/cmake/CompilationFlags.cmake:35-37` (fallback block)
-**Issue:** When NEO-SWARM is nested via the GCS root CMakeLists (which never includes GCS `cmake/CompilationFlags.cmake`, so `APP_RPATH_EXE` is undefined), the fallback derives `BUILD_PLATFORM_NAME` from `CMAKE_CURRENT_SOURCE_DIR` — which inside the nested NEO-SWARM directory is `.../GNUS-NEO-SWARM`, matching no platform branch, so it falls into the Android/iOS else-branch: empty rpaths, `APP_RUNTIME_LIB_DIR=lib`. On an OSX host this yields an installed `neo-swarm` with no `@executable_path` rpath and breaks dylib resolution at runtime. The guard `if(NOT DEFINED APP_RPATH_EXE)` saves the build-wrapper path (parent defines APP_* first), but the root-entry path silently gets the mobile branch.
-**Fix:** Derive from the binary dir or fail loudly on unrecognized names, e.g. `if(NOT BUILD_PLATFORM_NAME MATCHES "^(OSX|iOS|Linux|Windows|Android)$") message(FATAL_ERROR "Cannot derive BUILD_PLATFORM_NAME")`.
+**File:** `src/ffi/gcs_core_ffi.cpp:229-237`
+**Issue:** If `AddBroadcastTopic( roomTopic )` succeeds but
+`AddListenTopic( roomTopic )` fails, the function returns `GCS_ERROR_GENERIC`
+while the broadcast registration remains in the underlying GlobalDB and the
+topic is NOT added to `g_roomTopics` — the pushed RoomList no longer reflects
+the store's actual topic set, and the store is left half-joined. The failure
+also returns without posting an ErrorNotice, unlike the parse-failure path
+(line 221) — inconsistent with the D-29 raw-error-string doctrine the header
+documents ("raw error strings all arrive on the push port").
+**Fix:** On `AddListenTopic` failure, attempt to roll back (or at minimum log +
+post an ErrorNotice carrying the failure), and only mutate `g_roomTopics` when
+both registrations are known-consistent; e.g. check listen first, then
+broadcast, mirroring the ordering `GcsGlobalDb::Initialize` itself uses
+(gcs_global_db.cpp:170-172 "listen first, then broadcast").
 
-### WR-04: `${THIRDPARTY_DIR}` used but only defined in the build-wrapper chain
+### WR-04: Repeated `join_topic` for the same topic appends duplicates to `g_roomTopics` — pushed RoomList contains repeated rooms
 
-**File:** `cmake/CommonBuildParameters.cmake:257` (`jsonrpc_lean_INCLUDE_DIR`)
-**Issue:** Every other dependency in this file uses `THIRDPARTY_BUILD_DIR`; this one line uses `THIRDPARTY_DIR`, which is defined only by `build/CommonCompilerOptions.cmake` (wrapper path). In any other include context it expands to `/jsonrpc-lean/include` (empty prefix + absolute-looking path). Works today only because the wrapper chain defines it.
-**Fix:** Use `"${THIRDPARTY_BUILD_DIR}/jsonrpc-lean/include"` or add a guard requiring `THIRDPARTY_DIR` at the top of the file.
+**File:** `src/ffi/gcs_core_ffi.cpp:235`
+**Issue:** `g_roomTopics.push_back( roomTopic )` is unconditional on the success
+path; there is no membership check. Publishing the same `JoinTopicCommand`
+twice (a trivial Dart-side retry or double-tap) produces
+`RoomList.room_topic = [ ..., "gcs/chat/X", "gcs/chat/X" ]`. The Dart smoke test
+(`containsAll`) would not catch it, so the defect ships silently.
+**Fix:**
+```cpp
+if ( std::find( g_roomTopics.begin(), g_roomTopics.end(), roomTopic ) == g_roomTopics.end() )
+{
+    g_roomTopics.push_back( roomTopic );
+}
+PostToDart( BuildRoomListEvent() );
+```
 
-### WR-05: Dart `extractContent` JSON unescape ordering corrupts content containing literal backslashes
+### WR-05: Generated flow envelope creates a new cubit per item on every rebuild — cubits are never closed and runtime cubit state is silently discarded
 
-**File:** `GNUS-NEO-SWARM/neoswarm_ffi/lib/flutter_slm_bridge.dart:131-137`
-**Issue:** The replaceAll chain converts `\n`/`\t`/`\"` before `\\`. JSON payload `a\\nb` (literal backslash followed by 'n') contains the byte sequence `\`,`\`,`n`; the earlier `r'\n'` replacement matches the second backslash + `n` and produces a real newline, then `r'\\'` has nothing left to fix. Any assistant reply containing a literal backslash (paths, regex, LaTeX, code) is corrupted. A single-pass unescaper is required.
-**Fix:** Use `dart:convert`'s `jsonDecode` (it is available; the "without importing dart:convert" comment is a self-imposed constraint causing the bug), or do one left-to-right scan that reads the escape character after each `\`.
+**File:** `src/app/lib/generated/chat/chat_message_flow.dart:152-159, 237-266` (template: `src/app/templates/components/chat_message_flow.dart.jinja2:170-192, 219-266`)
+**Issue:** `_buildFlowItem` calls `_bubbleCubit(item)` (and constructs
+`ChatMessageCodeBlockCubit`/`ChatMessageMediaCubit` inline) inside the
+`SliverChildBuilderDelegate` builder — i.e., on every rebuild of any item. The
+composite widgets treat the passed cubit as parent-owned
+(`_ownsCubit = widget.cubit == null` → false), so on each rebuild
+`didUpdateWidget` sees `widget.cubit != oldWidget.cubit`, swaps to the fresh
+cubit, and never closes the previous one (no parent retains it either — it was
+created in a build function). Two consequences: (1) abandoned Cubit objects
+accumulate per rebuild (BlocObserver onCreate/onClose pairs never match); (2)
+any runtime state applied through the previous cubit — `applyState` /
+`updateText`, which the composites' own docs describe as THE runtime update path
+("runtime updates flow through [cubit] (pushed FFI events)") — is silently reset
+to the static item snapshot on the next flow rebuild (e.g., every append to the
+items list). A streaming message that transitions pending → streaming →
+complete via the cubit loses its applied state the moment another item is
+appended. This is a template defect reproduced into all flow output.
+**Fix:** In the template, hold per-item cubits outside the build function — e.g.
+have the shell own a `Map<String, ChatMessageBubbleCubit>` keyed by
+`item.instanceId`, or give the flow State a lazily-created cubit cache
+(`Map<ChatFlowItem, Cubit>` keyed by instanceId) that creates once and closes on
+dispose / item removal, and pass the cached instance into the composites.
 
-### WR-06: Dart `isModelLoaded` parses JSON by substring match
+### WR-06: `gcs_init` silently ignores smoke-topic join failures — success is returned with an empty RoomList, violating the documented non-empty contract
 
-**File:** `GNUS-NEO-SWARM/neoswarm_ffi/lib/flutter_slm_bridge.dart:113-116`
-**Issue:** `status.contains('"model_loaded":true')` matches the substring anywhere — including inside `model_path` or future string fields — and is whitespace-sensitive (a future `"model_loaded": true` from the native side silently breaks it).
-**Fix:** `jsonDecode(getEngineStatus())['model_loaded'] == true`.
+**File:** `src/ffi/gcs_core_ffi.cpp:181-189`
+**Issue:** The pre-join loop only appends topics that joined both ways; if both
+`AddBroadcastTopic` calls fail, `g_session` is still installed and a valid handle
+returned. The header contract (`gcs_core.h:62-64`) says "On success the session
+pre-joins the smoke-topic set so the pushed room list is non-empty" (D-26
+requires >= 2 topics); a caller cannot distinguish the degraded empty-room-list
+session from a healthy one. `gcs_subscribe` then pushes an empty RoomList
+followed by `Readiness(ready=true)` — signalling ready for a session that failed
+half its initialization.
+**Fix:** Either fail `gcs_init` (return nullptr) when no smoke topic could be
+joined, or push the degraded state through the documented error channel
+(ErrorNotice) instead of `Readiness(ready=true)`; at minimum log the failure via
+`spdlog::error` — currently the failure is completely swallowed.
 
-### WR-07: `install(CODE)` runtime-dep block uses configure-time `${CMAKE_INSTALL_PREFIX}` and ignores `create_symlink` failures
+### WR-07: Command payloads are not validated — empty `room_topic` joins and sends to unjoined rooms are accepted
 
-**File:** `GNUS-NEO-SWARM/cmake/CommonBuildParameters.cmake:508-547`
-**Issue:** (a) `"${CMAKE_INSTALL_PREFIX}/..."` inside the install(CODE) string is expanded when the install script is generated; `cmake_install.cmake` redefines `CMAKE_INSTALL_PREFIX` per invocation (component/prefix overrides), so the escaped `\${CMAKE_INSTALL_PREFIX}` form should be used. (b) `execute_process(... create_symlink ...)` has no `RESULT_VARIABLE` check — a failed symlink (e.g. Windows without symlink privilege/developer mode, or a read-only prefix) is silent, leaving a dangling link name and a dylib that fails to load. On Windows the whole symlink-chain logic is moot but still executed.
-**Fix:** Escape the prefix (`\${CMAKE_INSTALL_PREFIX}`) and check `RESULT_VARIABLE _rc` / `if(NOT _rc EQUAL 0) message(WARNING ...)`; skip the chain when `NOT IS_SYMLINK` and `WIN32`.
-
-### WR-08: FFI dylib staged into the submodule working tree — untracked binary pollution and last-config-wins
-
-**File:** `src/app/CMakeLists.txt:34-45`
-**Issue:** The post-build step copies the built dylib into `GNUS-NEO-SWARM/neoswarm_ffi/macos/lib/` — a *source* directory of a git submodule, outside the build tree. The binary is untracked (or risks being committed), a Debug build silently overwrites a Release-staged dylib (comment acknowledges this), and a clean of the CMake build tree does not remove it, so the app can embed a stale dylib.
-**Fix:** At minimum add `neoswarm_ffi/macos/lib/` to NEO-SWARM's `.gitignore`, embed config into the staged filename (or assert the config matches), and provide a clean rule.
+**File:** `src/ffi/gcs_core_ffi.cpp:225-262`
+**Issue:** Neither `JoinTopicCommand.room_topic` nor
+`SendTextCommand.room_topic` is checked. A join with an empty string reaches
+`GlobalDB::AddBroadcastTopic("")`; a `send_text` with an empty or never-joined
+`room_topic` is stored (with the empty-string key from CR-01) and echoed with
+`GCS_OK` as if it were a valid room. The header states "C++ validates" the
+commands (gcs_core.h:84-85); the only validation performed is the protobuf
+parse itself.
+**Fix:** Reject empty `room_topic` (and, for `send_text`, optionally topics not
+present in `g_roomTopics`) with `GCS_ERROR_INVALID_ARGUMENT` plus a
+`PostErrorNotice` describing the rejection, mirroring the parse-failure path.
 
 ## Info
 
-### IN-01: `MapGlobalDbError` switch is dead code — every case returns the same value
+### IN-01: `GCS_ERROR_UNSUPPORTED_CODEC` is dead — no code path returns it
 
-**File:** `src/lib/gcs_storage/gcs_global_db.cpp:43-56`
-**Issue:** All `case` labels return `Error::GcsDbError`, as does the fall-through return. Acknowledged as T-03-03 accepted disposition, but the switch implies a distinction that does not exist.
-**Fix:** Replace with `return Error::GcsDbError;` or keep the enumeration for when the codes diverge.
+**File:** `src/ffi/gcs_core.h:54` (mirrored into `src/app/lib/gcs_bindings_generated.dart:177`)
+**Issue:** The unsupported-codec case is signalled by `gcs_init` returning
+`nullptr` (gcs_core_ffi.cpp:167-170); the enum value exists in the ABI and the
+Dart bindings but nothing can ever observe it. Callers cannot distinguish
+"unsupported codec" from any other init failure despite the header narrating
+that failure class.
+**Fix:** Either remove the value from the enum (breaking ABI — better now than
+later) or document in `gcs_core.h` that codec rejection is only observable as a
+null handle in Phase 1.
 
-### IN-02: `find_program(PYTHON3_EXECUTABLE python3)` unused
+### IN-02: `SerializeToString` return value ignored
 
-**File:** `src/app/CMakeLists.txt:11`
-**Issue:** Resolved but never referenced by any target.
-**Fix:** Remove until 01-08 uses it.
+**File:** `src/ffi/gcs_core_ffi.cpp:59-64`
+**Issue:** `event.SerializeToString( &bytes )` returns a bool that is discarded;
+on failure an empty/partial buffer would be posted to the Dart port as a valid
+typed-data message and fail to parse on the Dart side with no diagnostic.
+Unlikely in proto3 but the failure is unobservable.
+**Fix:** Check the bool and `spdlog::error` (or post an ErrorNotice) on failure.
 
-### IN-03: `install(CODE)` ditto app-bundle install checks existence at install time only
+### IN-03: `test_gcs_global_db.cpp` carries a verbatim duplicate of `test_wait_condition.hpp`
 
-**File:** `src/app/CMakeLists.txt:82-89`
-**Issue:** Skipping is intentional and messaged, but `ninja install` output can silently omit the app; acceptable for now — noting for CI portability (installing on a non-macOS runner never copies the app even when FRONTEND_BUILD_ENABLED=ON, since the whole block is Darwin-gated and `app_build_macos` exists only on Darwin).
-**Fix:** None required; consider a top-level `install-app` meta target.
+**File:** `test/test_gcs_global_db.cpp:37-92`
+**Issue:** `kWaitTimeout`, `kPollInterval`, and `WaitForCondition` are
+duplicated from the header that was extracted (per its own header comment) from
+this very file. The two copies can drift (the copies already differ in namespace
+placement).
+**Fix:** Replace the local copy with `#include "test_wait_condition.hpp"` and
+delete the duplicate constants/function.
 
-### IN-04: Podspec placeholders
+### IN-04: Smoke-test `_EventQueue.next()` silently replaces a pending waiter
 
-**File:** `GNUS-NEO-SWARM/neoswarm_ffi/macos/neoswarm_ffi.podspec:10`
-**Issue:** `s.homepage = 'http://example.com'` and version `0.0.1` are template placeholders; `pod lib lint` warns.
-**Fix:** Point at the real repo URL before any publish/lint pass.
+**File:** `src/app/test/gcs_native_port_smoke_test.dart:63-72`
+**Issue:** Calling `next()` twice before an event arrives overwrites `_waiter`,
+orphaning the first `Completer` — its future never completes and only the
+`.timeout(kWaitLimit)` surfaces it. Not exercised by the current sequential
+test, but the helper is a latent flakiness trap if the test is extended.
+**Fix:** Queue waiters (`List<Completer>`), or assert `_waiter == null` before
+installing.
 
-### IN-05: `GcsGlobalDb::Initialize()` — failure paths duplicate the five-member reset sequence
+### IN-05: `src/proto/CMakeLists.txt` overrides the CMake-managed `CMAKE_CURRENT_BINARY_DIR`
 
-**File:** `src/lib/gcs_storage/gcs_global_db.cpp:126-133,150-156` (failure resets)
-**Issue:** The same five `.reset()` lines appear twice; a third failure path (thread spawn) would need a third copy. Extract a private `ResetMembers()` helper when convenient.
-**Fix:** Minor refactor; behavior is currently correct.
+**File:** `src/proto/CMakeLists.txt:18`
+**Issue:** `set(CMAKE_CURRENT_BINARY_DIR "${CMAKE_BINARY_DIR}/src/proto")`
+mutates a variable CMake owns, to satisfy `add_proto_library`'s internal
+`file(RELATIVE_PATH)` expectations. It works for the single helper call it
+precedes, but any later rule in this directory scope that reads the variable
+(installs, another custom command) would silently compute against the fake
+value.
+**Fix:** Prefer passing an explicit parameter through a thin local wrapper, or
+contain the override with an immediate `unset()` after the `add_proto_library`
+call; at minimum the comment should say the variable must be restored.
 
-### IN-06: `flutter_slm_bridge.dart` — `extractContent` swallows all exceptions
+### IN-06: `app_stage_ffi_dylib` stages whichever config was built last — no config guard
 
-**File:** `GNUS-NEO-SWARM/neoswarm_ffi/lib/flutter_slm_bridge.dart:139-141`
-**Issue:** `catch (_) { return responseJson; }` returns raw JSON to the UI on any parsing failure with no signal. Prefer an explicit error string (as the null-response path does).
-**Fix:** Return `'[Error] failed to parse response'` for consistency.
+**File:** `src/app/CMakeLists.txt:26-41`
+**Issue:** The copy target depends only on `Genius-MOS-ELM-FFI`, so building
+Debug after Release (or vice versa) silently restages the other config's dylib
+into `neoswarm_ffi/macos/lib`, which the plugin then embeds into whatever app
+bundle is built next. The comment acknowledges this ("whichever config was built
+last is what gets staged") but no guard exists. (The destination is confirmed
+gitignored in the submodule, so no dirty-tree issue.)
+**Fix:** Make the staged copy config-aware (per-config subdirectory or a
+`$<CONFIG>` check in a `COMMAND ${CMAKE_COMMAND} -E copy_if_different` with a
+configure-time name), or at least `message(STATUS)` the config being staged.
+
+### IN-07: Template identifier-casing fragility and duplicated public constant across generated files
+
+**File:** `src/app/templates/components/chat_message_bubble.dart.jinja2:53` (same pattern in code_block/media templates); `kErrorOverlayAlpha` declared in `chat_message_bubble.dart:27`, `chat_message_code_block.dart:28`, `chat_message_media.dart:29`
+**Issue:** (a) `_chrome{{ state | capitalize }}` uses bare `capitalize`, which
+lowercases the remainder — a future multi-word state like `in_flight` renders
+`_chromeIn_flight`, an invalid Dart identifier (roles correctly use
+`split('_') | map('capitalize') | join('')`; states do not). (b) `const double
+kErrorOverlayAlpha` is a public top-level const duplicated in three libraries —
+a file importing two of them unqualified gets an ambiguous-import error.
+**Fix:** Use the same `split/map/join` casing pipeline for states; make the
+constant library-private (`_kErrorOverlayAlpha`) in each generated file.
+
+### IN-08: `ChatMessageFlowCubit` is generated but `ChatMessageFlow` never consumes it; `ChatMessageMedia`'s pushed `mediaRef` has no rendering effect
+
+**File:** `src/app/lib/generated/chat/chat_message_flow.dart:283-330` vs `chat_message_flow_cubit.dart:43-75`; `src/app/lib/generated/chat/chat_message_media.dart:227-256`
+**Issue:** The flow widget takes `items` as a constructor parameter while a
+parallel cubit holds the same list — two sources of truth the shell must keep in
+sync manually. In the media composite, `state.mediaRef` is stored but the card
+renders only `widget.thumbnail` — `updateMediaRef` currently changes nothing
+visible (documented as the 01-09 retrieval seam, but until then it is dead
+state).
+**Fix:** Either wire the flow widget to read from the cubit via
+`BlocBuilder`/`BlocProvider` or document the intended single-owner contract in
+the widget docstring; keep `mediaRef` as-is only if the seam is imminent,
+otherwise defer the field.
+
+### IN-09: Multi-config (Xcode) builds map to a Flutter product dir that never exists — app install silently skipped
+
+**File:** `src/app/CMakeLists.txt:171-210`
+**Issue:** With a multi-config generator `CMAKE_BUILD_TYPE` is empty, which
+falls into the `RelWithDebInfo` branch; `flutter build macos --release` emits
+`.../Products/Release/...`, so `GCS_FLUTTER_APP_BUNDLE` (RelWithDebInfo) is
+never found and the install block silently skips. Benign on the project's
+single-config Ninja flow, but the fallback branch's config-dir choice guarantees
+a miss for the only mode it differs in.
+**Fix:** Map the empty/multi-config case to `Release` (matching the
+`--release` build mode selected on the same branch).
+
+### IN-10: Chat codegen is guarded on `PYTHON3_EXECUTABLE` but consumes `ENGINE_SCRIPT`/`DESIGN_TOKENS` defined only by the optional scaffold subdirectory
+
+**File:** `src/app/CMakeLists.txt:23-25, 60, 84, 93`
+**Issue:** `add_subdirectory(scaffold)` is wrapped in an `EXISTS` guard, but the
+chat-composite block only checks `PYTHON3_EXECUTABLE`. If the scaffold tree were
+absent while python3 is present, `ENGINE_SCRIPT` is empty and the render command
+becomes `python3 --template ...` — a confusing argparse failure at build time
+instead of a configure-time message.
+**Fix:** Add `AND ENGINE_SCRIPT` (or `if(EXISTS "${ENGINE_SCRIPT}")`) to the
+block guard at line 60.
 
 ---
 
-**Explicitly checked and clean:** rpath token escaping (`\$ORIGIN` literal handling is correct in both GCS and NEO-SWARM copies); `CoreSession` member-init order (`m_config` before `m_db` — no use-before-init); `GcsGlobalDb` shutdown ordering (ShutdownNow → io stop → join → reset, idempotent, noexcept-correct); Dart FFI native-string alloc/free pairing in `geniusSlmInit` / `chatCompletionsCreate` / `getEngineStatus` (all freed, null-checked, freed after copy); `GlobalDB::Start()` is `void` in SuperGenius so its unchecked call is correct; `config.cmake.in` find_dependency syntax valid; `OUTCOME_HPP_DECLARE_ERROR_2`/`OUTCOME_CPP_DEFINE_CATEGORY_3` pairing correct; error-code numbering (22/23) collision-free vs NEO-SWARM 1..21; build submodule forwarder confirmed canonical (no diff vs its main).
-
+_Reviewed: 2026-08-30T00:05:26Z_
 _Reviewer: Claude (gsd-code-reviewer)_
 _Depth: standard_
-
----
-
-## Resolution (2026-08-25, pre-ship)
-
-| ID | Status | Action |
-|---|---|---|
-| CR-01 | FIXED | `src/lib/gcs_storage/CMakeLists.txt` renamed to canonical `GENIUSSDK_BUILD_DIR`/`GENIUSSDK_DIR`. Old names existed only as a stale manual cache entry in one dev build dir. Verified: redirect message prints, 20/20 tests pass. |
-| WR-01 | FIXED | `if(NOT DEFINED ENV{VULKAN_SDK})` syntax corrected. |
-| WR-02 | WONTFIX (by design) | Root CMakeLists.txt is not the entry point; the build/OSX wrapper is (same as GeniusSDK). |
-| WR-03 | FALSE POSITIVE | When NEO-SWARM's fallback runs, `CMAKE_CURRENT_SOURCE_DIR` is `GNUS-NEO-SWARM/build/OSX` (its own wrapper), so NAME = "OSX", not the repo dir. Nested builds get APP_* from the parent file and skip the fallback entirely (`if(NOT DEFINED APP_RPATH_EXE)`). |
-| WR-04 | FALSE POSITIVE | `THIRDPARTY_DIR` is set by `build/CommonCompilerOptions.cmake:92`, which runs before `cmake/CommonBuildParameters.cmake`. |
-| WR-05 | FIXED | Dart unescape reordered (`\\` first) in `neoswarm_ffi/lib/flutter_slm_bridge.dart`. |
-| WR-06 | NOTED | Substring status check is fragile but stub-mode only; plan 01-05/01-08 replace this layer. |
-| WR-07 | NOTED | `--prefix`-at-install-time mismatch is theoretical for this repo (prefix fixed by wrapper). |
-| WR-08 | NOTED (known tradeoff) | Dylib staging into submodule tree is the accepted podspec design; `macos/lib/` is gitignored. |
