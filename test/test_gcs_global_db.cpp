@@ -11,11 +11,8 @@
 #include "gcs_storage/gcs_global_db.hpp"
 
 #include <chrono>
-#include <condition_variable>
 #include <cstdlib>
 #include <filesystem>
-#include <functional>
-#include <mutex>
 #include <string>
 
 #include <gtest/gtest.h>
@@ -31,13 +28,10 @@
 #include <soralog/logging_system.hpp>
 
 #include "test_graphsync_network.hpp"
+#include "test_wait_condition.hpp"
 
 namespace
 {
-    /// Upper bound for a single wait-condition call (mirrors the fixture's WAIT_TIMEOUT).
-    constexpr std::chrono::milliseconds kWaitTimeout{ 25000 };
-    /// Re-check interval for pure polling predicates inside WaitForCondition.
-    constexpr std::chrono::milliseconds kPollInterval{ 10 };
     /// GossipPubSub bind address used by every test.
     constexpr const char *kListenIp = "0.0.0.0";
 
@@ -58,42 +52,15 @@ namespace
            - name: libp2p
            - name: Gossip
     )";
-
-    /**
-     * @brief Wait-condition template (NEO-SWARM): poll `predicate` via
-     *        condition_variable::wait_for until it returns true or `timeout` elapses.
-     *
-     * condition_variable only wakes on notify, so for pure polling predicates
-     * (e.g. "file exists on disk") we use the sanctioned polling-with-cv idiom:
-     * cv.wait_for(lock, kPollInterval, pred) inside a deadline loop.
-     *
-     * @param[in] predicate Nullary callable returning bool.
-     * @param[in] timeout   Maximum time to wait.
-     * @return true if the predicate became true before the deadline; false otherwise.
-     */
-    bool WaitForCondition( const std::function<bool()> &predicate, std::chrono::milliseconds timeout )
-    {
-        std::mutex              mtx;
-        std::condition_variable cv;
-        std::unique_lock<std::mutex> lock( mtx );
-        const auto deadline = std::chrono::steady_clock::now() + timeout;
-        while ( std::chrono::steady_clock::now() < deadline )
-        {
-            if ( predicate() )
-            {
-                return true;
-            }
-            const auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(
-                deadline - std::chrono::steady_clock::now() );
-            const auto slice     = std::min( kPollInterval, remaining );
-            cv.wait_for( lock, slice );
-        }
-        return predicate();
-    }
 } // namespace
 
 namespace sgns::neoswarm::storage::test
 {
+    // Shared wait-condition template (test_wait_condition.hpp) — symbols live
+    // in ::gcs::test (leading-global: a bare gcs:: here resolves to sgns::gcs);
+    // alias them so the unqualified call sites keep working.
+    using ::gcs::test::WaitForCondition;
+    using ::gcs::test::kWaitTimeout;
     /**
      * @brief Fixture that owns a per-test temp directory under
      *        std::filesystem::temp_directory_path() and removes it in TearDown.
