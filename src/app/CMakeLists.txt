@@ -63,7 +63,10 @@ set(_chat_composites
 
 set(_chat_stamps "")
 set(_chat_outputs "")
-if(PYTHON3_EXECUTABLE AND FRONTEND_TARGET STREQUAL "flutter")
+# ENGINE_SCRIPT/DESIGN_TOKENS come from the optional scaffold subdirectory —
+# without the guard an absent scaffold tree with python3 present renders
+# `python3 --template ...` (an argparse failure at build time, IN-10).
+if(PYTHON3_EXECUTABLE AND FRONTEND_TARGET STREQUAL "flutter" AND ENGINE_SCRIPT)
     # List form so each flag expands to TWO argv tokens (Pitfall 1762a45: a
     # single space-embedded string reaches argparse as one token and fails).
     # OUR templates dir FIRST — FileSystemLoader is first-match-wins.
