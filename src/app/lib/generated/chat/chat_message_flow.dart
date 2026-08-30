@@ -238,7 +238,11 @@ void _debugCheckBubbleVariantCoverage() {
 /// content. The flow State OWNS one cubit per item instanceId (WR-05):
 /// created once on first render, cached across rebuilds so runtime updates
 /// applied through a cubit survive list growth, and closed when the item
-/// retires or the flow disposes. Horizontal inset uses the phone-baseline
+/// retires or the flow disposes. [items] is the single source of truth for
+/// what renders (IN-08): the parallel ChatMessageFlowCubit generated for
+/// this composite is an OPTIONAL shell-side state holder — this widget
+/// deliberately does not consume it; a shell driving the flow through that
+/// cubit keeps both in sync itself. Horizontal inset uses the phone-baseline
 /// token; the desktop-wide inset refinement is a shell/template iteration.
 class ChatMessageFlow extends StatefulWidget {
   /// Creates a [ChatMessageFlow].
