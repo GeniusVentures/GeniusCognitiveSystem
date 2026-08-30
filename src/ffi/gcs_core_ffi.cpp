@@ -60,7 +60,13 @@ namespace
     std::string SerializeGcsEvent( const gcs::chat::GcsEvent& event )
     {
         std::string bytes;
-        event.SerializeToString( &bytes );
+        if ( !event.SerializeToString( &bytes ) )
+        {
+            // Nearly impossible in proto3, but the failure must not be
+            // silent: an empty/partial buffer would reach the Dart port and
+            // fail to parse there with no diagnostic (IN-02).
+            spdlog::error( "gcs_ffi: GcsEvent SerializeToString failed — posting empty bytes" );
+        }
         return bytes;
     }
 
