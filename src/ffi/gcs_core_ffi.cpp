@@ -252,8 +252,12 @@ extern "C"
                                         .count() );
 
             // Phase 1 echo: store the authoritative record, then push it to the port
-            // (the real pub/sub flow lands in Phase 3).
-            if ( !g_session->Put( sendText.room_topic(), SerializeGcsEvent( event ) ).has_value() )
+            // (the real pub/sub flow lands in Phase 3). Key by the C++-stamped
+            // authority id (D-04) so per-room history survives — a room-topic-only
+            // key made each new message overwrite the previous one; store the
+            // payload message, not the push envelope.
+            if ( !g_session->Put( sendText.room_topic() + "/" + message->id(),
+                                  message->SerializeAsString() ).has_value() )
             {
                 return GCS_ERROR_GENERIC;
             }
