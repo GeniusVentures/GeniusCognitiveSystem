@@ -35,6 +35,10 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
   ffi: ^2.2.0
+  # Direct dependency: lib/generated/proto/gcs_chat.pb.dart imports fixnum for
+  # its int64 fields (depend_on_referenced_packages — fatal under the
+  # --fatal-infos analyze gate).
+  fixnum: ^1.1.0
   flutter_bloc: ^9.0.0
   protobuf: ^4.0.0
   neoswarm_ffi:
