@@ -24,7 +24,7 @@ import '{{ file_stem }}_state.dart';
 
 /// Error-tint alpha painted over the role fill in the error state
 /// (UI-SPEC color contract; chat-domain constant, not a scaffold token).
-const double kErrorOverlayAlpha = 0.12;
+const double _kErrorOverlayAlpha = 0.12;
 
 /// Signature of a per-state chrome builder generated from the states axis.
 ///
@@ -50,7 +50,7 @@ typedef _{{ widget_class_name }}StateChromeBuilder = Widget Function(
 const Map<String, _{{ widget_class_name }}StateChromeBuilder> _stateChrome =
     <String, _{{ widget_class_name }}StateChromeBuilder>{
 {%- for state in states %}
-      '{{ state }}': _chrome{{ state | capitalize }},
+      '{{ state }}': _chrome{{ state.split('_') | map('capitalize') | join('') }},
 {%- endfor %}
     };
 
@@ -73,7 +73,7 @@ Widget _chromeIdentity(
 
 /// Pending chrome: the whole bubble at [ScaffoldDimens.disabledOverlayOpacity]
 /// (UI-SPEC: role fill at 40% -- the scaffold disabled/dim pattern).
-Widget _chrome{{ state | capitalize }}(
+Widget _chrome{{ state.split('_') | map('capitalize') | join('') }}(
   BuildContext context,
   Widget content,
   Widget Function(Widget content) wrapSurface,
@@ -87,7 +87,7 @@ Widget _chrome{{ state | capitalize }}(
 
 /// Error chrome: status-error tint painted over the role fill (12% alpha
 /// per the UI-SPEC color contract).
-Widget _chrome{{ state | capitalize }}(
+Widget _chrome{{ state.split('_') | map('capitalize') | join('') }}(
   BuildContext context,
   Widget content,
   Widget Function(Widget content) wrapSurface,
@@ -98,7 +98,7 @@ Widget _chrome{{ state | capitalize }}(
 
 /// Thinking chrome: the pre-generation typing indicator replaces the
 /// {{ payload }} content (distinct from streaming -- no tokens yet).
-Widget _chrome{{ state | capitalize }}(
+Widget _chrome{{ state.split('_') | map('capitalize') | join('') }}(
   BuildContext context,
   Widget content,
   Widget Function(Widget content) wrapSurface,
@@ -107,8 +107,8 @@ Widget _chrome{{ state | capitalize }}(
 }
 {%- else %}
 
-/// {{ state | capitalize }} chrome: no additional state treatment (identity).
-Widget _chrome{{ state | capitalize }}(
+/// {{ state.split('_') | map('capitalize') | join('') }} chrome: no additional state treatment (identity).
+Widget _chrome{{ state.split('_') | map('capitalize') | join('') }}(
   BuildContext context,
   Widget content,
   Widget Function(Widget content) wrapSurface,
@@ -189,7 +189,7 @@ class _ErrorOverlay extends StatelessWidget {
         Positioned.fill(
           child: DecoratedBox(
             decoration: BoxDecoration(
-              color: palette.statusError.withValues(alpha: kErrorOverlayAlpha),
+              color: palette.statusError.withValues(alpha: _kErrorOverlayAlpha),
               borderRadius: BorderRadius.circular(dimens.radiusMd),
             ),
           ),

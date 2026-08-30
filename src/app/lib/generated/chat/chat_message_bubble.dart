@@ -24,7 +24,7 @@ import 'chat_message_bubble_state.dart';
 
 /// Error-tint alpha painted over the role fill in the error state
 /// (UI-SPEC color contract; chat-domain constant, not a scaffold token).
-const double kErrorOverlayAlpha = 0.12;
+const double _kErrorOverlayAlpha = 0.12;
 
 /// Signature of a per-state chrome builder generated from the states axis.
 ///
@@ -193,7 +193,7 @@ class _ErrorOverlay extends StatelessWidget {
         Positioned.fill(
           child: DecoratedBox(
             decoration: BoxDecoration(
-              color: palette.statusError.withValues(alpha: kErrorOverlayAlpha),
+              color: palette.statusError.withValues(alpha: _kErrorOverlayAlpha),
               borderRadius: BorderRadius.circular(dimens.radiusMd),
             ),
           ),

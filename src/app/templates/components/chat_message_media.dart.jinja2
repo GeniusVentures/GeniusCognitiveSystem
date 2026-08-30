@@ -26,7 +26,7 @@ import '{{ file_stem }}_state.dart';
 
 /// Error-tint alpha painted over the card in the error state
 /// (UI-SPEC color contract; chat-domain constant, not a scaffold token).
-const double kErrorOverlayAlpha = 0.12;
+const double _kErrorOverlayAlpha = 0.12;
 
 /// Signature of a per-state chrome builder generated from the states axis.
 ///
@@ -50,7 +50,7 @@ typedef _{{ widget_class_name }}StateChromeBuilder = Widget Function(
 const Map<String, _{{ widget_class_name }}StateChromeBuilder> _stateChrome =
     <String, _{{ widget_class_name }}StateChromeBuilder>{
 {%- for state in states %}
-      '{{ state }}': _chrome{{ state | capitalize }},
+      '{{ state }}': _chrome{{ state.split('_') | map('capitalize') | join('') }},
 {%- endfor %}
     };
 
@@ -68,7 +68,7 @@ Widget _chromeIdentity(BuildContext context, Widget item) {
 
 /// Pending chrome: the whole item at [ScaffoldDimens.disabledOverlayOpacity]
 /// (UI-SPEC: the scaffold disabled/dim pattern -- upload/load in flight).
-Widget _chrome{{ state | capitalize }}(BuildContext context, Widget item) {
+Widget _chrome{{ state.split('_') | map('capitalize') | join('') }}(BuildContext context, Widget item) {
   return Opacity(
     opacity: context.dimens.disabledOverlayOpacity,
     child: item,
@@ -78,13 +78,13 @@ Widget _chrome{{ state | capitalize }}(BuildContext context, Widget item) {
 
 /// Error chrome: status-error tint painted over the card (12% alpha per the
 /// UI-SPEC color contract -- failed load/transfer).
-Widget _chrome{{ state | capitalize }}(BuildContext context, Widget item) {
+Widget _chrome{{ state.split('_') | map('capitalize') | join('') }}(BuildContext context, Widget item) {
   return _ErrorOverlay(child: item);
 }
 {%- else %}
 
-/// {{ state | capitalize }} chrome: no additional state treatment (identity).
-Widget _chrome{{ state | capitalize }}(BuildContext context, Widget item) {
+/// {{ state.split('_') | map('capitalize') | join('') }} chrome: no additional state treatment (identity).
+Widget _chrome{{ state.split('_') | map('capitalize') | join('') }}(BuildContext context, Widget item) {
   return _chromeIdentity(context, item);
 }
 {%- endif %}
@@ -112,7 +112,7 @@ class _ErrorOverlay extends StatelessWidget {
         Positioned.fill(
           child: DecoratedBox(
             decoration: BoxDecoration(
-              color: palette.statusError.withValues(alpha: kErrorOverlayAlpha),
+              color: palette.statusError.withValues(alpha: _kErrorOverlayAlpha),
               borderRadius: BorderRadius.circular(dimens.radiusMd),
             ),
           ),
