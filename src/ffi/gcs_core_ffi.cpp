@@ -179,14 +179,32 @@ extern "C"
             return nullptr;
         }
 
-        // D-26: pre-join the smoke-topic set; only topics that joined both ways are listed.
+        // D-26: pre-join the smoke-topic set so the pushed room list is
+        // non-empty; only topics that joined both ways are listed (listen
+        // first, then broadcast — GcsGlobalDb::Initialize's D-07 ordering).
+        bool joinedAnySmokeTopic = false;
         for ( const char* smokeTopic : { kSmokeTopicA, kSmokeTopicB } )
         {
-            if ( session->AddBroadcastTopic( smokeTopic ).has_value()
-                 && session->AddListenTopic( smokeTopic ).has_value() )
+            if ( session->AddListenTopic( smokeTopic ).has_value()
+                 && session->AddBroadcastTopic( smokeTopic ).has_value() )
             {
                 g_roomTopics.push_back( smokeTopic );
+                joinedAnySmokeTopic = true;
             }
+            else
+            {
+                spdlog::error( "gcs_ffi: smoke topic '{}' failed to join during init", smokeTopic );
+            }
+        }
+        // A session that joined NO smoke topic cannot honor the non-empty
+        // room-list contract (gcs_core.h) — fail init instead of returning a
+        // silently degraded session the caller cannot distinguish from a
+        // healthy one once Readiness(ready=true) is pushed.
+        if ( !joinedAnySmokeTopic )
+        {
+            spdlog::error( "gcs_ffi: no smoke topic could be joined — failing gcs_init" );
+            session->Shutdown();
+            return nullptr;
         }
 
         g_session = std::move( session );
