@@ -185,8 +185,11 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
         set(GCS_FLUTTER_CONFIG_DIR "Release")
         set(GCS_FLUTTER_BUILD_MODE "--release")
     else()
-        set(GCS_FLUTTER_CONFIG_DIR "RelWithDebInfo")
-        # Flutter has no RelWithDebInfo; --release is the closest (opt build).
+        # Empty CMAKE_BUILD_TYPE = multi-config generator (Xcode). The
+        # --release build mode selected here emits the Release product dir —
+        # RelWithDebInfo matched no Flutter output dir and silently skipped
+        # the app install (IN-09).
+        set(GCS_FLUTTER_CONFIG_DIR "Release")
         set(GCS_FLUTTER_BUILD_MODE "--release")
     endif()
 
