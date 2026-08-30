@@ -23,6 +23,7 @@
 
 #include <spdlog/spdlog.h>
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <cstring>
@@ -243,7 +244,12 @@ extern "C"
                 PostErrorNotice( "join_topic failed for room '" + roomTopic + "'" ); // D-29: raw error string on the push port
                 return GCS_ERROR_GENERIC;
             }
-            g_roomTopics.push_back( roomTopic );
+            // Idempotent room list: a repeated join of an already-joined topic
+            // (Dart-side retry, double-tap) must not append a duplicate room.
+            if ( std::find( g_roomTopics.begin(), g_roomTopics.end(), roomTopic ) == g_roomTopics.end() )
+            {
+                g_roomTopics.push_back( roomTopic );
+            }
             PostToDart( BuildRoomListEvent() );
             return GCS_OK;
         }
