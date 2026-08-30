@@ -60,8 +60,11 @@ extern "C"
      *
      * The codec is bound to the store here and is immutable for the store's
      * lifetime; Phase 1 accepts CODEC_PROTOBUF only (else the call fails as an
-     * unsupported codec). On success the session pre-joins the smoke-topic set
-     * so the pushed room list is non-empty.
+     * unsupported codec — observable ONLY as a NULL return in this phase: no
+     * code path returns GCS_ERROR_UNSUPPORTED_CODEC yet; the value exists so
+     * a later phase can surface codec rejection without an ABI break). On
+     * success the session pre-joins the smoke-topic set so the pushed room
+     * list is non-empty.
      *
      * Thread-safe via global mutex; idempotent — when a session already exists
      * its handle is returned again. Returns NULL on failure (invalid arguments,
