@@ -227,9 +227,20 @@ extern "C"
         case gcs::chat::GcsCommand::kJoinTopic:
         {
             const std::string roomTopic = command.join_topic().room_topic();
-            if ( !g_session->AddBroadcastTopic( roomTopic ).has_value()
-                 || !g_session->AddListenTopic( roomTopic ).has_value() )
+            // Listen first, then broadcast — the same ordering
+            // GcsGlobalDb::Initialize uses (D-07). A listen failure leaves
+            // nothing registered; a broadcast failure leaves only the listen
+            // registration (CoreSession has no Remove*Topic pass-through to
+            // roll it back in Phase 1), but g_roomTopics is NOT mutated and
+            // the failure is surfaced, so the pushed RoomList keeps matching
+            // every topic that joined BOTH ways.
+            if ( !g_session->AddListenTopic( roomTopic ).has_value()
+                 || !g_session->AddBroadcastTopic( roomTopic ).has_value() )
             {
+                spdlog::error( "gcs_ffi: join_topic('{}') failed — topic not "
+                               "added to the room list",
+                               roomTopic );
+                PostErrorNotice( "join_topic failed for room '" + roomTopic + "'" ); // D-29: raw error string on the push port
                 return GCS_ERROR_GENERIC;
             }
             g_roomTopics.push_back( roomTopic );
