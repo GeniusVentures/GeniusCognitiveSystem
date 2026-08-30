@@ -32,6 +32,12 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Darwin" AND TARGET Genius-MOS-ELM-FFI)
     set(GCS_FFI_PLUGIN_LIB_DIR
         "${CMAKE_CURRENT_SOURCE_DIR}/../../GNUS-NEO-SWARM/neoswarm_ffi/macos/lib")
     add_custom_target(app_stage_ffi_dylib
+        # $<CONFIG> echo so a restage with the "other" config is visible in
+        # the build log (IN-06) — single-config Ninja trees stage whichever
+        # config was built last; the destination is a stable relative path
+        # for the podspec, so per-config subdirectories are not an option.
+        COMMAND ${CMAKE_COMMAND} -E echo
+            "Staging $<CONFIG> Genius-MOS-ELM-FFI dylib into neoswarm_ffi plugin"
         COMMAND ${CMAKE_COMMAND} -E make_directory "${GCS_FFI_PLUGIN_LIB_DIR}"
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
             "$<TARGET_FILE:Genius-MOS-ELM-FFI>" "${GCS_FFI_PLUGIN_LIB_DIR}"
