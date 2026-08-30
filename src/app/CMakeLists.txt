@@ -130,7 +130,10 @@ add_custom_target(app_pub_get
     COMMENT "Resolving app Dart dependencies"
 )
 add_custom_target(app_analyze
-    COMMAND ${DART_EXECUTABLE} analyze --fatal-infos
+    # Analyze explicit dirs (lib test) — a bare `analyze` walks the whole tree
+    # recursively and sweeps scaffold/example's pre-existing demo-URI errors
+    # into this gate (WR-02: 50 unrelated issues made it permanently red).
+    COMMAND ${DART_EXECUTABLE} analyze --fatal-infos lib test
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
     DEPENDS app_pub_get app_generate_chat_components
 )
