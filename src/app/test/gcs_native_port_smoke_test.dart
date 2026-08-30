@@ -41,23 +41,20 @@ const int kGcsOk = 0;
 const Duration kWaitLimit = Duration(seconds: 5);
 
 /// Event-driven queue over the ReceivePort — waits are bounded futures, never
-/// polling loops (D-05: push, don't poll).
+/// polling loops (D-05: push, don't poll). Waiters are queued FIFO: a second
+/// [next] before an event arrives no longer replaces (and orphans) the first.
 class _EventQueue {
   final List<GcsEvent> _pending = <GcsEvent>[];
-  Completer<GcsEvent>? _waiter;
+  final List<Completer<GcsEvent>> _waiters = <Completer<GcsEvent>>[];
 
   void add(GcsEvent event)
   {
-    final Completer<GcsEvent>? waiter = _waiter;
-    if (waiter != null && !waiter.isCompleted)
+    if (_waiters.isNotEmpty)
     {
-      _waiter = null;
-      waiter.complete(event);
+      _waiters.removeAt(0).complete(event);
+      return;
     }
-    else
-    {
-      _pending.add(event);
-    }
+    _pending.add(event);
   }
 
   Future<GcsEvent> next()
@@ -67,7 +64,7 @@ class _EventQueue {
       return Future<GcsEvent>.value(_pending.removeAt(0));
     }
     final Completer<GcsEvent> waiter = Completer<GcsEvent>();
-    _waiter = waiter;
+    _waiters.add(waiter);
     return waiter.future;
   }
 }
