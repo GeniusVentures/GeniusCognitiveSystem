@@ -246,6 +246,11 @@ extern "C"
         case gcs::chat::GcsCommand::kJoinTopic:
         {
             const std::string roomTopic = command.join_topic().room_topic();
+            if ( roomTopic.empty() )
+            {
+                PostErrorNotice( "join_topic rejected: room_topic is empty" ); // D-29: raw error string on the push port
+                return GCS_ERROR_INVALID_ARGUMENT;
+            }
             // Listen first, then broadcast — the same ordering
             // GcsGlobalDb::Initialize uses (D-07). A listen failure leaves
             // nothing registered; a broadcast failure leaves only the listen
@@ -274,6 +279,17 @@ extern "C"
         case gcs::chat::GcsCommand::kSendText:
         {
             const gcs::chat::SendTextCommand& sendText = command.send_text();
+            if ( sendText.room_topic().empty() )
+            {
+                PostErrorNotice( "send_text rejected: room_topic is empty" ); // D-29: raw error string on the push port
+                return GCS_ERROR_INVALID_ARGUMENT;
+            }
+            if ( std::find( g_roomTopics.begin(), g_roomTopics.end(), sendText.room_topic() )
+                 == g_roomTopics.end() )
+            {
+                PostErrorNotice( "send_text rejected: room '" + sendText.room_topic() + "' is not joined" );
+                return GCS_ERROR_INVALID_ARGUMENT;
+            }
             gcs::chat::GcsEvent event;
             gcs::chat::ChatMessageState* message = event.mutable_message();
             // D-04: C++ stamps every authority field; Dart's SendTextCommand is data-only.
