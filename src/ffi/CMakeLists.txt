@@ -17,7 +17,12 @@ target_include_directories(gcs_ffi PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
 target_link_libraries(gcs_ffi PRIVATE gcs_core gcs_proto)
-target_compile_definitions(gcs_ffi PRIVATE GCS_FFI_EXPORTS)   # dllexport macro
+# GCS_FFI_EXPORTS drives the gcs_* dllexport macro (gcs_core.h).
+# DART_SHARED_LIB makes DART_EXPORT resolve to __declspec(dllexport) so
+# Dart_InitializeApiDL (declared DART_EXPORT in dart_api_dl.h, defined in
+# dart_api_dl.c) lands in gcs_ffi.dll's export table — without it the
+# Dart-side DynamicLibrary.lookup('Dart_InitializeApiDL') fails on Windows.
+target_compile_definitions(gcs_ffi PRIVATE GCS_FFI_EXPORTS DART_SHARED_LIB)
 if(ANDROID)
     target_link_options(gcs_ffi PRIVATE "-Wl,-z,max-page-size=16384")
 endif()
