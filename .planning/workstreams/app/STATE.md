@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: GCS Chat
-status: "Phase 01 EXECUTING on feature/app-ffi-data-plane (code branch; PR pending). Merged via PR #11: 01-01/01-02/01-07 (2026-08-25). Waves 3-4 COMPLETE 2026-08-26: 01-03 (four-function gcs_ffi bytes ABI, nm=4), 01-08 (bubble), 01-04 (test_gcs_ffi 8/8 + core smoke 2/2; moved test = test_gcs_storage; gate -DBUILD_TESTS=ON), 01-09 (code_block/media). Wave 5: 01-10 COMPLETE (flow triple; all 4 composites rendered, 12 stamps, dart analyze clean; e6aa476..ef62b45). REMAINING: 01-05 Dart spike (NON-AUTONOMOUS — Tasks 1-3 autonomous with FLUTTER_ROOT=thirdparty/flutter, Task 4 blocking human-verify) and 01-06 CI (NON-AUTONOMOUS — needs branch push + draft PR + first-run watch), then wave 6 {01-11 cubits+shell}. OPEN USER DECISIONS: push develop (2 docs commits ahead); draft-PR timing"
-stopped_at: Phase 1 wave 5 autonomous portion complete
-last_updated: "2026-08-26T22:40:00.000Z"
-last_activity: 2026-08-26
+status: "Phase 01 EXECUTING on feature/app-ffi-data-plane. Merged via PR #11: 01-01/01-02/01-07 (2026-08-25). Waves 3-5 COMPLETE: 01-03 (gcs_ffi bytes ABI), 01-08 (bubble), 01-04 (tests, BUILD_TESTS=ON gate), 01-09 (code_block/media), 01-10 (flow triple), 01-05 (Dart spike + UAT 7 passed / 0 issues / 1 blocked deferred to 01-11, 2026-08-31). 01-06 CI: Task 1 COMPLETE (workflow authored, commit 90233f9, YAML-valid, all acceptance checks green); Task 2 BLOCKING human-action — push to develop + observe first CI run (resume-signal: 'ci-green' + run URL). REMAINING after 01-06: wave 6 {01-11 cubits+shell}. OPEN USER DECISIONS: merge feature/app-ffi-data-plane to develop (51 commits ahead, develop is ancestor — fast-forwardable; local develop also 2 docs commits ahead of origin); push develop; draft-PR timing"
+stopped_at: 01-06 Task 2 blocking human-action (push + first CI run watch)
+last_updated: "2026-08-31T21:55:00.000Z"
+last_activity: 2026-08-31 -- Phase 01 execution started
 progress:
   total_phases: 7
   completed_phases: 0
   total_plans: 11
-  completed_plans: 1
+  completed_plans: 9
   percent: 0
 ---
 
@@ -26,9 +26,9 @@ See: .planning/workstreams/app/PROJECT.md (updated 2026-08-15)
 ## Current Position
 
 Phase: 01 (foundation) — EXECUTING
-Plan: 2 of 11
-Status: Phase 01 EXECUTING on feature/app-ffi-data-plane (code branch; PR pending). Merged via PR #11: 01-01/01-02/01-07 (2026-08-25). Waves 3-4 COMPLETE 2026-08-26: 01-03 (four-function gcs_ffi bytes ABI, nm=4), 01-08 (bubble), 01-04 (test_gcs_ffi 8/8 + core smoke 2/2; moved test = test_gcs_storage; gate -DBUILD_TESTS=ON), 01-09 (code_block/media). Wave 5: 01-10 COMPLETE (flow triple; all 4 composites rendered, 12 stamps, dart analyze clean; e6aa476..ef62b45). REMAINING: 01-05 Dart spike (NON-AUTONOMOUS — Tasks 1-3 autonomous with FLUTTER_ROOT=thirdparty/flutter, Task 4 blocking human-verify) and 01-06 CI (NON-AUTONOMOUS — needs branch push + draft PR + first-run watch), then wave 6 {01-11 cubits+shell}. OPEN USER DECISIONS: push develop (2 docs commits ahead); draft-PR timing
-Last activity: 2026-08-26
+Plan: 6 of 11 (01-06 Task 2 checkpoint; then 01-11)
+Status: 01-06 CI workflow AUTHORED + committed (90233f9 on feature/app-ffi-data-plane): resolve-runners + 5-platform matrix x Debug/Release, thirdparty+SuperGenius+GeniusSDK prebuilt downloads, no zkLLVM step (D-09), -DTHIRDPARTY_DIR/-DTHIRDPARTY_BUILD_DIR/-DSUPERGENIUS_DIR/-DGENIUSSDK_DIR explicit pins, -DBUILD_TESTS=ON on Linux/OSX/Windows, ctest (Linux dbus wrapper/OSX/Windows-Release), GeniusCogntiveSystem/ install-tree release upload. AWAITING HUMAN: merge branch to develop + push + watch first CI run (workflow_dispatch works too — push paths-ignore excludes .github-only commits). Failure triage in 01-06-PLAN Task 2 how-to-verify.
+Last activity: 2026-08-31 -- 01-06 Task 1 committed, Task 2 checkpoint raised
 
 Progress: [█░░░░░░░░░] 9%
 
@@ -85,6 +85,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-23T04:29:26.342Z
-Stopped at: Phase 1 UI-SPEC approved
-Resume file: None
+Last session: 2026-08-31T21:55:00.000Z
+Stopped at: 01-06 Task 2 blocking human-action (push to develop + observe first CI run)
+Resume file: .planning/workstreams/app/phases/01-foundation/01-06-PLAN.md (Task 2, resume-signal "ci-green" + run URL)
