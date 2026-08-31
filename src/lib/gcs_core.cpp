@@ -13,10 +13,18 @@
 namespace gcs {
 
 CoreSession::CoreSession(Config config)
-    : m_config(std::move(config)),
-      m_db(std::make_unique<sgns::neoswarm::storage::GcsGlobalDb>(
-          sgns::neoswarm::storage::GcsGlobalDb::Config{
-              .m_dbPath = m_config.m_dbPath})) {}
+    : m_config(std::move(config)) {
+  // An explicitly empty path keeps GcsGlobalDb's documented default
+  // (kDefaultDbPath): overriding the default member initializer with "" here
+  // would hand RocksDB an empty path and fail gcs_init on configs that omit
+  // db_path (proto3 optional field).
+  sgns::neoswarm::storage::GcsGlobalDb::Config dbConfig{};
+  if (!m_config.m_dbPath.empty()) {
+    dbConfig.m_dbPath = m_config.m_dbPath;
+  }
+  m_db = std::make_unique<sgns::neoswarm::storage::GcsGlobalDb>(
+      std::move(dbConfig));
+}
 
 CoreSession::~CoreSession() {
   if (IsRunning()) {
