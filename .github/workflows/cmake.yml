@@ -231,6 +231,20 @@ jobs:
             echo "Contents:"
             ls -la
 
+            echo "=== CLEANUP ARTIFACTS ==="
+            # Remove downloaded artifact dirs BEFORE git clean: container jobs
+            # leave root-owned files (e.g. MNN leftovers) that make
+            # `git clean -xfd` fail outright on self-hosted runners — the sudo
+            # removal runs first so the git clean below succeeds. zkLLVM stays
+            # listed even though GCS has no explicit zkLLVM fetch step — stale
+            # directories from earlier runs may still exist on the runner.
+            for dir in thirdparty zkLLVM SuperGenius GeniusSDK; do
+              if [ -d "$dir" ]; then
+                echo "Removing $dir directory..."
+                $SUDO rm -rf "$dir"
+              fi
+            done
+
             if [ -d ".git" ]; then
               echo "Git repository detected, performing deep clean..."
               # Remove stale lock files first
@@ -249,17 +263,6 @@ jobs:
           else
             echo "Workspace directory does not exist yet, skipping cleanup"
           fi
-
-          echo "=== CLEANUP ARTIFACTS ==="
-          # Clean up artifacts from previous runs (self-hosted runners only)
-          # zkLLVM stays listed even though GCS has no explicit zkLLVM fetch step —
-          # stale directories from earlier runs may still exist on the runner.
-          for dir in thirdparty zkLLVM SuperGenius GeniusSDK; do
-            if [ -d "$dir" ]; then
-              echo "Removing $dir directory..."
-              $SUDO rm -rf "$dir"
-            fi
-          done
 
           echo "=== POST-CLEANUP DEBUG ==="
           if [ -d "${{github.workspace}}" ]; then
@@ -353,8 +356,10 @@ jobs:
           if [ "${{ matrix.target }}" = "Windows" ]; then
               # Convert Unix path to Windows path for Windows builds
               echo "THIRDPARTY_BUILD_DIR=$(pwd -W)/${BUILD_DIRECTORY}" >> $GITHUB_ENV
+              echo "THIRDPARTY_DIR=$(pwd -W)" >> $GITHUB_ENV
           else
               echo "THIRDPARTY_BUILD_DIR=$(pwd)/${BUILD_DIRECTORY}" >> $GITHUB_ENV
+              echo "THIRDPARTY_DIR=$(pwd)" >> $GITHUB_ENV
           fi
 
       # D-09: GCS has NO explicit zkLLVM step (deleted from the GeniusSDK
@@ -502,38 +507,46 @@ jobs:
       # Configure deltas vs the GeniusSDK template:
       #   - working-directory is ${{github.workspace}} (GCS checkout IS the root)
       #   - no -DZKLLVM_BUILD_DIR (D-09)
-      #   - -DTHIRDPARTY_DIR bypasses get_third_party_dir's git-remote walk:
-      #     the extracted tarball has no .git, so discovery would fall back to
-      #     the wrong PROJECT_SUPER_ROOT (Pitfall 3)
-      #   - -DSUPERGENIUS_DIR / -DGENIUSSDK_DIR pin the sibling extract dirs
+      #   - -DTHIRDPARTY_DIR / -DTHIRDPARTY_BUILD_DIR / -DSUPERGENIUS_DIR /
+      #     -DGENIUSSDK_DIR all use $(pwd)-computed GITHUB_ENV values: in
+      #     container jobs ${{github.workspace}} is the RUNNER host path, not
+      #     the container path, so a wrong THIRDPARTY_DIR derails
+      #     PROJECT_SUPER_ROOT (cmaketemplate derives it from THIRDPARTY_DIR)
+      #     and configure dies auto-downloading thirdparty/zkLLVM
+      #   - -DTHIRDPARTY_DIR also bypasses get_third_party_dir's git-remote
+      #     walk: the extracted tarball has no .git (Pitfall 3)
+      #   - -DPROTOC_EXECUTABLE pins the host-built protoc shipped inside the
+      #     OSX/iOS/Android thirdparty tarballs (protobuf_host/bin/protoc) —
+      #     the default protobuf/bin/protoc is an .app bundle or missing on
+      #     cross-compile targets (SuperGenius entry CMakeLists do the same)
       #   - -DBUILD_TESTS=ON on the ctest platforms only (Linux/OSX/Windows);
       #     Android/iOS are cross-compiles with no ctest (D-08)
       - name: Configure CMake for Android
         if: ${{ matrix.target == 'Android'}}
         working-directory: ${{github.workspace}}
-        run: cmake -S build/${{matrix.target}} -B $BUILD_DIRECTORY -DCMAKE_BUILD_TYPE=${{matrix.build-type}} -DANDROID_ABI=${{matrix.abi}} -DTHIRDPARTY_DIR=${{github.workspace}}/thirdparty -DTHIRDPARTY_BUILD_DIR=${{env.THIRDPARTY_BUILD_DIR}} -DSUPERGENIUS_DIR=${{env.SUPERGENIUS_DIR}} -DGENIUSSDK_DIR=${{github.workspace}}/GeniusSDK
+        run: cmake -S build/${{matrix.target}} -B $BUILD_DIRECTORY -DCMAKE_BUILD_TYPE=${{matrix.build-type}} -DANDROID_ABI=${{matrix.abi}} -DTHIRDPARTY_DIR=${{env.THIRDPARTY_DIR}} -DTHIRDPARTY_BUILD_DIR=${{env.THIRDPARTY_BUILD_DIR}} -DPROTOC_EXECUTABLE=${{env.THIRDPARTY_BUILD_DIR}}/protobuf_host/bin/protoc -DSUPERGENIUS_DIR=${{env.SUPERGENIUS_DIR}} -DGENIUSSDK_DIR=${{env.GENIUS_SDK_DIR}}
 
       - name: Configure CMake for Mac
         if: ${{ matrix.target == 'OSX'}}
         working-directory: ${{github.workspace}}
-        run: cmake -S build/${{matrix.target}} -B $BUILD_DIRECTORY -DCMAKE_BUILD_TYPE=${{matrix.build-type}} -DPLATFORM=MAC_UNIVERSAL -DTHIRDPARTY_DIR=${{github.workspace}}/thirdparty -DTHIRDPARTY_BUILD_DIR=${{env.THIRDPARTY_BUILD_DIR}} -DSUPERGENIUS_DIR=${{env.SUPERGENIUS_DIR}} -DGENIUSSDK_DIR=${{github.workspace}}/GeniusSDK -DBUILD_TESTS=ON
+        run: cmake -S build/${{matrix.target}} -B $BUILD_DIRECTORY -DCMAKE_BUILD_TYPE=${{matrix.build-type}} -DPLATFORM=MAC_UNIVERSAL -DTHIRDPARTY_DIR=${{env.THIRDPARTY_DIR}} -DTHIRDPARTY_BUILD_DIR=${{env.THIRDPARTY_BUILD_DIR}} -DPROTOC_EXECUTABLE=${{env.THIRDPARTY_BUILD_DIR}}/protobuf_host/bin/protoc -DSUPERGENIUS_DIR=${{env.SUPERGENIUS_DIR}} -DGENIUSSDK_DIR=${{env.GENIUS_SDK_DIR}} -DBUILD_TESTS=ON
 
       # iOS: build/iOS selects the apple toolchain + PLATFORM=OS64 itself —
       # no explicit toolchain flag.
       - name: Configure CMake for iOS
         if: ${{ matrix.target == 'iOS'}}
         working-directory: ${{github.workspace}}
-        run: cmake -S build/${{matrix.target}} -B $BUILD_DIRECTORY -DCMAKE_BUILD_TYPE=${{matrix.build-type}} -DTHIRDPARTY_DIR=${{github.workspace}}/thirdparty -DTHIRDPARTY_BUILD_DIR=${{env.THIRDPARTY_BUILD_DIR}} -DSUPERGENIUS_DIR=${{env.SUPERGENIUS_DIR}} -DGENIUSSDK_DIR=${{github.workspace}}/GeniusSDK
+        run: cmake -S build/${{matrix.target}} -B $BUILD_DIRECTORY -DCMAKE_BUILD_TYPE=${{matrix.build-type}} -DTHIRDPARTY_DIR=${{env.THIRDPARTY_DIR}} -DTHIRDPARTY_BUILD_DIR=${{env.THIRDPARTY_BUILD_DIR}} -DPROTOC_EXECUTABLE=${{env.THIRDPARTY_BUILD_DIR}}/protobuf_host/bin/protoc -DSUPERGENIUS_DIR=${{env.SUPERGENIUS_DIR}} -DGENIUSSDK_DIR=${{env.GENIUS_SDK_DIR}}
 
       - name: Configure CMake for Linux
         if: ${{matrix.target == 'Linux'}}
         working-directory: ${{github.workspace}}
-        run: cmake -S build/${{matrix.target}} -B $BUILD_DIRECTORY -DCMAKE_BUILD_TYPE=${{matrix.build-type}} -DTHIRDPARTY_DIR=${{github.workspace}}/thirdparty -DTHIRDPARTY_BUILD_DIR=${{env.THIRDPARTY_BUILD_DIR}} -DSUPERGENIUS_DIR=${{env.SUPERGENIUS_DIR}} -DGENIUSSDK_DIR=${{github.workspace}}/GeniusSDK -DABI_SUBFOLDER_NAME='/${{matrix.abi}}' -DBUILD_TESTS=ON
+        run: cmake -S build/${{matrix.target}} -B $BUILD_DIRECTORY -DCMAKE_BUILD_TYPE=${{matrix.build-type}} -DTHIRDPARTY_DIR=${{env.THIRDPARTY_DIR}} -DTHIRDPARTY_BUILD_DIR=${{env.THIRDPARTY_BUILD_DIR}} -DSUPERGENIUS_DIR=${{env.SUPERGENIUS_DIR}} -DGENIUSSDK_DIR=${{env.GENIUS_SDK_DIR}} -DABI_SUBFOLDER_NAME='/${{matrix.abi}}' -DBUILD_TESTS=ON
 
       - name: Configure CMake for Windows
         if: ${{matrix.target == 'Windows'}}
         working-directory: ${{github.workspace}}
-        run: cmake -S build/${{matrix.target}} -B $env:BUILD_DIRECTORY -DCMAKE_BUILD_TYPE=${{matrix.build-type}} -DTHIRDPARTY_DIR=${{github.workspace}}/thirdparty -DTHIRDPARTY_BUILD_DIR=${{env.THIRDPARTY_BUILD_DIR}} -DSUPERGENIUS_DIR=${{env.SUPERGENIUS_DIR}} -DGENIUSSDK_DIR=${{github.workspace}}/GeniusSDK -DBUILD_TESTS=ON
+        run: cmake -S build/${{matrix.target}} -B $env:BUILD_DIRECTORY -DCMAKE_BUILD_TYPE=${{matrix.build-type}} -DTHIRDPARTY_DIR=${{env.THIRDPARTY_DIR}} -DTHIRDPARTY_BUILD_DIR=${{env.THIRDPARTY_BUILD_DIR}} -DSUPERGENIUS_DIR=${{env.SUPERGENIUS_DIR}} -DGENIUSSDK_DIR=${{env.GENIUS_SDK_DIR}} -DBUILD_TESTS=ON
 
       - name: Build GCS
         working-directory: ${{github.workspace}}/${{env.BUILD_DIRECTORY}}
