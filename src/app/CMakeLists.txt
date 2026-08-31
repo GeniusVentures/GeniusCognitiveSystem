@@ -77,6 +77,10 @@ if(PYTHON3_EXECUTABLE AND FRONTEND_TARGET STREQUAL "flutter" AND ENGINE_SCRIPT)
 
     foreach(_comp ${_chat_composites})
         set(_comp_vars "${_chat_templates_dir}/${_comp}_vars.json")
+        # Per-component stamp list, consumed by generate_composite_${_comp}
+        # below — populated ONLY here, inside the codegen guard, so the
+        # targets carry no file dependencies when generation is unavailable.
+        set(_${_comp}_stamps "")
 
         foreach(_kind "" "_cubit" "_state")
             set(_comp_template
@@ -102,6 +106,7 @@ if(PYTHON3_EXECUTABLE AND FRONTEND_TARGET STREQUAL "flutter" AND ENGINE_SCRIPT)
                 DEPENDS ${_comp_template} ${DESIGN_TOKENS} ${ENGINE_SCRIPT} ${_comp_vars}
             )
             list(APPEND _chat_stamps ${_comp_stamp})
+            list(APPEND _${_comp}_stamps ${_comp_stamp})
             list(APPEND _chat_outputs ${_comp_output})
         endforeach()
     endforeach()
@@ -117,15 +122,15 @@ add_custom_target(app_generate_chat_components
 )
 
 # Per-composite dev-loop targets (RESEARCH D-17 shape), declared
-# unconditionally so the target names exist even when python3 is absent
-# (the stamps then simply never exist and the targets are no-ops).
+# unconditionally so the target names exist even when python3 is absent.
+# DEPENDS is the guarded per-component stamp list — empty when codegen is
+# unconfigured, making the targets true no-ops; a hardcoded stamp path would
+# be a file dependency with no rule and fail the build (Make/Ninja "No rule
+# to make target" instead of the documented no-op).
 foreach(_comp ${_chat_composites})
     add_custom_target(generate_composite_${_comp}
         COMMENT "Generate ${_comp} widget/cubit/state triple"
-        DEPENDS
-            "${CMAKE_CURRENT_BINARY_DIR}/template_gen/${_comp}.stamp"
-            "${CMAKE_CURRENT_BINARY_DIR}/template_gen/${_comp}_cubit.stamp"
-            "${CMAKE_CURRENT_BINARY_DIR}/template_gen/${_comp}_state.stamp"
+        DEPENDS ${_${_comp}_stamps}
     )
 endforeach()
 
