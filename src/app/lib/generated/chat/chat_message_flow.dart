@@ -274,7 +274,7 @@ class _ChatMessageFlowState extends State<ChatMessageFlow> {
   /// pushed snapshot (D-04: the state axis and text payload ARE the pushed
   /// data; nothing is synthesized) on first render.
   ChatMessageBubbleCubit _bubbleCubitFor(ChatFlowItemTextBubble item) {
-    return _bubbleCubits.putIfAbsent(
+    final ChatMessageBubbleCubit cubit = _bubbleCubits.putIfAbsent(
       item.instanceId,
       () => ChatMessageBubbleCubit(
         instanceId: item.instanceId,
@@ -283,11 +283,22 @@ class _ChatMessageFlowState extends State<ChatMessageFlow> {
         initialText: item.text,
       ),
     );
+    // A replacement snapshot (same instanceId, newer state/text) reconciles
+    // the cached cubit — items are the flow's single source of truth, so a
+    // cubit seeded from an older snapshot must never keep rendering stale
+    // content. Equality guards keep unchanged snapshots from re-emitting.
+    if (cubit.state.state != item.state) {
+      cubit.applyState(item.state);
+    }
+    if (cubit.state.text != item.text) {
+      cubit.updateText(item.text);
+    }
+    return cubit;
   }
 
-  /// Returns the cached code-block cubit for [item] (see [_bubbleCubits]).
+  /// Returns the cached code-block cubit for [item] (see [_bubbleCubitFor]).
   ChatMessageCodeBlockCubit _codeBlockCubitFor(ChatFlowItemCodeBlock item) {
-    return _codeBlockCubits.putIfAbsent(
+    final ChatMessageCodeBlockCubit cubit = _codeBlockCubits.putIfAbsent(
       item.instanceId,
       () => ChatMessageCodeBlockCubit(
         instanceId: item.instanceId,
@@ -297,11 +308,25 @@ class _ChatMessageFlowState extends State<ChatMessageFlow> {
         initialFilename: item.filename,
       ),
     );
+    // Replacement-snapshot reconciliation (see [_bubbleCubitFor]).
+    if (cubit.state.state != item.state) {
+      cubit.applyState(item.state);
+    }
+    if (cubit.state.code != item.code) {
+      cubit.updateCode(item.code);
+    }
+    if (cubit.state.language != item.language) {
+      cubit.updateLanguage(item.language);
+    }
+    if (cubit.state.filename != item.filename) {
+      cubit.updateFilename(item.filename);
+    }
+    return cubit;
   }
 
-  /// Returns the cached media cubit for [item] (see [_bubbleCubits]).
+  /// Returns the cached media cubit for [item] (see [_bubbleCubitFor]).
   ChatMessageMediaCubit _mediaCubitFor(ChatFlowItemMedia item) {
-    return _mediaCubits.putIfAbsent(
+    final ChatMessageMediaCubit cubit = _mediaCubits.putIfAbsent(
       item.instanceId,
       () => ChatMessageMediaCubit(
         instanceId: item.instanceId,
@@ -310,6 +335,17 @@ class _ChatMessageFlowState extends State<ChatMessageFlow> {
         initialTitle: item.title,
       ),
     );
+    // Replacement-snapshot reconciliation (see [_bubbleCubitFor]).
+    if (cubit.state.state != item.state) {
+      cubit.applyState(item.state);
+    }
+    if (cubit.state.mediaRef != item.mediaRef) {
+      cubit.updateMediaRef(item.mediaRef);
+    }
+    if (cubit.state.title != item.title) {
+      cubit.updateTitle(item.title);
+    }
+    return cubit;
   }
 
   /// Closes and drops the cached cubits of items no longer present in the
