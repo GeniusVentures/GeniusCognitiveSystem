@@ -36,6 +36,21 @@
       <excludeFolder url="file://$MODULE_DIR$/GNUS-NEO-SWARM/gnus-poc/.venv" />
       <excludeFolder url="file://$MODULE_DIR$/.venv" />
       <excludeFolder url="file://$MODULE_DIR$/gendoc-template/.venv" />
+      <excludeFolder url="file://$MODULE_DIR$/GNUS-NEO-SWARM/neoswarm_ffi/.dart_tool" />
+      <excludeFolder url="file://$MODULE_DIR$/GNUS-NEO-SWARM/neoswarm_ffi/.pub" />
+      <excludeFolder url="file://$MODULE_DIR$/GNUS-NEO-SWARM/neoswarm_ffi/build" />
+      <excludeFolder url="file://$MODULE_DIR$/GNUS-NEO-SWARM/neoswarm_ffi/example/.dart_tool" />
+      <excludeFolder url="file://$MODULE_DIR$/GNUS-NEO-SWARM/neoswarm_ffi/example/.pub" />
+      <excludeFolder url="file://$MODULE_DIR$/GNUS-NEO-SWARM/neoswarm_ffi/example/build" />
+      <excludeFolder url="file://$MODULE_DIR$/src/app/.dart_tool" />
+      <excludeFolder url="file://$MODULE_DIR$/src/app/.pub" />
+      <excludeFolder url="file://$MODULE_DIR$/src/app/build" />
+      <excludeFolder url="file://$MODULE_DIR$/src/app/scaffold/.dart_tool" />
+      <excludeFolder url="file://$MODULE_DIR$/src/app/scaffold/.pub" />
+      <excludeFolder url="file://$MODULE_DIR$/src/app/scaffold/build" />
+      <excludeFolder url="file://$MODULE_DIR$/src/app/scaffold/example/.dart_tool" />
+      <excludeFolder url="file://$MODULE_DIR$/src/app/scaffold/example/.pub" />
+      <excludeFolder url="file://$MODULE_DIR$/src/app/scaffold/example/build" />
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
