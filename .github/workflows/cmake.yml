@@ -1,0 +1,626 @@
+name: Release Build CI
+
+on:
+  push:
+    branches:
+      - develop
+      - main
+    paths-ignore:
+      - ".github/**"
+      - "Readme.md"
+  pull_request:
+    branches:
+      - develop
+      - main
+    paths-ignore:
+      - ".github/**"
+      - "Readme.md"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag"
+        required: false
+        type: string
+permissions:
+  contents: write
+  packages: read
+jobs:
+  resolve-runners:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GNUS_TOKEN_1 }}
+    outputs:
+      linux_x64: ${{ steps.pick.outputs.linux_x64 }}
+      linux_arm: ${{ steps.pick.outputs.linux_arm }}
+      windows: ${{ steps.pick.outputs.windows }}
+      mac: ${{ steps.pick.outputs.mac }}
+    steps:
+      - name: Check self-hosted runner availability
+        id: pick
+        env:
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          ORG="${REPO%%/*}"
+          repo_err="$(mktemp)"
+          org_err="$(mktemp)"
+
+          # Some org-scoped runners may not show up via the repo endpoint for this token.
+          # Query both scopes and merge the results.
+          if repo_data="$(gh api "/repos/$REPO/actions/runners" --paginate 2>"$repo_err")"; then
+            echo "Repository runner API query succeeded for $REPO"
+          else
+            echo "Repository runner API query failed for $REPO; continuing with empty repo runner set"
+            repo_data='{"runners":[]}'
+          fi
+
+          if org_data="$(gh api "/orgs/$ORG/actions/runners" --paginate 2>"$org_err")"; then
+            echo "Organization runner API query succeeded for $ORG"
+          else
+            echo "Organization runner API query failed for $ORG; continuing with empty org runner set"
+            org_data='{"runners":[]}'
+          fi
+
+          data="$(jq -n --argjson repo "$repo_data" --argjson org "$org_data" '{runners: (($repo.runners // []) + ($org.runners // []) | unique_by(.id))}')"
+
+          repo_count="$(echo "$repo_data" | jq -r '(.runners // []) | length')"
+          org_count="$(echo "$org_data" | jq -r '(.runners // []) | length')"
+          merged_count="$(echo "$data" | jq -r '(.runners // []) | length')"
+
+          echo "Runner counts: repo=$repo_count org=$org_count merged=$merged_count"
+          if [ "$org_count" -eq 0 ] && [ -s "$org_err" ]; then
+            echo "Org endpoint error output:"
+            cat "$org_err"
+          fi
+
+          echo "Discovered self-hosted runners for $REPO (repo+org merged):"
+          echo "$data" | jq -r '.runners[]? | "- \(.name) | status=\(.status) | busy=\(.busy) | labels=\([.labels[].name] | join(", "))"'
+
+          {
+            echo "## Runner availability"
+            echo
+            echo "Repository: $REPO"
+            echo "Organization: $ORG"
+            echo "Counts: repo=$repo_count org=$org_count merged=$merged_count"
+            echo
+            echo "Discovered runners (repo+org merged):"
+            echo "$data" | jq -r '.runners[]? | "- \(.name) | status=\(.status) | busy=\(.busy) | labels=\([.labels[].name] | join(", "))"'
+            echo
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          # Define JSON arrays using single quotes so real double-quotes are preserved.
+          SH_LINUX_X64='["self-hosted","sg-ubuntu-linux"]'
+          SH_LINUX_ARM='["self-hosted","sg-arm-linux"]'
+          SH_WINDOWS='["self-hosted","SG-WIN11"]'
+          SH_MAC='["self-hosted","gv-OSX-Large"]'
+          FB_LINUX='["ubuntu-latest"]'
+          FB_LINUX_ARM='["ubuntu-24.04-arm"]'
+          FB_WINDOWS='["windows-2022"]'
+          FB_MAC='["macos-latest"]'
+
+          # Returns the self-hosted label array if at least one matching runner
+          # is online and not busy, otherwise returns the GitHub-hosted fallback.
+          # Match either runner name or label/tag text, case-insensitively.
+          pick_runner() {
+            local label="$1" self_hosted="$2" fallback="$3"
+            if echo "$data" | jq -e --arg L "$label" \
+              '.runners[]
+               | select(.status=="online" and (.busy|not))
+               | select((.name | ascii_downcase) == ($L | ascii_downcase)
+                 or any(.labels[]; (.name | ascii_downcase) == ($L | ascii_downcase)))' \
+              >/dev/null 2>&1; then
+              echo "Selector '$label' matched an available self-hosted runner" >&2
+              echo "- $label: self-hosted" >> "$GITHUB_STEP_SUMMARY"
+              echo "$self_hosted"
+            else
+              echo "Selector '$label' did not match an available self-hosted runner" >&2
+              echo "- $label: fallback" >> "$GITHUB_STEP_SUMMARY"
+              echo "$fallback"
+            fi
+          }
+
+          echo "linux_x64=$(pick_runner 'sg-ubuntu-linux' "$SH_LINUX_X64" "$FB_LINUX")"   >> "$GITHUB_OUTPUT"
+          echo "linux_arm=$(pick_runner 'sg-arm-linux'    "$SH_LINUX_ARM" "$FB_LINUX_ARM")" >> "$GITHUB_OUTPUT"
+          echo "windows=$(pick_runner   'SG-WIN11'        "$SH_WINDOWS"   "$FB_WINDOWS")" >> "$GITHUB_OUTPUT"
+          echo "mac=$(pick_runner       'gv-OSX-Large'    "$SH_MAC"       "$FB_MAC")"     >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: resolve-runners
+    env:
+      GRPC_BUILD_ENABLE_CCACHE: "ON"
+      GH_TOKEN: ${{ secrets.GNUS_TOKEN_1 }}
+    runs-on: ${{ fromJson(needs.resolve-runners.outputs[matrix.runner_key]) }}
+    container:
+      image: ${{matrix.container}}
+      credentials:
+        username: ${{github.actor}}
+        password: ${{secrets.GNUS_TOKEN_1}}
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [Android, iOS, OSX, Linux, Windows]
+        build-type: [Debug, Release]
+        abi: [""]
+        include:
+          - target: Linux
+            runner_key: linux_x64
+            abi: "x86_64"
+            build-type: "Release"
+            container: ghcr.io/geniusventures/debian-bullseye:latest
+          - target: Linux
+            runner_key: linux_x64
+            abi: "x86_64"
+            build-type: "Debug"
+            container: ghcr.io/geniusventures/debian-bullseye:latest
+          - target: Linux
+            runner_key: linux_arm
+            abi: "aarch64"
+            build-type: "Release"
+            container: ghcr.io/geniusventures/debian-bullseye:latest
+          - target: Linux
+            runner_key: linux_arm
+            abi: "aarch64"
+            build-type: "Debug"
+            container: ghcr.io/geniusventures/debian-bullseye:latest
+          - target: Windows
+            runner_key: windows
+          - target: OSX
+            runner_key: mac
+          - target: Android
+            runner_key: linux_x64
+            abi: arm64-v8a
+            build-type: "Release"
+          - target: Android
+            runner_key: linux_x64
+            abi: arm64-v8a
+            build-type: "Debug"
+          - target: Android
+            runner_key: linux_x64
+            abi: armeabi-v7a
+            build-type: "Release"
+          - target: Android
+            runner_key: linux_x64
+            abi: armeabi-v7a
+            build-type: "Debug"
+          - target: iOS
+            runner_key: mac
+        exclude:
+          - target: Android
+            abi: ""
+          - target: Linux
+            abi: ""
+    steps:
+      - name: Configure bash on Windows (use Git Bash, not WSL)
+        if: ${{ runner.environment == 'self-hosted' && matrix.target == 'Windows' }}
+        run: |
+          $gitUsrBinPath = "C:\Program Files\Git\usr\bin"
+          $gitBinPath = "C:\Program Files\Git\bin"
+
+          foreach ($p in @($gitBinPath, $gitUsrBinPath)) {
+            if (Test-Path $p) {
+              Add-Content -Path $env:GITHUB_PATH -Value $p
+              $env:PATH = "$p;$env:PATH"
+            }
+          }
+
+          Write-Output "Git Bash configured for bash shell commands"
+          $bashLocation = (Get-Command bash.exe -ErrorAction SilentlyContinue).Source
+          if ($bashLocation) {
+            Write-Output "Bash location: $bashLocation"
+          } else {
+            Write-Output "WARNING: bash.exe not found in PATH"
+          }
+
+      - name: Clean workspace (self-hosted runners)
+        if: ${{ runner.environment == 'self-hosted' }}
+        shell: bash
+        run: |
+          # Use sudo on Linux to handle root-owned files left by container jobs
+          SUDO=""
+          if [ "$(uname)" = "Linux" ]; then
+            SUDO="sudo"
+          fi
+
+          echo "=== PRE-CLEANUP DEBUG ==="
+          echo "Current working directory: $(pwd)"
+          echo "Workspace: ${{github.workspace}}"
+
+          if [ -d "${{github.workspace}}" ]; then
+            cd "${{github.workspace}}"
+            echo "Changed to workspace directory: $(pwd)"
+            echo "Contents:"
+            ls -la
+
+            # Full wipe, SuperGenius-style (their clean has NO git commands):
+            # container jobs leave root-owned files not just in the downloaded
+            # dirs but inside the submodule build trees (e.g.
+            # build/Linux/Release/<abi>/CMakeFiles), which make `git clean
+            # -xfd` AND actions/checkout's own internal clean fail with
+            # permission errors on self-hosted runners. Removing everything
+            # with sudo lets checkout re-clone fresh.
+            echo "=== CLEANUP: full sudo wipe ==="
+            $SUDO rm -rf ./* ./.[!.]* || true
+          else
+            echo "Workspace directory does not exist yet, skipping cleanup"
+          fi
+
+          echo "=== POST-CLEANUP DEBUG ==="
+          if [ -d "${{github.workspace}}" ]; then
+            cd "${{github.workspace}}"
+            echo "Final workspace contents:"
+            ls -la
+          fi
+
+      - name: Checkout GCS
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          # No path: override — the GCS checkout IS the workspace root (unlike
+          # the GeniusSDK template, which checks out into a GeniusSDK/ subdir).
+          # Submodules: GNUS-NEO-SWARM, build (cmaketemplate), gendoc-template,
+          # src/app/scaffold.
+          submodules: "recursive"
+          persist-credentials: true # Required for uploading the release later
+
+      - name: Set build directory
+        shell: bash
+        run: |
+          if [ '${{matrix.abi}}' ]; then
+            BUILD_DIRECTORY=build/${{matrix.target}}/${{matrix.build-type}}/${{matrix.abi}}
+          else
+            BUILD_DIRECTORY=build/${{matrix.target}}/${{matrix.build-type}}
+          fi
+          echo "BUILD_DIRECTORY=$BUILD_DIRECTORY" >> $GITHUB_ENV
+
+      - name: Download thirdparty release
+        working-directory: ${{github.workspace}}
+        shell: bash
+        env:
+          GITHUB_EVENT_INPUTS_TAG: ${{ github.event.inputs.tag }}
+          GITHUB_EVENT_PULL_REQUEST_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: |
+          # Determine current branch or tag
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ] && [ "${GITHUB_EVENT_INPUTS_TAG}" ]; then
+              CURRENT_BRANCH="${GITHUB_EVENT_INPUTS_TAG}"
+              IS_TAG=true
+          elif ${{github.event_name == 'pull_request'}}; then
+              CURRENT_BRANCH=${GITHUB_EVENT_PULL_REQUEST_HEAD_REF}
+              IS_TAG=false
+          else
+              CURRENT_BRANCH=$GITHUB_REF_NAME
+              IS_TAG=false
+          fi
+
+          echo "Identified current branch/tag as ${CURRENT_BRANCH}"
+          echo "CURRENT_BRANCH=${CURRENT_BRANCH}" >>$GITHUB_ENV
+          echo "IS_TAG=${IS_TAG}" >>$GITHUB_ENV
+
+          # Determine thirdparty branch to use
+          if [ "$IS_TAG" == "true" ]; then
+              # For tags, use the exact tag name for thirdparty
+              thirdparty_branch="$CURRENT_BRANCH"
+          elif [ "$CURRENT_BRANCH" == "main" ]; then
+              thirdparty_branch="main"
+          else
+              thirdparty_branch="develop"
+          fi
+
+          echo "Using ${thirdparty_branch} for thirdparty"
+
+          if [ '${{matrix.abi}}' ]; then
+              FILE_NAME=${{matrix.target}}-${{matrix.abi}}-${{matrix.build-type}}.tar.gz
+          else
+              FILE_NAME=${{matrix.target}}-${{matrix.build-type}}.tar.gz
+          fi
+          echo "FILE_NAME=${FILE_NAME}" >> $GITHUB_ENV
+
+          mkdir thirdparty
+          cd thirdparty
+
+          if [ "$IS_TAG" == "true" ]; then
+              # For tags, use just the tag name
+              tag_name="${thirdparty_branch}"
+          else
+              # For branches, use the platform-branch-buildtype format
+              if [ '${{matrix.abi}}' ]; then
+                  tag_name="${{matrix.target}}-${{matrix.abi}}-${thirdparty_branch}-${{matrix.build-type}}"
+              else
+                  tag_name="${{matrix.target}}-${thirdparty_branch}-${{matrix.build-type}}"
+              fi
+          fi
+
+          gh release download ${tag_name} --repo GeniusVentures/thirdparty -p "${FILE_NAME}"
+          tar -zxf "${FILE_NAME}"
+
+          # Set THIRDPARTY_BUILD_DIR to the actual location where files were extracted
+
+          if [ "${{ matrix.target }}" = "Windows" ]; then
+              # Convert Unix path to Windows path for Windows builds
+              echo "THIRDPARTY_BUILD_DIR=$(pwd -W)/${BUILD_DIRECTORY}" >> $GITHUB_ENV
+              echo "THIRDPARTY_DIR=$(pwd -W)" >> $GITHUB_ENV
+          else
+              echo "THIRDPARTY_BUILD_DIR=$(pwd)/${BUILD_DIRECTORY}" >> $GITHUB_ENV
+              echo "THIRDPARTY_DIR=$(pwd)" >> $GITHUB_ENV
+          fi
+
+      # D-09: GCS has NO explicit zkLLVM step (deleted from the GeniusSDK
+      # template). cmaketemplate auto-downloads the headers-only zkLLVM at
+      # configure time; no assigner binaries are fetched.
+
+      - name: Download SuperGenius
+        shell: bash
+        run: |
+          # Use same branch determination logic for SuperGenius
+          if [ "$IS_TAG" == "true" ]; then
+              # For tags, use the exact tag name for SuperGenius
+              sgns_branch="$CURRENT_BRANCH"
+          elif [ "$CURRENT_BRANCH" == "main" ]; then
+              sgns_branch="main"
+          else
+              sgns_branch="develop"
+          fi
+
+          echo "Using ${sgns_branch} branch/tag from SuperGenius"
+
+          mkdir SuperGenius
+          cd SuperGenius
+
+          if [ "$IS_TAG" == "true" ]; then
+              # For tags, use just the tag name
+              tag_name="${sgns_branch}"
+          else
+              # For branches, use the platform-branch-buildtype format
+              if [ '${{matrix.abi}}' ]; then
+                  tag_name="${{matrix.target}}-${{matrix.abi}}-${sgns_branch}-${{matrix.build-type}}"
+              else
+                  tag_name="${{matrix.target}}-${sgns_branch}-${{matrix.build-type}}"
+              fi
+          fi
+
+          gh release download ${tag_name} --repo GeniusVentures/SuperGenius -p "${FILE_NAME}"
+
+          tar -xzf "${FILE_NAME}"
+
+          if [ "${{ matrix.target }}" = "Windows" ]; then
+              # Convert Unix path to Windows path for Windows builds
+              echo "SUPERGENIUS_DIR=$(pwd -W)" >> $GITHUB_ENV
+          else
+              echo "SUPERGENIUS_DIR=$(pwd)" >> $GITHUB_ENV
+          fi
+
+      # NEW vs the GeniusSDK template: GCS consumes the GeniusSDK prebuilt
+      # release (the GeniusSDK repo builds itself instead).
+      - name: Download GeniusSDK
+        shell: bash
+        run: |
+          # Use same branch determination logic for GeniusSDK
+          if [ "$IS_TAG" == "true" ]; then
+              # For tags, use the exact tag name for GeniusSDK
+              sdk_branch="$CURRENT_BRANCH"
+          elif [ "$CURRENT_BRANCH" == "main" ]; then
+              sdk_branch="main"
+          else
+              sdk_branch="develop"
+          fi
+
+          echo "Using ${sdk_branch} branch/tag from GeniusSDK"
+
+          mkdir GeniusSDK
+          cd GeniusSDK
+
+          if [ "$IS_TAG" == "true" ]; then
+              # For tags, use just the tag name
+              tag_name="${sdk_branch}"
+          else
+              # For branches, use the platform-branch-buildtype format
+              if [ '${{matrix.abi}}' ]; then
+                  tag_name="${{matrix.target}}-${{matrix.abi}}-${sdk_branch}-${{matrix.build-type}}"
+              else
+                  tag_name="${{matrix.target}}-${sdk_branch}-${{matrix.build-type}}"
+              fi
+          fi
+
+          gh release download ${tag_name} --repo GeniusVentures/GeniusSDK -p "${FILE_NAME}"
+
+          tar -xzf "${FILE_NAME}"
+
+          if [ "${{ matrix.target }}" = "Windows" ]; then
+              # Convert Unix path to Windows path for Windows builds
+              echo "GENIUS_SDK_DIR=$(pwd -W)" >> $GITHUB_ENV
+          else
+              echo "GENIUS_SDK_DIR=$(pwd)" >> $GITHUB_ENV
+          fi
+
+      - name: Configure Linux host
+        if: ${{ runner.os == 'Linux'}}
+        run: |
+          sudo update-alternatives --install /usr/bin/cc cc $(which clang) 100
+          sudo update-alternatives --install /usr/bin/c++ c++ $(which clang++) 100
+          sudo update-alternatives --set cc $(which clang)
+          sudo update-alternatives --set c++ $(which clang++)
+
+          # dbus + gnome-keyring: the Linux ctest step runs under
+          # dbus-run-session with an unlocked keyring (SuperGenius precedent).
+          sudo apt install ccache ninja-build libvulkan-dev libzstd-dev libsecret-1-dev dbus gnome-keyring -y
+          echo "CMAKE_GENERATOR=Ninja" >> $GITHUB_ENV
+
+      - name: Configure Windows host
+        if: ${{ runner.os == 'Windows'}}
+        run: |
+          choco install ccache -A
+
+      - name: Configure macOS host
+        if: ${{ runner.os == 'macOS'}}
+        run: |
+          brew install ninja bash gnu-tar
+
+          # Ensure GNU tar is first in PATH - check both possible Homebrew locations
+          if [ -d "/opt/homebrew/opt/gnu-tar/libexec/gnubin" ]; then
+            echo "PATH=/opt/homebrew/opt/gnu-tar/libexec/gnubin:$PATH" >> $GITHUB_ENV
+            echo "Using GNU tar from /opt/homebrew"
+          elif [ -d "/usr/local/opt/gnu-tar/libexec/gnubin" ]; then
+            echo "PATH=/usr/local/opt/gnu-tar/libexec/gnubin:$PATH" >> $GITHUB_ENV
+            echo "Using GNU tar from /usr/local"
+          else
+            echo "WARNING: GNU tar installation not found in expected locations"
+            echo "Available tar: $(which tar)"
+          fi
+
+          echo "CMAKE_GENERATOR=Ninja" >> $GITHUB_ENV
+
+      # No rustup targets here (deleted from the GeniusSDK template): GCS and
+      # its submodules contain no Rust code.
+      - name: Add Android toolchain
+        if: ${{ matrix.target == 'Android' }}
+        run: |
+          NDK_VERSION="r27b"
+          NDK_DIR="$HOME/android-ndk-$NDK_VERSION"
+          if [ ! -d "$NDK_DIR" ]; then
+            echo "Downloading Android NDK $NDK_VERSION..."
+            wget https://dl.google.com/android/repository/android-ndk-$NDK_VERSION-linux.zip -O ndk.zip
+            unzip -o ndk.zip -d $HOME
+            rm ndk.zip
+          else
+            echo "Android NDK already exists at $NDK_DIR, skipping download"
+          fi
+          echo "ANDROID_NDK_HOME=$NDK_DIR" >> $GITHUB_ENV
+
+      # Configure deltas vs the GeniusSDK template:
+      #   - working-directory is ${{github.workspace}} (GCS checkout IS the root)
+      #   - no -DZKLLVM_BUILD_DIR (D-09)
+      #   - -DTHIRDPARTY_DIR / -DTHIRDPARTY_BUILD_DIR / -DSUPERGENIUS_DIR /
+      #     -DGENIUSSDK_DIR all use $(pwd)-computed GITHUB_ENV values: in
+      #     container jobs ${{github.workspace}} is the RUNNER host path, not
+      #     the container path, so a wrong THIRDPARTY_DIR derails
+      #     PROJECT_SUPER_ROOT (cmaketemplate derives it from THIRDPARTY_DIR)
+      #     and configure dies auto-downloading thirdparty/zkLLVM
+      #   - -DTHIRDPARTY_DIR also bypasses get_third_party_dir's git-remote
+      #     walk: the extracted tarball has no .git (Pitfall 3)
+      #   - -DPROTOC_EXECUTABLE pins the host-built protoc shipped inside the
+      #     OSX/iOS/Android thirdparty tarballs (protobuf_host/bin/protoc) —
+      #     the default protobuf/bin/protoc is an .app bundle or missing on
+      #     cross-compile targets (SuperGenius entry CMakeLists do the same)
+      #   - -DBUILD_TESTS=ON on the ctest platforms only (Linux/OSX/Windows);
+      #     Android/iOS are cross-compiles with no ctest (D-08)
+      - name: Configure CMake for Android
+        if: ${{ matrix.target == 'Android'}}
+        working-directory: ${{github.workspace}}
+        run: cmake -S build/${{matrix.target}} -B $BUILD_DIRECTORY -DCMAKE_BUILD_TYPE=${{matrix.build-type}} -DANDROID_ABI=${{matrix.abi}} -DTHIRDPARTY_DIR=${{env.THIRDPARTY_DIR}} -DTHIRDPARTY_BUILD_DIR=${{env.THIRDPARTY_BUILD_DIR}} -DPROTOC_EXECUTABLE=${{env.THIRDPARTY_BUILD_DIR}}/protobuf_host/bin/protoc -DSUPERGENIUS_DIR=${{env.SUPERGENIUS_DIR}} -DGENIUSSDK_DIR=${{env.GENIUS_SDK_DIR}}
+
+      - name: Configure CMake for Mac
+        if: ${{ matrix.target == 'OSX'}}
+        working-directory: ${{github.workspace}}
+        run: cmake -S build/${{matrix.target}} -B $BUILD_DIRECTORY -DCMAKE_BUILD_TYPE=${{matrix.build-type}} -DPLATFORM=MAC_UNIVERSAL -DTHIRDPARTY_DIR=${{env.THIRDPARTY_DIR}} -DTHIRDPARTY_BUILD_DIR=${{env.THIRDPARTY_BUILD_DIR}} -DPROTOC_EXECUTABLE=${{env.THIRDPARTY_BUILD_DIR}}/protobuf_host/bin/protoc -DSUPERGENIUS_DIR=${{env.SUPERGENIUS_DIR}} -DGENIUSSDK_DIR=${{env.GENIUS_SDK_DIR}} -DBUILD_TESTS=ON
+
+      # iOS: build/iOS selects the apple toolchain + PLATFORM=OS64 itself —
+      # no explicit toolchain flag.
+      - name: Configure CMake for iOS
+        if: ${{ matrix.target == 'iOS'}}
+        working-directory: ${{github.workspace}}
+        run: cmake -S build/${{matrix.target}} -B $BUILD_DIRECTORY -DCMAKE_BUILD_TYPE=${{matrix.build-type}} -DTHIRDPARTY_DIR=${{env.THIRDPARTY_DIR}} -DTHIRDPARTY_BUILD_DIR=${{env.THIRDPARTY_BUILD_DIR}} -DPROTOC_EXECUTABLE=${{env.THIRDPARTY_BUILD_DIR}}/protobuf_host/bin/protoc -DSUPERGENIUS_DIR=${{env.SUPERGENIUS_DIR}} -DGENIUSSDK_DIR=${{env.GENIUS_SDK_DIR}}
+
+      - name: Configure CMake for Linux
+        if: ${{matrix.target == 'Linux'}}
+        working-directory: ${{github.workspace}}
+        run: cmake -S build/${{matrix.target}} -B $BUILD_DIRECTORY -DCMAKE_BUILD_TYPE=${{matrix.build-type}} -DTHIRDPARTY_DIR=${{env.THIRDPARTY_DIR}} -DTHIRDPARTY_BUILD_DIR=${{env.THIRDPARTY_BUILD_DIR}} -DSUPERGENIUS_DIR=${{env.SUPERGENIUS_DIR}} -DGENIUSSDK_DIR=${{env.GENIUS_SDK_DIR}} -DABI_SUBFOLDER_NAME='/${{matrix.abi}}' -DBUILD_TESTS=ON
+
+      - name: Configure CMake for Windows
+        if: ${{matrix.target == 'Windows'}}
+        working-directory: ${{github.workspace}}
+        run: cmake -S build/${{matrix.target}} -B $env:BUILD_DIRECTORY -DCMAKE_BUILD_TYPE=${{matrix.build-type}} -DTHIRDPARTY_DIR=${{env.THIRDPARTY_DIR}} -DTHIRDPARTY_BUILD_DIR=${{env.THIRDPARTY_BUILD_DIR}} -DSUPERGENIUS_DIR=${{env.SUPERGENIUS_DIR}} -DGENIUSSDK_DIR=${{env.GENIUS_SDK_DIR}} -DBUILD_TESTS=ON
+
+      - name: Build GCS
+        working-directory: ${{github.workspace}}/${{env.BUILD_DIRECTORY}}
+        shell: bash
+        run: cmake --build . --config ${{matrix.build-type}} -j
+
+      - name: Install GCS
+        working-directory: ${{github.workspace}}/${{env.BUILD_DIRECTORY}}
+        run: cmake --install . --config ${{matrix.build-type}}
+
+      # ctest (from the SuperGenius workflow — the GeniusSDK template has no
+      # test steps): Linux under a dbus-run-session keyring wrapper, OSX plain,
+      # Windows Release only. No ctest on Android/iOS (cross-compiles, D-08).
+      - name: Run tests (Linux)
+        working-directory: ${{github.workspace}}/${{env.BUILD_DIRECTORY}}
+        if: ${{ matrix.target == 'Linux' }}
+        shell: bash
+        run: |
+          dbus-run-session -- bash -c '\
+            mkdir -p ~/.cache ~/.local/share/keyrings && \
+            echo -n "login" > ~/.local/share/keyrings/default && \
+            echo "[keyring]
+            display-name=login
+            lock-on-idle=false
+            lock-after=false" > ~/.local/share/keyrings/login.keyring && \
+            eval $(printf "\n" | gnome-keyring-daemon --unlock --components=secrets) && \
+            ctest . -j 4 -C ${{ matrix.build-type }} --output-on-failure'
+
+      - name: Run tests (OSX)
+        working-directory: ${{github.workspace}}/${{env.BUILD_DIRECTORY}}
+        if: ${{ matrix.target == 'OSX' }}
+        run: ctest . -j 4 -C ${{ matrix.build-type }} --output-on-failure
+
+      - name: Run tests (Windows)
+        working-directory: ${{github.workspace}}/${{env.BUILD_DIRECTORY}}
+        if: ${{ matrix.build-type == 'Release' && matrix.target == 'Windows' }}
+        run: ctest . -j 4 -C ${{ matrix.build-type }} --output-on-failure
+
+      - name: Compress build artifacts
+        working-directory: ${{github.workspace}}/${{env.BUILD_DIRECTORY}}
+        if: github.ref_name == 'main' || github.ref_name == 'develop' || env.IS_TAG == 'true'
+        shell: bash
+        run: |
+          # GeniusCogntiveSystem/ is the cmake --install tree inside the build
+          # directory (libgcs_ffi, libgcs_proto, headers, cmake configs) — the
+          # same layout downstream consumers extract.
+          tar --exclude=.git -czvf ${FILE_NAME} --transform 's|^|${{env.BUILD_DIRECTORY}}/|' GeniusCogntiveSystem/
+
+      - name: Set release tag
+        shell: bash
+        run: |
+          if ${{ github.event_name == 'workflow_dispatch' }} && [ '${{ github.event.inputs.tag }}' ]; then
+              RELEASE_TAG="${{ github.event.inputs.tag }}"
+              IS_TAG_RELEASE="true"
+          else
+              if [ '${{matrix.abi}}' ]; then
+                  RELEASE_TAG="${{ matrix.target }}-${{matrix.abi}}-${GITHUB_REF_NAME}-${{ matrix.build-type }}"
+              else
+                  RELEASE_TAG="${{ matrix.target }}-${GITHUB_REF_NAME}-${{ matrix.build-type }}"
+              fi
+              IS_TAG_RELEASE="false"
+          fi
+
+          echo "RELEASE_TAG=$RELEASE_TAG" >> $GITHUB_ENV
+          echo "IS_TAG_RELEASE=$IS_TAG_RELEASE" >> $GITHUB_ENV
+
+      - name: Create release tag
+        if: github.ref_name == 'main' || github.ref_name == 'develop'
+        working-directory: ${{github.workspace}}
+        id: create-release-tag
+        shell: bash
+        run: |
+          echo "Checking if release $RELEASE_TAG exists..."
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            if [ "$IS_TAG_RELEASE" == "false" ]; then
+                echo "Deleting existing release/tag $RELEASE_TAG..."
+                gh release delete "$RELEASE_TAG" --yes || true
+                gh api repos/${{ github.repository }}/git/refs/tags/$RELEASE_TAG -X DELETE || true
+                git tag -d "$RELEASE_TAG" || true
+            fi
+          fi
+
+          echo "Creating release $RELEASE_TAG..."
+          # gh release create --target handles both tag creation (via API) and release
+          # creation in one call — avoids git push which requires workflows permission
+          # when the tagged commit touches .github/workflows/ files.
+          gh release create "$RELEASE_TAG" \
+          --target "${{ github.sha }}" \
+          -t "${{ matrix.target }} ${GITHUB_REF_NAME} ${{ matrix.build-type }} build" \
+          -n "Branch: ${GITHUB_REF_NAME} | SHA: ${{ github.sha }}" \
+          $( [ "$IS_TAG_RELEASE" = "true" ] && echo "" || echo "--prerelease" )
+
+      - name: Upload file
+        if: github.ref_name == 'main' || github.ref_name == 'develop' || env.IS_TAG == 'true'
+        working-directory: ${{github.workspace}}/
+        shell: bash
+        run: gh release upload ${RELEASE_TAG} "${BUILD_DIRECTORY}/${FILE_NAME}" --clobber

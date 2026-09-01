@@ -32,6 +32,12 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Darwin" AND TARGET Genius-MOS-ELM-FFI)
     set(GCS_FFI_PLUGIN_LIB_DIR
         "${CMAKE_CURRENT_SOURCE_DIR}/../../GNUS-NEO-SWARM/neoswarm_ffi/macos/lib")
     add_custom_target(app_stage_ffi_dylib
+        # $<CONFIG> echo so a restage with the "other" config is visible in
+        # the build log (IN-06) — single-config Ninja trees stage whichever
+        # config was built last; the destination is a stable relative path
+        # for the podspec, so per-config subdirectories are not an option.
+        COMMAND ${CMAKE_COMMAND} -E echo
+            "Staging $<CONFIG> Genius-MOS-ELM-FFI dylib into neoswarm_ffi plugin"
         COMMAND ${CMAKE_COMMAND} -E make_directory "${GCS_FFI_PLUGIN_LIB_DIR}"
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
             "$<TARGET_FILE:Genius-MOS-ELM-FFI>" "${GCS_FFI_PLUGIN_LIB_DIR}"
@@ -40,26 +46,136 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Darwin" AND TARGET Genius-MOS-ELM-FFI)
     )
 endif()
 
-# App-level dev-loop targets. app_analyze/app_test DEPEND only on app_pub_get
-# for now; the DEPENDS app_generate_chat_components edge is added in 01-08 when
-# the composite codegen loop lands (avoids a dangling target reference).
-# Never depend on the scaffold's OpenAPI aggregate/api targets — GCS has no
-# api-specs (Pitfall U4).
+# --- GCS chat composite codegen (D-17): bubble + code_block + media (D-20)
+# payload composites + the flow envelope (D-20 interleave), Dart triples
+# only. Mirrors scaffold CMakeLists.txt §6 (one stamp per rendered file,
+# per-stamp DEPENDS on template + tokens + engine + vars for the incremental
+# re-render invariant). The C++ half of every composite is the protobuf
+# ChatMessageState generated from src/proto/gcs_chat.proto by plan 01-03
+# (D-26/D-29) — there is deliberately no C++ template rendering here.
+set(_chat_templates_dir "${CMAKE_CURRENT_SOURCE_DIR}/templates/components")
+set(_chat_composites
+    chat_message_bubble
+    chat_message_code_block
+    chat_message_media
+    chat_message_flow
+)
+
+set(_chat_stamps "")
+set(_chat_outputs "")
+# ENGINE_SCRIPT/DESIGN_TOKENS come from the optional scaffold subdirectory —
+# without the guard an absent scaffold tree with python3 present renders
+# `python3 --template ...` (an argparse failure at build time, IN-10).
+if(PYTHON3_EXECUTABLE AND FRONTEND_TARGET STREQUAL "flutter" AND ENGINE_SCRIPT)
+    # List form so each flag expands to TWO argv tokens (Pitfall 1762a45: a
+    # single space-embedded string reaches argparse as one token and fails).
+    # OUR templates dir FIRST — FileSystemLoader is first-match-wins.
+    set(_chat_template_dirs
+        --template-dir "${CMAKE_CURRENT_SOURCE_DIR}/templates"
+        --template-dir "${CMAKE_CURRENT_SOURCE_DIR}/scaffold/templates"
+    )
+
+    foreach(_comp ${_chat_composites})
+        set(_comp_vars "${_chat_templates_dir}/${_comp}_vars.json")
+        # Per-component stamp list, consumed by generate_composite_${_comp}
+        # below — populated ONLY here, inside the codegen guard, so the
+        # targets carry no file dependencies when generation is unavailable.
+        set(_${_comp}_stamps "")
+
+        foreach(_kind "" "_cubit" "_state")
+            set(_comp_template
+                "${_chat_templates_dir}/${_comp}${_kind}.dart.jinja2")
+            set(_comp_stamp
+                "${CMAKE_CURRENT_BINARY_DIR}/template_gen/${_comp}${_kind}.stamp")
+            set(_comp_output
+                "${GENERATED_DIR}/chat/${_comp}${_kind}.dart")
+
+            add_custom_command(
+                OUTPUT ${_comp_stamp} ${_comp_output}
+                COMMAND ${CMAKE_COMMAND} -E make_directory
+                    "${CMAKE_CURRENT_BINARY_DIR}/template_gen"
+                COMMAND ${PYTHON3_EXECUTABLE} ${ENGINE_SCRIPT}
+                    --template "components/${_comp}${_kind}.dart.jinja2"
+                    --tokens ${DESIGN_TOKENS}
+                    --output ${_comp_output}
+                    ${_chat_template_dirs}
+                    --vars ${_comp_vars}
+                COMMAND ${CMAKE_COMMAND} -E touch ${_comp_stamp}
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                COMMENT "Rendering chat composite: ${_comp}${_kind}"
+                DEPENDS ${_comp_template} ${DESIGN_TOKENS} ${ENGINE_SCRIPT} ${_comp_vars}
+            )
+            list(APPEND _chat_stamps ${_comp_stamp})
+            list(APPEND _${_comp}_stamps ${_comp_stamp})
+            list(APPEND _chat_outputs ${_comp_output})
+        endforeach()
+    endforeach()
+endif()
+
+# Declared unconditionally (empty DEPENDS when python3 is absent) so
+# app_analyze/app_test below never reference a dangling target.
+# Aggregate for ALL chat composites (D-17) — bubble + code_block + media +
+# flow (the D-20 item taxonomy, complete).
+add_custom_target(app_generate_chat_components
+    COMMENT "Generate all chat composite widget/cubit/state triples"
+    DEPENDS ${_chat_stamps} ${_chat_outputs}
+)
+
+# Per-composite dev-loop targets (RESEARCH D-17 shape), declared
+# unconditionally so the target names exist even when python3 is absent.
+# DEPENDS is the guarded per-component stamp list — empty when codegen is
+# unconfigured, making the targets true no-ops; a hardcoded stamp path would
+# be a file dependency with no rule and fail the build (Make/Ninja "No rule
+# to make target" instead of the documented no-op).
+foreach(_comp ${_chat_composites})
+    add_custom_target(generate_composite_${_comp}
+        COMMENT "Generate ${_comp} widget/cubit/state triple"
+        DEPENDS ${_${_comp}_stamps}
+    )
+endforeach()
+
+# App-level dev-loop targets. app_analyze/app_test run after dependency
+# resolution AND chat composite codegen so analyze/tests always see freshly
+# generated Dart. Never depend on the scaffold's OpenAPI aggregate/api
+# targets — GCS has no api-specs (Pitfall U4).
 add_custom_target(app_pub_get
     COMMAND ${DART_EXECUTABLE} pub get
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
     COMMENT "Resolving app Dart dependencies"
 )
 add_custom_target(app_analyze
-    COMMAND ${DART_EXECUTABLE} analyze --fatal-infos
+    # Analyze explicit dirs (lib test) — a bare `analyze` walks the whole tree
+    # recursively and sweeps scaffold/example's pre-existing demo-URI errors
+    # into this gate (WR-02: 50 unrelated issues made it permanently red).
+    COMMAND ${DART_EXECUTABLE} analyze --fatal-infos lib test
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-    DEPENDS app_pub_get
+    DEPENDS app_pub_get app_generate_chat_components
 )
 add_custom_target(app_test
     COMMAND ${FLUTTER_EXECUTABLE} test
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-    DEPENDS app_pub_get
+    DEPENDS app_pub_get app_generate_chat_components
 )
+
+# Dart-side FFI smoke test (01-05 Task 4) — registered in the SAME ctest
+# harness as the gtests, so `ninja && ctest` is the single entry point.
+# CMake owns all path/suffix knowledge: $<TARGET_FILE:gcs_ffi> expands to
+# libgcs_ffi.dylib/.so/gcs_ffi.dll per platform and config, injected via
+# `cmake -E env` (COMMAND args support generator expressions on every CMake
+# version we target; the test ENVIRONMENT property does not). Host-only gate
+# is the platform NAME, NOT CMAKE_CROSSCOMPILING: build/apple.toolchain.cmake
+# sets CMAKE_SYSTEM_NAME even for host-matching SDKs (MAC_UNIVERSAL), which
+# forces CMAKE_CROSSCOMPILING=TRUE on plain macOS builds — verified via
+# CMakeFiles/*/CMakeSystem.cmake in the build tree. iOS/Android
+# (CMAKE_SYSTEM_NAME iOS/Android) don't match: the device-arch artifact can't
+# load in the host Dart VM — device coverage is the integration_test flavor.
+if(BUILD_TESTS AND CMAKE_SYSTEM_NAME MATCHES "Darwin|Linux|Windows" AND TARGET gcs_ffi)
+    add_test(NAME test_gcs_ffi_dart
+        COMMAND ${CMAKE_COMMAND} -E env
+            "GCS_FFI_LIBRARY=$<TARGET_FILE:gcs_ffi>"
+            ${FLUTTER_EXECUTABLE} test test/gcs_native_port_smoke_test.dart
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+endif()
 
 # Bare-app desktop build. Host-desktop only (macOS here) — the equivalent
 # windows/linux targets can be added the same way when those hosts are needed.
@@ -77,8 +193,11 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
         set(GCS_FLUTTER_CONFIG_DIR "Release")
         set(GCS_FLUTTER_BUILD_MODE "--release")
     else()
-        set(GCS_FLUTTER_CONFIG_DIR "RelWithDebInfo")
-        # Flutter has no RelWithDebInfo; --release is the closest (opt build).
+        # Empty CMAKE_BUILD_TYPE = multi-config generator (Xcode). The
+        # --release build mode selected here emits the Release product dir —
+        # RelWithDebInfo matched no Flutter output dir and silently skipped
+        # the app install (IN-09).
+        set(GCS_FLUTTER_CONFIG_DIR "Release")
         set(GCS_FLUTTER_BUILD_MODE "--release")
     endif()
 

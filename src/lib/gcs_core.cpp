@@ -13,10 +13,18 @@
 namespace gcs {
 
 CoreSession::CoreSession(Config config)
-    : m_config(std::move(config)),
-      m_db(std::make_unique<sgns::neoswarm::storage::GcsGlobalDb>(
-          sgns::neoswarm::storage::GcsGlobalDb::Config{
-              .m_dbPath = m_config.m_dbPath})) {}
+    : m_config(std::move(config)) {
+  // An explicitly empty path keeps GcsGlobalDb's documented default
+  // (kDefaultDbPath): overriding the default member initializer with "" here
+  // would hand RocksDB an empty path and fail gcs_init on configs that omit
+  // db_path (proto3 optional field).
+  sgns::neoswarm::storage::GcsGlobalDb::Config dbConfig{};
+  if (!m_config.m_dbPath.empty()) {
+    dbConfig.m_dbPath = m_config.m_dbPath;
+  }
+  m_db = std::make_unique<sgns::neoswarm::storage::GcsGlobalDb>(
+      std::move(dbConfig));
+}
 
 CoreSession::~CoreSession() {
   if (IsRunning()) {
@@ -27,8 +35,10 @@ CoreSession::~CoreSession() {
 outcome::result<void> CoreSession::Initialize() { return m_db->Initialize(); }
 
 outcome::result<void> CoreSession::Initialize(
-    std::shared_ptr<sgns::ipfs_pubsub::GossipPubSub> pubsub) {
-  return m_db->Initialize(std::move(pubsub));
+    std::shared_ptr<sgns::ipfs_pubsub::GossipPubSub> pubsub,
+    std::shared_ptr<sgns::ipfs_lite::ipfs::graphsync::Network>
+        graphsyncNetwork) {
+  return m_db->Initialize(std::move(pubsub), std::move(graphsyncNetwork));
 }
 
 void CoreSession::Shutdown() noexcept {

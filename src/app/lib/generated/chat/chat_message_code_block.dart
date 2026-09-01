@@ -1,0 +1,260 @@
+/// ChatMessageCodeBlock -- M3 chat code-block composite (top-level flow item).
+///
+/// Generated from chat_message_code_block.dart.jinja2 -- do not edit by hand.
+/// Source schema: templates/components/chat_message_code_block.dart.jinja2
+/// Generator version: 0.4.0
+/// Top-level flow item (D-20): renders a code payload with NO bubble
+/// chrome -- the header/gutter/body surface belongs to the scaffold
+/// ScaffoldCodeBlock atom, never to the bubble composite. The states axis
+/// (D-19: pending, streaming, thinking, complete, error) drives item-level chrome via generated
+/// per-state helpers selected from a data-driven registry -- never a runtime
+/// state switch (D-17). Code content is a pushed snapshot (D-04): C++ pushes
+/// authoritative code text; Dart never tokenizes or assembles it (syntax
+/// highlighting stays a scaffold-atom DI hook).
+/// The C++ half of this composite is the protobuf ChatMessageState generated
+/// from src/proto/gcs_chat.proto (D-24/D-26) -- this file is the Dart half.
+library;
+
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:frontend_scaffold/components/scaffold_code_block.dart';
+import 'package:frontend_scaffold/theme/scaffold_theme.dart';
+
+import 'chat_message_code_block_cubit.dart';
+import 'chat_message_code_block_state.dart';
+
+/// Error-tint alpha painted over the code surface in the error state
+/// (UI-SPEC color contract; chat-domain constant, not a scaffold token).
+const double _kErrorOverlayAlpha = 0.12;
+
+/// Signature of a per-state chrome builder generated from the states axis.
+///
+/// [item] is the code payload widget (the code surface); a state
+/// treatment dims it, tints it, or passes it through unchanged.
+typedef _ChatMessageCodeBlockStateChromeBuilder = Widget Function(
+  BuildContext context,
+  Widget item,
+);
+
+// ---------------------------------------------------------------------------
+// State-chrome registry (D-19 states axis)
+// ---------------------------------------------------------------------------
+
+/// State-chrome registry generated from the states axis (D-19).
+///
+/// Selection is a data-driven map lookup keyed by the pushed state string --
+/// never a hand-written switch. Append-only: adding a state to the vars axis
+/// regenerates a matching entry (identity chrome until a treatment is
+/// authored); existing entries are never renamed or removed.
+const Map<String, _ChatMessageCodeBlockStateChromeBuilder> _stateChrome =
+    <String, _ChatMessageCodeBlockStateChromeBuilder>{
+      'pending': _chromePending,
+      'streaming': _chromeStreaming,
+      'thinking': _chromeThinking,
+      'complete': _chromeComplete,
+      'error': _chromeError,
+    };
+
+/// Identity chrome: the item unchanged. Also the fallback for state values
+/// outside the generated registry (e.g. the proto's MESSAGE_STATE_UNSPECIFIED).
+Widget _chromeIdentity(BuildContext context, Widget item) {
+  return item;
+}
+
+// ---------------------------------------------------------------------------
+// Per-state chrome builders (generated from the states axis)
+// ---------------------------------------------------------------------------
+
+/// Pending chrome: the whole item at [ScaffoldDimens.disabledOverlayOpacity]
+/// (UI-SPEC: the scaffold disabled/dim pattern).
+Widget _chromePending(BuildContext context, Widget item) {
+  return Opacity(
+    opacity: context.dimens.disabledOverlayOpacity,
+    child: item,
+  );
+}
+
+/// Streaming chrome: no additional state treatment (identity).
+Widget _chromeStreaming(BuildContext context, Widget item) {
+  return _chromeIdentity(context, item);
+}
+
+/// Thinking chrome: no additional state treatment (identity).
+Widget _chromeThinking(BuildContext context, Widget item) {
+  return _chromeIdentity(context, item);
+}
+
+/// Complete chrome: no additional state treatment (identity).
+Widget _chromeComplete(BuildContext context, Widget item) {
+  return _chromeIdentity(context, item);
+}
+
+/// Error chrome: status-error tint painted over the code surface (12% alpha
+/// per the UI-SPEC color contract).
+Widget _chromeError(BuildContext context, Widget item) {
+  return _ErrorOverlay(child: item);
+}
+
+// ---------------------------------------------------------------------------
+// Payload adaptation (rendering transform, not synthesis)
+// ---------------------------------------------------------------------------
+
+/// Splits a pushed code snapshot into the scaffold atom's line list.
+///
+/// Pure rendering transform at the widget boundary (D-04): the snapshot
+/// string is authoritative; highlighting stays a ScaffoldCodeBlock DI hook
+/// and is never applied here.
+List<ScaffoldCodeLine> _snapshotLines(String code) {
+  if (code.isEmpty) {
+    return const <ScaffoldCodeLine>[];
+  }
+  return <ScaffoldCodeLine>[
+    for (final String line in code.split('\n')) ScaffoldCodeLine(rawText: line),
+  ];
+}
+
+// ---------------------------------------------------------------------------
+// State helper widgets
+// ---------------------------------------------------------------------------
+
+/// Error tint painted over the item (D-19 error state).
+class _ErrorOverlay extends StatelessWidget {
+  /// Creates the overlay wrapping [child].
+  const _ErrorOverlay({required this.child});
+
+  /// The item this tint is painted over.
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final dimens = context.dimens;
+    return Stack(
+      children: <Widget>[
+        child,
+        Positioned.fill(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: palette.statusError.withValues(alpha: _kErrorOverlayAlpha),
+              borderRadius: BorderRadius.circular(dimens.radiusMd),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Widget
+// ---------------------------------------------------------------------------
+
+/// A chat code block -- a top-level flow item (D-20), never bubble chrome.
+///
+/// Variant structure is generated from the states axis (D-17/D-19); the
+/// state arrives at runtime from pushed FFI events and selects chrome from
+/// the generated registry (never a state switch). The code payload
+/// is data-only -- this widget renders pushed code snapshots, it never
+/// synthesizes content (D-04).
+class ChatMessageCodeBlock extends StatefulWidget {
+  /// Creates a [ChatMessageCodeBlock].
+  const ChatMessageCodeBlock({
+    this.instanceId = '',
+    this.code = '',
+    this.language,
+    this.filename,
+    this.cubit,
+    super.key,
+  });
+
+  /// Optional instance discriminator forwarded to the Cubit.
+  final String instanceId;
+
+  /// Seed code payload; runtime updates flow through [cubit]
+  /// (pushed FFI events).
+  final String code;
+
+  /// Optional language tag rendered in the atom header; null when unknown.
+  final String? language;
+
+  /// Optional filename rendered in the atom header; null when unknown.
+  final String? filename;
+
+  /// Optional parent-owned cubit driving this item (an FFI event
+  /// subscriber); when null the widget owns an internal cubit seeded from
+  /// [code].
+  final ChatMessageCodeBlockCubit? cubit;
+
+  @override
+  State<ChatMessageCodeBlock> createState() =>
+      _ChatMessageCodeBlockState();
+}
+
+class _ChatMessageCodeBlockState extends State<ChatMessageCodeBlock> {
+  late ChatMessageCodeBlockCubit _cubit;
+  late bool _ownsCubit;
+
+  @override
+  void initState() {
+    super.initState();
+    _ownsCubit = widget.cubit == null;
+    _cubit = widget.cubit ??
+        ChatMessageCodeBlockCubit(
+          instanceId: widget.instanceId,
+          initialCode: widget.code,
+          initialLanguage: widget.language ?? '',
+          initialFilename: widget.filename ?? '',
+        );
+  }
+
+  @override
+  void didUpdateWidget(ChatMessageCodeBlock oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Only the discriminator re-seeds the internal cubit. The payload seed
+    // ([code]) deliberately does NOT: runtime code arrives via pushed FFI
+    // events through the cubit (D-04), and re-seeding on every change would
+    // reset the state axis mid-stream.
+    final bool seedChanged = widget.instanceId != oldWidget.instanceId;
+    if (widget.cubit != oldWidget.cubit || (_ownsCubit && seedChanged)) {
+      if (_ownsCubit) {
+        _cubit.close();
+      }
+      _ownsCubit = widget.cubit == null;
+      _cubit = widget.cubit ??
+          ChatMessageCodeBlockCubit(
+            instanceId: widget.instanceId,
+            initialCode: widget.code,
+            initialLanguage: widget.language ?? '',
+            initialFilename: widget.filename ?? '',
+          );
+    }
+  }
+
+  @override
+  void dispose() {
+    if (_ownsCubit) {
+      _cubit.close();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocProvider<ChatMessageCodeBlockCubit>.value(
+      value: _cubit,
+      child: BlocBuilder<ChatMessageCodeBlockCubit, ChatMessageCodeBlockState>(
+        builder: (context, state) {
+          final Widget codeBlock = ScaffoldCodeBlock(
+            lines: _snapshotLines(state.code),
+            language: state.language.isEmpty ? null : state.language,
+            filename: state.filename.isEmpty ? null : state.filename,
+          );
+          return (_stateChrome[state.state] ?? _chromeIdentity)(
+            context,
+            codeBlock,
+          );
+        },
+      ),
+    );
+  }
+}

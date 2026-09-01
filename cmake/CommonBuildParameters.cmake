@@ -447,6 +447,60 @@ set(GeniusSDK_DIR "${GENIUSSDK_BUILD_DIR}/GeniusSDK/lib/cmake/GeniusSDK/")
 print("GeniusSDK_DIR: ${GeniusSDK_DIR}")
 find_package(GeniusSDK CONFIG REQUIRED)
 
+# Linux single-provider rule (CI-6): libGeniusSDK_shared.so bundles and
+# exports the entire SuperGenius stack (sgns::*, SGProcessing, rocksdb).
+# Linking SuperGenius's static archives alongside it embeds a second copy
+# of that stack into our executables; glibc's flat namespace binds the
+# .so's references to the exe's copies first, so C++ statics (rocksdb name
+# maps) are constructed twice and torn down twice -> "munmap_chunk():
+# invalid pointer" abort after the tests pass (valgrind-confirmed, Linux
+# cells only; macOS's two-level namespace and MSVC's non-re-exporting exe
+# are immune). On Linux the shared SDK is the single provider of the stack:
+# every SuperGenius / SGProcessing / rocksdb imported archive is redirected
+# to the shared SDK library itself. Usage interfaces (include dirs, deps)
+# are untouched, so compilation is unchanged; only link inputs collapse.
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    # Marker consulted by GNUS-NEO-SWARM/src/core/CMakeLists.txt so a standalone
+    # NEO-SWARM build (which never runs this redirect) keeps its own links.
+    set(GCS_SDK_SINGLE_PROVIDER ON)
+    get_target_property(GCS_SDK_SHARED_LIB sgns::GeniusSDK_shared IMPORTED_LOCATION)
+    if(NOT GCS_SDK_SHARED_LIB)
+        get_target_property(GCS_SDK_SHARED_LIB sgns::GeniusSDK_shared IMPORTED_LOCATION_DEBUG)
+    endif()
+    # Redirected archives resolve to the shared SDK at runtime; targets
+    # that reach it only via a redirected archive (e.g. RocksDB::rocksdb,
+    # still typed STATIC) get no automatic build rpath for it.
+    get_filename_component(_gcs_sdk_lib_dir "${GCS_SDK_SHARED_LIB}" DIRECTORY)
+    list(APPEND CMAKE_BUILD_RPATH "${_gcs_sdk_lib_dir}")
+
+    foreach(_gcs_static_target
+            sgns::api_transport sgns::SGTransactionProto sgns::SGAccountCommProto sgns::burnconfig
+            sgns::sgns_genius_account sgns::genius_node sgns::hexutil sgns::buffer sgns::blob
+            sgns::logger sgns::ScaledInteger sgns::sgns_version sgns::SGBlockchainProto
+            sgns::ConsensusProto sgns::ValidatorRegistryProto sgns::blockchain_genesis
+            sgns::hasher sgns::keccak sgns::sha sgns::twox sgns::rocksdb sgns::database_error
+            sgns::hierarchical_key sgns::crdt_delta sgns::crdt_bcast sgns::crdt_set sgns::crdt_heads
+            sgns::crdt_callback_manager sgns::crdt_graphsync_dagsyncer sgns::crdt_data_filter
+            sgns::crdt_datastore sgns::crdt_globaldb_proto sgns::crdt_globaldb sgns::migration
+            sgns::SGProcessingProto sgns::processing_service sgns::json_secure_storage
+            sgns::secure_storage sgns::component_factory sgns::evm_watcher_service
+            sgns::watcher_service sgns::coinprices sgns::SGProofProto sgns::genius_prover
+            sgns::transfer_proof sgns::processing_proof sgns::basic_proof sgns::multisig
+            sgns::securecrdt sgns::trustedpeer
+            sgprocmanagerlogger sgprocmanagersha sgprocmanagertypes DataSplitter
+            SGProcessors ProcessingBase RocksDB::rocksdb rocksdb::rocksdb)
+        if(TARGET ${_gcs_static_target})
+            get_target_property(_gcs_target_type ${_gcs_static_target} TYPE)
+            if(_gcs_target_type STREQUAL "STATIC_LIBRARY")
+                set_target_properties(${_gcs_static_target} PROPERTIES
+                    IMPORTED_LOCATION "${GCS_SDK_SHARED_LIB}"
+                    IMPORTED_LOCATION_DEBUG "${GCS_SDK_SHARED_LIB}"
+                    IMPORTED_LOCATION_RELEASE "${GCS_SDK_SHARED_LIB}")
+            endif()
+        endif()
+    endforeach()
+endif()
+
 # --------------------------------------------------------
 # Project options
 option(BUILD_TESTS "Build tests" FALSE)
