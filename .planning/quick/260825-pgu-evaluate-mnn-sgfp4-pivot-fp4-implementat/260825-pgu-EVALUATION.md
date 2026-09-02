@@ -275,3 +275,40 @@ part of this evaluation task.
 - The stale `test_sg_connectivity.cpp` failure is a **static inference**, not a result of
   actually running the test.
 - **No builds or tests were run** as part of this research or this evaluation.
+
+## Addendum (2026-08-26): MNN `sgfp4-pivot` re-evaluated after phases 5-12
+
+Between this report and 2026-08-26, MNN's `sgfp4-pivot` workstream grew from 4 phases to 12
+(two milestones: v2.0 "injection tool", v3.0 "converter integration") and was archived complete.
+Re-evaluated via a fresh research pass; findings that update or correct the above:
+
+- **The core gap this report identified is now closed.** `mnnconvert --sgfp4` is real: a
+  self-contained 848-line C++ port of gnus-poc's encoder (`tools/fp4/sgfp4_encode.cpp`) now runs
+  inside MNN's converter, does its own scale/bias fitting and quadtree layout decisions, and
+  rewrites the graph to `OpType_SGFP4Dequant`. The output is verified to load and run through the
+  **classic `Interpreter`/`Session` API** (the one SGProcessingManager actually uses) on both CPU
+  and Vulkan — the exact thing this report flagged as unverified. A separate `sgfp4_inject` tool
+  (v2.0) also exists, consuming pre-encoded gnus-poc `.sgfp4` containers directly.
+- **Correction to this report's "high quality, genuinely complete" verdict on phases 1-4:** Phase
+  12 discovered the CPU decoder was actually broken for real multi-tile/MIXED weights — it
+  produced garbage output on any shape beyond the single-superblock cases the original tests
+  happened to cover (wrong stream-order convention + a split-map coordinate/child-order bug). Both
+  fixed and cross-validated in commit `54bbeaf8`. The original verdict was accurate only for the
+  narrow shapes actually tested, not demonstrated as broadly correct as stated.
+- **Two new risks, not yet resolved:**
+  1. Converter-produced SGFP4 models that externalize weights (large models spilling to a
+     `.weight` sidecar) set `external={offset,size}` but not `op->externalPath` — the same
+     auto-injection gap this report already flagged for `OpType_SGFP4Dequant` is still open on the
+     converter's externalization path specifically. Verified working only for inline (small)
+     models; likely broken for large ones.
+  2. The E2E validation gate (`tools/fp4/e2e_validation.ps1`) proves the pipeline runs without
+     crashing (synthetic input, tolerances locked at 2x a one-time-measured deviation of ~475-950%
+     relative error) — it is a liveness/regression gate, not an accuracy proof. No real-data
+     accuracy or classification-correctness check exists anywhere in this workstream.
+- **gnus-poc relationship clarified:** `mnnconvert --sgfp4` does not call gnus-poc at runtime, but
+  gnus-poc's `fp4_exporter.py --adaptive` remains the reference oracle the C++ port was validated
+  against and is deliberately kept byte-parity with — not redundant, still load-bearing as the
+  spec-of-record and as the required input to the separate `sgfp4_inject` path.
+- **Still out of scope / unbuilt:** SuperGenius/SGProcessingManager integration (explicitly locked
+  out of this workstream), real-data accuracy validation, and MatMul-weight coverage (only
+  conv-family ops are quantized; light-tier tensors under 4096 elements stay FP32).
