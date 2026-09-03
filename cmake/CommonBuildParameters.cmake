@@ -384,7 +384,7 @@ find_package(Vulkan)
 
 if(NOT TARGET Vulkan::Vulkan)
     set(Vulkan_INCLUDE_DIR "${THIRDPARTY_BUILD_DIR}/Vulkan-Headers/include")
-    if(NOT DEFINED $ENV{VULKAN_SDK})
+    if(NOT DEFINED ENV{VULKAN_SDK})
         set(ENV{VULKAN_SDK} "${THIRDPARTY_BUILD_DIR}/Vulkan-Loader")
     endif()
 
@@ -494,6 +494,11 @@ include_directories(${PROJECT_ROOT}/src)
 # build/<Platform>/CMakeLists.txt chain runs — add_subdirectory lives here).
 # --------------------------------------------------------
 
+# Register tests with CTest at the top level (this file is include()d by the
+# build/<Platform>/ shim at top-level scope). NEO-SWARM builds its tests
+# whenever BUILD_TESTING is on, so discovery must not depend on BUILD_TESTS.
+enable_testing()
+
 # GNUS-NEO-SWARM: C++ inference engine library (neoswarm_* targets)
 add_subdirectory(${PROJECT_ROOT}/GNUS-NEO-SWARM ${CMAKE_BINARY_DIR}/GNUS-NEO-SWARM)
 
@@ -503,9 +508,10 @@ add_subdirectory(${PROJECT_ROOT}/GNUS-NEO-SWARM ${CMAKE_BINARY_DIR}/GNUS-NEO-SWA
 add_subdirectory(${PROJECT_ROOT}/src ${CMAKE_BINARY_DIR}/gcs_src)
 
 if(BUILD_TESTS)
-    enable_testing()
+    # Binary dir is gcs_test (not "test") — NEO-SWARM's CommonBuildParameters
+    # already claims ${CMAKE_BINARY_DIR}/test for its own test tree.
     if(IS_DIRECTORY "${PROJECT_ROOT}/test")
-        add_subdirectory(${PROJECT_ROOT}/test ${CMAKE_BINARY_DIR}/test)
+        add_subdirectory(${PROJECT_ROOT}/test ${CMAKE_BINARY_DIR}/gcs_test)
     endif()
 endif()
 
