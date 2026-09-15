@@ -4,7 +4,7 @@
 This document defines how GeniusCognitiveSystem extends beyond distributed inference into distributed retraining using an EGGROLL-style evolutionary optimization workflow mapped onto GNUS.ai swarm infrastructure.
 
 The goal is not to replace the existing GeniusCognitiveSystem architecture.
-The goal is to add a swarm-native retraining layer that allows the Semantic Core, expert models, adapters, routing policies, and verifier-like modules to be improved using locality-aware peer coordination, deterministic perturbation reconstruction, compact fitness communication, and reputation-gated promotion.
+The goal is to add a swarm-native retraining layer that allows the Semantic Core, expert models, adapters, routing policies, verifier-like modules, and bounded Decision ELMs to be improved using locality-aware peer coordination, deterministic perturbation reconstruction, compact fitness communication, and reputation-gated promotion.
 
 This architecture treats retraining as a first-class GNUS.ai operating system primitive.
 
@@ -24,6 +24,7 @@ This means:
 
 * **Adapter-style specialization remains valid as an adaptation artifact**
 * **Expert-based routed execution remains the inference strategy**
+* **Decision ELMs remain ELM specializations with bounded typed outputs, not a separate runtime layer**
 * **EGGROLL becomes the distributed retraining and expert-refresh mechanism**
 
 EGGROLL therefore complements the current design rather than replacing it.
@@ -98,6 +99,10 @@ Promotion requires validation, safety checks, and reputation-aware acceptance.
 
 Retraining should scale from local room coordinators to higher-level aggregators rather than assuming a single global coordinator.
 
+### **19.4.7 Calibrated Decisions**
+
+For Decision ELMs, fitness and promotion should measure probability quality as well as classification or scoring accuracy. A bounded expert that reports confidence should be rewarded for calibrated uncertainty and penalized for confident errors.
+
 ---
 
 ## **19.5 Relationship to Adapters and Expert Execution**
@@ -108,6 +113,7 @@ Instead:
 
 * **Adapters define one class of artifact being updated**
 * **Expert execution defines how inference uses those artifacts**
+* **Decision ELMs define a bounded expert output mode where machine-consumed judgments and calibrated probabilities are preferred over generated prose**
 * **EGGROLL defines how the swarm improves them over time**
 
 Therefore the architectural progression becomes:
@@ -136,6 +142,8 @@ At minimum, a training job should define:
 * validation policy
 * safety policy hash
 * promotion policy
+
+For Decision ELM targets, the reward definition may also include calibration metrics such as log loss, Brier score, calibration error, or reliability by confidence bucket in addition to task accuracy.
 
 This primitive is intentionally compact and swarm-friendly.
 
@@ -321,6 +329,7 @@ A learning event may be emitted when one or more are true:
 * verifier disagreement identifies a recoverable failure
 * grounding validation identifies contradiction
 * formatting or schema checks fail
+* a Decision ELM is measurably miscalibrated or confidently wrong
 * user feedback is strongly positive or negative
 * repeated workflow success creates a strong pattern
 
@@ -329,7 +338,8 @@ A learning event may be emitted when one or more are true:
 The learning event becomes a retraining job targeting a specific component such as:
 
 * planner
-* router
+* router or routing Decision ELM
+* intent or risk Decision ELM
 * numeric specialist
 * math verifier
 * formatter
@@ -372,6 +382,7 @@ Reward signals:
 * quality improvement vs baseline route
 * latency-adjusted utility
 * specialist selection accuracy
+* calibration of bounded routing probabilities when implemented as a Decision ELM
 
 ### **19.15.3 Formatter / Schema Specialist**
 
@@ -399,6 +410,19 @@ Reward signals:
 * static analysis success
 * minimal-diff acceptance
 
+### **19.15.6 Decision ELMs**
+
+Reward signals:
+
+* classification or ranking accuracy
+* log loss or Brier score
+* calibration error and reliability by confidence bucket
+* low confident-error rate
+* correct escalation at uncertainty thresholds
+* downstream utility of the decision
+
+Decision ELM promotion should not favor raw accuracy at the cost of systematically overconfident errors.
+
 These targets are preferred because they are easier to score and safer to validate than full core-model evolution.
 
 ---
@@ -415,6 +439,7 @@ Requirements:
 * untrusted memory must not directly drive training without curation
 * promotion should require validation against trusted evaluation sets
 * high-impact adapters should use canary release before wider adoption
+* Decision ELM confidence must not grant authority that belongs to deterministic policy or capability services
 
 This ensures retraining does not become a backdoor for poisoning the specialist ecosystem.
 
@@ -437,6 +462,7 @@ Therefore the initial focus should be:
 * small or medium specialist artifacts
 * quantized or recurrent-friendly models
 * domain-specific adapters
+* bounded Decision ELMs with measurable outcomes
 * validation-rich tasks with measurable outcomes
 
 Full-core training should be treated as a later-stage research direction.
@@ -511,6 +537,7 @@ EGGROLL Swarm Retraining adds a new capability to GeniusCognitiveSystem:
 * beehive-local retraining based on locality and cached artifacts
 * deterministic seed-addressed perturbations
 * compact fitness communication
+* calibration-aware improvement of bounded Decision ELMs
 * reputation-gated validation and promotion
 * embedded learning from real swarm outcomes
 
