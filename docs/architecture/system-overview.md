@@ -8,6 +8,7 @@ Client API
 ├── Semantic Core      
 ├── Role-Based ELMs      
 ├── Domain-Specific ELMs      
+├── Decision ELMs / Bounded Expert Judgments      
 └── Tool-Support / Verification Services  
 ↓ Verification / Arbitration / Synthesis  
 ↓ Reputation-Weighted Consensus  
@@ -51,7 +52,7 @@ Key properties:
 - **Flags-in-offsets:** Mode selection and metadata are embedded in the low 4 bits of aligned payload offsets — zero additional memory cost.
 - Compressed weights are **decoded in shared memory at inference time** by GPU compute shaders with per-workgroup branching.
 
-The Semantic Core is expected to be the primary beneficiary of aggressive compression, while role-based and domain-specific experts may use different quantization tradeoffs depending on whether they optimize for breadth, control, verification quality, deterministic formatting, or workflow specialization.
+The Semantic Core is expected to be the primary beneficiary of aggressive compression, while role-based and domain-specific experts may use different quantization tradeoffs depending on whether they optimize for breadth, control, verification quality, deterministic formatting, bounded decision quality, or workflow specialization.
 
 ---
 
@@ -71,12 +72,14 @@ The broader cognitive stack is organized into the following layers:
 
 1. **Client and API Layer** — session lifecycle, authentication, request submission, policy attachment, and response delivery.
 2. **Orchestration Layer** — router, planner, memory governor, execution mode selector, EIS policy selector, policy evaluator, task decomposition logic, and cognitive evolution coordination.
-3. **Expert Execution Layer** — Semantic Core, role-based ELMs, domain-specific ELMs, and local or distributed inference services.
+3. **Expert Execution Layer** — Semantic Core, role-based ELMs, domain-specific ELMs, Decision ELM output modes, and local or distributed inference services.
 4. **Execution Integrity Layer** — execution contracts, determinism classes, kernel manifests, checkpoint-band calibration, teacher-forced spot-checks, and fraud verdicts.
 5. **Consensus and Grounding Layer** — reputation-weighted consensus, verification, critique, arbitration, Grokipedia integration, and private knowledge grounding.
 6. **Security and Tool Intermediary Layer** — dry-run, sanitization, permission checks, approval gates, and execution attestations.
 7. **Memory and Cognitive Asset Layer** — GAML-based structured memory, bridge blocks, facts, policies, retrieval pipelines, qualified cognitive events, EIS evidence assets, and CRDT-backed replication.
 8. **Distributed Infrastructure Layer** — messaging, discovery, storage propagation, scheduling, health monitoring, and settlement integration.
+
+Decision ELMs do not form a separate architectural layer. They are a bounded ELM output mode used when the system needs a typed machine-consumed judgment rather than open-ended generation. Their probability and uncertainty outputs may inform routing, verification, arbitration, capability selection, and escalation, while deterministic services retain authority over policy, permissions, privacy, and side effects.
 
 ---
 
@@ -100,7 +103,7 @@ The **4.3 Security Layer** is designed to establish trust, ensure data integrity
 The system is built around three main execution and reasoning classes:
 
 * **Semantic Core** — a broadly capable reasoning substrate responsible for general understanding, synthesis, and default response generation.
-* **Expert Language Models (ELMs)** — narrower specialized units invoked when additional expertise, verification, structure, grounding, or action competence is required.
+* **Expert Language Models (ELMs)** — narrower specialized units invoked when additional expertise, verification, structure, grounding, bounded decision output, or action competence is required. ELMs may be generative, decision-oriented, or expose both modes.
 * **Execution Integrity System (EIS)** — the integrity subsystem that verifies execution contracts and detects model, adapter, kernel, quantization, or sampling substitution.
 
 This distinction is foundational. GNUS.ai does not assume that every task should be solved by a single general-purpose model, and it does not assume semantic consensus alone is sufficient to prove that the declared computation was honestly executed.
