@@ -29,7 +29,7 @@ The specialist execution layer is now better described as a set of **Expert Lang
 
 ### 5.2.1 ELM Definition and Flexibility
 
-An ELM is a specialized language-model-based expert optimized for a specific reasoning role, subject domain, operational function, or action-support task.
+An ELM is a specialized language-model-based expert optimized for a specific reasoning role, subject domain, operational function, or action-support task. An ELM may be generative or decision-oriented depending on whether the task requires open-ended output or a bounded machine-consumed judgment.
 
 An ELM may be implemented as:
 
@@ -38,6 +38,22 @@ An ELM may be implemented as:
 * an adapter-augmented expert on a shared backbone
 * a constrained service exposing a language-model interface
 * a secure expert reasoning module behind a policy boundary
+* a calibrated **Decision ELM** that emits typed bounded judgments and probability distributions
+
+#### Decision ELM output mode
+
+A **Decision ELM** is an ELM specialization for bounded semantic judgments where downstream software needs a typed decision rather than generated prose. It consumes the same canonical task or context state as other experts but returns a constrained value together with calibrated probability or uncertainty metadata.
+
+Decision ELM outputs may include:
+
+* **boolean probability** — probability that a bounded condition is true
+* **choice distribution** — probabilities across a fixed set of allowed choices
+* **ordinal or continuous score** — a bounded score with confidence or uncertainty metadata
+* **parallel decision bundle** — multiple independent judgments evaluated against the same context packet when this is more efficient than separate calls
+
+Decision ELMs are suitable for intent and domain classification, risk estimation, expert and execution-mode selection, grounding or verification selection, tool-support and policy scoring, claim and evidence classification, contradiction detection, and bounded verifier or arbiter judgments.
+
+Decision ELM output is advisory. Deterministic services remain authoritative for authorization, policy enforcement, capability grants, privacy boundaries, side effects, and execution approval. Low-confidence or poorly calibrated decisions should trigger fallback, additional evidence collection, specialist escalation, verification, swarm execution, or human approval according to task risk.
 
 ### 5.2.2 Role-Based ELMs
 
@@ -50,6 +66,8 @@ Representative role-based ELMs include:
 * **Refiner / Formatter ELM:** Improves clarity, structure, style, or schema compliance.
 * **Grounding ELM:** Aligns claims with trusted public or private knowledge sources.
 * **Tool-Support ELM:** Helps prepare tool calls and interpret tool results before intermediary enforcement.
+
+A role-based or domain-specific ELM may expose generative output, Decision ELM output, or both. For example, a Verifier ELM may return bounded correctness or contradiction probabilities for fast machine use and generate an explanation only when requested by the execution plan.
 
 ### 5.2.3 Domain-Specific Experts
 
@@ -74,6 +92,7 @@ ELMs may be invoked in several ways:
 * **single-pass support** — one ELM supports the Semantic Core
 * **sequential chain** — one ELM drafts, another verifies, another refines
 * **parallel swarm participation** — multiple ELMs produce competing or complementary views
+* **parallel decision fan-out** — multiple bounded decisions share one context packet and return typed probability-bearing results
 * **arbiter-mediated synthesis** — an Arbiter ELM resolves or merges distributed proposals
 
 ### 5.2.6 Legacy MVP Specialists
@@ -94,6 +113,7 @@ The orchestration path is responsible for:
 * deciding whether retrieval is required
 * selecting execution mode
 * selecting the Semantic Core and required ELMs
+* selecting generative or Decision ELM output where appropriate
 * deciding whether verification or arbitration is required
 * determining whether private knowledge grounding is required
 * deciding whether tenant-scoped or private memory should be loaded
@@ -117,7 +137,7 @@ The initial implementation relies on a **rule-based detection** system for rapid
 The roadmap includes upgrading the router to a more sophisticated model-based system to enhance routing accuracy and performance. This future iteration can progress through multiple stages:
 
 * **Heuristic MVP router:** fast rule-based triggers for numeric, code, formatting, grounding, tool, and workflow cues.
-* **Lightweight classifier router:** a compact learned routing model trained on prompt embeddings, task outcomes, and execution traces.
+* **Lightweight classifier / Decision ELM router:** a compact learned routing model trained on prompt embeddings, task outcomes, and execution traces that can return calibrated distributions for bounded routing decisions.
 * **Cognitive planner:** a planner-level expert capable of decomposing tasks into multi-step workflows involving reasoning, retrieval, tools, verification, arbitration, and private ELM selection.
 
-* **Execution Awareness:** Future routing should incorporate latency budget, policy constraints, privacy mode, prior expert success, disagreement risk, and tenant boundary requirements.
+* **Execution Awareness:** Future routing should incorporate latency budget, policy constraints, privacy mode, prior expert success, disagreement risk, calibrated uncertainty, escalation thresholds, and tenant boundary requirements.
