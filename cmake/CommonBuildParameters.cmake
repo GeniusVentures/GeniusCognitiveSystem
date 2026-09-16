@@ -360,15 +360,15 @@ find_package(LLVM CONFIG REQUIRED)
 # find_package() calls below. Nothing in GCS or GNUS-NEO-SWARM compiles
 # against Vulkan directly (MNN's own dylib carries its Vulkan backend).
 # On Apple, seed FindVulkan from thirdparty moltenvk (same as GeniusSDK's
-# CommonBuildParameters.cmake — no system Vulkan SDK is installed).
+# CommonBuildParameters.cmake — no system Vulkan SDK is installed). Elsewhere,
+# the thirdparty layout ships headers in Vulkan-Headers/ and the loader library
+# in Vulkan-Loader/; seed the header path when the loader dir has no include/.
 if(APPLE)
-    if(IOS)
-        set(Vulkan_INCLUDE_DIR "${THIRDPARTY_BUILD_DIR}/moltenvk/build/include")
-        set(Vulkan_LIBRARY "${THIRDPARTY_BUILD_DIR}/moltenvk/build/lib/MoltenVK.xcframework")
-    else()
-        set(Vulkan_INCLUDE_DIR "${THIRDPARTY_BUILD_DIR}/moltenvk/build/include")
-        set(Vulkan_LIBRARY "${THIRDPARTY_BUILD_DIR}/moltenvk/build/lib/MoltenVK.xcframework")
-    endif()
+    set(Vulkan_INCLUDE_DIR "${THIRDPARTY_BUILD_DIR}/moltenvk/build/include")
+    set(Vulkan_LIBRARY "${THIRDPARTY_BUILD_DIR}/moltenvk/build/lib/MoltenVK.xcframework")
+elseif(NOT EXISTS "${THIRDPARTY_BUILD_DIR}/Vulkan-Loader/include"
+       AND EXISTS "${THIRDPARTY_BUILD_DIR}/Vulkan-Headers/include")
+    set(Vulkan_INCLUDE_DIR "${THIRDPARTY_BUILD_DIR}/Vulkan-Headers/include")
 endif()
 
 find_package(Vulkan)
