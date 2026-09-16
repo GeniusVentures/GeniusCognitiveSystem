@@ -5,7 +5,8 @@
 /// every atom/composite resolves `context.palette` / `context.dimens`
 /// (`frontend_scaffold/theme/scaffold_theme.dart`). Light mode registers
 /// [ScaffoldPalette.lightPalette]; dark mode registers the scaffold's default
-/// (dark) palette. Material 3 only -- no `ColorScheme.fromSeed` seed color.
+/// (dark) palette. Material 3 only -- the app never derives its colors from
+/// a hand-rolled seed color scheme (D-12).
 library;
 
 import 'package:flutter/material.dart';
