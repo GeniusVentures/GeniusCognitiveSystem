@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: GCS Chat
-status: "Phase 01 EXECUTING on feature/app-ffi-data-plane. Merged via PR #11: 01-01/01-02/01-07 (2026-08-25). Waves 3-5 COMPLETE: 01-03 (gcs_ffi bytes ABI), 01-08 (bubble), 01-04 (tests, BUILD_TESTS=ON gate), 01-09 (code_block/media), 01-10 (flow triple), 01-05 (Dart spike + UAT 7 passed / 0 issues / 1 blocked deferred to 01-11, 2026-08-31). 01-06 CI: Task 1 COMPLETE (workflow authored, commit 90233f9, YAML-valid, all acceptance checks green); Task 2 BLOCKING human-action — push to develop + observe first CI run (resume-signal: 'ci-green' + run URL). REMAINING after 01-06: wave 6 {01-11 cubits+shell}. OPEN USER DECISIONS: merge feature/app-ffi-data-plane to develop (51 commits ahead, develop is ancestor — fast-forwardable; local develop also 2 docs commits ahead of origin); push develop; draft-PR timing"
-stopped_at: 01-06 Task 2 blocking human-action (push + first CI run watch)
-last_updated: "2026-08-31T21:55:00.000Z"
-last_activity: 2026-08-31 -- Phase 01 execution started
+status: "Phase 01 EXECUTING on feature/app-ffi-data-plane. Merged via PR #11: 01-01/01-02/01-07 (2026-08-25). Waves 3-5 otherwise COMPLETE: 01-03, 01-08, 01-04, 01-09, 01-10, 01-05 (UAT 7 passed / 0 issues / 1 blocked deferred to 01-11). 01-06: Task 1 COMPLETE (commit 90233f9). Task 2 push+observe DONE via PR #12 (draft, 62 commits) — CI RED at e0802b4, run 33461331605: 11/15 green; 4 red = Linux x86_64+aarch64 Release (GCS_SDK_SHARED_LIB-NOTFOUND at Build GCS), Windows Release (10/24 ctest), Linux aarch64 Debug (1/24 test_gcs_global_db_sdk boot flake). 2026-09-16: user rebuilding SuperGenius/thirdparty/GeniusSDK locally — fresh release assets may clear the GeniusSDK-not-found cells; resume = re-run CI on PR #12 first, then triage remainder. REMAINING after 01-06: wave 6 {01-11 cubits+shell}. OPEN USER DECISIONS: merge PR #12 to develop (fast-forwardable; develop == origin); draft-PR timing. dev_phase04/PR #13 ruled out as fix source (no CI workflow, older NEO-SWARM bumps)."
+stopped_at: 01-06 Task 2 — CI red on 4 cells; waiting on local dep rebuilds + asset re-release, then CI re-run
+last_updated: "2026-09-16T00:00:00.000Z"
+last_activity: 2026-09-16 -- 01-06 Task 2 CI observed red on PR #12; dependency rebuilds in progress
 progress:
   total_phases: 7
   completed_phases: 0
@@ -27,8 +27,8 @@ See: .planning/workstreams/app/PROJECT.md (updated 2026-08-15)
 
 Phase: 01 (foundation) — EXECUTING
 Plan: 6 of 11 (01-06 Task 2 checkpoint; then 01-11)
-Status: 01-06 CI workflow AUTHORED + committed (90233f9 on feature/app-ffi-data-plane): resolve-runners + 5-platform matrix x Debug/Release, thirdparty+SuperGenius+GeniusSDK prebuilt downloads, no zkLLVM step (D-09), -DTHIRDPARTY_DIR/-DTHIRDPARTY_BUILD_DIR/-DSUPERGENIUS_DIR/-DGENIUSSDK_DIR explicit pins, -DBUILD_TESTS=ON on Linux/OSX/Windows, ctest (Linux dbus wrapper/OSX/Windows-Release), GeniusCogntiveSystem/ install-tree release upload. AWAITING HUMAN: merge branch to develop + push + watch first CI run (workflow_dispatch works too — push paths-ignore excludes .github-only commits). Failure triage in 01-06-PLAN Task 2 how-to-verify.
-Last activity: 2026-08-31 -- 01-06 Task 1 committed, Task 2 checkpoint raised
+Status: 01-06 Task 2 push+observe done via PR #12 (draft): CI at e0802b4 red on 4 of 15 cells (run 33461331605). Red cells: Linux x86_64/aarch64 Release build (GCS_SDK_SHARED_LIB-NOTFOUND), Windows Release ctest (10/24), Linux aarch64 Debug ctest (1/24, test_gcs_global_db_sdk boot flake). User rebuilding SuperGenius/thirdparty/GeniusSDK locally (2026-09-16) — re-release assets then re-run CI before code triage.
+Last activity: 2026-09-16 -- 01-06 Task 2 CI observed red on PR #12; dependency rebuilds in progress
 
 Progress: [█░░░░░░░░░] 9%
 
@@ -85,6 +85,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-31T21:55:00.000Z
-Stopped at: 01-06 Task 2 blocking human-action (push to develop + observe first CI run)
-Resume file: .planning/workstreams/app/phases/01-foundation/01-06-PLAN.md (Task 2, resume-signal "ci-green" + run URL)
+Last session: 2026-09-16
+Stopped at: 01-06 Task 2 — CI red on 4 cells at e0802b4; user rebuilding SuperGenius/thirdparty/GeniusSDK locally
+Resume file: .planning/workstreams/app/phases/01-foundation/01-06-PLAN.md (Task 2; after dep re-release → re-run CI on PR #12, then triage remaining red cells)
