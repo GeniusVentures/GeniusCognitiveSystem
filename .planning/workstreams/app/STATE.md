@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: GCS Chat
-status: "Phase 01 EXECUTING on feature/app-ffi-data-plane. Merged via PR #11: 01-01/01-02/01-07 (2026-08-25). Waves 3-5 otherwise COMPLETE: 01-03, 01-08, 01-04, 01-09, 01-10, 01-05 (UAT 7 passed / 0 issues / 1 blocked deferred to 01-11). 01-06: Task 1 COMPLETE (commit 90233f9). Task 2 push+observe DONE via PR #12 (draft, 62 commits) — CI RED at e0802b4, run 33461331605: 11/15 green; 4 red = Linux x86_64+aarch64 Release (GCS_SDK_SHARED_LIB-NOTFOUND at Build GCS), Windows Release (10/24 ctest), Linux aarch64 Debug (1/24 test_gcs_global_db_sdk boot flake). 2026-09-16: user rebuilding SuperGenius/thirdparty/GeniusSDK locally — fresh release assets may clear the GeniusSDK-not-found cells; resume = re-run CI on PR #12 first, then triage remainder. REMAINING after 01-06: wave 6 {01-11 cubits+shell}. OPEN USER DECISIONS: merge PR #12 to develop (fast-forwardable; develop == origin); draft-PR timing. dev_phase04/PR #13 ruled out as fix source (no CI workflow, older NEO-SWARM bumps)."
-stopped_at: 01-06 Task 2 — CI red on 4 cells; waiting on local dep rebuilds + asset re-release, then CI re-run
+status: "Phase 01 EXECUTING on feature/app-ffi-data-plane. Merged via PR #11: 01-01/01-02/01-07 (2026-08-25). Waves 3-5 otherwise COMPLETE: 01-03, 01-08, 01-04, 01-09, 01-10, 01-05 (UAT 7 passed / 0 issues / 1 blocked deferred to 01-11). 01-06: Task 1 COMPLETE (commit 90233f9). Task 2 push+observe in progress via PR #12 (draft). After dep rebuilds: all-static GeniusSDK linkage landed (b282ede + NEO-SWARM 4019000/120f6b7 cherry-pick c32649b3) — CI run 35156413723 all 15 red: (a) duplicate ed25519/sha3 symbols (thirdparty libed25519.a vs wallet-core TrezorCrypto + sgns keccak) at neo-swarm exe link; (b) Windows configure missing Vulkan_INCLUDE_DIR (thirdparty split headers Vulkan-Headers/ from loader Vulkan-Loader/). Fixed in 7dd1f9c + NEO-SWARM d388fbe (drop core ed25519 link; seed Vulkan_INCLUDE_DIR from Vulkan-Headers when loader has no include/; widen SGProcessingManager install-tree fallback so dev machines link real mode like CI — stub mode locally was the verification gap). Local: full ninja ALL targets incl. neo-swarm exe + ctest 25/25 (test_gcs_global_db_sdk boot flake passes serially). CI run 35157684003 in flight. REMAINING after 01-06: wave 6 {01-11 cubits+shell}. OPEN USER DECISIONS: merge PR #12 to develop; draft-PR timing. dev_phase04/PR #13 ruled out as fix source (no CI workflow, older NEO-SWARM bumps)."
+stopped_at: 01-06 Task 2 — awaiting CI run 35157684003 (7dd1f9c) on PR #12; resume signal = ci-green
 last_updated: "2026-09-16T00:00:00.000Z"
-last_activity: 2026-09-16 -- 01-06 Task 2 CI observed red on PR #12; dependency rebuilds in progress
+last_activity: 2026-09-16 -- 01-06 Task 2 all-red CI fixed (ed25519 dup, Windows Vulkan seed, local stub-mode gap); run 35157684003 in flight
 progress:
   total_phases: 7
   completed_phases: 0
@@ -27,8 +27,8 @@ See: .planning/workstreams/app/PROJECT.md (updated 2026-08-15)
 
 Phase: 01 (foundation) — EXECUTING
 Plan: 6 of 11 (01-06 Task 2 checkpoint; then 01-11)
-Status: 01-06 Task 2 push+observe done via PR #12 (draft): CI at e0802b4 red on 4 of 15 cells (run 33461331605). Red cells: Linux x86_64/aarch64 Release build (GCS_SDK_SHARED_LIB-NOTFOUND), Windows Release ctest (10/24), Linux aarch64 Debug ctest (1/24, test_gcs_global_db_sdk boot flake). User rebuilding SuperGenius/thirdparty/GeniusSDK locally (2026-09-16) — re-release assets then re-run CI before code triage.
-Last activity: 2026-09-16 -- 01-06 Task 2 CI observed red on PR #12; dependency rebuilds in progress
+Status: 01-06 Task 2 — all-static GeniusSDK linkage landed; first post-cherry-pick CI run (35156413723, b282ede) went 15/15 red on duplicate ed25519/sha3 symbols (neo-swarm exe link) + Windows Vulkan configure. Fixes pushed as 7dd1f9c (+ NEO-SWARM d388fbe): core drops direct libed25519.a, parent seeds Vulkan_INCLUDE_DIR from Vulkan-Headers/ on the split layout, SGProcessingManager install-tree fallback widened so local dev builds exercise CI's real-mode link. Local full build + ctest 25/25 green. Watching run 35157684003.
+Last activity: 2026-09-16 -- 01-06 Task 2 all-red CI fixed; run 35157684003 in flight
 
 Progress: [█░░░░░░░░░] 9%
 
@@ -86,5 +86,5 @@ Items acknowledged and carried forward from previous milestone close:
 ## Session Continuity
 
 Last session: 2026-09-16
-Stopped at: 01-06 Task 2 — CI red on 4 cells at e0802b4; user rebuilding SuperGenius/thirdparty/GeniusSDK locally
-Resume file: .planning/workstreams/app/phases/01-foundation/01-06-PLAN.md (Task 2; after dep re-release → re-run CI on PR #12, then triage remaining red cells)
+Stopped at: 01-06 Task 2 — CI run 35157684003 (7dd1f9c) in flight on PR #12; resume signal = ci-green (or triage new red cells)
+Resume file: .planning/workstreams/app/phases/01-foundation/01-06-PLAN.md (Task 2; on green → complete 01-06, then wave 6 = 01-11)
