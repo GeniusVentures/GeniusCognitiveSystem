@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: GCS Chat
-status: "Phase 01 EXECUTING on feature/app-ffi-data-plane. Merged via PR #11: 01-01/01-02/01-07 (2026-08-25). Waves 3-5 otherwise COMPLETE: 01-03, 01-08, 01-04, 01-09, 01-10, 01-05 (UAT 7 passed / 0 issues / 1 blocked deferred to 01-11). 01-06: Task 1 COMPLETE (commit 90233f9). Task 2 push+observe in progress via PR #12 (draft). After dep rebuilds: all-static GeniusSDK linkage landed (b282ede + NEO-SWARM 4019000/120f6b7 cherry-pick c32649b3) — CI run 35156413723 all 15 red: (a) duplicate ed25519/sha3 symbols (thirdparty libed25519.a vs wallet-core TrezorCrypto + sgns keccak) at neo-swarm exe link; (b) Windows configure missing Vulkan_INCLUDE_DIR (thirdparty split headers Vulkan-Headers/ from loader Vulkan-Loader/). Fixed in 7dd1f9c + NEO-SWARM d388fbe (drop core ed25519 link; seed Vulkan_INCLUDE_DIR from Vulkan-Headers when loader has no include/; widen SGProcessingManager install-tree fallback so dev machines link real mode like CI — stub mode locally was the verification gap). Local: full ninja ALL targets incl. neo-swarm exe + ctest 25/25 (test_gcs_global_db_sdk boot flake passes serially). CI run 35157684003 in flight. REMAINING after 01-06: wave 6 {01-11 cubits+shell}. OPEN USER DECISIONS: merge PR #12 to develop; draft-PR timing. dev_phase04/PR #13 ruled out as fix source (no CI workflow, older NEO-SWARM bumps)."
-stopped_at: 01-06 Task 2 — awaiting CI run 35157684003 (7dd1f9c) on PR #12; resume signal = ci-green
+status: "Phase 01 EXECUTING on feature/app-ffi-data-plane. Merged via PR #11: 01-01/01-02/01-07 (2026-08-25). Waves 3-5 COMPLETE: 01-03, 01-08, 01-04, 01-09, 01-10, 01-05 (UAT 7 passed / 0 issues / 1 blocked deferred to 01-11), 01-06 COMPLETE 2026-09-16 (CI run 35157684003: 13/15 green — Linux x4, OSX x2, iOS x2, Android x4; Windows Debug+Release ACCEPTED RED per user: another engineer owns Windows-zkLLVM linking, zkLLVM may be dropped entirely. Windows-Release also blocked by stale GeniusSDK Windows assets from 2026-08-27 — bool-vs-WitnessVerdict ValidateWitness signature; Windows-Debug by zkLLVM having no Debug artifacts → LNK2038. See 01-06-SUMMARY.md). All-static GeniusSDK linkage landed (b282ede, 7dd1f9c + NEO-SWARM 4019000/120f6b7/d388fbe). REMAINING: wave 6 {01-11 cubits+shell} then phase verification. OPEN USER DECISIONS: merge PR #12 to develop; draft-PR timing."
+stopped_at: 01-06 COMPLETE; next = 01-11 (wave 6)
 last_updated: "2026-09-16T00:00:00.000Z"
-last_activity: 2026-09-16 -- 01-06 Task 2 all-red CI fixed (ed25519 dup, Windows Vulkan seed, local stub-mode gap); run 35157684003 in flight
+last_activity: 2026-09-16 -- 01-06 complete: 13/15 CI green, Windows cells accepted red (separate owner)
 progress:
   total_phases: 7
   completed_phases: 0
@@ -26,9 +26,9 @@ See: .planning/workstreams/app/PROJECT.md (updated 2026-08-15)
 ## Current Position
 
 Phase: 01 (foundation) — EXECUTING
-Plan: 6 of 11 (01-06 Task 2 checkpoint; then 01-11)
-Status: 01-06 Task 2 — all-static GeniusSDK linkage landed; first post-cherry-pick CI run (35156413723, b282ede) went 15/15 red on duplicate ed25519/sha3 symbols (neo-swarm exe link) + Windows Vulkan configure. Fixes pushed as 7dd1f9c (+ NEO-SWARM d388fbe): core drops direct libed25519.a, parent seeds Vulkan_INCLUDE_DIR from Vulkan-Headers/ on the split layout, SGProcessingManager install-tree fallback widened so local dev builds exercise CI's real-mode link. Local full build + ctest 25/25 green. Watching run 35157684003.
-Last activity: 2026-09-16 -- 01-06 Task 2 all-red CI fixed; run 35157684003 in flight
+Plan: 11 of 11 remaining (01-11 wave 6; 01-06 just completed)
+Status: 01-06 COMPLETE — CI run 35157684003 (PR #12): 13/15 green; Windows Debug+Release accepted red per user (another engineer owns Windows-zkLLVM linking; zkLLVM possibly dropped). Windows-Release root cause: GeniusSDK Windows assets stale since 2026-08-27 (bool vs WitnessVerdict ValidateWitness). Windows-Debug: zkLLVM Release-only LLVM → MSVC LNK2038. Neither blocks PR #12 per user.
+Last activity: 2026-09-16 -- 01-06 complete; Windows cells accepted red
 
 Progress: [█░░░░░░░░░] 9%
 
@@ -86,5 +86,5 @@ Items acknowledged and carried forward from previous milestone close:
 ## Session Continuity
 
 Last session: 2026-09-16
-Stopped at: 01-06 Task 2 — CI run 35157684003 (7dd1f9c) in flight on PR #12; resume signal = ci-green (or triage new red cells)
-Resume file: .planning/workstreams/app/phases/01-foundation/01-06-PLAN.md (Task 2; on green → complete 01-06, then wave 6 = 01-11)
+Stopped at: 01-06 COMPLETE (13/15 green, Windows accepted red); next = 01-11 (wave 6)
+Resume file: .planning/workstreams/app/phases/01-foundation/01-11-PLAN.md
