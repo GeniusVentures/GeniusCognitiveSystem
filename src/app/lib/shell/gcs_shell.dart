@@ -16,7 +16,6 @@ import 'package:frontend_scaffold/components/scaffold_pressable.dart';
 import 'package:frontend_scaffold/components/scaffold_surface.dart';
 import 'package:frontend_scaffold/theme/scaffold_colors.dart';
 import 'package:frontend_scaffold/theme/scaffold_dimens.dart';
-import 'package:frontend_scaffold/theme/scaffold_palette.dart';
 import 'package:frontend_scaffold/theme/scaffold_theme.dart';
 
 import '../cubits/composer_cubit.dart';

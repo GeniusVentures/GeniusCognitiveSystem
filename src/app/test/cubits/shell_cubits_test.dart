@@ -6,6 +6,11 @@
 /// the same bytes the NativePort delivers in production (D-05 push, never
 /// polling). Async propagation uses the wait-condition pattern
 /// (`pumpEventQueue`), never sleeps.
+library;
+
+// The gcs_* override names mirror the C symbols (ffigen naming), same as
+// gcs_bindings_generated.dart.
+// ignore_for_file: non_constant_identifier_names
 
 import 'dart:ffi' as ffi;
 import 'dart:typed_data';
@@ -138,7 +143,11 @@ void main() {
       cubit.selectRoom('gcs/chat/a');
       expect(cubit.state.activeRoom, 'gcs/chat/a');
       cubit.setRooms(<String>['gcs/chat/b']);
-      expect(cubit.state.activeRoom, isNull, reason: 'selection must not dangle');
+      expect(
+        cubit.state.activeRoom,
+        isNull,
+        reason: 'selection must not dangle',
+      );
       cubit.selectRoom('gcs/chat/b');
       expect(cubit.state.activeRoom, 'gcs/chat/b');
     });
@@ -171,11 +180,19 @@ void main() {
       const int cap = ChatMessageFlowState.kMaxFlowItems;
       for (int i = 0; i < cap + 2; i++) {
         cubit.append(
-          ChatFlowItemTextBubble(instanceId: 'm$i', role: 'user_self', text: 't$i'),
+          ChatFlowItemTextBubble(
+            instanceId: 'm$i',
+            role: 'user_self',
+            text: 't$i',
+          ),
         );
       }
       expect(cubit.state, hasLength(cap));
-      expect(cubit.state.first.instanceId, 'm2', reason: 'oldest dropped first');
+      expect(
+        cubit.state.first.instanceId,
+        'm2',
+        reason: 'oldest dropped first',
+      );
       expect(cubit.state.last.instanceId, 'm${cap + 1}');
     });
 
@@ -198,27 +215,36 @@ void main() {
   });
 
   group('ComposerCubit', () {
-    test('send publishes send_text for the active room and clears the draft', () async {
-      final _RecordingTransport transport = _RecordingTransport();
-      final RailCubit rail = RailCubit();
-      final ComposerCubit cubit = ComposerCubit(
-        transport: transport,
-        railCubit: rail,
-      );
-      addTearDown(cubit.close);
-      addTearDown(rail.close);
-      rail.setRooms(<String>['gcs/chat/room-one']);
-      rail.selectRoom('gcs/chat/room-one');
-      await pumpEventQueue();
-      expect(cubit.state.activeRoom, 'gcs/chat/room-one');
-      cubit.updateDraft('hello world');
-      cubit.send();
-      expect(transport.commands, hasLength(1));
-      expect(transport.commands.single.whichPayload(), GcsCommand_Payload.sendText);
-      expect(transport.commands.single.sendText.roomTopic, 'gcs/chat/room-one');
-      expect(transport.commands.single.sendText.text, 'hello world');
-      expect(cubit.state.draft, isEmpty);
-    });
+    test(
+      'send publishes send_text for the active room and clears the draft',
+      () async {
+        final _RecordingTransport transport = _RecordingTransport();
+        final RailCubit rail = RailCubit();
+        final ComposerCubit cubit = ComposerCubit(
+          transport: transport,
+          railCubit: rail,
+        );
+        addTearDown(cubit.close);
+        addTearDown(rail.close);
+        rail.setRooms(<String>['gcs/chat/room-one']);
+        rail.selectRoom('gcs/chat/room-one');
+        await pumpEventQueue();
+        expect(cubit.state.activeRoom, 'gcs/chat/room-one');
+        cubit.updateDraft('hello world');
+        cubit.send();
+        expect(transport.commands, hasLength(1));
+        expect(
+          transport.commands.single.whichPayload(),
+          GcsCommand_Payload.sendText,
+        );
+        expect(
+          transport.commands.single.sendText.roomTopic,
+          'gcs/chat/room-one',
+        );
+        expect(transport.commands.single.sendText.text, 'hello world');
+        expect(cubit.state.draft, isEmpty);
+      },
+    );
 
     test('send is a no-op without a sendable draft or room selection', () {
       final _RecordingTransport transport = _RecordingTransport();
@@ -232,48 +258,49 @@ void main() {
   });
 
   group('SessionCubit', () {
-    test('inert mode (no bindings): start is a no-op, publish refuses', () async {
-      final RailCubit rail = RailCubit();
-      final MessageFlowCubit flow = MessageFlowCubit();
-      final SessionCubit cubit = SessionCubit(
-        railCubit: rail,
-        messageFlowCubit: flow,
-      );
-      addTearDown(rail.close);
-      addTearDown(flow.close);
-      cubit.start();
-      expect(cubit.state.isHandleOpen, isFalse);
-      expect(cubit.state.isReady, isFalse);
-      expect(cubit.publishCommand(GcsCommand()), isFalse);
-      expect(
-        cubit.close(),
-        throwsNothing,
-        reason: 'close must tolerate a never-started session',
-      );
-    });
+    test(
+      'inert mode (no bindings): start is a no-op, publish refuses',
+      () async {
+        final RailCubit rail = RailCubit();
+        final MessageFlowCubit flow = MessageFlowCubit();
+        final SessionCubit cubit = SessionCubit(
+          railCubit: rail,
+          messageFlowCubit: flow,
+        );
+        addTearDown(rail.close);
+        addTearDown(flow.close);
+        cubit.start();
+        expect(cubit.state.isHandleOpen, isFalse);
+        expect(cubit.state.isReady, isFalse);
+        expect(cubit.publishCommand(GcsCommand()), isFalse);
+        await cubit.close();
+      },
+    );
 
-    test('start: protobuf config bytes init, event-topic port subscribe', () async {
-      final ffi.Pointer<GcsSession> fakeHandle = ffi.Pointer<GcsSession>.fromAddress(
-        64,
-      );
-      final _RecordingBindings bindings = _RecordingBindings(
-        initResult: fakeHandle,
-      );
-      final SessionCubit cubit = SessionCubit(
-        bindings: bindings,
-        dbPath: '/tmp/gcs-cubit-test-db',
-      );
-      addTearDown(cubit.close);
-      cubit.start();
-      expect(bindings.initCalls, 1);
-      expect(bindings.lastConfig!.codec, Codec.CODEC_PROTOBUF);
-      expect(bindings.lastConfig!.dbPath, '/tmp/gcs-cubit-test-db');
-      expect(bindings.subscribeCalls, 1);
-      expect(bindings.lastSubscribeTopic, 'gcs/event');
-      expect(bindings.lastDartPort, greaterThan(0));
-      expect(cubit.state.isHandleOpen, isTrue);
-      expect(cubit.handle.address, 64);
-    });
+    test(
+      'start: protobuf config bytes init, event-topic port subscribe',
+      () async {
+        final ffi.Pointer<GcsSession> fakeHandle =
+            ffi.Pointer<GcsSession>.fromAddress(64);
+        final _RecordingBindings bindings = _RecordingBindings(
+          initResult: fakeHandle,
+        );
+        final SessionCubit cubit = SessionCubit(
+          bindings: bindings,
+          dbPath: '/tmp/gcs-cubit-test-db',
+        );
+        addTearDown(cubit.close);
+        cubit.start();
+        expect(bindings.initCalls, 1);
+        expect(bindings.lastConfig!.codec, Codec.CODEC_PROTOBUF);
+        expect(bindings.lastConfig!.dbPath, '/tmp/gcs-cubit-test-db');
+        expect(bindings.subscribeCalls, 1);
+        expect(bindings.lastSubscribeTopic, 'gcs/event');
+        expect(bindings.lastDartPort, greaterThan(0));
+        expect(cubit.state.isHandleOpen, isTrue);
+        expect(cubit.handle.address, 64);
+      },
+    );
 
     test('init failure surfaces a raw error and never subscribes', () {
       final _RecordingBindings bindings = _RecordingBindings();
@@ -285,16 +312,19 @@ void main() {
       expect(bindings.subscribeCalls, 0);
     });
 
-    test('close tears the native session down exactly once (idempotent)', () async {
-      final _RecordingBindings bindings = _RecordingBindings(
-        initResult: ffi.Pointer<GcsSession>.fromAddress(64),
-      );
-      final SessionCubit cubit = SessionCubit(bindings: bindings);
-      cubit.start();
-      await cubit.close();
-      await cubit.close();
-      expect(bindings.shutdownCalls, 1);
-    });
+    test(
+      'close tears the native session down exactly once (idempotent)',
+      () async {
+        final _RecordingBindings bindings = _RecordingBindings(
+          initResult: ffi.Pointer<GcsSession>.fromAddress(64),
+        );
+        final SessionCubit cubit = SessionCubit(bindings: bindings);
+        cubit.start();
+        await cubit.close();
+        await cubit.close();
+        expect(bindings.shutdownCalls, 1);
+      },
+    );
 
     test('handlePushedBytes decodes and dispatches every GcsEvent variant', () {
       final RailCubit rail = RailCubit();
@@ -338,40 +368,49 @@ void main() {
       expect(cubit.state.error, 'boom');
     });
 
-    test('malformed pushed bytes surface as an error, never a crash (T-01-11-01)', () {
-      final SessionCubit cubit = SessionCubit();
-      addTearDown(cubit.close);
-      cubit.handlePushedBytes(Uint8List.fromList(<int>[0xFF, 0xFF, 0xFF]));
-      expect(cubit.state.error, isNotNull);
-      expect(cubit.state.isReady, isFalse);
-    });
+    test(
+      'malformed pushed bytes surface as an error, never a crash (T-01-11-01)',
+      () {
+        final SessionCubit cubit = SessionCubit();
+        addTearDown(cubit.close);
+        cubit.handlePushedBytes(Uint8List.fromList(<int>[0xFF, 0xFF, 0xFF]));
+        expect(cubit.state.error, isNotNull);
+        expect(cubit.state.isReady, isFalse);
+      },
+    );
 
-    test('publishCommand serializes the envelope to the command topic (D-27)', () async {
-      final _RecordingBindings bindings = _RecordingBindings(
-        initResult: ffi.Pointer<GcsSession>.fromAddress(64),
-      );
-      final SessionCubit cubit = SessionCubit(bindings: bindings);
-      addTearDown(cubit.close);
-      cubit.start();
-      expect(
-        cubit.publishCommand(
-          GcsCommand()
-            ..sendText = (SendTextCommand()
-              ..roomTopic = 'gcs/chat/a'
-              ..text = 'x'),
-        ),
-        isTrue,
-      );
-      expect(bindings.publishCalls, 1);
-      expect(bindings.lastPublishTopic, 'gcs/command');
-      expect(bindings.lastPublishedCommand!.sendText.text, 'x');
-    });
+    test(
+      'publishCommand serializes the envelope to the command topic (D-27)',
+      () async {
+        final _RecordingBindings bindings = _RecordingBindings(
+          initResult: ffi.Pointer<GcsSession>.fromAddress(64),
+        );
+        final SessionCubit cubit = SessionCubit(bindings: bindings);
+        addTearDown(cubit.close);
+        cubit.start();
+        expect(
+          cubit.publishCommand(
+            GcsCommand()
+              ..sendText = (SendTextCommand()
+                ..roomTopic = 'gcs/chat/a'
+                ..text = 'x'),
+          ),
+          isTrue,
+        );
+        expect(bindings.publishCalls, 1);
+        expect(bindings.lastPublishTopic, 'gcs/command');
+        expect(bindings.lastPublishedCommand!.sendText.text, 'x');
+      },
+    );
 
-    test('openDefault stays inert under the test harness (no FFI in tests)', () {
-      final SessionCubit cubit = SessionCubit.openDefault();
-      addTearDown(cubit.close);
-      cubit.start();
-      expect(cubit.state.isHandleOpen, isFalse);
-    });
+    test(
+      'openDefault stays inert under the test harness (no FFI in tests)',
+      () {
+        final SessionCubit cubit = SessionCubit.openDefault();
+        addTearDown(cubit.close);
+        cubit.start();
+        expect(cubit.state.isHandleOpen, isFalse);
+      },
+    );
   });
 }
