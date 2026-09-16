@@ -15,8 +15,7 @@ namespace gcs {
 CoreSession::CoreSession(Config config)
     : m_config(std::move(config)),
       m_db(std::make_unique<sgns::neoswarm::storage::GcsGlobalDb>(
-          sgns::neoswarm::storage::GcsGlobalDb::Config{
-              .m_dbPath = m_config.m_dbPath})) {}
+          sgns::neoswarm::storage::GcsGlobalDb::Config{m_config.m_dbPath})) {}
 
 CoreSession::~CoreSession() {
   if (IsRunning()) {
