@@ -1,18 +1,27 @@
-// Bare-app smoke test (01-03): pumps the placeholder GeniusSwarmApp so the
-// default `flutter test` suite compiles and the entry widget renders. The
-// real UI tests land with the scaffold-rewrite phase.
+/// Root smoke test (plan 01-11 Task 3): the rewritten app boots to the themed
+/// [GCSChat] shell.
+///
+/// Render-only -- no FFI assertion: under the test harness
+/// `SessionCubit.openDefault` stays inert (no native library), and the shell
+/// still renders rail + flow + composer (composer disabled until readiness
+/// would be pushed). This replaces the stock `MyApp` test.
+library;
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:frontend_scaffold/components/scaffold_composer.dart';
 
 import 'package:flutter_app/main.dart';
+import 'package:flutter_app/shell/gcs_shell.dart';
+import 'package:flutter_app/shell/room_rail.dart';
 
 void main() {
-  testWidgets('GeniusSwarmApp builds the placeholder screen', (WidgetTester tester) async {
-    // Build the app and trigger a frame.
-    await tester.pumpWidget(const GeniusSwarmApp());
+  testWidgets('GCSChatApp boots to the GCSChat shell (rail + composer)', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const GCSChatApp());
 
-    // The placeholder shell renders its app-bar title and body note.
-    expect(find.text('GNUS NEO SWARM'), findsOneWidget);
-    expect(find.text('GCS app skeleton — UI lands with the scaffold rewrite'), findsOneWidget);
+    expect(find.byType(GCSChat), findsOneWidget);
+    expect(find.byType(RoomRail), findsOneWidget);
+    expect(find.byType(ScaffoldComposer), findsOneWidget);
   });
 }
