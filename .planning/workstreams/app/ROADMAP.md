@@ -61,7 +61,7 @@ Plans:
 **Wave 5** *(blocked on Wave 4 completion)*
 
 - [ ] 01-05-PLAN.md — Wave 5 (depends: 01-03, 01-04, 01-07) — Dart_PostCObject protobuf-byte posting + ffigen/protobuf Dart bindings + Dart smoke test
-- [ ] 01-06-PLAN.md — Wave 5 (depends: 01-03, 01-04) — CI workflow (.github/workflows/cmake.yml, -DBUILD_TESTS=ON) for all 5 platforms
+- [x] 01-06-PLAN.md — Wave 5 (depends: 01-03, 01-04) — CI workflow (.github/workflows/cmake.yml, -DBUILD_TESTS=ON) for all 5 platforms
 - [ ] 01-10-PLAN.md — Wave 5 (depends: 01-08, 01-09) — chat_message_flow envelope (sealed ChatFlowItem)
 
 **Wave 6** *(blocked on Wave 5 completion)*
