@@ -66,7 +66,7 @@ Plans:
 
 **Wave 6** *(blocked on Wave 5 completion)*
 
-- [ ] 01-11-PLAN.md — Wave 6 (depends: 01-05, 01-10) — GCSChat app shell (rail + flow + composer) + pushed-event cubits + theming
+- [x] 01-11-PLAN.md — Wave 6 (depends: 01-05, 01-10) — GCSChat app shell (rail + flow + composer) + pushed-event cubits + theming
 
 ### Phase 2: Spaces & Rooms
 
