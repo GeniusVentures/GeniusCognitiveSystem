@@ -206,9 +206,14 @@ class _ComposerBar extends StatelessWidget {
 /// The circular send affordance of the composer action row (UI-SPEC: fill
 /// `lightGreenPrimary`, `Icons.send` tinted `ScaffoldColors.btnText`).
 ///
-/// Bound to [ComposerCubit.send]: it submits the cubit-held draft. The
-/// scaffold composer atom owns its `TextEditingController` internally
-/// (D-07), so live keystrokes surface to the cubit on each composer submit.
+/// Submits the composer FIELD rather than the cubit draft directly: the
+/// scaffold composer atom owns its `TextEditingController` internally (D-07,
+/// no public controller/onChanged seam), so live keystrokes reach the cubit
+/// only via the atom's `onSubmit`. Routing the icon tap through the focused
+/// field's `TextInputAction.send` fires that same submit path — the typed
+/// text is forwarded into [ComposerCubit] before sending and the field
+/// clears. Falls back to sending the cubit-held draft when no composer field
+/// holds focus (nothing typed this interaction).
 class _SendButton extends StatelessWidget {
   /// Creates the send button.
   const _SendButton({required this.disabled});
@@ -226,7 +231,18 @@ class _SendButton extends StatelessWidget {
     return ScaffoldPressable(
       disabled: disabled,
       semanticLabel: 'Send message',
-      onPressed: () => context.read<ComposerCubit>().send(),
+      onPressed: () {
+        final EditableTextState? editable = FocusManager
+            .instance
+            .primaryFocus
+            ?.context
+            ?.findAncestorStateOfType<EditableTextState>();
+        if (editable != null) {
+          editable.performAction(TextInputAction.send);
+          return;
+        }
+        context.read<ComposerCubit>().send();
+      },
       child: ScaffoldSurface(
         shape: BoxShape.circle,
         color: context.palette.lightGreenPrimary,
