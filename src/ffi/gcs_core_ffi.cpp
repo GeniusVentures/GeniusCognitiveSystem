@@ -254,8 +254,11 @@ extern "C"
         std::lock_guard<std::mutex> lock( g_mutex );
 
         if ( g_session == nullptr || reinterpret_cast<gcs::CoreSession*>( session ) != g_session.get()
-             || topic == nullptr || payloadBytes == nullptr )
+             || topic == nullptr || payloadBytes == nullptr || payloadLength == 0 )
         {
+            // payloadLength zero is invalid per the gcs_publish doc contract —
+            // reject it as an argument error instead of letting it parse as an
+            // empty proto and surface later as PAYLOAD_NOT_SET (IN-03).
             return GCS_ERROR_INVALID_ARGUMENT;
         }
         if ( payloadLength > static_cast<size_t>( std::numeric_limits<int>::max() ) )
