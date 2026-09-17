@@ -42,6 +42,14 @@ const String kGcsCommandTopic = 'gcs/command';
 /// injects `$<TARGET_FILE:gcs_ffi>`; see src/app/CMakeLists.txt).
 const String kFfiLibraryEnvVar = 'GCS_FFI_LIBRARY';
 
+/// File names probed for the packaged gcs_ffi library, per-platform file
+/// naming (macOS dylib / Windows dll / Linux so).
+const List<String> kPackagedFfiLibraryFileNames = <String>[
+  'libgcs_ffi.dylib',
+  'gcs_ffi.dll',
+  'libgcs_ffi.so',
+];
+
 /// Environment flag set by the Flutter test harness; the default session
 /// never opens the real library under it.
 const String kTestHarnessEnvVar = 'FLUTTER_TEST';
@@ -124,11 +132,13 @@ class SessionCubit extends Cubit<SessionState> implements GcsCommandTransport {
   bool _nativeShutdownDone = false;
 
   /// Creates the production session, resolving the gcs_ffi shared library
-  /// from [kFfiLibraryEnvVar].
+  /// from [kFfiLibraryEnvVar], falling back to the packaged location next to
+  /// the executable (macOS bundle `Contents/Frameworks`, or the executable's
+  /// own directory — the Windows/Linux package layout).
   ///
-  /// Inert (no bindings) when the harness is a Flutter test, the variable is
-  /// unset, or the library file is absent -- the shell then renders with the
-  /// composer disabled until readiness would have been pushed. Opens the
+  /// Inert (no bindings) when the harness is a Flutter test, no candidate
+  /// resolves, or the library file is absent -- the shell then renders with
+  /// the composer disabled until readiness would have been pushed. Opens the
   /// library, initializes Dart API_DL (required before `gcs_subscribe`; the
   /// C++ side never self-initializes), and hands the bindings to a normal
   /// [SessionCubit].
@@ -143,10 +153,8 @@ class SessionCubit extends Cubit<SessionState> implements GcsCommandTransport {
         messageFlowCubit: messageFlowCubit,
       );
     }
-    final String? libraryPath = Platform.environment[kFfiLibraryEnvVar];
-    if (libraryPath == null ||
-        libraryPath.isEmpty ||
-        !File(libraryPath).existsSync()) {
+    final String? libraryPath = _resolveLibraryPath();
+    if (libraryPath == null) {
       return SessionCubit(
         railCubit: railCubit,
         messageFlowCubit: messageFlowCubit,
@@ -182,6 +190,31 @@ class SessionCubit extends Cubit<SessionState> implements GcsCommandTransport {
         initialError: 'failed to open gcs_ffi library: $error',
       );
     }
+  }
+
+  /// Resolves the gcs_ffi library path: [kFfiLibraryEnvVar] when set and
+  /// present, else the packaged location relative to the running executable
+  /// (macOS bundle `../Frameworks/`, then the executable's own directory —
+  /// the Windows/Linux package layout). Returns null when no candidate file
+  /// exists, leaving the session inert.
+  static String? _resolveLibraryPath() {
+    final String? fromEnv = Platform.environment[kFfiLibraryEnvVar];
+    if (fromEnv != null && fromEnv.isNotEmpty && File(fromEnv).existsSync()) {
+      return fromEnv;
+    }
+    final String exeDir = File(Platform.resolvedExecutable).parent.path;
+    final List<String> candidates = <String>[
+      for (final String fileName in kPackagedFfiLibraryFileNames) ...<String>[
+        '$exeDir/../Frameworks/$fileName',
+        '$exeDir/$fileName',
+      ],
+    ];
+    for (final String candidate in candidates) {
+      if (File(candidate).existsSync()) {
+        return candidate;
+      }
+    }
+    return null;
   }
 
   /// The opaque native session handle (address 0 = no open session). Owned
