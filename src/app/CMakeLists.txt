@@ -24,28 +24,6 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/scaffold/CMakeLists.txt")
     add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/scaffold scaffold)
 endif()
 
-# Stage the FFI dylib into the neoswarm_ffi plugin package (macos/lib/) so the
-# podspec can reference a stable relative path instead of hardcoding the CMake
-# build directory/config. Runs on every build of the FFI target — whichever
-# config was built last is what gets staged and embedded.
-if(CMAKE_SYSTEM_NAME STREQUAL "Darwin" AND TARGET Genius-MOS-ELM-FFI)
-    set(GCS_FFI_PLUGIN_LIB_DIR
-        "${CMAKE_CURRENT_SOURCE_DIR}/../../GNUS-NEO-SWARM/neoswarm_ffi/macos/lib")
-    add_custom_target(app_stage_ffi_dylib
-        # $<CONFIG> echo so a restage with the "other" config is visible in
-        # the build log (IN-06) — single-config Ninja trees stage whichever
-        # config was built last; the destination is a stable relative path
-        # for the podspec, so per-config subdirectories are not an option.
-        COMMAND ${CMAKE_COMMAND} -E echo
-            "Staging $<CONFIG> Genius-MOS-ELM-FFI dylib into neoswarm_ffi plugin"
-        COMMAND ${CMAKE_COMMAND} -E make_directory "${GCS_FFI_PLUGIN_LIB_DIR}"
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "$<TARGET_FILE:Genius-MOS-ELM-FFI>" "${GCS_FFI_PLUGIN_LIB_DIR}"
-        DEPENDS Genius-MOS-ELM-FFI
-        COMMENT "Staging Genius-MOS-ELM-FFI dylib into neoswarm_ffi plugin"
-    )
-endif()
-
 # --- GCS chat composite codegen (D-17): bubble + code_block + media (D-20)
 # payload composites + the flow envelope (D-20 interleave), Dart triples
 # only. Mirrors scaffold CMakeLists.txt §6 (one stamp per rendered file,
@@ -201,12 +179,19 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
         set(GCS_FLUTTER_BUILD_MODE "--release")
     endif()
 
-    set(_app_extra_deps app_pub_get)
-    if(TARGET app_stage_ffi_dylib)
-        list(APPEND _app_extra_deps app_stage_ffi_dylib)
-    endif()
+    set(GCS_FLUTTER_APP_BUNDLE
+        "${CMAKE_CURRENT_SOURCE_DIR}/build/macos/Build/Products/${GCS_FLUTTER_CONFIG_DIR}/flutter_app.app")
+    set(_app_extra_deps app_pub_get gcs_ffi)
     add_custom_target(app_build_macos
         COMMAND ${FLUTTER_EXECUTABLE} build macos ${GCS_FLUTTER_BUILD_MODE}
+        # Package the FFI dylib next to the executable (Contents/Frameworks) —
+        # the packaged layout SessionCubit's exe-relative fallback resolves,
+        # and the layout a Windows/Linux package dir uses. Self-contained
+        # dylib (all-static GeniusSDK chain): a plain copy is sufficient.
+        COMMAND ${CMAKE_COMMAND} -E make_directory
+            "${GCS_FLUTTER_APP_BUNDLE}/Contents/Frameworks"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "$<TARGET_FILE:gcs_ffi>" "${GCS_FLUTTER_APP_BUNDLE}/Contents/Frameworks"
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         DEPENDS ${_app_extra_deps}
         COMMENT "Building bare Flutter app for macOS (${GCS_FLUTTER_BUILD_MODE})"
@@ -218,8 +203,6 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
     # this bridges it into the CMake install tree. ditto preserves the
     # framework symlink structure. Skipped gracefully if the app hasn't been
     # built yet (ninja app_build_macos), so C++-only installs still work.
-    set(GCS_FLUTTER_APP_BUNDLE
-        "${CMAKE_CURRENT_SOURCE_DIR}/build/macos/Build/Products/${GCS_FLUTTER_CONFIG_DIR}/flutter_app.app")
     install(CODE "
         if(EXISTS \"${GCS_FLUTTER_APP_BUNDLE}\")
             execute_process(COMMAND ditto \"${GCS_FLUTTER_APP_BUNDLE}\"

@@ -41,8 +41,6 @@ dependencies:
   fixnum: ^1.1.0
   flutter_bloc: ^9.0.0
   protobuf: ^4.0.0
-  neoswarm_ffi:
-    path: ../../GNUS-NEO-SWARM/neoswarm_ffi
   frontend_scaffold:
     path: scaffold
 
