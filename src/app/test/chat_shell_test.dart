@@ -312,11 +312,15 @@ void main() {
     await tester.tap(find.text('smoke-test-2'));
     await _pumpUntil(tester, () => composer.state.activeRoom != null);
     session.setReady(true);
-    composer.updateDraft('hello from the shell');
     await _pumpUntil(
       tester,
       () => tester.widget<TextField>(find.byType(TextField)).enabled == true,
     );
+    // Type into the composer FIELD (not the cubit) so the tap exercises the
+    // real send-icon path: field focus -> TextInputAction.send -> onSubmit ->
+    // updateDraft + send. Seeding the cubit draft directly would mask a send
+    // button that never forwards the typed text (Codex PR #12 review).
+    await tester.enterText(find.byType(TextField), 'hello from the shell');
 
     await tester.tap(find.byIcon(Icons.send));
     await tester.pump();
