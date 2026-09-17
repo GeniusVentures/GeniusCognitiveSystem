@@ -225,11 +225,12 @@ class SessionCubit extends Cubit<SessionState> implements GcsCommandTransport {
   /// (codec-tagged protobuf bytes, D-29), calls `gcs_init`
   /// (allocate/copy/call/free), registers the ReceivePort on
   /// [kGcsEventTopic] via `gcs_subscribe`, and starts listening. No-op when
-  /// inert or already torn down.
+  /// inert, already torn down, or already started (re-entry guard WR-02: a
+  /// second call would leak the first ReceivePort and re-subscribe over it).
   void start() {
     final GcsBindings? bindings = _bindings;
-    if (bindings == null || _nativeShutdownDone) {
-      return;
+    if (bindings == null || _nativeShutdownDone || _receivePort != null) {
+      return; // inert / torn down / already started
     }
     _dbPath ??= '${Directory.systemTemp.path}/$kDefaultSessionDirectoryName';
     final Uint8List configBytes =
