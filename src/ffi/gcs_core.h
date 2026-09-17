@@ -21,6 +21,14 @@
 #include <stddef.h>
 #include <stdint.h>
 
+// GCS_FFI_API export macro — documented exemption to the "no OS preprocessor
+// guards in source" standard (review IN-02). The guard cannot be resolved by
+// CMake-selected include paths: the macro depends on the CONSUMING translation
+// unit's role, not just the platform — GCS_FFI_EXPORTS is defined only while
+// building gcs_ffi itself, while every Windows consumer of this public header
+// needs __declspec(dllimport) against the DLL's import library. Same idiom as
+// the vendored Dart SDK headers (dart_api_dl.h); kept in-source so the header
+// stays self-contained for plain C consumers.
 #if defined( _WIN32 )
 #if defined( GCS_FFI_EXPORTS )
 #define GCS_FFI_API __declspec( dllexport )
