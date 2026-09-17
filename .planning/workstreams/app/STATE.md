@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: GCS Chat
-status: "Phase 01 ALL PLANS COMPLETE on feature/app-ffi-data-plane (11/11). 01-11 done 2026-09-16 via gsd-executor (commits 2971ecf..5b05cb1): GCSChat shell + four cubits + Material 3 theming + three smoke tests; flutter analyze (lib test) clean, full flutter test 30 passed + 1 designed FFI skip. 01-06 done same day (CI 13/15 green; Windows Debug+Release ACCEPTED RED — another engineer owns Windows-zkLLVM linking, see 01-06-SUMMARY.md). NEXT: phase 01 verification (gsd-verifier), then PR #12 merge decision (needs /gsd-code-review before ready/merge per project gate). OPEN USER DECISIONS: run phase verification now?; merge PR #12 to develop; draft-PR timing."
-stopped_at: Phase 01 execution complete (11/11 plans); next = phase verification
+status: "Phase 01 ALL PLANS COMPLETE (11/11) + CODE REVIEW COMPLETE on feature/app-ffi-data-plane. /gsd-code-review 1 --fix all done 2026-09-16: 68 files reviewed, 11 findings (1 Critical, 3 Warning, 7 Info) ALL FIXED via gsd-code-fixer (commits 7480206..cd79a78 + submodule a47f204 on feature/app-restructure); report in 01-REVIEW.md. App packaging fix landed (3e9947a): neoswarm_ffi plugin dropped, gcs_ffi dylib packaged into flutter_app.app, exe-relative library fallback — packaged app runs without GCS_FFI_LIBRARY. Full regression green on final tree: ctest 26/26, flutter test 31 + 1 designed skip, analyze clean. CI 13/15 (Windows Debug+Release ACCEPTED RED, separate owner, see 01-06-SUMMARY.md). NEXT: phase 01 verification (gsd-verifier), then PR #12 merge decision."
+stopped_at: Phase 01 execution + code review + fixes complete; next = phase verification
 last_updated: "2026-09-16T00:00:00.000Z"
-last_activity: 2026-09-16 -- 01-11 complete (shell/cubits/theme/tests green); phase 01 execution finished
+last_activity: 2026-09-16 -- review fixes applied (11/11 findings), full regression green; next = verification
 progress:
   total_phases: 7
   completed_phases: 0
