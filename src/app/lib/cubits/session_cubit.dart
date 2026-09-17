@@ -158,6 +158,7 @@ class SessionCubit extends Cubit<SessionState> implements GcsCommandTransport {
       return SessionCubit(
         railCubit: railCubit,
         messageFlowCubit: messageFlowCubit,
+        initialError: 'gcs_ffi library not found (set $kFfiLibraryEnvVar)',
       );
     }
     try {
