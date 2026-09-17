@@ -13,7 +13,7 @@ Build a working multi-party chat application where users create spaces and rooms
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Foundation** - C++ core scaffolding, GlobalDB CRDT integration, FFI bridge to Flutter, and cross-platform CI/CD (macOS, Linux, Windows, iOS, Android)
+- [x] **Phase 1: Foundation** - C++ core scaffolding, GlobalDB CRDT integration, FFI bridge to Flutter, and cross-platform CI/CD (macOS, Linux, Windows, iOS, Android)
 - [ ] **Phase 2: Spaces & Rooms** - Space and room creation with configurable inheritance
 - [ ] **Phase 3: Messaging** - Real-time text messaging with CRDT sync across participants
 - [ ] **Phase 4: Membership & Invites** - Roles, capability tokens, and permission model
@@ -36,7 +36,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   4. GossipSub topics can be created and joined from the C++ core
   5. CI/CD pipeline builds and tests on self-hosted runners for macOS, Linux, Windows, iOS, Android
 
-**Plans:** 1/11 plans executed
+**Plans:** 11/11 plans executed
 
 Plans:
 **Wave 1**
@@ -45,22 +45,22 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 01-02-PLAN.md — Wave 2 (depends: 01-01) — Wire gcs_core to gcs_storage; create gcs::CoreSession class
-- [ ] 01-07-PLAN.md — Wave 2 (depends: 01-01) — Flutter app build wiring (FRONTEND_BUILD_ENABLED gate) + pubspec (keep neoswarm_ffi, add flutter_bloc/ffigen/protobuf/protoc_plugin)
+- [x] 01-02-PLAN.md — Wave 2 (depends: 01-01) — Wire gcs_core to gcs_storage; create gcs::CoreSession class
+- [x] 01-07-PLAN.md — Wave 2 (depends: 01-01) — Flutter app build wiring (FRONTEND_BUILD_ENABLED gate) + pubspec (keep neoswarm_ffi, add flutter_bloc/ffigen/protobuf/protoc_plugin)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 01-03-PLAN.md — Wave 3 (depends: 01-01, 01-02, 01-07) — protobuf wire contract (gcs_chat.proto + gcs_proto) + gcs_ffi SHARED lib + C ABI (D-26 push-not-pull) + add_subdirectory(app) wiring
-- [ ] 01-08-PLAN.md — Wave 3 (depends: 01-07) — chat_message_bubble composite codegen (Dart triple; C++ half = proto)
+- [x] 01-03-PLAN.md — Wave 3 (depends: 01-01, 01-02, 01-07) — protobuf wire contract (gcs_chat.proto + gcs_proto) + gcs_ffi SHARED lib + C ABI (D-26 push-not-pull) + add_subdirectory(app) wiring
+- [x] 01-08-PLAN.md — Wave 3 (depends: 01-07) — chat_message_bubble composite codegen (Dart triple; C++ half = proto)
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 01-04-PLAN.md — Wave 4 (depends: 01-01, 01-02, 01-03) — Test scaffolding + CORE-05 smoke tests (lifecycle, CRDT round-trip, FFI option-C init)
-- [ ] 01-09-PLAN.md — Wave 4 (depends: 01-08) — code_block + media composite codegen (top-level flow items)
+- [x] 01-04-PLAN.md — Wave 4 (depends: 01-01, 01-02, 01-03) — Test scaffolding + CORE-05 smoke tests (lifecycle, CRDT round-trip, FFI option-C init)
+- [x] 01-09-PLAN.md — Wave 4 (depends: 01-08) — code_block + media composite codegen (top-level flow items)
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
-- [ ] 01-05-PLAN.md — Wave 5 (depends: 01-03, 01-04, 01-07) — Dart_PostCObject protobuf-byte posting + ffigen/protobuf Dart bindings + Dart smoke test
+- [x] 01-05-PLAN.md — Wave 5 (depends: 01-03, 01-04, 01-07) — Dart_PostCObject protobuf-byte posting + ffigen/protobuf Dart bindings + Dart smoke test
 - [x] 01-06-PLAN.md — Wave 5 (depends: 01-03, 01-04) — CI workflow (.github/workflows/cmake.yml, -DBUILD_TESTS=ON) for all 5 platforms
 - [ ] 01-10-PLAN.md — Wave 5 (depends: 01-08, 01-09) — chat_message_flow envelope (sealed ChatFlowItem)
 
@@ -167,7 +167,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation | 1/11 | In Progress|  |
+| 1. Foundation | 11/11 | Complete | 2026-09-16 |
 | 2. Spaces & Rooms | 0/TBD | Not started | - |
 | 3. Messaging | 0/TBD | Not started | - |
 | 4. Membership & Invites | 0/TBD | Not started | - |
