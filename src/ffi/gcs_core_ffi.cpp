@@ -27,6 +27,7 @@
 #include <atomic>
 #include <chrono>
 #include <cstring>
+#include <limits>
 #include <memory>
 #include <mutex>
 #include <random>
@@ -191,6 +192,10 @@ extern "C"
         {
             return nullptr;
         }
+        if ( configLength > static_cast<size_t>( std::numeric_limits<int>::max() ) )
+        {
+            return nullptr; // unvalidated size_t->int narrowing at the ABI boundary (IN-01)
+        }
 
         gcs::chat::GcsConfig config;
         if ( !config.ParseFromArray( configBytes, static_cast<int>( configLength ) ) )
@@ -252,6 +257,10 @@ extern "C"
              || topic == nullptr || payloadBytes == nullptr )
         {
             return GCS_ERROR_INVALID_ARGUMENT;
+        }
+        if ( payloadLength > static_cast<size_t>( std::numeric_limits<int>::max() ) )
+        {
+            return GCS_ERROR_INVALID_ARGUMENT; // unvalidated size_t->int narrowing at the ABI boundary (IN-01)
         }
         if ( !g_session->IsRunning() )
         {
