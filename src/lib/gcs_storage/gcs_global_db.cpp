@@ -3,6 +3,10 @@
  * @brief      GCS GlobalDB component implementation — init-style lifecycle
  * (D-13), PubSub acquired from GeniusSDK (D-15/D-16a), GlobalDB::Error mapped
  * to NEO-SWARM codes at the boundary (D-14).
+ * @details    STYLE EXEMPTION (review IN-04): this file was moved verbatim
+ * from GNUS-NEO-SWARM/src/storage (D-25) and keeps its original attached
+ * (K&R) braces + 2-space indentation so it stays diffable against its origin;
+ * do NOT reformat it piecemeal. New files follow the repo Allman standard.
  * @date       2026-08-10
  */
 
