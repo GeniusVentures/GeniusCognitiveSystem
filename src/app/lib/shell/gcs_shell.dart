@@ -179,9 +179,14 @@ class _ComposerBar extends StatelessWidget {
                 dimens.space6,
               ),
               child: ScaffoldComposer(
-                hintText: activeRoom == null
-                    ? 'Select a room to start messaging'
-                    : 'Message #${roomDisplayName(activeRoom)}',
+                // Session errors surface here (WR-03): without this the
+                // user-visible behavior of every failure mode is identical
+                // to a healthy-but-not-ready session.
+                hintText: session.error != null
+                    ? 'Session error: ${session.error}'
+                    : (activeRoom == null
+                          ? 'Select a room to start messaging'
+                          : 'Message #${roomDisplayName(activeRoom)}'),
                 disabled: !session.isReady,
                 onSubmit: (String value) {
                   final ComposerCubit cubit = context.read<ComposerCubit>();
