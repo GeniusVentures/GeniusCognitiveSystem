@@ -343,6 +343,10 @@ extern "C"
             if ( !g_session->Put( sendText.room_topic() + "/" + message->id(),
                                   message->SerializeAsString() ).has_value() )
             {
+                spdlog::error( "gcs_ffi: send_text store write failed for room '{}'",
+                               sendText.room_topic() );
+                PostErrorNotice( "send_text store write failed for room '" + sendText.room_topic()
+                                 + "'" ); // D-29: raw error string on the push port
                 return GCS_ERROR_GENERIC;
             }
             PostToDart( event );
