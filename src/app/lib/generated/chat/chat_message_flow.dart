@@ -272,9 +272,13 @@ class _ChatMessageFlowState extends State<ChatMessageFlow> {
 
   /// Returns the cached bubble cubit for [item], creating it seeded from the
   /// pushed snapshot (D-04: the state axis and text payload ARE the pushed
-  /// data; nothing is synthesized) on first render.
+  /// data; nothing is synthesized) on first render. Pure cache lookup —
+  /// replacement snapshots reconcile via [_reconcileCubits] in
+  /// [didUpdateWidget], never here: cubit emits notify listeners
+  /// synchronously, and emitting inside the sliver builder would mark
+  /// already-built items dirty mid-frame (review IN-06).
   ChatMessageBubbleCubit _bubbleCubitFor(ChatFlowItemTextBubble item) {
-    final ChatMessageBubbleCubit cubit = _bubbleCubits.putIfAbsent(
+    return _bubbleCubits.putIfAbsent(
       item.instanceId,
       () => ChatMessageBubbleCubit(
         instanceId: item.instanceId,
@@ -283,22 +287,11 @@ class _ChatMessageFlowState extends State<ChatMessageFlow> {
         initialText: item.text,
       ),
     );
-    // A replacement snapshot (same instanceId, newer state/text) reconciles
-    // the cached cubit — items are the flow's single source of truth, so a
-    // cubit seeded from an older snapshot must never keep rendering stale
-    // content. Equality guards keep unchanged snapshots from re-emitting.
-    if (cubit.state.state != item.state) {
-      cubit.applyState(item.state);
-    }
-    if (cubit.state.text != item.text) {
-      cubit.updateText(item.text);
-    }
-    return cubit;
   }
 
   /// Returns the cached code-block cubit for [item] (see [_bubbleCubitFor]).
   ChatMessageCodeBlockCubit _codeBlockCubitFor(ChatFlowItemCodeBlock item) {
-    final ChatMessageCodeBlockCubit cubit = _codeBlockCubits.putIfAbsent(
+    return _codeBlockCubits.putIfAbsent(
       item.instanceId,
       () => ChatMessageCodeBlockCubit(
         instanceId: item.instanceId,
@@ -308,7 +301,47 @@ class _ChatMessageFlowState extends State<ChatMessageFlow> {
         initialFilename: item.filename,
       ),
     );
-    // Replacement-snapshot reconciliation (see [_bubbleCubitFor]).
+  }
+
+  /// Returns the cached media cubit for [item] (see [_bubbleCubitFor]).
+  ChatMessageMediaCubit _mediaCubitFor(ChatFlowItemMedia item) {
+    return _mediaCubits.putIfAbsent(
+      item.instanceId,
+      () => ChatMessageMediaCubit(
+        instanceId: item.instanceId,
+        initialMessageState: item.state,
+        initialMediaRef: item.mediaRef,
+        initialTitle: item.title,
+      ),
+    );
+  }
+
+  /// Reconciles the cached bubble cubit with [item]'s replacement snapshot
+  /// (same instanceId, newer state/text) — items are the flow's single source
+  /// of truth, so a cubit seeded from an older snapshot must never keep
+  /// rendering stale content. Equality guards keep unchanged snapshots from
+  /// re-emitting. Emit-safe context only: called from [didUpdateWidget] via
+  /// [_reconcileCubits] (IN-06).
+  void _reconcileBubbleCubit(ChatFlowItemTextBubble item) {
+    final ChatMessageBubbleCubit? cubit = _bubbleCubits[item.instanceId];
+    if (cubit == null) {
+      return;
+    }
+    if (cubit.state.state != item.state) {
+      cubit.applyState(item.state);
+    }
+    if (cubit.state.text != item.text) {
+      cubit.updateText(item.text);
+    }
+  }
+
+  /// Reconciles the cached code-block cubit with [item]'s replacement
+  /// snapshot (see [_reconcileBubbleCubit]).
+  void _reconcileCodeBlockCubit(ChatFlowItemCodeBlock item) {
+    final ChatMessageCodeBlockCubit? cubit = _codeBlockCubits[item.instanceId];
+    if (cubit == null) {
+      return;
+    }
     if (cubit.state.state != item.state) {
       cubit.applyState(item.state);
     }
@@ -321,21 +354,15 @@ class _ChatMessageFlowState extends State<ChatMessageFlow> {
     if (cubit.state.filename != item.filename) {
       cubit.updateFilename(item.filename);
     }
-    return cubit;
   }
 
-  /// Returns the cached media cubit for [item] (see [_bubbleCubitFor]).
-  ChatMessageMediaCubit _mediaCubitFor(ChatFlowItemMedia item) {
-    final ChatMessageMediaCubit cubit = _mediaCubits.putIfAbsent(
-      item.instanceId,
-      () => ChatMessageMediaCubit(
-        instanceId: item.instanceId,
-        initialMessageState: item.state,
-        initialMediaRef: item.mediaRef,
-        initialTitle: item.title,
-      ),
-    );
-    // Replacement-snapshot reconciliation (see [_bubbleCubitFor]).
+  /// Reconciles the cached media cubit with [item]'s replacement snapshot
+  /// (see [_reconcileBubbleCubit]).
+  void _reconcileMediaCubit(ChatFlowItemMedia item) {
+    final ChatMessageMediaCubit? cubit = _mediaCubits[item.instanceId];
+    if (cubit == null) {
+      return;
+    }
     if (cubit.state.state != item.state) {
       cubit.applyState(item.state);
     }
@@ -345,7 +372,24 @@ class _ChatMessageFlowState extends State<ChatMessageFlow> {
     if (cubit.state.title != item.title) {
       cubit.updateTitle(item.title);
     }
-    return cubit;
+  }
+
+  /// Reconciles every cached cubit with the latest pushed snapshots — runs
+  /// from [didUpdateWidget] (never inside the per-item builder) so the
+  /// synchronous cubit emits happen while descendants are still unbuilt for
+  /// this frame (IN-06). Exhaustive sealed switch: an item type without a
+  /// reconcile case is a compile error, never a silent miss.
+  void _reconcileCubits() {
+    for (final ChatFlowItem item in widget.items) {
+      switch (item) {
+        case ChatFlowItemTextBubble():
+          _reconcileBubbleCubit(item);
+        case ChatFlowItemCodeBlock():
+          _reconcileCodeBlockCubit(item);
+        case ChatFlowItemMedia():
+          _reconcileMediaCubit(item);
+      }
+    }
   }
 
   /// Closes and drops the cached cubits of items no longer present in the
@@ -383,6 +427,7 @@ class _ChatMessageFlowState extends State<ChatMessageFlow> {
   void didUpdateWidget(ChatMessageFlow oldWidget) {
     super.didUpdateWidget(oldWidget);
     _releaseRetiredCubits();
+    _reconcileCubits();
   }
 
   @override

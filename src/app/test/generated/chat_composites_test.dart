@@ -139,6 +139,41 @@ void main() {
       expect(find.text('architecture diagram'), findsOneWidget);
     },
   );
+
+  testWidgets(
+    'replacement snapshot with a reused instanceId reconciles post-build (IN-06)',
+    (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1200, 2400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      Widget flowFor(String text) => MaterialApp(
+        theme: GcsTheme.light,
+        home: Scaffold(
+          body: ChatMessageFlow(
+            items: <ChatFlowItem>[
+              ChatFlowItemTextBubble(
+                instanceId: 'same-id',
+                role: 'user_self',
+                text: text,
+              ),
+            ],
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(flowFor('snapshot-v1'));
+      expect(find.text('snapshot-v1'), findsOneWidget);
+
+      // A replacement snapshot (same instanceId, newer text) must reconcile
+      // the flow-owned cached cubit — via didUpdateWidget, never inside the
+      // sliver builder (emit-during-build hazard, review IN-06).
+      await tester.pumpWidget(flowFor('snapshot-v2'));
+      await tester.pump();
+      expect(find.text('snapshot-v2'), findsOneWidget);
+      expect(find.text('snapshot-v1'), findsNothing);
+    },
+  );
 }
 
 /// 'user_self' -> 'UserSelf' (for the generated class-name assertion).
