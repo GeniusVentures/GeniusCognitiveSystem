@@ -17,20 +17,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'chat_message_flow.dart';
 import 'chat_message_flow_state.dart';
 
-/// Returns [items] capped to [ChatMessageFlowState.kMaxFlowItems],
-/// dropping the OLDEST entries (T-01-10-02: unbounded growth of a pushed
-/// flow list must never exhaust memory). The result is unmodifiable so the
-/// immutable-state contract cannot be broken by callers mutating the list
-/// after emit.
-List<ChatFlowItem> _cappedItems(List<ChatFlowItem> items) {
-  final int maxItems = ChatMessageFlowState.kMaxFlowItems;
-  final List<ChatFlowItem> capped = <ChatFlowItem>[
-    if (items.length > maxItems) ...items.sublist(items.length - maxItems)
-    else ...items,
-  ];
-  return List<ChatFlowItem>.unmodifiable(capped);
-}
-
 // ---------------------------------------------------------------------------
 // Cubit
 // ---------------------------------------------------------------------------
@@ -47,25 +33,40 @@ class ChatMessageFlowCubit extends Cubit<ChatMessageFlowState> {
   ChatMessageFlowCubit({
     this.instanceId = '',
     List<ChatFlowItem> initialItems = const <ChatFlowItem>[],
-  }) : super(ChatMessageFlowState(items: _cappedItems(initialItems)));
+  }) : super(ChatMessageFlowState(items: cappedItems(initialItems)));
 
   /// Optional instance discriminator (kept for API uniformity with the
   /// scaffold component cubits; unused by the in-memory cubit).
   final String instanceId;
+
+  /// Returns [items] capped to [ChatMessageFlowState.kMaxFlowItems],
+  /// dropping the OLDEST entries (T-01-10-02: unbounded growth of a pushed
+  /// flow list must never exhaust memory). The result is unmodifiable so the
+  /// immutable-state contract cannot be broken by callers mutating the list
+  /// after emit. PUBLIC static so hand-written shell state holders delegate
+  /// here instead of duplicating the cap invariant (review IN-05).
+  static List<ChatFlowItem> cappedItems(List<ChatFlowItem> items) {
+    final int maxItems = ChatMessageFlowState.kMaxFlowItems;
+    final List<ChatFlowItem> capped = <ChatFlowItem>[
+      if (items.length > maxItems) ...items.sublist(items.length - maxItems)
+      else ...items,
+    ];
+    return List<ChatFlowItem>.unmodifiable(capped);
+  }
 
   /// Appends a pushed item, dropping the oldest entries past the cap
   /// (T-01-10-02). Never mutates existing items.
   void append(ChatFlowItem item) {
     emit(
       state.copyWith(
-        items: _cappedItems(<ChatFlowItem>[...state.items, item]),
+        items: cappedItems(<ChatFlowItem>[...state.items, item]),
       ),
     );
   }
 
   /// Applies a pushed full-list snapshot (capped oldest-out, T-01-10-02).
   void replaceAll(List<ChatFlowItem> items) {
-    emit(state.copyWith(items: _cappedItems(items)));
+    emit(state.copyWith(items: cappedItems(items)));
   }
 
   /// Clears the flow to the empty snapshot.
