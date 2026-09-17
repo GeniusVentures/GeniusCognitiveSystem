@@ -74,3 +74,16 @@ gcs_test(test_gcs_core_smoke test_gcs_core_smoke.cpp "gcs_core;gcs_storage;neosw
 # validation, shutdown-null. Also links gcs_proto so the test can serialize a
 # gcs::chat::GcsConfig via gcs_chat.pb.h (D-29 codec-tagged init bytes).
 gcs_test(test_gcs_ffi        test_gcs_ffi.cpp        "gcs_ffi;gcs_proto")
+# CR-01 regression (01 code review): two init/send/shutdown cycles against the
+# SAME db_path — session A's persisted records must survive session B. Own
+# binary for the same reason as test_gcs_global_db_sdk (GeniusSDKInit toggles
+# a process-global node). gcs_ffi is listed FIRST: the node this test boots via
+# the dylib's exported GeniusSDKInit must be the node gcs_init (inside the
+# dylib) sees — the dylib must win symbol resolution over the SDK archives
+# dragged in transitively by gcs_storage (used only for the verification-side
+# injected-pubsub store). src/ffi is added for the vendored Dart API_DL
+# headers the fake post hook installs through the exported Dart_InitializeApiDL.
+gcs_test(test_gcs_ffi_sdk    test_gcs_ffi_sdk.cpp    "gcs_ffi;gcs_storage;neoswarm_common;gcs_proto")
+target_include_directories(test_gcs_ffi_sdk PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/../src/ffi"
+)

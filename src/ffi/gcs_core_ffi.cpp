@@ -29,6 +29,7 @@
 #include <cstring>
 #include <memory>
 #include <mutex>
+#include <random>
 #include <string>
 #include <vector>
 
@@ -46,7 +47,7 @@ namespace
     std::unique_ptr<gcs::CoreSession> g_session;   // Phase 1: single global session
     std::vector<std::string> g_roomTopics;         // joined topic set (guarded by g_mutex)
     std::atomic<int64_t> g_dartPort{ 0 };          // registered Dart port (0 = unregistered)
-    std::atomic<uint64_t> g_messageSeq{ 0 };       // monotonic message id salt
+    std::atomic<uint64_t> g_messageSeq{ 0 };       // in-process component of the message id (CR-01)
     // One-shot guard for the per-process Dart API_DL table state check in gcs_init
     // (the table itself is initialized via the exported Dart_InitializeApiDL).
     std::atomic<bool> g_apiDlInitialized{ false };
@@ -128,6 +129,31 @@ namespace
         gcs::chat::GcsEvent event;
         event.mutable_error()->set_message( message );
         PostToDart( event );
+    }
+
+    /**
+     * \brief Builds the next process-unique message id (D-04 authority stamp).
+     *
+     * The CRDT store persists across process launches while a bare per-process
+     * counter restarts at zero every launch — ids stamped as prefix + counter
+     * alone revisit a prior session's key space and silently overwrite its
+     * records under identical HierarchicalKeys (CR-01). The id therefore
+     * carries a per-process seed — wall-clock milliseconds plus a
+     * std::random_device token (two processes launched within the same
+     * millisecond still diverge) — followed by the in-process counter.
+     * Portable C++17 only; no platform headers.
+     *
+     * \return The next unique message id.
+     */
+    std::string NextMessageId()
+    {
+        static const std::string seed = [] {
+            const int64_t nowMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::system_clock::now().time_since_epoch() ).count();
+            std::random_device randomDevice;
+            return std::to_string( nowMs ) + "-" + std::to_string( randomDevice() );
+        }();
+        return kMessageIdPrefix + seed + "-" + std::to_string( g_messageSeq.fetch_add( 1 ) );
     }
 } // namespace
 
@@ -299,7 +325,8 @@ extern "C"
             gcs::chat::GcsEvent event;
             gcs::chat::ChatMessageState* message = event.mutable_message();
             // D-04: C++ stamps every authority field; Dart's SendTextCommand is data-only.
-            message->set_id( kMessageIdPrefix + std::to_string( g_messageSeq.fetch_add( 1 ) ) );
+            // The id is process-unique (CR-01) — see NextMessageId.
+            message->set_id( NextMessageId() );
             message->set_room_topic( sendText.room_topic() );
             message->set_role( gcs::chat::MESSAGE_ROLE_USER_SELF );
             message->set_state( gcs::chat::MESSAGE_STATE_COMPLETE );
