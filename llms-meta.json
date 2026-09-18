@@ -338,7 +338,7 @@
     },
     "set:neoswarm:d2/df3/classsgns_1_1neoswarm_1_1specialists_1_1_grammar_specialist": {
       "hash": "2f524f3f6b262d1c",
-      "description": "200M–500M parameter grammar correction model (PTDS §5.2).",
+      "description": "200M\u2013500M parameter grammar correction model (PTDS \u00a75.2).",
       "category": "api",
       "optional": true,
       "exclude": false,
@@ -442,7 +442,7 @@
     },
     "set:neoswarm:df/d42/classsgns_1_1neoswarm_1_1specialists_1_1_math_specialist": {
       "hash": "575acc9903f90431",
-      "description": "1–3B parameter GSM8K-tuned math model (PTDS §5.2).",
+      "description": "1\u20133B parameter GSM8K-tuned math model (PTDS \u00a75.2).",
       "category": "api",
       "optional": true,
       "exclude": false,
@@ -546,7 +546,7 @@
     },
     "set:neoswarm:d2/d29/classsgns_1_1neoswarm_1_1reputation_1_1_reputation_c_r_d_t": {
       "hash": "a92ebb99e14b40bc",
-      "description": "Last-Write-Wins Register per node (PTDS §4.2).",
+      "description": "Last-Write-Wins Register per node (PTDS \u00a74.2).",
       "category": "api",
       "optional": true,
       "exclude": false,
@@ -554,7 +554,7 @@
     },
     "set:neoswarm:d1/dd6/classsgns_1_1neoswarm_1_1reputation_1_1_reputation_scoring": {
       "hash": "73fbcede7a943262",
-      "description": "Implements the PTDS §7.2 reputation update formulas.",
+      "description": "Implements the PTDS \u00a77.2 reputation update formulas.",
       "category": "api",
       "optional": true,
       "exclude": false,
@@ -586,7 +586,7 @@
     },
     "set:neoswarm:d6/def/classsgns_1_1neoswarm_1_1router_1_1_rule_based_router": {
       "hash": "c76f2e99809c9dae",
-      "description": "MVP rule-based routing (PTDS §6.1).",
+      "description": "MVP rule-based routing (PTDS \u00a76.1).",
       "category": "api",
       "optional": true,
       "exclude": false,
@@ -1178,7 +1178,7 @@
     },
     "set:neoswarm:d8/d67/api__server_8hpp": {
       "hash": "980556a7721eb172",
-      "description": "Orchestrates the full inference pipeline (PTDS §9).",
+      "description": "Orchestrates the full inference pipeline (PTDS \u00a79).",
       "category": "api",
       "optional": true,
       "exclude": false,
@@ -1202,7 +1202,7 @@
     },
     "set:neoswarm:d0/da9/logging_8hpp": {
       "hash": "50283d8d40178802",
-      "description": "Logging facade — wraps spdlog directly.",
+      "description": "Logging facade \u2014 wraps spdlog directly.",
       "category": "api",
       "optional": true,
       "exclude": false,
@@ -1226,7 +1226,7 @@
     },
     "set:neoswarm:d5/df8/mnn__inference__engine_8cpp": {
       "hash": "eda4319e616496e7",
-      "description": "MNN inference engine — cross-platform, config-driven.",
+      "description": "MNN inference engine \u2014 cross-platform, config-driven.",
       "category": "api",
       "optional": true,
       "exclude": false,
@@ -1250,7 +1250,7 @@
     },
     "set:neoswarm:da/d7a/fp4__codec_8hpp": {
       "hash": "05f2a029ffaa6dd8",
-      "description": "FP4 v3 4-bit floating-point quantization codec (PTDS §4.1).",
+      "description": "FP4 v3 4-bit floating-point quantization codec (PTDS \u00a74.1).",
       "category": "api",
       "optional": true,
       "exclude": false,
@@ -1258,7 +1258,7 @@
     },
     "set:neoswarm:d3/d8d/sg__processing__bridge_8cpp": {
       "hash": "f0cfc70f37465c89",
-      "description": "SGProcessingManager bridge — Phase 1 direct inference.",
+      "description": "SGProcessingManager bridge \u2014 Phase 1 direct inference.",
       "category": "api",
       "optional": true,
       "exclude": false,
@@ -1330,7 +1330,7 @@
     },
     "set:neoswarm:d6/dfa/context__injection_8hpp": {
       "hash": "a77c3d646787b32a",
-      "description": "Augments prompts with Grokipedia facts (PTDS §8.2).",
+      "description": "Augments prompts with Grokipedia facts (PTDS \u00a78.2).",
       "category": "api",
       "optional": true,
       "exclude": false,
@@ -1346,7 +1346,7 @@
     },
     "set:neoswarm:d7/d72/fact__validation_8hpp": {
       "hash": "eb3393bba5f646ae",
-      "description": "Post-generation fact checking against Grokipedia (PTDS §8.3).",
+      "description": "Post-generation fact checking against Grokipedia (PTDS \u00a78.3).",
       "category": "api",
       "optional": true,
       "exclude": false,
@@ -1378,7 +1378,7 @@
     },
     "set:neoswarm:d8/d99/p2p__node_8hpp": {
       "hash": "ec71d55e77fd6e6b",
-      "description": "libp2p swarm node (PTDS §4.2)",
+      "description": "libp2p swarm node (PTDS \u00a74.2)",
       "category": "api",
       "optional": true,
       "exclude": false,
@@ -1394,7 +1394,7 @@
     },
     "set:neoswarm:df/d5e/result__aggregation_8hpp": {
       "hash": "c6a2db32c95bc0f0",
-      "description": "Timeout-bounded collection of swarm node responses (PTDS §4.2).",
+      "description": "Timeout-bounded collection of swarm node responses (PTDS \u00a74.2).",
       "category": "api",
       "optional": true,
       "exclude": false,
@@ -1466,7 +1466,7 @@
     },
     "set:neoswarm:d0/db9/reputation__crdt_8hpp": {
       "hash": "dd6bd7ddcb35c66a",
-      "description": "Last-Write-Wins CRDT for reputation synchronisation (PTDS §4.2).",
+      "description": "Last-Write-Wins CRDT for reputation synchronisation (PTDS \u00a74.2).",
       "category": "api",
       "optional": true,
       "exclude": false,
@@ -1482,7 +1482,7 @@
     },
     "set:neoswarm:db/d60/reputation__scoring_8hpp": {
       "hash": "e42a45b129396caf",
-      "description": "Reputation update formulas (PTDS §7.2).",
+      "description": "Reputation update formulas (PTDS \u00a77.2).",
       "category": "api",
       "optional": true,
       "exclude": false,
@@ -1498,7 +1498,7 @@
     },
     "set:neoswarm:d8/d22/reputation__storage_8hpp": {
       "hash": "016284b14fd5830f",
-      "description": "RocksDB-backed reputation persistence (PTDS §4.2).",
+      "description": "RocksDB-backed reputation persistence (PTDS \u00a74.2).",
       "category": "api",
       "optional": true,
       "exclude": false,
@@ -1514,7 +1514,7 @@
     },
     "set:neoswarm:d2/d73/weighted__consensus_8hpp": {
       "hash": "4af1b48969f827d2",
-      "description": "Weighted consensus selection (PTDS §7.3).",
+      "description": "Weighted consensus selection (PTDS \u00a77.3).",
       "category": "api",
       "optional": true,
       "exclude": false,
@@ -1538,7 +1538,7 @@
     },
     "set:neoswarm:d2/d07/prompt__analyzer_8hpp": {
       "hash": "0b9b8924128ec8f6",
-      "description": "Extracts routing features from a raw prompt string (PTDS §6.1).",
+      "description": "Extracts routing features from a raw prompt string (PTDS \u00a76.1).",
       "category": "api",
       "optional": true,
       "exclude": false,
@@ -1554,7 +1554,7 @@
     },
     "set:neoswarm:d5/d10/rule__based__router_8hpp": {
       "hash": "1ccb11ba06712197",
-      "description": "Rule-based prompt router (PTDS §6.1).",
+      "description": "Rule-based prompt router (PTDS \u00a76.1).",
       "category": "api",
       "optional": true,
       "exclude": false,
@@ -1570,7 +1570,7 @@
     },
     "set:neoswarm:db/d97/message__signing_8hpp": {
       "hash": "a1e7b10a20767fc3",
-      "description": "secp256k1 sign/verify for inter-node messages (PTDS §4.3)",
+      "description": "secp256k1 sign/verify for inter-node messages (PTDS \u00a74.3)",
       "category": "api",
       "optional": true,
       "exclude": false,
@@ -1586,7 +1586,7 @@
     },
     "set:neoswarm:d8/dba/node__identity_8hpp": {
       "hash": "de7b1fd2693c0f1b",
-      "description": "secp256k1 keypair and PeerId derivation (PTDS §4.3)",
+      "description": "secp256k1 keypair and PeerId derivation (PTDS \u00a74.3)",
       "category": "api",
       "optional": true,
       "exclude": false,
@@ -1602,7 +1602,7 @@
     },
     "set:neoswarm:d4/d97/grammar__specialist_8hpp": {
       "hash": "cf5af8e89b3af793",
-      "description": "Grammar correction specialist model (PTDS §5.2).",
+      "description": "Grammar correction specialist model (PTDS \u00a75.2).",
       "category": "api",
       "optional": true,
       "exclude": false,
@@ -1610,7 +1610,7 @@
     },
     "set:neoswarm:d9/dcf/i__specialist_8hpp": {
       "hash": "19383263cb3c3837",
-      "description": "Abstract interface for all specialist modules (PTDS §5.2).",
+      "description": "Abstract interface for all specialist modules (PTDS \u00a75.2).",
       "category": "api",
       "optional": true,
       "exclude": false,
@@ -1626,7 +1626,7 @@
     },
     "set:neoswarm:dc/de2/math__specialist_8hpp": {
       "hash": "9a0924704748935a",
-      "description": "GSM8K-tuned math specialist model (PTDS §5.2).",
+      "description": "GSM8K-tuned math specialist model (PTDS \u00a75.2).",
       "category": "api",
       "optional": true,
       "exclude": false,
@@ -1642,7 +1642,7 @@
     },
     "set:neoswarm:d6/dc6/symbolic__fallback_8hpp": {
       "hash": "199a82ecee54d704",
-      "description": "Expression parser and evaluator for math validation (PTDS §5.2).",
+      "description": "Expression parser and evaluator for math validation (PTDS \u00a75.2).",
       "category": "api",
       "optional": true,
       "exclude": false,
@@ -1650,7 +1650,7 @@
     },
     "set:neoswarm:d4/dbc/bench__mnn__llm_8cpp": {
       "hash": "4afda8f201596343",
-      "description": "Benchmark MNN LLM inference — measures prefill + decode performance.",
+      "description": "Benchmark MNN LLM inference \u2014 measures prefill + decode performance.",
       "category": "api",
       "optional": true,
       "exclude": false,
@@ -1682,7 +1682,7 @@
     },
     "set:neoswarm:d3/db4/test__pipeline_8cpp": {
       "hash": "8d8c002784c44c52",
-      "description": "Integration tests — full pipeline in stub mode.",
+      "description": "Integration tests \u2014 full pipeline in stub mode.",
       "category": "api",
       "optional": true,
       "exclude": false,
@@ -1690,7 +1690,7 @@
     },
     "set:neoswarm:d9/d21/test__sgprocessing__pipeline_8cpp": {
       "hash": "b23f12d08e45600e",
-      "description": "Integration tests: NeoSwarm → SGProcessingManager → TensorInterpreter.",
+      "description": "Integration tests: NeoSwarm \u2192 SGProcessingManager \u2192 TensorInterpreter.",
       "category": "api",
       "optional": true,
       "exclude": false,
@@ -1698,7 +1698,7 @@
     },
     "set:neoswarm:de/d09/test__fact__validation_8cpp": {
       "hash": "9b81dcddca697ab5",
-      "description": "Unit tests for FactValidation — claim verification against grounding facts.",
+      "description": "Unit tests for FactValidation \u2014 claim verification against grounding facts.",
       "category": "api",
       "optional": true,
       "exclude": false,
@@ -1730,7 +1730,7 @@
     },
     "set:neoswarm:dc/d40/test__message__signing_8cpp": {
       "hash": "744c9f9259a59ef3",
-      "description": "Unit tests for MessageSigning — verify, tamper rejection, replay protection.",
+      "description": "Unit tests for MessageSigning \u2014 verify, tamper rejection, replay protection.",
       "category": "api",
       "optional": true,
       "exclude": false,
@@ -1738,7 +1738,7 @@
     },
     "set:neoswarm:df/d83/test__node__identity_8cpp": {
       "hash": "e1cb158993ec9e03",
-      "description": "Unit tests for NodeIdentity — key generation, sign/verify, encrypted save/load.",
+      "description": "Unit tests for NodeIdentity \u2014 key generation, sign/verify, encrypted save/load.",
       "category": "api",
       "optional": true,
       "exclude": false,
@@ -1746,7 +1746,7 @@
     },
     "set:neoswarm:da/d8d/test__grammar__specialist_8cpp": {
       "hash": "4af65611994d0117",
-      "description": "Unit tests for GrammarSpecialist — happy, unhappy paths.",
+      "description": "Unit tests for GrammarSpecialist \u2014 happy, unhappy paths.",
       "category": "api",
       "optional": true,
       "exclude": false,
@@ -1754,7 +1754,7 @@
     },
     "set:neoswarm:d6/d42/test__math__specialist_8cpp": {
       "hash": "5a5eeb2b8e9fb833",
-      "description": "Unit tests for MathSpecialist — happy, unhappy paths.",
+      "description": "Unit tests for MathSpecialist \u2014 happy, unhappy paths.",
       "category": "api",
       "optional": true,
       "exclude": false,
@@ -3482,7 +3482,7 @@
     },
     "set:neoswarm:d4/d01/i__elm_8hpp": {
       "hash": "77e467aa0fcb2849",
-      "description": "Abstract interface for Expert Language Models (doc 03 §5.2).",
+      "description": "Abstract interface for Expert Language Models (doc 03 \u00a75.2).",
       "category": "api",
       "optional": true,
       "exclude": false,
@@ -3522,7 +3522,7 @@
     },
     "set:neoswarm:db/d23/test__symbolic__fallback_8cpp": {
       "hash": "4184f6bc70373384",
-      "description": "Unit tests for SymbolicFallback expression parser — happy, unhappy, fuzz.",
+      "description": "Unit tests for SymbolicFallback expression parser \u2014 happy, unhappy, fuzz.",
       "category": "api",
       "optional": true,
       "exclude": false,
@@ -3602,7 +3602,7 @@
     },
     "docs:./ai-safety.md": {
       "hash": "f6ac6a2ff3c4f348",
-      "description": "Answers how safety is enforced in a fully decentralized system with no centralized gateway — via node-local, reputation-enforced, cryptographically declared policies.",
+      "description": "Answers how safety is enforced in a fully decentralized system with no centralized gateway \u2014 via node-local, reputation-enforced, cryptographically declared policies.",
       "category": "architecture",
       "optional": false,
       "exclude": false,
@@ -3618,7 +3618,7 @@
     },
     "docs:./sgfp4-format.md": {
       "hash": "99050571501c5ea7",
-      "description": "Answers what the SGFP4 adaptive quantization format is — macroblock layout, container structure, and decode design for cross-device GPU-friendly weight compression.",
+      "description": "Answers what the SGFP4 adaptive quantization format is \u2014 macroblock layout, container structure, and decode design for cross-device GPU-friendly weight compression.",
       "category": "architecture",
       "optional": false,
       "exclude": false,
@@ -3626,7 +3626,7 @@
     },
     "docs:./secure-agent-architecture.md": {
       "hash": "dec13f46e3f980e4",
-      "description": "Answers how secure agent execution works in the GCS decentralized system — policy-scoped tool intermediation, trust controls, and capability-scoped security choke-points.",
+      "description": "Answers how secure agent execution works in the GCS decentralized system \u2014 policy-scoped tool intermediation, trust controls, and capability-scoped security choke-points.",
       "category": "architecture",
       "optional": false,
       "exclude": false,
@@ -3634,7 +3634,7 @@
     },
     "docs:./eggroll-swarm-retraining.md": {
       "hash": "c62659960f109009",
-      "description": "Answers how distributed retraining uses EGGROLL-style evolutionary optimization over the GNUS swarm — locality-aware coordination, fitness communication, and reputation-gated promotion.",
+      "description": "Answers how distributed retraining uses EGGROLL-style evolutionary optimization over the GNUS swarm \u2014 locality-aware coordination, fitness communication, and reputation-gated promotion.",
       "category": "architecture",
       "optional": false,
       "exclude": false,
@@ -3730,7 +3730,7 @@
     },
     "docs:./context-lifecycle-caching-governance.md": {
       "hash": "34b1f8642c9dcd89",
-      "description": "Answers how GCS compiles minimal authorized context per task — stable-prefix/volatile-suffix separation, tenant-isolated prefix caching, context compaction, hierarchical token budgets, completion-token reservation, cache-aware routing, Context Inspector, and acceptance criteria for context efficiency without correctness or privacy regression.",
+      "description": "Answers how GCS compiles minimal authorized context per task \u2014 stable-prefix/volatile-suffix separation, tenant-isolated prefix caching, context compaction, hierarchical token budgets, completion-token reservation, cache-aware routing, Context Inspector, and acceptance criteria for context efficiency without correctness or privacy regression.",
       "category": "architecture",
       "optional": false,
       "exclude": false,
