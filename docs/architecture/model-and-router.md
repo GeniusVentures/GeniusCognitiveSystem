@@ -29,17 +29,21 @@ The specialist execution layer is a set of **Expert Models (EMs)** and supportin
 
 ### 5.2.1 Expert Model taxonomy
 
-**Expert Model (EM)** is the neutral umbrella term for a model-backed cognitive expert. The expert family is determined by its public processing contract, not solely by the pretraining origin of its backbone.
+**Expert Model (EM)** is the neutral umbrella term for a model-backed cognitive expert. GCS describes expert execution using four orthogonal dimensions:
 
-The initial families are:
+* **Cognitive role** — Planner, Verifier, Router, Formatter, Grounding, or a domain specialist.
+* **Public contract/capability** — generation, bounded judgment, classification, ranking, refinement, infill, embedding, vision, or another operation.
+* **Processor architecture** — autoregressive, direct-logit/classifier, diffusion/denoising, encoder, reranker, multimodal, or another computation mechanism.
+* **Execution backend** — MNN, SGProcessing, CPU/Vulkan, or a remote SuperGenius node.
 
-* **ELM — Expert Language Model:** generates or transforms language, including open-ended drafts, explanations, summaries, rewrites, and streaming text.
-* **EJM — Expert Judgment Model:** emits bounded typed semantic judgments such as probabilities, classifications, rankings, scores, or choice distributions.
-* **EDM — Expert Diffusion Model:** iteratively denoises, infills, or refines a bounded state or structured block.
+Two contract labels remain useful:
 
-A future expert family may expose embedding, reranking, vision, audio, multimodal, or another model contract without requiring another root-interface redesign.
+* **ELM — Expert Language Model:** an expert exposing language-generation or language-transformation behavior.
+* **EJM — Expert Judgment Model:** an expert exposing bounded typed semantic judgments such as probabilities, classifications, rankings, scores, or choice distributions.
 
-The cognitive role of an expert is distinct from its model-processing mechanism. A Verifier, Planner, Formatter, Grounding expert, or domain specialist may be implemented by one expert family or by a hybrid composition when the execution plan requires more than one contract.
+**Diffusion is a processor architecture, not a mutually exclusive contract.** A diffusion-backed expert may expose refinement/infill, bounded judgment, or both. **EDM — Expert Diffusion Model** may be used as shorthand for such an implementation, but an EDM may simultaneously act as an EJM when its public contract is judgment.
+
+This separation prevents backbone or processor provenance from being confused with cognitive semantics. A Verifier, Planner, Formatter, Grounding expert, or domain specialist may combine multiple contracts while sharing one model artifact and runtime state.
 
 ### 5.2.2 Expert Language Models (ELMs)
 
@@ -70,19 +74,25 @@ EJM outputs may include:
 
 EJMs are suitable for intent and domain classification, risk estimation, expert and execution-mode selection, grounding or verification selection, tool-support and policy scoring, claim and evidence classification, contradiction detection, and bounded verifier or arbiter judgments.
 
-A JEV-style implementation is an EJM even when it uses a causal language-model-derived backbone internally. Its public contract is judgment, not language generation.
+A JEV-style implementation is an EJM even when it uses a causal language-model-derived backbone internally. A diffusion structured-read implementation is also an EJM when it exposes the same bounded judgment contract. The processor architecture does not define the expert contract.
 
-EJM output is advisory. Deterministic services remain authoritative for authorization, policy enforcement, capability grants, privacy boundaries, side effects, and execution approval. Low-confidence or poorly calibrated judgments should trigger fallback, additional evidence collection, specialist escalation, verification, swarm execution, or human approval according to task risk.
+For token-label judgment adapters, candidate labels must be validated at the actual answer boundary. When the selected architecture requires fixed single-token slots, every choice must map to exactly one distinct tokenizer token. The processor should request/evaluate logits for **all allowed candidate token ids**, rather than relying on global top-k logprobs that may omit a valid bounded choice.
 
-### 5.2.4 Expert Diffusion Models (EDMs)
+Judgment execution should be bounded/read-only where possible: stop once the required probability-bearing state is available rather than completing an unnecessary generation or commit loop. Additional sampling or diffusion noise draws should be triggered only when uncertainty warrants them, with explicit bounds.
 
-An **EDM** is an Expert Model specialization that performs iterative denoising, infill, or state refinement rather than autoregressive language generation.
+EJM output is advisory. Deterministic services remain authoritative for authorization, policy enforcement, capability grants, privacy boundaries, side effects, and execution approval. Low-confidence or poorly calibrated judgments should trigger fallback, bounded rereads, additional evidence collection, specialist escalation, verification, swarm execution, or human approval according to task risk.
 
-The initial GCS use is deliberately small and bounded: **Micro-Diffusion Block Drafting** for low-entropy structured regions such as partially filled JSON, code-patch skeletons, schema/template repair, and tool-call argument infill.
+### 5.2.4 Diffusion-Backed Expert Processing
 
-EDM output remains provisional until accepted by the configured verifier path. Verification may be deterministic schema validation, compiler/test/static analysis, a tool dry-run, target-model verification, or another expert verifier.
+A **diffusion processor** performs iterative denoising, masked/block infill, or structured reads over a seeded canvas. **EDM — Expert Diffusion Model** is shorthand for an expert implementation using this processor architecture.
 
-This taxonomy does not make image, audio, or video diffusion an MVP dependency; it simply leaves the expert abstraction correct if those model families are added later.
+The initial GCS refinement use remains deliberately small and bounded: **Micro-Diffusion Block Drafting** for low-entropy structured regions such as partially filled JSON, code-patch skeletons, schema/template repair, and tool-call argument infill.
+
+A compatible diffusion processor may also implement **JUDGE** by seeding a mostly fixed answer canvas, leaving bounded answer slots unresolved, and reading the exact allowed-token distributions at those positions. In that use, the expert is an **EJM contract implemented by a diffusion processor**.
+
+Refinement output remains provisional until accepted by the configured verifier path. Verification may be deterministic schema validation, compiler/test/static analysis, a tool dry-run, target-model verification, or another expert verifier. Judgment output follows normal EJM calibration and escalation rules.
+
+This architecture does not make image, audio, or video diffusion an MVP dependency.
 
 ### 5.2.5 Role-Based Experts
 
@@ -92,7 +102,7 @@ Representative role-based experts include:
 * **Primary Draft ELM:** Produces an initial language answer quickly when a specialist draft is preferred over direct Semantic Core output.
 * **Verifier Expert:** Checks correctness, consistency, and policy adherence. An EJM may return bounded correctness or contradiction probabilities; an ELM may generate an explanation when requested.
 * **Arbiter Expert:** Resolves conflicts between multiple drafts or critiques using bounded judgments, generated synthesis, or both.
-* **Refiner / Formatter Expert:** Improves clarity, structure, style, or schema compliance. It may use an ELM, an EDM for bounded structured repair, or deterministic schema machinery.
+* **Refiner / Formatter Expert:** Improves clarity, structure, style, or schema compliance. It may use an ELM, a diffusion processor for bounded structured repair, or deterministic schema machinery.
 * **Grounding Expert:** Aligns claims with trusted public or private knowledge sources and may combine bounded evidence judgments with generated explanation.
 * **Tool-Support Expert:** Helps prepare tool calls and interpret tool results before intermediary enforcement. Judgment output never replaces deterministic permission and side-effect checks.
 
@@ -110,11 +120,11 @@ Representative domain-specific experts include:
 * **Customer Support Specialist:** Focused on support workflows and user-facing operational tasks.
 * **Finance Specialist:** Focused on finance-heavy reasoning and structured analytical tasks.
 
-A domain-specific expert is not required to be an ELM. Its expert family and capabilities are selected according to the output contract required by the execution stage.
+A domain-specific expert is not required to be an ELM. Its contract capabilities and processor architecture are selected independently according to the execution stage.
 
 ### 5.2.7 Private Expert Models
 
-Organizations may deploy private EMs trained or adapted on proprietary data, workflows, and response patterns. Private ELMs, EJMs, EDMs, and future expert families may run fully inside a tenant boundary, on local infrastructure, on permissioned GNUS nodes, or within restricted private or hybrid swarms.
+Organizations may deploy private EMs trained or adapted on proprietary data, workflows, and response patterns. Private ELMs, EJMs, diffusion-backed experts, and future capability/processor combinations may run fully inside a tenant boundary, on local infrastructure, on permissioned GNUS nodes, or within restricted private or hybrid swarms.
 
 ### 5.2.8 Expert Invocation Patterns
 
@@ -124,7 +134,8 @@ Expert Models may be invoked in several ways:
 * **sequential content chain** — one language expert drafts, another verifies, another refines
 * **parallel swarm participation** — multiple experts produce competing or complementary artifacts
 * **parallel judgment fan-out** — multiple bounded EJM judgments share one context packet and return typed probability-bearing results
-* **bounded diffusion/refinement** — an EDM proposes a repaired/refined block that is verified before commitment
+* **sequential judgment chain** — dependent bounded judgments are staged so later judgments may condition on earlier semantic results
+* **bounded diffusion/refinement** — a diffusion processor proposes a repaired/refined block that is verified before commitment
 * **arbiter-mediated synthesis** — an Arbiter consumes expert artifacts and resolves or merges distributed proposals
 
 The execution graph must distinguish **content artifacts** from **judgment/control artifacts**. An EJM result normally informs routing, verification, arbitration, capability selection, or escalation and should not replace the current generated content unless the stage contract explicitly says so.
@@ -138,14 +149,21 @@ Conceptually:
 ```text
 Cognitive Expert Role
     ↓
-Expert Model Contract (ELM / EJM / EDM)
+Required Contract / Capabilities
+    ├── ELM: GENERATE / STREAM
+    ├── EJM: JUDGE / CLASSIFY / RANK / SCORE
+    └── REFINE / INFILL / EMBED / VISION / ...
     ↓
-Model Processor (autoregressive / judgment / diffusion)
+Processor Architecture
+    ├── autoregressive / direct-logit
+    ├── diffusion / denoising
+    ├── encoder / reranker
+    └── multimodal / future
     ↓
 Execution Backend (MNN / SGProcessing / CPU / Vulkan / remote node)
 ```
 
-This separation allows an EJM to use an LM-derived backbone, allows multiple expert contracts to share runtime state, and prevents the RuntimeCoordinator from depending on model-runtime internals.
+This separation allows the same `JUDGE` contract to be implemented by a causal selected-logit processor or a diffusion structured-read processor, allows one artifact to expose multiple capabilities, and prevents the RuntimeCoordinator from depending on model-runtime internals.
 
 ### 5.2.10 Legacy MVP Specialists
 
@@ -165,7 +183,7 @@ The orchestration path is responsible for:
 * deciding whether retrieval is required
 * selecting execution mode
 * selecting the Semantic Core and required Expert Models
-* selecting ELM generation, EJM judgment, EDM refinement, or hybrid output where appropriate
+* selecting the required expert capability first, then a compatible processor architecture and backend; for example ELM generation, EJM judgment through causal or diffusion execution, or bounded refinement
 * deciding whether verification or arbitration is required
 * determining whether private knowledge grounding is required
 * deciding whether tenant-scoped or private memory should be loaded
