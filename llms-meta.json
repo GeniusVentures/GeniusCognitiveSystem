@@ -3735,6 +3735,14 @@
       "optional": false,
       "exclude": false,
       "nav_section": "**Genius Cognitive System Architecture Documentation**"
+    },
+    "docs:./cognitive-evolution-control.md": {
+      "hash": "bbf2ad97a9b01736",
+      "description": "Answers how GCS turns qualified cognitive events into governed memory, transition, routing, arbitration, benchmark, and EGGROLL adaptation workflows through shared replay and promotion contracts.",
+      "category": "architecture",
+      "optional": false,
+      "exclude": false,
+      "nav_section": "**Genius Cognitive System Architecture Documentation**"
     }
   }
 }
