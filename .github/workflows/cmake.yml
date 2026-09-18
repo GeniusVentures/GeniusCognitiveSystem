@@ -570,10 +570,12 @@ jobs:
         if: github.ref_name == 'main' || github.ref_name == 'develop' || env.IS_TAG == 'true'
         shell: bash
         run: |
-          # GeniusCogntiveSystem/ is the cmake --install tree inside the build
+          # GeniusCognitiveSystem/ is the cmake --install tree inside the build
           # directory (libgcs_ffi, libgcs_proto, headers, cmake configs) — the
-          # same layout downstream consumers extract.
-          tar --exclude=.git -czvf ${FILE_NAME} --transform 's|^|${{env.BUILD_DIRECTORY}}/|' GeniusCogntiveSystem/
+          # same layout downstream consumers extract. Install prefix derives
+          # from the repo dir basename (get_default_root), which is the GitHub
+          # repo name on runners — GeniusCognitiveSystem, not the local typo.
+          tar --exclude=.git -czvf ${FILE_NAME} --transform 's|^|${{env.BUILD_DIRECTORY}}/|' GeniusCognitiveSystem/
 
       - name: Set release tag
         shell: bash
