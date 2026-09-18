@@ -33,20 +33,42 @@ Evolution coordination is part of orchestration. GNUS-NEO-SWARM provides the pri
 
 ## Qualified Cognitive Event
 
-A Qualified Cognitive Event is a versioned Cognitive Asset that records enough information to support later evaluation, replay, adaptation, and promotion.
+A Qualified Cognitive Event is a versioned Cognitive Asset that records enough information to support later evaluation, replay, adaptation, and promotion. Its signed envelope also carries the effective governance derived from the request, tenant, and every referenced source asset.
 
 ```json
 {
+  "schema_version": "gcs.qualified-cognitive-event.v1",
   "event_id": "uuid",
   "request_id": "uuid",
   "session_id": "optional_uuid",
   "event_type": "memory|transition|routing|verification|arbitration|tool|training|benchmark",
   "source_assets": ["asset_id"],
+  "source_policy_hashes": ["policy_hash"],
   "model_and_expert_versions": ["version_or_cid"],
-  "policy_hash": "policy_hash",
-  "tenant_scope": "scope",
-  "privacy_scope": "scope",
-  "training_policy": "policy",
+  "policy_hash": "effective_policy_hash",
+  "tenant_scope": "optional_tenant_id",
+  "owner_id": "optional_owner_id",
+  "creator": "user|model|expert|tool|system|swarm",
+  "source_node": "node_id",
+  "privacy_scope": "local_only|user_private|trusted_devices|enterprise_private|tenant_private|shared|public|compound",
+  "privacy_boundary": {
+    "constraints": [
+      {"kind": "user|enterprise|tenant|device_group|network|workspace|project", "id": "boundary_id"}
+    ]
+  },
+  "allowed_principals": ["principal_id"],
+  "allowed_roles": ["role_id"],
+  "replication_policy": "none|trusted_devices|private_subnet|tenant_nodes|public_swarm",
+  "inference_policy": "local_only|private_nodes|public_with_redaction|public_allowed",
+  "training_policy": "prohibited|local_only|tenant_only|anonymized_opt_in|allowed",
+  "export_policy": "prohibited|approval_required|allowed",
+  "retention_policy": "policy_or_reference",
+  "policy_tags": ["tag"],
+  "provenance": {
+    "derived_from": ["asset_id"],
+    "execution_claims": ["asset_id"],
+    "verification_results": ["asset_id"]
+  },
   "outcome": "structured_outcome",
   "scores": {
     "confidence": 0.0,
@@ -56,19 +78,49 @@ A Qualified Cognitive Event is a versioned Cognitive Asset that records enough i
     "user_feedback": 0.0
   },
   "created_at": 0,
-  "signature": "optional_signature"
+  "signing_identity": "node_or_service_id",
+  "signature": "signature_over_canonical_event"
 }
 ```
 
 The event may reference existing Cognitive Assets rather than duplicating large prompts, traces, tool outputs, or model artifacts.
+
+### Schema and Signature Contract
+
+`schema_version` is required and forms part of the signed canonical event. The major version identifies the decoding and validation contract; minor-compatible extensions may add optional fields while preserving the meaning of existing fields. Stored and replayed events retain the schema version under which they were created.
+
+The signature covers the canonical event envelope, including its schema version, source references, source policy hashes, effective policy hash, privacy boundary, governance fields, outcome, scores, component versions, and provenance. This lets every receiving subsystem verify both event integrity and the policy context under which the event may be used.
+
+### Governance Resolution
+
+Qualified Cognitive Events inherit the governance of their source Cognitive Assets. Before dispatch, the RuntimeCoordinator or its attached policy service resolves the referenced assets and computes one effective governance envelope.
+
+Privacy scopes are **authorization boundaries, not a total ordering**. Values such as `user_private`, `enterprise_private`, and `tenant_private` can be incomparable, so the resolver must not collapse them by selecting a single nominally "most restrictive" enum value. Instead, each applicable scope expands to concrete boundary constraints and the effective privacy boundary is the conjunction/intersection of all of them.
+
+For example, an event derived from a `user_private` asset and an `enterprise_private` asset is usable only where **both** constraints hold: by the authorized user/principal set **and** inside the authorized enterprise boundary. The event may use `privacy_scope: "compound"` to summarize that condition, while `privacy_boundary.constraints` carries the enforceable boundary. The summary scope is never sufficient authorization by itself.
+
+Governance resolution therefore follows these rules:
+
+- `allowed_principals` and `allowed_roles` are set intersections across the applicable source, request, tenant, and deployment permissions;
+- privacy boundaries are intersected as concrete identity, tenant, device-group, network, workspace, project, or equivalent constraints; no source boundary may be dropped merely because another boundary appears narrower;
+- replication and inference policy are resolved by intersecting the destinations and execution locations permitted by every applicable policy;
+- training and export policy are resolved by intersecting the operations permitted by every applicable policy;
+- retention follows the earliest applicable expiry or the strictest governing retention rule;
+- policy tags and provenance references are preserved across derivation;
+- `source_policy_hashes` bind the event to the policies resolved from its sources;
+- `policy_hash` identifies the resulting effective governance used for dispatch.
+
+If any required intersection is empty, contradictory, cannot be represented by the event schema, or cannot be enforced by the selected execution path, the derived event must be rejected from that dispatch/adaptation path rather than widened to make it usable. A controlled redaction or declassification may create a separately governed derived asset only when an explicit source policy authorizes that transformation.
+
+A derived event therefore remains within the same or a narrower authorization boundary than every source. Receiving subsystems verify the schema, signature, effective policy, concrete privacy boundary, and source-policy linkage before using the event for memory, replay, adaptation, replication, export, or training.
 
 ## Coordination Flow
 
 1. The RuntimeCoordinator completes the normal request path.
 2. Existing subsystems emit structured Cognitive Assets and outcome signals.
 3. The coordinator or an attached policy service assembles Qualified Cognitive Events.
-4. Privacy, authorization, retention, replication, and training policies are applied before any adaptation path receives the event.
-5. The event is routed to one or more existing adaptive targets:
+4. Source assets are resolved, their governance is combined into the effective policy envelope, and the canonical event is signed before adaptation dispatch.
+5. The event is routed to one or more existing adaptive targets within that effective governance:
    - GAML write evaluation;
    - Objective Memory / VTG edge and ranking updates;
    - routing, planning, verifier, critic, or arbitration tuning;
@@ -83,12 +135,13 @@ The event may reference existing Cognitive Assets rather than duplicating large 
 
 All adaptive paths should accept a common event envelope with:
 
-- request, session, tenant, and policy identity;
-- source Cognitive Asset references;
+- signed schema version and canonical event identity;
+- request, session, tenant, owner, and policy identity;
+- source Cognitive Asset and source-policy references;
+- effective privacy boundary plus authorization, replication, inference, training, export, and retention governance;
 - component and artifact versions;
 - structured outcomes and reward signals;
-- privacy, inference, training, export, and retention policy;
-- provenance and signatures where required.
+- provenance and signatures.
 
 Subsystem-specific payloads remain allowed. VTG transition outcomes, EGGROLL fitness packets, Cognitive Training Events, verifier results, and benchmark results may keep their specialized fields while sharing the common envelope.
 
@@ -96,6 +149,7 @@ Subsystem-specific payloads remain allowed. VTG transition outcomes, EGGROLL fit
 
 A replayable event should identify:
 
+- the Qualified Cognitive Event schema version and effective policy hash;
 - the execution plan or plan reference;
 - model, expert, adapter, tokenizer, quantization, and runtime versions;
 - context packet and policy hashes;
@@ -103,7 +157,7 @@ A replayable event should identify:
 - deterministic seeds or execution class where available;
 - expected validators and measurable outcome criteria.
 
-Replay uses the public GCS request and event contracts. It may execute locally, through SGProcessingManager workloads, or through SuperGenius distributed execution under the existing runtime ownership rules.
+Replay uses the public GCS request and event contracts. It may execute locally, through SGProcessingManager workloads, or through SuperGenius distributed execution under the existing runtime ownership rules and the event's effective governance.
 
 ### Promotion Contract
 
@@ -151,4 +205,4 @@ Raw hidden reasoning and restricted source material remain governed by the exist
 
 ## Summary
 
-Cognitive Evolution Coordination gives GCS one structured path from completed work to memory, transition, policy, and model improvement. It unifies existing learning mechanisms through shared event, replay, and promotion contracts while preserving the current RuntimeCoordinator, component ownership, security, memory, VTG, and EGGROLL architecture.
+Cognitive Evolution Coordination gives GCS one structured path from completed work to memory, transition, policy, and model improvement. It unifies existing learning mechanisms through signed, governed event, replay, and promotion contracts while preserving the current RuntimeCoordinator, component ownership, security, memory, VTG, and EGGROLL architecture.
