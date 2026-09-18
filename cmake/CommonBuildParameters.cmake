@@ -166,6 +166,100 @@ set(MNN_DIR "${THIRDPARTY_BUILD_DIR}/MNN/lib/cmake/MNN")
 find_package(MNN CONFIG REQUIRED)
 include_directories(${MNN_INCLUDE_DIR})
 
+# --------------------------------------------------------
+# Vulkan / VulkanHeaders (GPU acceleration — needed by MNN/SGProcessingManager
+# via GNUS-NEO-SWARM). MUST be established before find_package(vk-bootstrap)
+# below: the rebuilt vk-bootstrap package config does
+# find_package(VulkanHeaders CONFIG) with a find_package(Vulkan) fallback and
+# fatals when neither resolves, and this machine has no system Vulkan SDK.
+# Ported from the updated discovery in
+# GeniusNetwork/SuperGenius/build/CommonBuildParameters.cmake.
+# The Vulkan::Vulkan target created here is still visible to both
+# add_subdirectory() subtrees at the bottom of this file (sibling
+# add_subdirectory scopes don't share targets with each other, only with
+# their common parent — which is this scope).
+if(APPLE)
+    if(IOS)
+        # Settings specifically for iOS
+        set(Vulkan_INCLUDE_DIR "${THIRDPARTY_BUILD_DIR}/moltenvk/build/include")
+        set(Vulkan_LIBRARY "${THIRDPARTY_BUILD_DIR}/moltenvk/build/lib/MoltenVK.xcframework")
+    else()
+        # Settings for macOS
+        set(Vulkan_INCLUDE_DIR "${THIRDPARTY_BUILD_DIR}/moltenvk/build/include")
+        set(Vulkan_LIBRARY "${THIRDPARTY_BUILD_DIR}/moltenvk/build/lib/MoltenVK.xcframework")
+    endif()
+endif()
+
+set(VulkanHeaders_DIR "${THIRDPARTY_BUILD_DIR}/Vulkan-Headers/share/cmake/VulkanHeaders" CACHE PATH "Path to Vulkan-Headers install folder")
+find_package(VulkanHeaders CONFIG REQUIRED)
+find_package(Vulkan)
+
+if(NOT TARGET Vulkan::Vulkan)
+    set(Vulkan_INCLUDE_DIR "${THIRDPARTY_BUILD_DIR}/Vulkan-Headers/include")
+    if(NOT DEFINED ENV{VULKAN_SDK})
+        set(ENV{VULKAN_SDK} "${THIRDPARTY_BUILD_DIR}/Vulkan-Loader")
+    endif()
+
+    find_package(Vulkan REQUIRED)
+endif()
+
+# Override Vulkan::Vulkan to use our vendored Vulkan-Headers on all platforms.
+# vk-bootstrap was built against our headers (v1.4); mixing with system/NDK
+# headers (v1.3 or other versions) causes unknown-type errors in
+# VkBootstrapDispatch.h and VkBootstrapFeatureChain.h.
+set_target_properties(Vulkan::Vulkan PROPERTIES
+    INTERFACE_INCLUDE_DIRECTORIES "${THIRDPARTY_BUILD_DIR}/Vulkan-Headers/include"
+)
+
+# On macOS, libMoltenVK.a contains Objective-C code that calls Metal.
+# The ObjC runtime (-lobjc) and Metal frameworks must be linked by
+# every consumer of Vulkan::Vulkan or the linker fails with undefined
+# _objc_msgSend / _objc_retain / _objc_release etc.
+# AppKit does not exist on iOS (ld: framework 'AppKit' not found); MoltenVK
+# uses UIKit there, mirroring the gating in SGProcessors.
+if(APPLE)
+    target_link_libraries(Vulkan::Vulkan INTERFACE
+        "-framework Metal"
+        "-framework IOSurface"
+        "-framework QuartzCore"
+        "-framework Foundation"
+        "-framework CoreFoundation"
+        "-framework CoreGraphics"
+        "-framework IOKit"
+    )
+    if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+        target_link_libraries(Vulkan::Vulkan INTERFACE "-framework AppKit")
+    else()
+        target_link_libraries(Vulkan::Vulkan INTERFACE "-framework UIKit")
+    endif()
+endif()
+
+# Resolve the Vulkan runtime DLL that matches the loader we just linked.
+# The thirdparty Vulkan-Loader installs vulkan-1.dll (runtime) alongside
+# vulkan-1.lib (import lib, found above). Every exe that links it — directly
+# or via SGProcessors' MNN::MNN + Vulkan::Vulkan PUBLIC deps — needs the DLL
+# next to the exe or the Windows loader kills the process with 0xc0000135
+# before main() runs. CI runners have no system Vulkan runtime, so the
+# vendored one must be deployed next to test/app executables.
+if(WIN32)
+    find_file(VULKAN_RUNTIME_DLL NAMES vulkan-1.dll
+        PATHS "${THIRDPARTY_BUILD_DIR}/Vulkan-Loader/bin"
+              "${THIRDPARTY_BUILD_DIR}/Vulkan-Loader/lib"
+        NO_DEFAULT_PATH)
+
+    if(NOT VULKAN_RUNTIME_DLL)
+        # Only fatal when we actually link the thirdparty loader; a system
+        # Vulkan SDK brings its own runtime on PATH.
+        string(FIND "${Vulkan_LIBRARY}" "${THIRDPARTY_BUILD_DIR}" _GCS_VK_LOADER_IS_VENDORED)
+        if(_GCS_VK_LOADER_IS_VENDORED EQUAL 0)
+            message(FATAL_ERROR "vulkan-1.dll not found in "
+                "${THIRDPARTY_BUILD_DIR}/Vulkan-Loader (searched bin/ and lib/). "
+                "Executables link ${Vulkan_LIBRARY} and will fail to start with "
+                "0xc0000135 without the matching runtime DLL.")
+        endif()
+    endif()
+endif()
+
 # vk-bootstrap
 set(vk-bootstrap_DIR "${THIRDPARTY_BUILD_DIR}/vk-bootstrap/lib/cmake/vk-bootstrap")
 find_package(vk-bootstrap CONFIG REQUIRED)
@@ -359,45 +453,13 @@ set(LLVM_DIR "${ZKLLVM_BUILD_DIR}/zkLLVM/lib/cmake/llvm")
 find_package(LLVM CONFIG REQUIRED)
 
 # --------------------------------------------------------
-# Vulkan (GPU acceleration — needed by MNN/SGProcessingManager via
-# GNUS-NEO-SWARM). Established here, before either add_subdirectory() call
-# below, so the resulting Vulkan::Vulkan target is visible to both the
-# GNUS-NEO-SWARM subtree and the GCS-level src/ subtree (sibling
-# add_subdirectory scopes don't share targets with each other, only with
-# their common parent). Ported from
-# GeniusNetwork/GeniusSDK/cmake/CommonBuildParameters.cmake.
-if(APPLE)
-    if(IOS)
-        # Settings specifically for iOS
-        set(Vulkan_INCLUDE_DIR "${THIRDPARTY_BUILD_DIR}/moltenvk/build/include")
-        set(Vulkan_LIBRARY "${THIRDPARTY_BUILD_DIR}/moltenvk/build/lib/MoltenVK.xcframework")
-    else()
-        # Settings for macOS
-        set(Vulkan_INCLUDE_DIR "${THIRDPARTY_BUILD_DIR}/moltenvk/build/include")
-        set(Vulkan_LIBRARY "${THIRDPARTY_BUILD_DIR}/moltenvk/build/lib/MoltenVK.xcframework")
-    endif()
-endif()
-
-set(VulkanHeaders_DIR "${THIRDPARTY_BUILD_DIR}/Vulkan-Headers/share/cmake/VulkanHeaders" CACHE PATH "Path to Vulkan-Headers install folder")
-find_package(VulkanHeaders CONFIG REQUIRED)
-find_package(Vulkan)
-
-if(NOT TARGET Vulkan::Vulkan)
-    set(Vulkan_INCLUDE_DIR "${THIRDPARTY_BUILD_DIR}/Vulkan-Headers/include")
-    if(NOT DEFINED ENV{VULKAN_SDK})
-        set(ENV{VULKAN_SDK} "${THIRDPARTY_BUILD_DIR}/Vulkan-Loader")
-    endif()
-
-    find_package(Vulkan REQUIRED)
-endif()
-
-# Force Vulkan::Vulkan to use the vendored Vulkan-Headers on every platform,
-# even when find_package(Vulkan) resolves against a system-installed SDK.
-# vk-bootstrap/MNN here are built against the vendored headers, so mixing in
-# a different system header version causes unknown-type errors downstream.
-set_target_properties(Vulkan::Vulkan PROPERTIES
-    INTERFACE_INCLUDE_DIRECTORIES "${THIRDPARTY_BUILD_DIR}/Vulkan-Headers/include"
-)
+# NOTE: Vulkan discovery (VulkanHeaders + Vulkan::Vulkan + runtime DLL
+# resolution) now lives above, before find_package(vk-bootstrap) — the
+# rebuilt vk-bootstrap config requires Vulkan::Headers at its own
+# find_package() time and fatals when it is only configured here. The
+# Vulkan::Vulkan target is still created before either add_subdirectory()
+# call below, so it remains visible to both the GNUS-NEO-SWARM subtree and
+# the GCS-level src/ subtree.
 
 # --------------------------------------------------------
 # SuperGenius (sibling repo under GeniusNetwork). Must be found BEFORE
