@@ -91,3 +91,13 @@ gcs_test(test_gcs_ffi_sdk    test_gcs_ffi_sdk.cpp    "gcs_ffi;gcs_storage;neoswa
 target_include_directories(test_gcs_ffi_sdk PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/../src/ffi"
 )
+# Live-app regression (2026-09-19 UAT bug): a lone Flutter app reaches gcs_init
+# with NO GeniusSDK node in the process — gcs_init must boot the embedded node
+# itself (empty-mnemonic child-wallet path). This binary never boots the SDK
+# directly; the cold-boot path IS the test. Same gcs_ffi-first linkage and
+# process-global-node isolation as test_gcs_ffi_sdk; skips only when a direct
+# SDK probe proves the environment cannot boot a node at all.
+gcs_test(test_gcs_ffi_coldboot test_gcs_ffi_coldboot.cpp "gcs_ffi;gcs_storage;neoswarm_common;gcs_proto")
+target_include_directories(test_gcs_ffi_coldboot PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/../src/ffi"
+)

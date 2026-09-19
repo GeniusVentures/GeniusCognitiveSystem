@@ -80,13 +80,14 @@ const GcsConfig$json = {
       '6': '.gcs.chat.Codec',
       '10': 'codec'
     },
+    {'1': 'mnemonic', '3': 3, '4': 1, '5': 9, '10': 'mnemonic'},
   ],
 };
 
 /// Descriptor for `GcsConfig`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List gcsConfigDescriptor = $convert.base64Decode(
     'CglHY3NDb25maWcSFwoHZGJfcGF0aBgBIAEoCVIGZGJQYXRoEiUKBWNvZGVjGAIgASgOMg8uZ2'
-    'NzLmNoYXQuQ29kZWNSBWNvZGVj');
+    'NzLmNoYXQuQ29kZWNSBWNvZGVjEhoKCG1uZW1vbmljGAMgASgJUghtbmVtb25pYw==');
 
 @$core.Deprecated('Use sendTextCommandDescriptor instead')
 const SendTextCommand$json = {

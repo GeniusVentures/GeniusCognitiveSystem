@@ -26,10 +26,12 @@ class GcsConfig extends $pb.GeneratedMessage {
   factory GcsConfig({
     $core.String? dbPath,
     Codec? codec,
+    $core.String? mnemonic,
   }) {
     final result = create();
     if (dbPath != null) result.dbPath = dbPath;
     if (codec != null) result.codec = codec;
+    if (mnemonic != null) result.mnemonic = mnemonic;
     return result;
   }
 
@@ -51,6 +53,7 @@ class GcsConfig extends $pb.GeneratedMessage {
         defaultOrMaker: Codec.CODEC_UNSPECIFIED,
         valueOf: Codec.valueOf,
         enumValues: Codec.values)
+    ..aOS(3, _omitFieldNames ? '' : 'mnemonic')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -89,6 +92,20 @@ class GcsConfig extends $pb.GeneratedMessage {
   $core.bool hasCodec() => $_has(1);
   @$pb.TagNumber(2)
   void clearCodec() => $_clearField(2);
+
+  /// Optional mnemonic for the embedded SGNUS node's signing identity. Empty
+  /// (default) = the SDK boots with the wallet persisted under the base path,
+  /// creating a fresh CHILD WALLET when none exists; that child wallet connects
+  /// to a parent wallet through other mechanisms (Child Wallets, later phase).
+  /// Non-empty = boot the provided account's wallet directly.
+  @$pb.TagNumber(3)
+  $core.String get mnemonic => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set mnemonic($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasMnemonic() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearMnemonic() => $_clearField(3);
 }
 
 /// Thin chat-shaped struct Dart publishes for a send (D-27: data-only; C++ stamps authority).

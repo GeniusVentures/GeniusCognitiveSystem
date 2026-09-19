@@ -22,17 +22,21 @@
 #include "lib/gcs_core.hpp"
 #include "lib/gcs_entity_store.hpp"
 
+#include "GeniusSDK.hpp"
+
 #include <spdlog/spdlog.h>
 
 #include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <cstring>
+#include <filesystem>
 #include <limits>
 #include <memory>
 #include <mutex>
 #include <random>
 #include <string>
+#include <system_error>
 #include <vector>
 
 namespace
@@ -48,6 +52,17 @@ namespace
     // Dart dialog's kMaxNameLength; the FFI re-validates so any client, not
     // just the dialog, is bounded).
     constexpr size_t kMaxEntityNameLength = 64;
+    // Dev config accepted by GeniusSDKInit's parser — offline-safe placeholder
+    // token parameters (identical to the C++ test fixtures' kDevConfig). Used
+    // when gcs_init boots the embedded node itself.
+    constexpr const char kDevConfig[] = R"(
+     {
+       "Address": "0x0000000000000000000000000000000000000001",
+       "Cut": "100",
+       "TokenValue": "1000",
+       "TokenID": "0x0000000000000000000000000000000000000000000000000000000000000001"
+     }
+    )";
 
     std::mutex g_mutex;                            // guards g_session + g_entities + topic sets
     std::unique_ptr<gcs::CoreSession> g_session;   // Phase 1: single global session
@@ -56,11 +71,83 @@ namespace
     std::vector<std::string> g_derivedTopics;      // autoJoin-derived subset of g_roomTopics (D-04)
     std::vector<std::string> g_explicitTopics;     // join_topic-joined subset (WR-03: survives derived
                                                    // eviction; guarded by g_mutex)
+    bool g_sdkBootedHere = false;                  // gcs_init booted the embedded GeniusSDK node —
+                                                   // pairs that boot with GeniusSDKShutdown in
+                                                   // gcs_shutdown (guarded by g_mutex)
     std::atomic<int64_t> g_dartPort{ 0 };          // registered Dart port (0 = unregistered)
     std::atomic<uint64_t> g_messageSeq{ 0 };       // in-process component of the message id (CR-01)
     // One-shot guard for the per-process Dart API_DL table state check in gcs_init
     // (the table itself is initialized via the exported Dart_InitializeApiDL).
     std::atomic<bool> g_apiDlInitialized{ false };
+
+    /**
+     * \brief Guarantees a booted GeniusSDK node for the store (D-20 ordering).
+     *
+     * GcsGlobalDb::Initialize requires GeniusSDKGetNode() to be non-null, and
+     * nothing on the Dart side of this four-function ABI boots the SDK — so
+     * gcs_init boots it here. A node that already exists (a host harness
+     * booted one, e.g. the C++ test fixtures) is reused as-is and its lifetime
+     * is never touched by this library. Otherwise the node boots under the
+     * db_path's parent directory with the offline-safe dev config. An empty
+     * mnemonic (the GcsConfig default) keeps GeniusSDKInit's wallet contract:
+     * reuse the wallet persisted under the base path, creating a child wallet
+     * when none exists — that child wallet connects to a parent wallet through
+     * other mechanisms (Child Wallets, later phase). A non-empty mnemonic
+     * boots the provided account's wallet instead. The mnemonic pointer is
+     * consumed inside the call (the SDK copies it); nothing is retained.
+     *
+     * \param[in] config The parsed GcsConfig carrying db_path and mnemonic.
+     * \return true when a node is running on return; false when the SDK could
+     *         not boot (gcs_init must fail).
+     */
+    bool EnsureSdkBooted( const gcs::chat::GcsConfig& config )
+    {
+        if ( GeniusSDKGetNode() != nullptr )
+        {
+            return true; // externally booted — reuse it and leave its lifetime alone
+        }
+
+        std::filesystem::path basePath;
+        if ( config.db_path().empty() )
+        {
+            // No db_path means the store picks its own default; the node still
+            // needs a home — the system temp dir keeps it out of the CWD.
+            std::error_code tempEc;
+            basePath = std::filesystem::temp_directory_path( tempEc ) / "gcs";
+        }
+        else
+        {
+            // Mirror the C++ fixtures' temp-root + "/db" layout: node data
+            // lives beside the store. A bare filename has no parent — use CWD.
+            basePath = std::filesystem::path( config.db_path() ).parent_path();
+            if ( basePath.empty() )
+            {
+                basePath = ".";
+            }
+        }
+        std::error_code createEc;
+        std::filesystem::create_directories( basePath, createEc ); // best-effort; the SDK reports real failures
+
+        const std::string basePathString = basePath.string();
+        const char* initPath = nullptr;
+        if ( config.mnemonic().empty() )
+        {
+            initPath = GeniusSDKInit( basePathString.c_str(), kDevConfig );
+        }
+        else
+        {
+            initPath = GeniusSDKInitWithMnemonic( basePathString.c_str(), kDevConfig, config.mnemonic().c_str() );
+        }
+        if ( initPath == nullptr )
+        {
+            spdlog::error( "gcs_ffi: embedded GeniusSDK node failed to boot under '{}'", basePathString );
+            return false;
+        }
+        g_sdkBootedHere = true;
+        spdlog::info( "gcs_ffi: booted embedded GeniusSDK node under '{}' (child wallet created when none present)",
+                      basePathString );
+        return true;
+    }
 
     /**
      * \brief Serializes a GcsEvent envelope to codec-encoded bytes.
@@ -305,6 +392,14 @@ extern "C"
         if ( config.codec() != gcs::chat::CODEC_PROTOBUF )
         {
             return nullptr; // D-29: codec bound at creation, immutable for the store's lifetime
+        }
+
+        // D-20 ordering: the store needs a booted GeniusSDK node and nothing
+        // on the Dart side of this ABI boots one — boot the embedded node here
+        // (reusing an externally booted node when present).
+        if ( !EnsureSdkBooted( config ) )
+        {
+            return nullptr;
         }
 
         gcs::CoreSession::Config coreConfig{};
@@ -643,6 +738,15 @@ extern "C"
             g_derivedTopics.clear();
             g_explicitTopics.clear();
             g_entities.reset();
+
+            // Pair the boot from gcs_init: shut the embedded node down only
+            // when this library booted it — an externally booted node (host
+            // harness) outlives the session and is not ours to tear down.
+            if ( g_sdkBootedHere )
+            {
+                GeniusSDKShutdown();
+                g_sdkBootedHere = false;
+            }
         }
     }
 } // extern "C"

@@ -5,13 +5,15 @@
  *             gcs.chat.GcsConfig bytes (codec-tagged per D-29), argument
  *             validation on gcs_publish/gcs_subscribe, and null-safe shutdown.
  *
- *             OPTION C CONTRACT (locked at planning time): this test binary
- *             never initializes GeniusSDK, so GeniusSDKGetNode() returns
- *             nullptr for every gcs_init call with a parseable PROTOBUF
- *             config — gcs_init must return nullptr GRACEFULLY (no crash, no
- *             exception). No test asserts a non-null handle. The
- *             init-success + live subscribe + command-publish round-trip is
- *             OWNED BY PLAN 05 (Dart spike), which runs against a real node.
+ *             EMBEDDED-NODE CONTRACT (2026-09-19 live-app fix): gcs_init
+ *             boots the embedded GeniusSDK node itself when none exists in
+ *             the process (empty mnemonic = child-wallet contract: reuse the
+ *             wallet persisted under the base path, create one when none
+ *             exists), so a valid config yields a live handle even with no
+ *             external boot; gcs_shutdown pairs that internal boot with node
+ *             teardown. The null-return failure classes below are all
+ *             rejected BEFORE the boot (null/empty/garbage bytes,
+ *             unsupported codec).
  *
  *             Shutdown discipline: TearDown conditionally calls gcs_shutdown
  *             on any non-null handle — the GcsGlobalDb destructor touches
@@ -90,21 +92,23 @@ namespace gcs::test
             return config.SerializeAsString();
         }
 
-        GcsSession *m_handle = nullptr; ///< Session handle under test (null in every option-C case)
+        GcsSession *m_handle = nullptr; ///< Session handle under test (TearDown shuts it down)
 
         std::string m_tempPath; ///< Per-test temp directory (created in SetUp, removed in TearDown)
     };
 
     /**
-     * @brief A parseable PROTOBUF config reaches CoreSession::Initialize(), whose
-     *        GeniusSDKGetNode() returns nullptr in this binary — gcs_init must
-     *        return nullptr gracefully (option C: no crash, no exception).
+     * @brief A parseable PROTOBUF config with no externally booted node boots
+     *        the embedded GeniusSDK node inside gcs_init (empty mnemonic =
+     *        child-wallet contract) and returns a live session handle.
+     *        TearDown's gcs_shutdown pairs the internal boot with node
+     *        teardown.
      */
-    TEST_F( GcsFFI, InitWithValidConfigWithoutNodeReturnsNullptrGracefully )
+    TEST_F( GcsFFI, InitWithValidConfigBootsEmbeddedNode )
     {
         const std::string bytes = MakeConfigBytes( m_tempPath + "/db", gcs::chat::CODEC_PROTOBUF );
-        m_handle = gcs_init( reinterpret_cast<const uint8_t *>( bytes.data() ), bytes.size() );
-        EXPECT_EQ( m_handle, nullptr );
+        m_handle                = gcs_init( reinterpret_cast<const uint8_t *>( bytes.data() ), bytes.size() );
+        EXPECT_NE( m_handle, nullptr );
     }
 
     /**
@@ -143,16 +147,28 @@ namespace gcs::test
     }
 
     /**
-     * @brief Repeated gcs_init calls with valid configs all fail identically and
-     *        leave the ABI in a callable state (no session ever exists).
+     * @brief Repeated gcs_init calls with valid configs all return the SAME
+     *        live handle (IN-05: the idempotent path ignores later configs) —
+     *        one session, one internally booted node, no re-boot churn.
      */
-    TEST_F( GcsFFI, RepeatedInitCallsWithoutNodeAllReturnNullptr )
+    TEST_F( GcsFFI, RepeatedInitCallsReturnSameIdempotentHandle )
     {
         const std::string bytes = MakeConfigBytes( m_tempPath + "/db", gcs::chat::CODEC_PROTOBUF );
+        GcsSession *first       = nullptr;
         for ( int callIndex = 0; callIndex < kRepeatedInitCallCount; ++callIndex )
         {
-            EXPECT_EQ( gcs_init( reinterpret_cast<const uint8_t *>( bytes.data() ), bytes.size() ), nullptr );
+            GcsSession *handle = gcs_init( reinterpret_cast<const uint8_t *>( bytes.data() ), bytes.size() );
+            ASSERT_NE( handle, nullptr );
+            if ( callIndex == 0 )
+            {
+                first = handle;
+            }
+            else
+            {
+                EXPECT_EQ( handle, first );
+            }
         }
+        m_handle = first; // TearDown shuts the one session down
     }
 
     /**
