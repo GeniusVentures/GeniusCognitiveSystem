@@ -4,13 +4,13 @@ milestone: v1.0
 milestone_name: GCS Chat
 status: executing
 stopped_at: Completed 02-02-PLAN.md (FFI entity dispatch + SpaceTree push + derived joins)
-last_updated: "2026-09-19T19:20:32.416Z"
+last_updated: "2026-09-19T19:25:49.299Z"
 last_activity: 2026-09-19
 progress:
   total_phases: 7
   completed_phases: 1
   total_plans: 16
-  completed_plans: 13
+  completed_plans: 14
   percent: 14
 ---
 
@@ -26,11 +26,11 @@ See: .planning/workstreams/app/PROJECT.md (updated 2026-08-15)
 ## Current Position
 
 Phase: 02 (Spaces & Rooms) — EXECUTING
-Plan: 3 of 5
+Plan: 4 of 5
 Status: Ready to execute
 Last activity: 2026-09-19
 
-Progress: [████████░░] 81%
+Progress: [█████████░] 88%
 
 ## Performance Metrics
 
@@ -54,6 +54,7 @@ Progress: [████████░░] 81%
 *Updated after each plan completion*
 | Phase 02 P01 | 9min | 3 tasks | 6 files |
 | Phase 02 P02 | 5min | 2 tasks | 2 files |
+| Phase 02 P03 | 3min | 3 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -75,6 +76,8 @@ Recent decisions affecting current work:
 - [Phase 02]: FFI entity arms validate first (empty name / unknown parent / empty space_id -> INVALID_ARGUMENT before any Put); store failures surface as GENERIC with the entity name in the raw error string
 - [Phase 02]: create_space pushes SpaceTree only (new space has no rooms); create_room/update_space run RefreshDerivedJoins before pushing so SpaceTree + RoomList stay consistent in one publish
 - [Phase 02]: Derived-join projection — failed topic registration keeps the topic out of g_roomTopics; toggle-false removes from projection only while pubsub stays sticky (no Remove*Topic API, Pitfall 4)
+- [Phase ?]: Phase 02 P03: proto comments backtick-wrap <id> tokens — raw angle brackets flow into generated Dart doc comments and trip unintended_html_in_doc_comment under --fatal-infos; fix at the proto source, never in generated files
+- [Phase ?]: Phase 02 P03: setTree sends unmatched-parent rooms to standaloneRooms (defensive; orphans unreachable via FFI validation) — catalog data never silently dropped; hasSpaceTree dispatched first (D-02 tree before membership)
 
 ### Pending Todos
 
@@ -94,6 +97,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-19T19:20:32.408Z
+Last session: 2026-09-19T19:25:44.406Z
 Stopped at: Completed 02-02-PLAN.md (FFI entity dispatch + SpaceTree push + derived joins)
 Resume file: None

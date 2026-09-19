@@ -80,7 +80,7 @@ Plans:
   3. User can toggle `autoJoinRooms` on a space and observe the join behavior change
   4. Space/room metadata survives app restart (CRDT persistence)
 
-**Plans:** 2/5 plans executed
+**Plans:** 3/5 plans executed
 
 Plans:
 **Wave 1**
@@ -90,7 +90,7 @@ Plans:
 **Wave 2** *(blocked on Wave 1 completion)*
 
 - [x] 02-02-PLAN.md — Wave 2 (depends: 02-01) — FFI dispatch (create/update arms, SpaceTree push, derived joins) + two-session persistence test
-- [ ] 02-03-PLAN.md — Wave 2 (depends: 02-01) — Dart pb regen (pinned 22.5.0) + RailCubit tree + SpaceTree dispatch + cubit tests
+- [x] 02-03-PLAN.md — Wave 2 (depends: 02-01) — Dart pb regen (pinned 22.5.0) + RailCubit tree + SpaceTree dispatch + cubit tests
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
@@ -187,7 +187,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation | 11/11 | Complete | 2026-09-16 |
-| 2. Spaces & Rooms | 2/5 | In Progress|  |
+| 2. Spaces & Rooms | 3/5 | In Progress|  |
 | 3. Messaging | 0/TBD | Not started | - |
 | 4. Membership & Invites | 0/TBD | Not started | - |
 | 5. Moderation | 0/TBD | Not started | - |
