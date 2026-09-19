@@ -21,6 +21,7 @@
 
 #include "lib/gcs_core.hpp"
 #include "lib/gcs_entity_store.hpp"
+#include "gcs_storage/common/logging.hpp"
 
 #include "GeniusSDK.hpp"
 
@@ -81,6 +82,33 @@ namespace
     std::atomic<bool> g_apiDlInitialized{ false };
 
     /**
+     * \brief Derives the session base path everything GCS writes calls home.
+     *
+     * The node, the wallet, and the GCS log file all live beside the store:
+     * for a db_path of "<base>/db" that is "<base>" (mirroring the C++ test
+     * fixtures' temp-root + "/db" layout). A bare filename has no parent —
+     * use the CWD. An empty db_path (store default) still needs a home for
+     * the node and logs — the system temp dir keeps it out of the CWD.
+     *
+     * \param[in] config The parsed GcsConfig carrying db_path.
+     * \return The base directory for node data, wallet, and logs.
+     */
+    std::filesystem::path SessionBasePath( const gcs::chat::GcsConfig& config )
+    {
+        if ( config.db_path().empty() )
+        {
+            std::error_code tempEc;
+            return std::filesystem::temp_directory_path( tempEc ) / "gcs";
+        }
+        std::filesystem::path basePath = std::filesystem::path( config.db_path() ).parent_path();
+        if ( basePath.empty() )
+        {
+            basePath = ".";
+        }
+        return basePath;
+    }
+
+    /**
      * \brief Guarantees a booted GeniusSDK node for the store (D-20 ordering).
      *
      * GcsGlobalDb::Initialize requires GeniusSDKGetNode() to be non-null, and
@@ -107,24 +135,7 @@ namespace
             return true; // externally booted — reuse it and leave its lifetime alone
         }
 
-        std::filesystem::path basePath;
-        if ( config.db_path().empty() )
-        {
-            // No db_path means the store picks its own default; the node still
-            // needs a home — the system temp dir keeps it out of the CWD.
-            std::error_code tempEc;
-            basePath = std::filesystem::temp_directory_path( tempEc ) / "gcs";
-        }
-        else
-        {
-            // Mirror the C++ fixtures' temp-root + "/db" layout: node data
-            // lives beside the store. A bare filename has no parent — use CWD.
-            basePath = std::filesystem::path( config.db_path() ).parent_path();
-            if ( basePath.empty() )
-            {
-                basePath = ".";
-            }
-        }
+        const std::filesystem::path basePath = SessionBasePath( config );
         std::error_code createEc;
         std::filesystem::create_directories( basePath, createEc ); // best-effort; the SDK reports real failures
 
@@ -393,6 +404,13 @@ extern "C"
         {
             return nullptr; // D-29: codec bound at creation, immutable for the store's lifetime
         }
+
+        // GCS component logs mirror to a rotating gcs_chat.log beside the
+        // store — file logs are the post-hoc diagnostic surface for packaged
+        // apps (the node's own sgnslog.log lands under the same base).
+        // Configured BEFORE the node boot so boot failures are captured.
+        sgns::gcs::SetGcsFileLogBasePath( SessionBasePath( config ) );
+        sgns::gcs::ApplyFileSinkToDefaultLogger();
 
         // D-20 ordering: the store needs a booted GeniusSDK node and nothing
         // on the Dart side of this ABI boots one — boot the embedded node here

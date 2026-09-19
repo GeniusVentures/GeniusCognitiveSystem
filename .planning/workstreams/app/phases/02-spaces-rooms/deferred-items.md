@@ -11,3 +11,9 @@
   Looks like a static-destruction race in the GeniusSDK node path.
 - **Action:** not fixed (scope boundary rule). Revisit if it starts failing deterministically;
   candidate angles: SDK node static teardown ordering, soralog logging-system teardown.
+- **2026-09-19 A/B re-check (file-logging change):** the logging.hpp edit sits in this
+  binary's include path, so the ruling was re-validated with a stash/rebuild A/B under an
+  identical 8-run loop: pre-change 3/8 crashes, post-change 2/8 and 3/8 — indistinguishable
+  from the documented ~1-in-3. Rate is load-sensitive (one rapid loop hit 8/8 under
+  background load; a spaced single run passes). Ruling stands: ambient, unrelated to the
+  GCS logging facade.

@@ -25,6 +25,7 @@
 
 #include "ffi/gcs_core.h"
 #include "proto/gcs_chat.pb.h"
+#include "gcs_storage/common/logging.hpp"
 
 #include <chrono>
 #include <cstdint>
@@ -370,6 +371,13 @@ namespace gcs::test
         // gcs_shutdown pairs the internal boot — the node goes down with it.
         gcs_shutdown( handleA );
         EXPECT_EQ( GeniusSDKGetNode(), nullptr );
+
+        // File logging (GeniusWallet requirement): the session wrote its own
+        // rotating log beside the store and it captured this cycle's entries.
+        const auto logFile = std::filesystem::path( m_tempPath ) / sgns::gcs::kGcsLogFileName;
+        ASSERT_TRUE( std::filesystem::exists( logFile ) );
+        std::error_code logSizeEc;
+        EXPECT_GT( std::filesystem::file_size( logFile, logSizeEc ), 0u );
 
         // === Cycle B — same db_path, still no external boot anywhere ===
         GcsSession *handleB = InitSessionOrSkip( dbPath );
