@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: GCS Chat
 status: executing
-stopped_at: Phase 2 UI-SPEC approved
-last_updated: "2026-09-19T18:55:44.846Z"
-last_activity: 2026-09-19 -- Phase 2 planning complete
+stopped_at: Completed 02-01-PLAN.md (EntityStore + proto + tests)
+last_updated: "2026-09-19T19:12:23.992Z"
+last_activity: 2026-09-19
 progress:
   total_phases: 7
   completed_phases: 1
   total_plans: 16
-  completed_plans: 11
+  completed_plans: 12
   percent: 14
 ---
 
@@ -21,16 +21,16 @@ progress:
 See: .planning/workstreams/app/PROJECT.md (updated 2026-08-15)
 
 **Core value:** Users can create a space, invite others, and have a group conversation where an AI participant (GCS) responds to questions — all synchronized via CRDT without central servers.
-**Current focus:** Phase 01 — foundation
+**Current focus:** Phase 02 — Spaces & Rooms
 
 ## Current Position
 
-Phase: 01 (foundation) — COMPLETE + VERIFIED (verified_with_deviations, 5/5 criteria)
-Plan: all complete (01-01..01-11)
+Phase: 02 (Spaces & Rooms) — EXECUTING
+Plan: 2 of 5
 Status: Ready to execute
-Last activity: 2026-09-19 -- Phase 2 planning complete
+Last activity: 2026-09-19
 
-Progress: [██░░░░░░░░] 14%
+Progress: [████████░░] 75%
 
 ## Performance Metrics
 
@@ -52,6 +52,7 @@ Progress: [██░░░░░░░░] 14%
 - Trend: N/A
 
 *Updated after each plan completion*
+| Phase 02 P01 | 9min | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -66,6 +67,10 @@ Recent decisions affecting current work:
 - [Roadmap]: Multiple Admins, no single Owner
 - [Roadmap]: Super Admin = creator, cannot be demoted
 - [Roadmap]: Destructive actions need Super Admin approval when 2+ admins
+- [Phase 02]: Unparseable manifest bytes = empty catalog (union write heals); Get failure = absent key (Pitfall 2)
+- [Phase 02]: EntityStore rejections reuse Error::GcsDbError — no NotFound code added; FFI arms do INVALID_ARGUMENT validation first
+- [Phase 02]: UpdateSpace preserves created_at_ms + tombstone state from stored record; full-state rewrite otherwise
+- [Phase 02]: Tombstoned records stay in-memory (hidden by readers) so IsValidParentSpace keeps returning false
 
 ### Pending Todos
 
@@ -85,6 +90,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-19T18:18:39.419Z
-Stopped at: Phase 2 UI-SPEC approved
-Resume file: .planning/workstreams/app/phases/02-spaces-rooms/02-UI-SPEC.md
+Last session: 2026-09-19T19:12:23.985Z
+Stopped at: Completed 02-01-PLAN.md (EntityStore + proto + tests)
+Resume file: None

@@ -80,12 +80,12 @@ Plans:
   3. User can toggle `autoJoinRooms` on a space and observe the join behavior change
   4. Space/room metadata survives app restart (CRDT persistence)
 
-**Plans:** 5 plans
+**Plans:** 1/5 plans executed
 
 Plans:
 **Wave 1**
 
-- [ ] 02-01-PLAN.md — Wave 1 — Extend gcs_chat.proto (entity records/commands/SpaceTree) + gcs::EntityStore + unit tests
+- [x] 02-01-PLAN.md — Wave 1 — Extend gcs_chat.proto (entity records/commands/SpaceTree) + gcs::EntityStore + unit tests
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -187,7 +187,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation | 11/11 | Complete | 2026-09-16 |
-| 2. Spaces & Rooms | 0/5 | Not started | - |
+| 2. Spaces & Rooms | 1/5 | In Progress|  |
 | 3. Messaging | 0/TBD | Not started | - |
 | 4. Membership & Invites | 0/TBD | Not started | - |
 | 5. Moderation | 0/TBD | Not started | - |
