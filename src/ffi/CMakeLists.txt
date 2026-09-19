@@ -26,6 +26,25 @@ target_compile_definitions(gcs_ffi PRIVATE GCS_FFI_EXPORTS DART_SHARED_LIB)
 if(ANDROID)
     target_link_options(gcs_ffi PRIVATE "-Wl,-z,max-page-size=16384")
 endif()
+# Ad-hoc code-sign the dylib immediately after link on Apple platforms. The
+# dylib is built here, outside Xcode, and lands unsigned; when Xcode embeds
+# it into a macOS app bundle (Contents/Frameworks) the app-level signature
+# fails on the unsigned nested code object, and Gatekeeper requires a
+# signature for local execution anyway. Ad-hoc ("-") needs no identity, so
+# dev machines and CI runners both satisfy it. Xcode re-signs with a real
+# identity at embed time when one is configured (GeniusWallet-style CI).
+# Sign at link time — never install time — because Flutter/Xcode consume the
+# artifact from the build tree; install() then copies the signed file as-is.
+if(APPLE)
+    find_program(CODESIGN_EXECUTABLE codesign)
+    if(CODESIGN_EXECUTABLE)
+        add_custom_command(TARGET gcs_ffi POST_BUILD
+            COMMAND ${CODESIGN_EXECUTABLE} --force --sign - $<TARGET_FILE:gcs_ffi>
+            COMMENT "Ad-hoc signing gcs_ffi (Apple embed requirement)"
+            VERBATIM
+        )
+    endif()
+endif()
 # Install alongside the rest of the tree so consumers (Dart test harness,
 # plugin staging, packaging) take the artifact from one stable per-platform
 # location — never from the CMake build dir (LIBRARY: .so/.dylib, RUNTIME:
