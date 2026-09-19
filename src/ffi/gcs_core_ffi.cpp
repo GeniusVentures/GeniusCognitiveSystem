@@ -20,6 +20,7 @@
 #include "proto/gcs_chat.pb.h"
 
 #include "lib/gcs_core.hpp"
+#include "lib/gcs_entity_store.hpp"
 
 #include <spdlog/spdlog.h>
 
@@ -44,9 +45,11 @@ namespace
     // Prefix for C++-stamped message ids (D-04: authority fields never come from Dart).
     constexpr const char* kMessageIdPrefix = "msg-";
 
-    std::mutex g_mutex;                            // guards g_session + g_roomTopics
+    std::mutex g_mutex;                            // guards g_session + g_entities + topic sets
     std::unique_ptr<gcs::CoreSession> g_session;   // Phase 1: single global session
+    std::unique_ptr<gcs::EntityStore> g_entities;  // Phase 2: entity catalog over g_session
     std::vector<std::string> g_roomTopics;         // joined topic set (guarded by g_mutex)
+    std::vector<std::string> g_derivedTopics;      // autoJoin-derived subset of g_roomTopics (D-04)
     std::atomic<int64_t> g_dartPort{ 0 };          // registered Dart port (0 = unregistered)
     std::atomic<uint64_t> g_messageSeq{ 0 };       // in-process component of the message id (CR-01)
     // One-shot guard for the per-process Dart API_DL table state check in gcs_init
@@ -118,6 +121,92 @@ namespace
             roomList->add_room_topic( topic );
         }
         return event;
+    }
+
+    /**
+     * \brief Builds a SpaceTree event from the entity catalog (D-02).
+     *
+     * Flat records — Dart builds the tree. Tombstoned entities are already
+     * skipped by EntityStore::Spaces()/Rooms(). Callers must hold g_mutex
+     * (reads g_entities).
+     *
+     * \return A GcsEvent envelope carrying the SpaceTree.
+     */
+    gcs::chat::GcsEvent BuildSpaceTreeEvent()
+    {
+        gcs::chat::GcsEvent event;
+        gcs::chat::SpaceTree* tree = event.mutable_space_tree();
+        for ( const gcs::chat::SpaceRecord& space : g_entities->Spaces() )
+        {
+            *tree->add_space() = space;
+        }
+        for ( const gcs::chat::RoomRecord& room : g_entities->Rooms() )
+        {
+            *tree->add_room() = room;
+        }
+        return event;
+    }
+
+    /**
+     * \brief Recomputes the derived-join topic set (D-04) and syncs it into the
+     *        session registrations and the joined-topic projection.
+     *
+     * Derived joins are pure local recomputation over the catalog: every room
+     * whose parent space has autoJoinRooms. Newly derived topics register
+     * listen-first then broadcast (D-07) and enter g_derivedTopics and (once)
+     * g_roomTopics so the pushed RoomList reflects them. A topic that left the
+     * derived set (autoJoinRooms toggled false) leaves BOTH vectors — the
+     * RoomList projection drops it while the underlying pubsub registration
+     * stays sticky (GcsGlobalDb has no Remove*Topic; harmless pre-messaging —
+     * Pitfall 4). Smoke and explicit join_topic topics are never in
+     * g_derivedTopics and are never touched here. Callers must hold g_mutex
+     * (mutates g_entities' registrations via g_session, g_derivedTopics,
+     * g_roomTopics).
+     */
+    void RefreshDerivedJoins()
+    {
+        const std::vector<std::string> derived = g_entities->DerivedJoinedTopics();
+
+        // Register newly derived topics (listen first, then broadcast — D-07,
+        // the same ordering GcsGlobalDb::Initialize and join_topic use).
+        for ( const std::string& topic : derived )
+        {
+            if ( std::find( g_derivedTopics.begin(), g_derivedTopics.end(), topic )
+                 != g_derivedTopics.end() )
+            {
+                continue;
+            }
+            if ( !g_session->AddListenTopic( topic ).has_value()
+                 || !g_session->AddBroadcastTopic( topic ).has_value() )
+            {
+                spdlog::error( "gcs_ffi: derived join topic '{}' failed to register — "
+                               "not added to the room list",
+                               topic );
+                continue; // registration failed — keep it out of the projection
+            }
+            g_derivedTopics.push_back( topic );
+            if ( std::find( g_roomTopics.begin(), g_roomTopics.end(), topic )
+                 == g_roomTopics.end() )
+            {
+                g_roomTopics.push_back( topic );
+            }
+        }
+
+        // Topics no longer derived leave the projection only (Pitfall 4).
+        std::vector<std::string> stillDerived;
+        for ( const std::string& topic : g_derivedTopics )
+        {
+            if ( std::find( derived.begin(), derived.end(), topic ) != derived.end() )
+            {
+                stillDerived.push_back( topic );
+            }
+            else
+            {
+                g_roomTopics.erase( std::remove( g_roomTopics.begin(), g_roomTopics.end(), topic ),
+                                    g_roomTopics.end() );
+            }
+        }
+        g_derivedTopics = std::move( stillDerived );
     }
 
     /**
@@ -245,6 +334,22 @@ extern "C"
         }
 
         g_session = std::move( session );
+
+        // Phase 2: replay the persisted entity catalog (D-02). Construct the
+        // store ONLY after the g_session move — RefreshDerivedJoins uses the
+        // g_session global. A load failure is logged and never fails init:
+        // LoadFromStore treats a missing manifest as an empty catalog, so an
+        // error here still leaves a usable session with an empty catalog. No
+        // pushes in this block — the Dart port is not yet registered, so posts
+        // would be silent no-ops (Pitfall 9: SpaceTree pushes live in
+        // gcs_subscribe and after mutations).
+        g_entities = std::make_unique<gcs::EntityStore>( *g_session );
+        if ( g_entities->LoadFromStore().has_error() )
+        {
+            spdlog::error( "gcs_ffi: entity catalog load failed — continuing with an empty catalog" );
+        }
+        RefreshDerivedJoins();
+
         return reinterpret_cast<GcsSession*>( g_session.get() );
     }
 
@@ -364,6 +469,93 @@ extern "C"
             PostToDart( event );
             return GCS_OK;
         }
+        case gcs::chat::GcsCommand::kCreateSpace:
+        {
+            const gcs::chat::CreateSpaceCommand& createSpace = command.create_space();
+            if ( createSpace.name().empty() )
+            {
+                PostErrorNotice( "create_space rejected: name is empty" ); // D-29: raw error string on the push port
+                return GCS_ERROR_INVALID_ARGUMENT;
+            }
+            // C++ mints the id and stamps every authority field (D-01/D-27);
+            // Dart's command is data-only. A new space has no rooms yet, so
+            // the derived-join set — and the RoomList — cannot change here.
+            if ( !g_entities->CreateSpace( createSpace.name(), createSpace.is_public(),
+                                           createSpace.auto_join_rooms() )
+                      .has_value() )
+            {
+                spdlog::error( "gcs_ffi: create_space store write failed for '{}'",
+                               createSpace.name() );
+                PostErrorNotice( "create_space store write failed for '" + createSpace.name()
+                                 + "'" ); // D-29: raw error string on the push port
+                return GCS_ERROR_GENERIC;
+            }
+            PostToDart( BuildSpaceTreeEvent() );
+            return GCS_OK;
+        }
+        case gcs::chat::GcsCommand::kCreateRoom:
+        {
+            const gcs::chat::CreateRoomCommand& createRoom = command.create_room();
+            if ( createRoom.name().empty() )
+            {
+                PostErrorNotice( "create_room rejected: name is empty" ); // D-29: raw error string on the push port
+                return GCS_ERROR_INVALID_ARGUMENT;
+            }
+            // Empty parent = standalone room (D-01 unified room model); a
+            // non-empty parent must reference a known, non-tombstoned space
+            // (T-02-05) — rejected before any store write.
+            if ( !createRoom.parent_space_id().empty()
+                 && !g_entities->IsValidParentSpace( createRoom.parent_space_id() ) )
+            {
+                PostErrorNotice( "create_room rejected: parent space '" + createRoom.parent_space_id()
+                                 + "' not found" ); // D-29: raw error string on the push port
+                return GCS_ERROR_INVALID_ARGUMENT;
+            }
+            if ( !g_entities->CreateRoom( createRoom.name(), createRoom.parent_space_id() ).has_value() )
+            {
+                spdlog::error( "gcs_ffi: create_room store write failed for '{}'", createRoom.name() );
+                PostErrorNotice( "create_room store write failed for '" + createRoom.name()
+                                 + "'" ); // D-29: raw error string on the push port
+                return GCS_ERROR_GENERIC;
+            }
+            // The new room may be auto-joined (parent autoJoinRooms) — recompute
+            // the derived set so RoomList reflects it (D-04, retroactive by
+            // construction).
+            RefreshDerivedJoins();
+            PostToDart( BuildSpaceTreeEvent() );
+            PostToDart( BuildRoomListEvent() );
+            return GCS_OK;
+        }
+        case gcs::chat::GcsCommand::kUpdateSpace:
+        {
+            const gcs::chat::UpdateSpaceCommand& updateSpace = command.update_space();
+            if ( updateSpace.space_id().empty() || updateSpace.name().empty() )
+            {
+                PostErrorNotice( "update_space rejected: space_id and name must be non-empty" ); // D-29: raw error string on the push port
+                return GCS_ERROR_INVALID_ARGUMENT;
+            }
+            // Full desired state, never a patch (per-key LWW replaces the whole
+            // value); EntityStore preserves the immutable fields from the stored
+            // record and re-stamps updated_at_ms.
+            gcs::chat::SpaceRecord desired;
+            desired.set_id( updateSpace.space_id() );
+            desired.set_name( updateSpace.name() );
+            desired.set_is_public( updateSpace.is_public() );
+            desired.set_auto_join_rooms( updateSpace.auto_join_rooms() );
+            if ( !g_entities->UpdateSpace( desired ).has_value() )
+            {
+                spdlog::error( "gcs_ffi: update_space failed for '{}'", updateSpace.space_id() );
+                PostErrorNotice( "update_space failed for '" + updateSpace.space_id()
+                                 + "'" ); // D-29: raw error string on the push port
+                return GCS_ERROR_GENERIC;
+            }
+            // An autoJoinRooms toggle changes the derived set (D-04) — recompute
+            // so RoomList gains/loses the space's rooms.
+            RefreshDerivedJoins();
+            PostToDart( BuildSpaceTreeEvent() );
+            PostToDart( BuildRoomListEvent() );
+            return GCS_OK;
+        }
         case gcs::chat::GcsCommand::PAYLOAD_NOT_SET:
         default:
         {
@@ -389,9 +581,13 @@ extern "C"
 
         g_dartPort = dartPort;
 
-        // D-05/D-26 push-not-pull: RoomList first, then Readiness(ready=true). Phase 1
-        // delivers the single event stream to the port regardless of the topic argument;
-        // topic-graded delivery is a later-phase refinement.
+        // D-05/D-26 push-not-pull: SpaceTree (catalog) first, then RoomList
+        // (joined membership), then Readiness(ready=true) — tree before
+        // membership before readiness (D-02), so Dart can render the catalog
+        // while not ready. Phase 1 delivers the single event stream to the
+        // port regardless of the topic argument; topic-graded delivery is a
+        // later-phase refinement.
+        PostToDart( BuildSpaceTreeEvent() );
         PostToDart( BuildRoomListEvent() );
 
         gcs::chat::GcsEvent readyEvent;
@@ -410,6 +606,8 @@ extern "C"
             g_session->Shutdown();
             g_session.reset();
             g_roomTopics.clear();
+            g_derivedTopics.clear();
+            g_entities.reset();
         }
     }
 } // extern "C"
