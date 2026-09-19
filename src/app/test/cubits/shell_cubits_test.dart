@@ -369,6 +369,116 @@ void main() {
     });
 
     test(
+      'pushed SpaceTree populates the rail tree with grouped rooms (D-02)',
+      () {
+        final RailCubit rail = RailCubit();
+        final SessionCubit cubit = SessionCubit(railCubit: rail);
+        addTearDown(cubit.close);
+        addTearDown(rail.close);
+
+        cubit.handlePushedBytes(
+          (GcsEvent()
+                ..spaceTree = (SpaceTree()
+                  ..space.add(
+                    SpaceRecord()
+                      ..id = 'space-1'
+                      ..name = 'ops'
+                      ..isPublic = true
+                      ..autoJoinRooms = true,
+                  )
+                  ..room.add(
+                    RoomRecord()
+                      ..id = 'room-1'
+                      ..name = 'general'
+                      ..parentSpaceId = 'space-1',
+                  )))
+              .writeToBuffer(),
+        );
+        expect(rail.state.treeReceived, isTrue);
+        expect(rail.state.spaces, hasLength(1));
+        expect(rail.state.spaces.single.id, 'space-1');
+        expect(rail.state.spaces.single.name, 'ops');
+        expect(rail.state.spaces.single.autoJoinRooms, isTrue);
+        expect(rail.state.spaces.single.rooms, hasLength(1));
+        expect(rail.state.spaces.single.rooms.single.id, 'room-1');
+        expect(rail.state.spaces.single.rooms.single.name, 'general');
+        expect(
+          rail.state.spaces.single.rooms.single.topic,
+          'gcs/chat/room-1',
+        );
+        expect(rail.state.standaloneRooms, isEmpty);
+      },
+    );
+
+    test(
+      'pushed SpaceTree: empty parentSpaceId room is standalone (D-01)',
+      () {
+        final RailCubit rail = RailCubit();
+        final SessionCubit cubit = SessionCubit(railCubit: rail);
+        addTearDown(cubit.close);
+        addTearDown(rail.close);
+
+        cubit.handlePushedBytes(
+          (GcsEvent()
+                ..spaceTree = (SpaceTree()
+                  ..space.add(
+                    SpaceRecord()
+                      ..id = 'space-1'
+                      ..name = 'ops',
+                  )
+                  ..room.add(
+                    RoomRecord()
+                      ..id = 'room-2'
+                      ..name = 'lounge',
+                  )))
+              .writeToBuffer(),
+        );
+        expect(rail.state.treeReceived, isTrue);
+        expect(rail.state.standaloneRooms, hasLength(1));
+        expect(rail.state.standaloneRooms.single.id, 'room-2');
+        expect(rail.state.standaloneRooms.single.name, 'lounge');
+        expect(rail.state.spaces.single.rooms, isEmpty);
+      },
+    );
+
+    test(
+      'RoomList after SpaceTree replaces the joined view, tree fields intact',
+      () {
+        final RailCubit rail = RailCubit();
+        final SessionCubit cubit = SessionCubit(railCubit: rail);
+        addTearDown(cubit.close);
+        addTearDown(rail.close);
+
+        cubit.handlePushedBytes(
+          (GcsEvent()
+                ..spaceTree = (SpaceTree()
+                  ..space.add(
+                    SpaceRecord()
+                      ..id = 'space-1'
+                      ..name = 'ops',
+                  )
+                  ..room.add(
+                    RoomRecord()
+                      ..id = 'room-1'
+                      ..name = 'general'
+                      ..parentSpaceId = 'space-1',
+                  )))
+              .writeToBuffer(),
+        );
+        cubit.handlePushedBytes(
+          (GcsEvent()
+                ..roomList = (RoomList()
+                  ..roomTopic.addAll(<String>['gcs/chat/room-1'])))
+              .writeToBuffer(),
+        );
+        expect(rail.state.rooms, <String>['gcs/chat/room-1']);
+        expect(rail.state.treeReceived, isTrue);
+        expect(rail.state.spaces, hasLength(1));
+        expect(rail.state.spaces.single.rooms.single.id, 'room-1');
+      },
+    );
+
+    test(
       'malformed pushed bytes surface as an error, never a crash (T-01-11-01)',
       () {
         final SessionCubit cubit = SessionCubit();

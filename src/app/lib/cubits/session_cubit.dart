@@ -7,6 +7,7 @@
 /// pushed on the port (D-05 -- no pull, no polling) and is decoded with
 /// `GcsEvent.fromBuffer` and dispatched per the plan interfaces contract:
 ///
+///   spaceTree -> RailCubit.setTree            (D-02 pushed catalog tree)
 ///   roomList -> RailCubit.setRooms            (D-21 pushed room list)
 ///   readiness -> session ready flag
 ///   message  -> MessageFlowCubit.append(buildChatFlowItemTextBubble(...))
@@ -350,7 +351,13 @@ class SessionCubit extends Cubit<SessionState> implements GcsCommandTransport {
   }
 
   /// Routes one decoded event to its dispatch target (interfaces contract).
+  /// The SpaceTree arm runs FIRST -- the catalog renders before membership
+  /// (D-02 push ordering).
   void _dispatchEvent(GcsEvent event) {
+    if (event.hasSpaceTree()) {
+      _railCubit?.setTree(event.spaceTree.space, event.spaceTree.room);
+      return;
+    }
     if (event.hasRoomList()) {
       _railCubit?.setRooms(event.roomList.roomTopic);
       return;
