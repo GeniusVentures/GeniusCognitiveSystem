@@ -70,6 +70,10 @@ gcs_test(test_gcs_global_db_sdk test_gcs_global_db_sdk.cpp "gcs_storage;neoswarm
 # CORE-05 substrate smoke (01-04 Task 2): CoreSession lifecycle + topic + Put/Get
 # round-trip over an injected port-0 GossipPubSub.
 gcs_test(test_gcs_core_smoke test_gcs_core_smoke.cpp "gcs_core;gcs_storage;neoswarm_common")
+# Phase 2 entity catalog (02-01 Task 3): EntityStore create/update/derived-join/
+# tombstone/restart over the same injected-pubsub seam (same libs as the smoke
+# test — EntityStore lives in gcs_core).
+gcs_test(test_gcs_entities test_gcs_entities.cpp "gcs_core;gcs_storage;neoswarm_common")
 # FFI ABI smoke (01-04 Task 3): config-bytes gcs_init failure classes, arg
 # validation, shutdown-null. Also links gcs_proto so the test can serialize a
 # gcs::chat::GcsConfig via gcs_chat.pb.h (D-29 codec-tagged init bytes).
