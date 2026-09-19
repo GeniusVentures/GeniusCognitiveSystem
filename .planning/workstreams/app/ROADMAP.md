@@ -80,7 +80,26 @@ Plans:
   3. User can toggle `autoJoinRooms` on a space and observe the join behavior change
   4. Space/room metadata survives app restart (CRDT persistence)
 
-**Plans**: TBD
+**Plans:** 5 plans
+
+Plans:
+**Wave 1**
+
+- [ ] 02-01-PLAN.md — Wave 1 — Extend gcs_chat.proto (entity records/commands/SpaceTree) + gcs::EntityStore + unit tests
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 02-02-PLAN.md — Wave 2 (depends: 02-01) — FFI dispatch (create/update arms, SpaceTree push, derived joins) + two-session persistence test
+- [ ] 02-03-PLAN.md — Wave 2 (depends: 02-01) — Dart pb regen (pinned 22.5.0) + RailCubit tree + SpaceTree dispatch + cubit tests
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 02-04-PLAN.md — Wave 3 (depends: 02-03) — Create/edit dialog (space_room_dialog.dart) + dialog tests + scaffold contrast ticket
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 02-05-PLAN.md — Wave 4 (depends: 02-03, 02-04) — Rail tree render (sections/badges/affordances/dimming) + rail widget tests
+
 **UI hint**: yes
 
 ### Phase 3: Messaging
@@ -168,7 +187,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation | 11/11 | Complete | 2026-09-16 |
-| 2. Spaces & Rooms | 0/TBD | Not started | - |
+| 2. Spaces & Rooms | 0/5 | Not started | - |
 | 3. Messaging | 0/TBD | Not started | - |
 | 4. Membership & Invites | 0/TBD | Not started | - |
 | 5. Moderation | 0/TBD | Not started | - |

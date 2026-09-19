@@ -523,12 +523,12 @@ if (event.hasSpaceTree()) {
 
 All other claims were verified by reading this repo's sources this session (file:line cited inline).
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Selection/join semantics for unjoined rooms (Pitfall 7)** — What we know: selectRoom is joined-only today; standalone rooms are never joined in Phase 2. What's unclear: product intent for tapping them. Recommendation: disabled rows now; join UI later.
-2. **Delete command inclusion (Gap: none of the 4 criteria require it)** — What we know: D-03 lands tombstone fields + reader semantics. What's unclear: whether the user wants a delete command + affordance this phase. Recommendation: field-only (minimal); command lands with a later phase needing it. Confirm in plan review if uncertain.
-3. **Space-node "+" affordance modality (CONTEXT discretion)** — hover vs trailing icon vs long-press. Recommendation: trailing icon button inside the space row (always visible, no hover-dependence, desktop+touch uniform). Planner finalizes within scaffold capabilities.
-4. **Manifest N+1 read scaling** — fine at Phase 2 scale (tens of entities); a future prefix-query or batched design is a later optimization if GlobalDB ever gains enumeration. No action.
+1. **Selection/join semantics for unjoined rooms (Pitfall 7)** — **RESOLVED: disabled rows.** Catalog-but-not-joined rooms render with `ScaffoldPressable(disabled: true)` + `Semantics(enabled: false)` (dimmed, non-interactive); joined rooms stay tappable. Adopted in 02-05 Task 1 (room_rail.dart render) and test-proven in 02-05 Task 2 (`UnjoinedRoomRowIsDisabled`). Join UI deferred to a later phase.
+2. **Delete command inclusion (Gap: none of the 4 criteria require it)** — **RESOLVED: field-only tombstones, no delete command/UI this phase.** D-03 lands the tombstone fields (`deleted`/`deleted_at_ms`, present from creation, set by NO Phase 2 command) and reader-skip semantics. Adopted in 02-01 Task 1 (proto fields) and 02-01 Task 3 (`TombstonedRecordsAreSkipped`). Delete commands/UI land with a later moderation/membership phase.
+3. **Space-node "+" affordance modality (CONTEXT discretion)** — **RESOLVED: always-visible trailing icon.** Each space node row ends with an edit icon + a "+" icon (both `textSecondary`, always visible, no hover/long-press dependence). Adopted in 02-05 Task 1 (space node row edit + "+" affordances).
+4. **Manifest N+1 read scaling** — **RESOLVED: no action.** Fine at Phase 2 scale (tens of entities); accepted as the v1 tradeoff (recorded as T-02-03 DoS `accept` disposition in the 02-01 threat model). A future prefix-query/batched design is a later optimization if GlobalDB ever gains enumeration.
 
 ## Gap Analysis (success criteria vs CONTEXT decisions)
 
