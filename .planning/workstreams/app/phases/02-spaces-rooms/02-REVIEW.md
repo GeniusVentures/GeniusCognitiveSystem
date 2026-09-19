@@ -261,3 +261,7 @@ suite ever executes there.
 _Reviewed: 2026-09-19T19:57:29Z_
 _Reviewer: Claude (gsd-code-reviewer)_
 _Depth: standard_
+
+---
+
+**Fixes applied 2026-09-19:** see [02-REVIEW-FIX.md](02-REVIEW-FIX.md) — 9 fixed / 2 skipped (IN-03 needs owner decision, IN-06 forward-looking). Commits df16d9e..38b7a5c. Post-fix gates: gcs ctest 5/5, Flutter 47 passed / 1 skip.
