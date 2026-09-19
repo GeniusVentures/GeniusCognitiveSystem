@@ -112,6 +112,9 @@ namespace
     constexpr const char kRoomName[] = "general";
     /// GossipPubSub bind address for the verification store.
     constexpr const char kListenIp[] = "0.0.0.0";
+    /// Maximum entity name length accepted by the FFI command arms (mirror
+    /// of the Dart dialog kMaxNameLength, T-02-09; WR-01 defense in depth).
+    constexpr size_t kMaxEntityNameLength = 64;
 
     /**
      * @brief Thread-safe log of payloads posted to the fake Dart port.
@@ -580,5 +583,74 @@ namespace gcs::test
         EXPECT_EQ( treeB.room( 0 ).parent_space_id(), spaceId );
 
         gcs_shutdown( handleB );
+    }
+
+    /**
+     * @brief WR-01 regression: create_space/create_room/update_space reject a
+     *        name longer than the 64-char cap (defense in depth — any FFI
+     *        client, not just the Dart dialog, is bounded), while a
+     *        boundary-length (64-char) name is accepted and persisted.
+     */
+    TEST_F( GcsFfiSdk, OverLengthNamesRejectedAcrossCreateArms )
+    {
+        ASSERT_TRUE( InstallFakeApiDlTable() ) << "gcs_ffi rejected the fake Dart API_DL table";
+
+        const char *initPath = GeniusSDKInit( m_tempPath.c_str(), kDevConfig );
+        if ( initPath == nullptr )
+        {
+            GTEST_SKIP() << "GeniusSDKInit could not boot a node in this environment (option C)";
+        }
+        m_sdkStarted = true;
+
+        GcsSession *handle = InitSession( m_tempPath + "/db" );
+        ASSERT_NE( handle, nullptr ) << "SDK is up but gcs_init failed";
+        ASSERT_EQ( gcs_subscribe( handle, kEventTopic, kFakeDartPort ), GCS_OK );
+
+        const std::string overLength( kMaxEntityNameLength + 1, 'x' );
+
+        gcs::chat::GcsCommand createSpace;
+        createSpace.mutable_create_space()->set_name( overLength );
+        std::string payload = createSpace.SerializeAsString();
+        EXPECT_EQ( gcs_publish( handle,
+                                kCommandTopic,
+                                reinterpret_cast<const uint8_t *>( payload.data() ),
+                                payload.size() ),
+                   GCS_ERROR_INVALID_ARGUMENT );
+
+        gcs::chat::GcsCommand createRoom;
+        createRoom.mutable_create_room()->set_name( overLength );
+        payload = createRoom.SerializeAsString();
+        EXPECT_EQ( gcs_publish( handle,
+                                kCommandTopic,
+                                reinterpret_cast<const uint8_t *>( payload.data() ),
+                                payload.size() ),
+                   GCS_ERROR_INVALID_ARGUMENT );
+
+        // update_space hits the length rejection before the unknown-id store
+        // rejection, so any space_id exercises the guard.
+        gcs::chat::GcsCommand updateSpace;
+        updateSpace.mutable_update_space()->set_space_id( "space-does-not-exist" );
+        updateSpace.mutable_update_space()->set_name( overLength );
+        payload = updateSpace.SerializeAsString();
+        EXPECT_EQ( gcs_publish( handle,
+                                kCommandTopic,
+                                reinterpret_cast<const uint8_t *>( payload.data() ),
+                                payload.size() ),
+                   GCS_ERROR_INVALID_ARGUMENT );
+
+        // Boundary: exactly kMaxEntityNameLength chars is accepted (the cap
+        // is inclusive) and lands in the pushed SpaceTree.
+        gcs::chat::GcsCommand boundary;
+        boundary.mutable_create_space()->set_name( std::string( kMaxEntityNameLength, 'y' ) );
+        PublishCommand( handle, boundary );
+
+        std::vector<gcs::chat::GcsEvent> events;
+        gcs::chat::SpaceTree             tree;
+        ASSERT_TRUE( TakeLatestSpaceTree( events, tree ) )
+            << "boundary create_space pushed no SpaceTree";
+        ASSERT_EQ( tree.space_size(), 1 );
+        EXPECT_EQ( tree.space( 0 ).name().size(), kMaxEntityNameLength );
+
+        gcs_shutdown( handle );
     }
 } // namespace gcs::test

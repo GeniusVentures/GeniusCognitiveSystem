@@ -44,6 +44,10 @@ namespace
     constexpr const char* kSmokeTopicB = "gcs/chat/smoke-test-2";
     // Prefix for C++-stamped message ids (D-04: authority fields never come from Dart).
     constexpr const char* kMessageIdPrefix = "msg-";
+    // Maximum entity display-name length in bytes (T-02-09 — mirror of the
+    // Dart dialog's kMaxNameLength; the FFI re-validates so any client, not
+    // just the dialog, is bounded).
+    constexpr size_t kMaxEntityNameLength = 64;
 
     std::mutex g_mutex;                            // guards g_session + g_entities + topic sets
     std::unique_ptr<gcs::CoreSession> g_session;   // Phase 1: single global session
@@ -477,6 +481,11 @@ extern "C"
                 PostErrorNotice( "create_space rejected: name is empty" ); // D-29: raw error string on the push port
                 return GCS_ERROR_INVALID_ARGUMENT;
             }
+            if ( createSpace.name().size() > kMaxEntityNameLength )
+            {
+                PostErrorNotice( "create_space rejected: name exceeds maximum length" ); // D-29: raw error string on the push port
+                return GCS_ERROR_INVALID_ARGUMENT;
+            }
             // C++ mints the id and stamps every authority field (D-01/D-27);
             // Dart's command is data-only. A new space has no rooms yet, so
             // the derived-join set — and the RoomList — cannot change here.
@@ -499,6 +508,11 @@ extern "C"
             if ( createRoom.name().empty() )
             {
                 PostErrorNotice( "create_room rejected: name is empty" ); // D-29: raw error string on the push port
+                return GCS_ERROR_INVALID_ARGUMENT;
+            }
+            if ( createRoom.name().size() > kMaxEntityNameLength )
+            {
+                PostErrorNotice( "create_room rejected: name exceeds maximum length" ); // D-29: raw error string on the push port
                 return GCS_ERROR_INVALID_ARGUMENT;
             }
             // Empty parent = standalone room (D-01 unified room model); a
@@ -532,6 +546,11 @@ extern "C"
             if ( updateSpace.space_id().empty() || updateSpace.name().empty() )
             {
                 PostErrorNotice( "update_space rejected: space_id and name must be non-empty" ); // D-29: raw error string on the push port
+                return GCS_ERROR_INVALID_ARGUMENT;
+            }
+            if ( updateSpace.name().size() > kMaxEntityNameLength )
+            {
+                PostErrorNotice( "update_space rejected: name exceeds maximum length" ); // D-29: raw error string on the push port
                 return GCS_ERROR_INVALID_ARGUMENT;
             }
             // Full desired state, never a patch (per-key LWW replaces the whole
