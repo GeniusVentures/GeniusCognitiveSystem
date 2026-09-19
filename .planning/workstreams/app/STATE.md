@@ -4,13 +4,13 @@ milestone: v1.0
 milestone_name: GCS Chat
 status: executing
 stopped_at: Completed 02-02-PLAN.md (FFI entity dispatch + SpaceTree push + derived joins)
-last_updated: "2026-09-19T19:25:49.299Z"
+last_updated: "2026-09-19T19:39:20.386Z"
 last_activity: 2026-09-19
 progress:
   total_phases: 7
   completed_phases: 1
   total_plans: 16
-  completed_plans: 14
+  completed_plans: 15
   percent: 14
 ---
 
@@ -26,11 +26,11 @@ See: .planning/workstreams/app/PROJECT.md (updated 2026-08-15)
 ## Current Position
 
 Phase: 02 (Spaces & Rooms) — EXECUTING
-Plan: 4 of 5
+Plan: 5 of 5
 Status: Ready to execute
 Last activity: 2026-09-19
 
-Progress: [█████████░] 88%
+Progress: [█████████░] 94%
 
 ## Performance Metrics
 
@@ -55,6 +55,7 @@ Progress: [█████████░] 88%
 | Phase 02 P01 | 9min | 3 tasks | 6 files |
 | Phase 02 P02 | 5min | 2 tasks | 2 files |
 | Phase 02 P03 | 3min | 3 tasks | 7 files |
+| Phase 02 P04 | 2min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -78,6 +79,9 @@ Recent decisions affecting current work:
 - [Phase 02]: Derived-join projection — failed topic registration keeps the topic out of g_roomTopics; toggle-false removes from projection only while pubsub stays sticky (no Remove*Topic API, Pitfall 4)
 - [Phase ?]: Phase 02 P03: proto comments backtick-wrap <id> tokens — raw angle brackets flow into generated Dart doc comments and trip unintended_html_in_doc_comment under --fatal-infos; fix at the proto source, never in generated files
 - [Phase ?]: Phase 02 P03: setTree sends unmatched-parent rooms to standaloneRooms (defensive; orphans unreachable via FFI validation) — catalog data never silently dropped; hasSpaceTree dispatched first (D-02 tree before membership)
+- [Phase ?]: Phase 02 P04: dialog form state lives in a private _DialogForm ChangeNotifier shared by the children/footer subtrees (ResponsiveDrawer.show mounts them separately; one State cannot rebuild both); disposal rides the drawer's onClose
+- [Phase ?]: Phase 02 P04: dialog confirm disables only on raw-empty name; whitespace-only stays enabled so the inline 'Enter a name.' validation is reachable
+- [Phase ?]: Phase 02 P04: dialog title is static per open (atom title is a String); createFromHeader opens as 'New space' on the default type — hint and confirm label flip live with the selector
 
 ### Pending Todos
 
@@ -97,6 +101,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-19T19:25:44.406Z
+Last session: 2026-09-19T19:39:20.379Z
 Stopped at: Completed 02-02-PLAN.md (FFI entity dispatch + SpaceTree push + derived joins)
 Resume file: None

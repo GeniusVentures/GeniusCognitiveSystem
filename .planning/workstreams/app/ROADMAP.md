@@ -80,7 +80,7 @@ Plans:
   3. User can toggle `autoJoinRooms` on a space and observe the join behavior change
   4. Space/room metadata survives app restart (CRDT persistence)
 
-**Plans:** 3/5 plans executed
+**Plans:** 4/5 plans executed
 
 Plans:
 **Wave 1**
@@ -94,7 +94,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 02-04-PLAN.md — Wave 3 (depends: 02-03) — Create/edit dialog (space_room_dialog.dart) + dialog tests + scaffold contrast ticket
+- [x] 02-04-PLAN.md — Wave 3 (depends: 02-03) — Create/edit dialog (space_room_dialog.dart) + dialog tests + scaffold contrast ticket
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
@@ -187,7 +187,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation | 11/11 | Complete | 2026-09-16 |
-| 2. Spaces & Rooms | 3/5 | In Progress|  |
+| 2. Spaces & Rooms | 4/5 | In Progress|  |
 | 3. Messaging | 0/TBD | Not started | - |
 | 4. Membership & Invites | 0/TBD | Not started | - |
 | 5. Moderation | 0/TBD | Not started | - |
