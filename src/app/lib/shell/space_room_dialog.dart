@@ -83,6 +83,17 @@ Future<void> showSpaceRoomDialog({
   RailSpace? space,
   RailSpace? parent,
 }) {
+  // Mode-required params fail loudly at the call site in debug builds
+  // (IN-04) -- otherwise misuse surfaces later as a null-check crash in
+  // dialogTitle (`parent!.name`) or _buildCommand (`parent!.id`/`space!.id`).
+  assert(
+    mode != SpaceRoomDialogMode.createRoomInSpace || parent != null,
+    'createRoomInSpace requires a non-null parent space',
+  );
+  assert(
+    mode != SpaceRoomDialogMode.editSpace || space != null,
+    'editSpace requires a non-null space',
+  );
   final _DialogForm form = _DialogForm(
     mode: mode,
     space: space,

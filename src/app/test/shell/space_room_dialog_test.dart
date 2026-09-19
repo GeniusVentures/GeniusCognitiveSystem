@@ -275,4 +275,32 @@ void main() {
     expect(transport.commands, hasLength(1));
     expect(find.byType(BottomDrawer), findsNothing);
   });
+
+  testWidgets('ModeParamsAssertOnMisuse', (WidgetTester tester) async {
+    // IN-04: omitting the mode-required param fails loudly at the call site
+    // (debug assert) instead of crashing later in dialogTitle/_buildCommand.
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: GcsTheme.light,
+        home: const Scaffold(body: SizedBox()),
+      ),
+    );
+    final BuildContext context = tester.state(find.byType(Scaffold)).context;
+    expect(
+      () => showSpaceRoomDialog(
+        context: context,
+        transport: _RecordingTransport(),
+        mode: SpaceRoomDialogMode.createRoomInSpace,
+      ),
+      throwsA(isA<AssertionError>()),
+    );
+    expect(
+      () => showSpaceRoomDialog(
+        context: context,
+        transport: _RecordingTransport(),
+        mode: SpaceRoomDialogMode.editSpace,
+      ),
+      throwsA(isA<AssertionError>()),
+    );
+  });
 }
