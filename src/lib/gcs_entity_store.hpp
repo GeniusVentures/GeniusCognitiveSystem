@@ -35,8 +35,10 @@ using chat::RoomRecord;
  * @brief Catalog of spaces and rooms persisted as CRDT entity records.
  *
  * The constructor stores the session reference only (deferred registration
- * idiom — no I/O). Mutators write the record key first, then read-union-write
- * the manifest. Call LoadFromStore() after session Initialize() to replay the
+ * idiom — no I/O). Mutators read-union-write the manifest first, then write
+ * the record key — a failed record write degrades to a manifest id that
+ * LoadFromStore skips gracefully, never unreachable orphan record bytes.
+ * Call LoadFromStore() after session Initialize() to replay the
  * persisted catalog into memory (missing manifest = empty catalog, never an
  * error). Copy and move are deleted: the store borrows the session by
  * reference for its whole lifetime.

@@ -201,16 +201,20 @@ outcome::result<SpaceRecord> EntityStore::CreateSpace( const std::string &name,
     record.set_deleted( false );          // D-03: tombstone fields present from
     record.set_deleted_at_ms( 0 );        // creation, set by no Phase 2 command
 
+    // Manifest first, then the record (WR-02): a failed record Put leaves a
+    // manifest id LoadFromStore skips gracefully ("record read failed"),
+    // never unreachable orphan record bytes the manifest-less order left
+    // behind (GlobalDB has no enumeration, so the manifest is the only index).
+    auto manifestResult = AppendToManifest( m_session, true, id );
+    if ( !manifestResult.has_value() )
+    {
+        return manifestResult.error();
+    }
     auto putResult = m_session.Put( std::string( kSpacesKeyPrefix ) + id,
                                     record.SerializeAsString() );
     if ( !putResult.has_value() )
     {
         return putResult.error();
-    }
-    auto manifestResult = AppendToManifest( m_session, true, id );
-    if ( !manifestResult.has_value() )
-    {
-        return manifestResult.error();
     }
     m_spaces.emplace( id, record );
     return record;
@@ -240,16 +244,19 @@ outcome::result<RoomRecord> EntityStore::CreateRoom( const std::string &name,
     record.set_deleted( false );          // D-03: tombstone fields present from
     record.set_deleted_at_ms( 0 );        // creation, set by no Phase 2 command
 
+    // Manifest first, then the record (WR-02 — same rationale as CreateSpace:
+    // a failed record Put degrades to a skipped manifest id on reload, never
+    // an unreachable orphan record).
+    auto manifestResult = AppendToManifest( m_session, false, id );
+    if ( !manifestResult.has_value() )
+    {
+        return manifestResult.error();
+    }
     auto putResult = m_session.Put( std::string( kRoomsKeyPrefix ) + id,
                                     record.SerializeAsString() );
     if ( !putResult.has_value() )
     {
         return putResult.error();
-    }
-    auto manifestResult = AppendToManifest( m_session, false, id );
-    if ( !manifestResult.has_value() )
-    {
-        return manifestResult.error();
     }
     m_rooms.emplace( id, record );
     return record;
