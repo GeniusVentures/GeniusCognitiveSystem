@@ -54,6 +54,8 @@ namespace
     std::unique_ptr<gcs::EntityStore> g_entities;  // Phase 2: entity catalog over g_session
     std::vector<std::string> g_roomTopics;         // joined topic set (guarded by g_mutex)
     std::vector<std::string> g_derivedTopics;      // autoJoin-derived subset of g_roomTopics (D-04)
+    std::vector<std::string> g_explicitTopics;     // join_topic-joined subset (WR-03: survives derived
+                                                   // eviction; guarded by g_mutex)
     std::atomic<int64_t> g_dartPort{ 0 };          // registered Dart port (0 = unregistered)
     std::atomic<uint64_t> g_messageSeq{ 0 };       // in-process component of the message id (CR-01)
     // One-shot guard for the per-process Dart API_DL table state check in gcs_init
@@ -162,10 +164,12 @@ namespace
      * derived set (autoJoinRooms toggled false) leaves BOTH vectors — the
      * RoomList projection drops it while the underlying pubsub registration
      * stays sticky (GcsGlobalDb has no Remove*Topic; harmless pre-messaging —
-     * Pitfall 4). Smoke and explicit join_topic topics are never in
+     * Pitfall 4) — UNLESS the client also joined it explicitly via
+     * join_topic: explicit membership outranks derivation and is never
+     * revoked by derived eviction (WR-03). Smoke topics are never in
      * g_derivedTopics and are never touched here. Callers must hold g_mutex
      * (mutates g_entities' registrations via g_session, g_derivedTopics,
-     * g_roomTopics).
+     * g_roomTopics, g_explicitTopics).
      */
     void RefreshDerivedJoins()
     {
@@ -196,7 +200,9 @@ namespace
             }
         }
 
-        // Topics no longer derived leave the projection only (Pitfall 4).
+        // Topics no longer derived leave the projection only (Pitfall 4) —
+        // unless the client joined them explicitly (WR-03): an explicit join
+        // outranks derivation, so eviction never revokes it from g_roomTopics.
         std::vector<std::string> stillDerived;
         for ( const std::string& topic : g_derivedTopics )
         {
@@ -204,7 +210,8 @@ namespace
             {
                 stillDerived.push_back( topic );
             }
-            else
+            else if ( std::find( g_explicitTopics.begin(), g_explicitTopics.end(), topic )
+                      == g_explicitTopics.end() )
             {
                 g_roomTopics.erase( std::remove( g_roomTopics.begin(), g_roomTopics.end(), topic ),
                                     g_roomTopics.end() );
@@ -426,6 +433,14 @@ extern "C"
             {
                 g_roomTopics.push_back( roomTopic );
             }
+            // Track explicit provenance (WR-03): RefreshDerivedJoins must
+            // never evict an explicitly-joined topic from g_roomTopics when
+            // its derivation ends.
+            if ( std::find( g_explicitTopics.begin(), g_explicitTopics.end(), roomTopic )
+                 == g_explicitTopics.end() )
+            {
+                g_explicitTopics.push_back( roomTopic );
+            }
             PostToDart( BuildRoomListEvent() );
             return GCS_OK;
         }
@@ -626,6 +641,7 @@ extern "C"
             g_session.reset();
             g_roomTopics.clear();
             g_derivedTopics.clear();
+            g_explicitTopics.clear();
             g_entities.reset();
         }
     }

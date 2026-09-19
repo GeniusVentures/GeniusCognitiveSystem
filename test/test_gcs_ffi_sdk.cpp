@@ -653,4 +653,91 @@ namespace gcs::test
 
         gcs_shutdown( handle );
     }
+
+    /**
+     * @brief WR-03 regression: an explicitly-joined (join_topic) topic that is
+     *        ALSO derived keeps its RoomList slot when autoJoinRooms toggles
+     *        off — derived eviction never revokes explicit membership.
+     */
+    TEST_F( GcsFfiSdk, ExplicitJoinSurvivesAutoJoinToggleOff )
+    {
+        ASSERT_TRUE( InstallFakeApiDlTable() ) << "gcs_ffi rejected the fake Dart API_DL table";
+
+        const char *initPath = GeniusSDKInit( m_tempPath.c_str(), kDevConfig );
+        if ( initPath == nullptr )
+        {
+            GTEST_SKIP() << "GeniusSDKInit could not boot a node in this environment (option C)";
+        }
+        m_sdkStarted = true;
+
+        GcsSession *handle = InitSession( m_tempPath + "/db" );
+        ASSERT_NE( handle, nullptr ) << "SDK is up but gcs_init failed";
+        ASSERT_EQ( gcs_subscribe( handle, kEventTopic, kFakeDartPort ), GCS_OK );
+
+        gcs::chat::GcsCommand createSpace;
+        createSpace.mutable_create_space()->set_name( kSpaceName );
+        createSpace.mutable_create_space()->set_is_public( true );
+        createSpace.mutable_create_space()->set_auto_join_rooms( true );
+        PublishCommand( handle, createSpace );
+
+        std::vector<gcs::chat::GcsEvent> events;
+        gcs::chat::SpaceTree             tree;
+        ASSERT_TRUE( TakeLatestSpaceTree( events, tree ) ) << "create_space pushed no SpaceTree";
+        ASSERT_EQ( tree.space_size(), 1 );
+        const std::string spaceId = tree.space( 0 ).id();
+
+        gcs::chat::GcsCommand createRoom;
+        createRoom.mutable_create_room()->set_name( kRoomName );
+        createRoom.mutable_create_room()->set_parent_space_id( spaceId );
+        PublishCommand( handle, createRoom );
+
+        events.clear();
+        ASSERT_TRUE( TakeLatestSpaceTree( events, tree ) ) << "create_room pushed no SpaceTree";
+        ASSERT_EQ( tree.room_size(), 1 );
+        const std::string derivedTopic = std::string( kRoomTopicPrefix ) + tree.room( 0 ).id();
+
+        // Explicit join of the same (currently derived) topic, then drain the
+        // join's own RoomList push so only the toggle's pushes remain below.
+        gcs::chat::GcsCommand joinTopic;
+        joinTopic.mutable_join_topic()->set_room_topic( derivedTopic );
+        PublishCommand( handle, joinTopic );
+        (void)g_pushedEvents.Take();
+
+        // Toggle autoJoinRooms off: derivation ends, the explicit join stays.
+        gcs::chat::GcsCommand updateSpace;
+        updateSpace.mutable_update_space()->set_space_id( spaceId );
+        updateSpace.mutable_update_space()->set_name( kSpaceName );
+        updateSpace.mutable_update_space()->set_is_public( true );
+        updateSpace.mutable_update_space()->set_auto_join_rooms( false );
+        PublishCommand( handle, updateSpace );
+
+        bool sawToggledTree         = false;
+        bool roomListKeepsExplicit = false;
+        for ( const std::string &eventBytes : g_pushedEvents.Take() )
+        {
+            gcs::chat::GcsEvent event;
+            ASSERT_TRUE( event.ParseFromString( eventBytes ) );
+            if ( event.has_space_tree() && event.space_tree().space_size() == 1
+                 && !event.space_tree().space( 0 ).auto_join_rooms() )
+            {
+                sawToggledTree = true;
+            }
+            if ( event.has_room_list() )
+            {
+                for ( const std::string &topic : event.room_list().room_topic() )
+                {
+                    if ( topic == derivedTopic )
+                    {
+                        roomListKeepsExplicit = true;
+                    }
+                }
+            }
+        }
+        EXPECT_TRUE( sawToggledTree ) << "update_space pushed no SpaceTree with autoJoin off";
+        EXPECT_TRUE( roomListKeepsExplicit )
+            << "explicitly-joined topic '" << derivedTopic
+            << "' was revoked from the RoomList when autoJoinRooms toggled off";
+
+        gcs_shutdown( handle );
+    }
 } // namespace gcs::test
