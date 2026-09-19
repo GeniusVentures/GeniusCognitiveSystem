@@ -13,6 +13,7 @@ library;
 // ignore_for_file: non_constant_identifier_names
 
 import 'dart:ffi' as ffi;
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:ffi/ffi.dart' as pkg_ffi;
@@ -285,15 +286,19 @@ void main() {
         final _RecordingBindings bindings = _RecordingBindings(
           initResult: fakeHandle,
         );
+        // Platform-neutral temp dir (IN-07) -- same pattern SessionCubit's
+        // own default uses; a hardcoded /tmp would fail on Windows runners.
+        final String dbPath =
+            '${Directory.systemTemp.path}/gcs-cubit-test-db';
         final SessionCubit cubit = SessionCubit(
           bindings: bindings,
-          dbPath: '/tmp/gcs-cubit-test-db',
+          dbPath: dbPath,
         );
         addTearDown(cubit.close);
         cubit.start();
         expect(bindings.initCalls, 1);
         expect(bindings.lastConfig!.codec, Codec.CODEC_PROTOBUF);
-        expect(bindings.lastConfig!.dbPath, '/tmp/gcs-cubit-test-db');
+        expect(bindings.lastConfig!.dbPath, dbPath);
         expect(bindings.subscribeCalls, 1);
         expect(bindings.lastSubscribeTopic, 'gcs/event');
         expect(bindings.lastDartPort, greaterThan(0));
