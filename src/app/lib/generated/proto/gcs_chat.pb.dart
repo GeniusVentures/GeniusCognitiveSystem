@@ -1,6 +1,6 @@
 // This is a generated file - do not edit.
 //
-// Generated from proto/gcs_chat.proto.
+// Generated from gcs_chat.proto.
 
 // @dart = 3.3
 
@@ -217,17 +217,30 @@ class JoinTopicCommand extends $pb.GeneratedMessage {
   void clearRoomTopic() => $_clearField(1);
 }
 
-enum GcsCommand_Payload { joinTopic, sendText, notSet }
+enum GcsCommand_Payload {
+  joinTopic,
+  sendText,
+  createSpace,
+  createRoom,
+  updateSpace,
+  notSet
+}
 
 /// Envelope for every Dart -> C++ command publish (D-27: commands are topic publishes).
 class GcsCommand extends $pb.GeneratedMessage {
   factory GcsCommand({
     JoinTopicCommand? joinTopic,
     SendTextCommand? sendText,
+    CreateSpaceCommand? createSpace,
+    CreateRoomCommand? createRoom,
+    UpdateSpaceCommand? updateSpace,
   }) {
     final result = create();
     if (joinTopic != null) result.joinTopic = joinTopic;
     if (sendText != null) result.sendText = sendText;
+    if (createSpace != null) result.createSpace = createSpace;
+    if (createRoom != null) result.createRoom = createRoom;
+    if (updateSpace != null) result.updateSpace = updateSpace;
     return result;
   }
 
@@ -244,17 +257,26 @@ class GcsCommand extends $pb.GeneratedMessage {
       _GcsCommand_PayloadByTag = {
     1: GcsCommand_Payload.joinTopic,
     2: GcsCommand_Payload.sendText,
+    3: GcsCommand_Payload.createSpace,
+    4: GcsCommand_Payload.createRoom,
+    5: GcsCommand_Payload.updateSpace,
     0: GcsCommand_Payload.notSet
   };
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'GcsCommand',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gcs.chat'),
       createEmptyInstance: create)
-    ..oo(0, [1, 2])
+    ..oo(0, [1, 2, 3, 4, 5])
     ..aOM<JoinTopicCommand>(1, _omitFieldNames ? '' : 'joinTopic',
         subBuilder: JoinTopicCommand.create)
     ..aOM<SendTextCommand>(2, _omitFieldNames ? '' : 'sendText',
         subBuilder: SendTextCommand.create)
+    ..aOM<CreateSpaceCommand>(3, _omitFieldNames ? '' : 'createSpace',
+        subBuilder: CreateSpaceCommand.create)
+    ..aOM<CreateRoomCommand>(4, _omitFieldNames ? '' : 'createRoom',
+        subBuilder: CreateRoomCommand.create)
+    ..aOM<UpdateSpaceCommand>(5, _omitFieldNames ? '' : 'updateSpace',
+        subBuilder: UpdateSpaceCommand.create)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -301,6 +323,39 @@ class GcsCommand extends $pb.GeneratedMessage {
   void clearSendText() => $_clearField(2);
   @$pb.TagNumber(2)
   SendTextCommand ensureSendText() => $_ensure(1);
+
+  @$pb.TagNumber(3)
+  CreateSpaceCommand get createSpace => $_getN(2);
+  @$pb.TagNumber(3)
+  set createSpace(CreateSpaceCommand value) => $_setField(3, value);
+  @$pb.TagNumber(3)
+  $core.bool hasCreateSpace() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearCreateSpace() => $_clearField(3);
+  @$pb.TagNumber(3)
+  CreateSpaceCommand ensureCreateSpace() => $_ensure(2);
+
+  @$pb.TagNumber(4)
+  CreateRoomCommand get createRoom => $_getN(3);
+  @$pb.TagNumber(4)
+  set createRoom(CreateRoomCommand value) => $_setField(4, value);
+  @$pb.TagNumber(4)
+  $core.bool hasCreateRoom() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearCreateRoom() => $_clearField(4);
+  @$pb.TagNumber(4)
+  CreateRoomCommand ensureCreateRoom() => $_ensure(3);
+
+  @$pb.TagNumber(5)
+  UpdateSpaceCommand get updateSpace => $_getN(4);
+  @$pb.TagNumber(5)
+  set updateSpace(UpdateSpaceCommand value) => $_setField(5, value);
+  @$pb.TagNumber(5)
+  $core.bool hasUpdateSpace() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearUpdateSpace() => $_clearField(5);
+  @$pb.TagNumber(5)
+  UpdateSpaceCommand ensureUpdateSpace() => $_ensure(4);
 }
 
 /// Authoritative message record. This proto type IS the C++ half (D-24 reinterpreted by D-26):
@@ -587,7 +642,7 @@ class ErrorNotice extends $pb.GeneratedMessage {
   void clearMessage() => $_clearField(1);
 }
 
-enum GcsEvent_Payload { message, roomList, readiness, error, notSet }
+enum GcsEvent_Payload { message, roomList, readiness, error, spaceTree, notSet }
 
 /// Envelope for every C++ -> Dart pushed event (D-26 push-not-pull).
 class GcsEvent extends $pb.GeneratedMessage {
@@ -596,12 +651,14 @@ class GcsEvent extends $pb.GeneratedMessage {
     RoomList? roomList,
     Readiness? readiness,
     ErrorNotice? error,
+    SpaceTree? spaceTree,
   }) {
     final result = create();
     if (message != null) result.message = message;
     if (roomList != null) result.roomList = roomList;
     if (readiness != null) result.readiness = readiness;
     if (error != null) result.error = error;
+    if (spaceTree != null) result.spaceTree = spaceTree;
     return result;
   }
 
@@ -619,13 +676,14 @@ class GcsEvent extends $pb.GeneratedMessage {
     2: GcsEvent_Payload.roomList,
     3: GcsEvent_Payload.readiness,
     4: GcsEvent_Payload.error,
+    5: GcsEvent_Payload.spaceTree,
     0: GcsEvent_Payload.notSet
   };
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'GcsEvent',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gcs.chat'),
       createEmptyInstance: create)
-    ..oo(0, [1, 2, 3, 4])
+    ..oo(0, [1, 2, 3, 4, 5])
     ..aOM<ChatMessageState>(1, _omitFieldNames ? '' : 'message',
         subBuilder: ChatMessageState.create)
     ..aOM<RoomList>(2, _omitFieldNames ? '' : 'roomList',
@@ -634,6 +692,8 @@ class GcsEvent extends $pb.GeneratedMessage {
         subBuilder: Readiness.create)
     ..aOM<ErrorNotice>(4, _omitFieldNames ? '' : 'error',
         subBuilder: ErrorNotice.create)
+    ..aOM<SpaceTree>(5, _omitFieldNames ? '' : 'spaceTree',
+        subBuilder: SpaceTree.create)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -701,6 +761,652 @@ class GcsEvent extends $pb.GeneratedMessage {
   void clearError() => $_clearField(4);
   @$pb.TagNumber(4)
   ErrorNotice ensureError() => $_ensure(3);
+
+  @$pb.TagNumber(5)
+  SpaceTree get spaceTree => $_getN(4);
+  @$pb.TagNumber(5)
+  set spaceTree(SpaceTree value) => $_setField(5, value);
+  @$pb.TagNumber(5)
+  $core.bool hasSpaceTree() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearSpaceTree() => $_clearField(5);
+  @$pb.TagNumber(5)
+  SpaceTree ensureSpaceTree() => $_ensure(4);
+}
+
+/// Authoritative persistent space entity record. This proto type IS the C++ half
+/// (D-01/D-02): C++ stamps id/timestamps/tombstone; Dart renders. Stored as the
+/// value bytes under `gcs/entities/spaces/<id>`. Name is mutable display
+/// metadata; id is identity.
+class SpaceRecord extends $pb.GeneratedMessage {
+  factory SpaceRecord({
+    $core.String? id,
+    $core.String? name,
+    $core.bool? isPublic,
+    $core.bool? autoJoinRooms,
+    $fixnum.Int64? createdAtMs,
+    $fixnum.Int64? updatedAtMs,
+    $core.bool? deleted,
+    $fixnum.Int64? deletedAtMs,
+  }) {
+    final result = create();
+    if (id != null) result.id = id;
+    if (name != null) result.name = name;
+    if (isPublic != null) result.isPublic = isPublic;
+    if (autoJoinRooms != null) result.autoJoinRooms = autoJoinRooms;
+    if (createdAtMs != null) result.createdAtMs = createdAtMs;
+    if (updatedAtMs != null) result.updatedAtMs = updatedAtMs;
+    if (deleted != null) result.deleted = deleted;
+    if (deletedAtMs != null) result.deletedAtMs = deletedAtMs;
+    return result;
+  }
+
+  SpaceRecord._();
+
+  factory SpaceRecord.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory SpaceRecord.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'SpaceRecord',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gcs.chat'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'id')
+    ..aOS(2, _omitFieldNames ? '' : 'name')
+    ..aOB(3, _omitFieldNames ? '' : 'isPublic')
+    ..aOB(4, _omitFieldNames ? '' : 'autoJoinRooms')
+    ..aInt64(5, _omitFieldNames ? '' : 'createdAtMs')
+    ..aInt64(6, _omitFieldNames ? '' : 'updatedAtMs')
+    ..aOB(7, _omitFieldNames ? '' : 'deleted')
+    ..aInt64(8, _omitFieldNames ? '' : 'deletedAtMs')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SpaceRecord clone() => SpaceRecord()..mergeFromMessage(this);
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SpaceRecord copyWith(void Function(SpaceRecord) updates) =>
+      super.copyWith((message) => updates(message as SpaceRecord))
+          as SpaceRecord;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static SpaceRecord create() => SpaceRecord._();
+  @$core.override
+  SpaceRecord createEmptyInstance() => create();
+  static $pb.PbList<SpaceRecord> createRepeated() => $pb.PbList<SpaceRecord>();
+  @$core.pragma('dart2js:noInline')
+  static SpaceRecord getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<SpaceRecord>(create);
+  static SpaceRecord? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get id => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set id($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get name => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set name($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasName() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearName() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.bool get isPublic => $_getBF(2);
+  @$pb.TagNumber(3)
+  set isPublic($core.bool value) => $_setBool(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasIsPublic() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearIsPublic() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.bool get autoJoinRooms => $_getBF(3);
+  @$pb.TagNumber(4)
+  set autoJoinRooms($core.bool value) => $_setBool(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasAutoJoinRooms() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearAutoJoinRooms() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $fixnum.Int64 get createdAtMs => $_getI64(4);
+  @$pb.TagNumber(5)
+  set createdAtMs($fixnum.Int64 value) => $_setInt64(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasCreatedAtMs() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearCreatedAtMs() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $fixnum.Int64 get updatedAtMs => $_getI64(5);
+  @$pb.TagNumber(6)
+  set updatedAtMs($fixnum.Int64 value) => $_setInt64(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasUpdatedAtMs() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearUpdatedAtMs() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $core.bool get deleted => $_getBF(6);
+  @$pb.TagNumber(7)
+  set deleted($core.bool value) => $_setBool(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasDeleted() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearDeleted() => $_clearField(7);
+
+  @$pb.TagNumber(8)
+  $fixnum.Int64 get deletedAtMs => $_getI64(7);
+  @$pb.TagNumber(8)
+  set deletedAtMs($fixnum.Int64 value) => $_setInt64(7, value);
+  @$pb.TagNumber(8)
+  $core.bool hasDeletedAtMs() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearDeletedAtMs() => $_clearField(8);
+}
+
+/// Authoritative persistent room entity record. C++ stamps id/timestamps/
+/// tombstone; Dart renders. Stored as the value bytes under
+/// `gcs/entities/rooms/<id>`. Topic is derived: `gcs/chat/<id>`.
+class RoomRecord extends $pb.GeneratedMessage {
+  factory RoomRecord({
+    $core.String? id,
+    $core.String? name,
+    $core.String? parentSpaceId,
+    $fixnum.Int64? createdAtMs,
+    $fixnum.Int64? updatedAtMs,
+    $core.bool? deleted,
+    $fixnum.Int64? deletedAtMs,
+  }) {
+    final result = create();
+    if (id != null) result.id = id;
+    if (name != null) result.name = name;
+    if (parentSpaceId != null) result.parentSpaceId = parentSpaceId;
+    if (createdAtMs != null) result.createdAtMs = createdAtMs;
+    if (updatedAtMs != null) result.updatedAtMs = updatedAtMs;
+    if (deleted != null) result.deleted = deleted;
+    if (deletedAtMs != null) result.deletedAtMs = deletedAtMs;
+    return result;
+  }
+
+  RoomRecord._();
+
+  factory RoomRecord.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory RoomRecord.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'RoomRecord',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gcs.chat'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'id')
+    ..aOS(2, _omitFieldNames ? '' : 'name')
+    ..aOS(3, _omitFieldNames ? '' : 'parentSpaceId')
+    ..aInt64(4, _omitFieldNames ? '' : 'createdAtMs')
+    ..aInt64(5, _omitFieldNames ? '' : 'updatedAtMs')
+    ..aOB(6, _omitFieldNames ? '' : 'deleted')
+    ..aInt64(7, _omitFieldNames ? '' : 'deletedAtMs')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  RoomRecord clone() => RoomRecord()..mergeFromMessage(this);
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  RoomRecord copyWith(void Function(RoomRecord) updates) =>
+      super.copyWith((message) => updates(message as RoomRecord)) as RoomRecord;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static RoomRecord create() => RoomRecord._();
+  @$core.override
+  RoomRecord createEmptyInstance() => create();
+  static $pb.PbList<RoomRecord> createRepeated() => $pb.PbList<RoomRecord>();
+  @$core.pragma('dart2js:noInline')
+  static RoomRecord getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<RoomRecord>(create);
+  static RoomRecord? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get id => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set id($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get name => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set name($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasName() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearName() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get parentSpaceId => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set parentSpaceId($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasParentSpaceId() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearParentSpaceId() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $fixnum.Int64 get createdAtMs => $_getI64(3);
+  @$pb.TagNumber(4)
+  set createdAtMs($fixnum.Int64 value) => $_setInt64(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasCreatedAtMs() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearCreatedAtMs() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $fixnum.Int64 get updatedAtMs => $_getI64(4);
+  @$pb.TagNumber(5)
+  set updatedAtMs($fixnum.Int64 value) => $_setInt64(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasUpdatedAtMs() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearUpdatedAtMs() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.bool get deleted => $_getBF(5);
+  @$pb.TagNumber(6)
+  set deleted($core.bool value) => $_setBool(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasDeleted() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearDeleted() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $fixnum.Int64 get deletedAtMs => $_getI64(6);
+  @$pb.TagNumber(7)
+  set deletedAtMs($fixnum.Int64 value) => $_setInt64(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasDeletedAtMs() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearDeletedAtMs() => $_clearField(7);
+}
+
+/// Manifest of known entity ids (D-02). Value bytes under gcs/index/manifest.
+/// Exists because GcsGlobalDb has no enumeration/prefix query. Writers follow a
+/// read-union-write convention (append-only membership); readers skip ids whose
+/// record is missing or tombstoned.
+class EntityManifest extends $pb.GeneratedMessage {
+  factory EntityManifest({
+    $core.Iterable<$core.String>? spaceId,
+    $core.Iterable<$core.String>? roomId,
+  }) {
+    final result = create();
+    if (spaceId != null) result.spaceId.addAll(spaceId);
+    if (roomId != null) result.roomId.addAll(roomId);
+    return result;
+  }
+
+  EntityManifest._();
+
+  factory EntityManifest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory EntityManifest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'EntityManifest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gcs.chat'),
+      createEmptyInstance: create)
+    ..pPS(1, _omitFieldNames ? '' : 'spaceId')
+    ..pPS(2, _omitFieldNames ? '' : 'roomId')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  EntityManifest clone() => EntityManifest()..mergeFromMessage(this);
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  EntityManifest copyWith(void Function(EntityManifest) updates) =>
+      super.copyWith((message) => updates(message as EntityManifest))
+          as EntityManifest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static EntityManifest create() => EntityManifest._();
+  @$core.override
+  EntityManifest createEmptyInstance() => create();
+  static $pb.PbList<EntityManifest> createRepeated() =>
+      $pb.PbList<EntityManifest>();
+  @$core.pragma('dart2js:noInline')
+  static EntityManifest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<EntityManifest>(create);
+  static EntityManifest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $pb.PbList<$core.String> get spaceId => $_getList(0);
+
+  @$pb.TagNumber(2)
+  $pb.PbList<$core.String> get roomId => $_getList(1);
+}
+
+/// Data-only create command (D-27: data-only; C++ stamps authority — the id,
+/// timestamps, and tombstone fields never come from Dart).
+class CreateSpaceCommand extends $pb.GeneratedMessage {
+  factory CreateSpaceCommand({
+    $core.String? name,
+    $core.bool? isPublic,
+    $core.bool? autoJoinRooms,
+  }) {
+    final result = create();
+    if (name != null) result.name = name;
+    if (isPublic != null) result.isPublic = isPublic;
+    if (autoJoinRooms != null) result.autoJoinRooms = autoJoinRooms;
+    return result;
+  }
+
+  CreateSpaceCommand._();
+
+  factory CreateSpaceCommand.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory CreateSpaceCommand.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'CreateSpaceCommand',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gcs.chat'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'name')
+    ..aOB(2, _omitFieldNames ? '' : 'isPublic')
+    ..aOB(3, _omitFieldNames ? '' : 'autoJoinRooms')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreateSpaceCommand clone() => CreateSpaceCommand()..mergeFromMessage(this);
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreateSpaceCommand copyWith(void Function(CreateSpaceCommand) updates) =>
+      super.copyWith((message) => updates(message as CreateSpaceCommand))
+          as CreateSpaceCommand;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static CreateSpaceCommand create() => CreateSpaceCommand._();
+  @$core.override
+  CreateSpaceCommand createEmptyInstance() => create();
+  static $pb.PbList<CreateSpaceCommand> createRepeated() =>
+      $pb.PbList<CreateSpaceCommand>();
+  @$core.pragma('dart2js:noInline')
+  static CreateSpaceCommand getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<CreateSpaceCommand>(create);
+  static CreateSpaceCommand? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get name => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set name($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasName() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearName() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.bool get isPublic => $_getBF(1);
+  @$pb.TagNumber(2)
+  set isPublic($core.bool value) => $_setBool(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasIsPublic() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearIsPublic() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.bool get autoJoinRooms => $_getBF(2);
+  @$pb.TagNumber(3)
+  set autoJoinRooms($core.bool value) => $_setBool(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasAutoJoinRooms() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearAutoJoinRooms() => $_clearField(3);
+}
+
+/// Data-only create command (D-27: data-only; C++ stamps authority).
+class CreateRoomCommand extends $pb.GeneratedMessage {
+  factory CreateRoomCommand({
+    $core.String? name,
+    $core.String? parentSpaceId,
+  }) {
+    final result = create();
+    if (name != null) result.name = name;
+    if (parentSpaceId != null) result.parentSpaceId = parentSpaceId;
+    return result;
+  }
+
+  CreateRoomCommand._();
+
+  factory CreateRoomCommand.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory CreateRoomCommand.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'CreateRoomCommand',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gcs.chat'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'name')
+    ..aOS(2, _omitFieldNames ? '' : 'parentSpaceId')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreateRoomCommand clone() => CreateRoomCommand()..mergeFromMessage(this);
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreateRoomCommand copyWith(void Function(CreateRoomCommand) updates) =>
+      super.copyWith((message) => updates(message as CreateRoomCommand))
+          as CreateRoomCommand;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static CreateRoomCommand create() => CreateRoomCommand._();
+  @$core.override
+  CreateRoomCommand createEmptyInstance() => create();
+  static $pb.PbList<CreateRoomCommand> createRepeated() =>
+      $pb.PbList<CreateRoomCommand>();
+  @$core.pragma('dart2js:noInline')
+  static CreateRoomCommand getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<CreateRoomCommand>(create);
+  static CreateRoomCommand? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get name => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set name($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasName() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearName() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get parentSpaceId => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set parentSpaceId($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasParentSpaceId() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearParentSpaceId() => $_clearField(2);
+}
+
+/// Data-only edit command (D-27: data-only; C++ stamps authority). Full desired
+/// state, never a patch (per-key LWW replaces the whole value).
+class UpdateSpaceCommand extends $pb.GeneratedMessage {
+  factory UpdateSpaceCommand({
+    $core.String? spaceId,
+    $core.String? name,
+    $core.bool? isPublic,
+    $core.bool? autoJoinRooms,
+  }) {
+    final result = create();
+    if (spaceId != null) result.spaceId = spaceId;
+    if (name != null) result.name = name;
+    if (isPublic != null) result.isPublic = isPublic;
+    if (autoJoinRooms != null) result.autoJoinRooms = autoJoinRooms;
+    return result;
+  }
+
+  UpdateSpaceCommand._();
+
+  factory UpdateSpaceCommand.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory UpdateSpaceCommand.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'UpdateSpaceCommand',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gcs.chat'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'spaceId')
+    ..aOS(2, _omitFieldNames ? '' : 'name')
+    ..aOB(3, _omitFieldNames ? '' : 'isPublic')
+    ..aOB(4, _omitFieldNames ? '' : 'autoJoinRooms')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdateSpaceCommand clone() => UpdateSpaceCommand()..mergeFromMessage(this);
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdateSpaceCommand copyWith(void Function(UpdateSpaceCommand) updates) =>
+      super.copyWith((message) => updates(message as UpdateSpaceCommand))
+          as UpdateSpaceCommand;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static UpdateSpaceCommand create() => UpdateSpaceCommand._();
+  @$core.override
+  UpdateSpaceCommand createEmptyInstance() => create();
+  static $pb.PbList<UpdateSpaceCommand> createRepeated() =>
+      $pb.PbList<UpdateSpaceCommand>();
+  @$core.pragma('dart2js:noInline')
+  static UpdateSpaceCommand getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<UpdateSpaceCommand>(create);
+  static UpdateSpaceCommand? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get spaceId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set spaceId($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSpaceId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSpaceId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get name => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set name($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasName() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearName() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.bool get isPublic => $_getBF(2);
+  @$pb.TagNumber(3)
+  set isPublic($core.bool value) => $_setBool(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasIsPublic() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearIsPublic() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.bool get autoJoinRooms => $_getBF(3);
+  @$pb.TagNumber(4)
+  set autoJoinRooms($core.bool value) => $_setBool(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasAutoJoinRooms() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearAutoJoinRooms() => $_clearField(4);
+}
+
+/// Pushed entity-catalog event (D-02): FLAT records — Dart builds the tree.
+/// Reuses the same record protos stored in the KV values (one type, no drift).
+class SpaceTree extends $pb.GeneratedMessage {
+  factory SpaceTree({
+    $core.Iterable<SpaceRecord>? space,
+    $core.Iterable<RoomRecord>? room,
+  }) {
+    final result = create();
+    if (space != null) result.space.addAll(space);
+    if (room != null) result.room.addAll(room);
+    return result;
+  }
+
+  SpaceTree._();
+
+  factory SpaceTree.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory SpaceTree.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'SpaceTree',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gcs.chat'),
+      createEmptyInstance: create)
+    ..pc<SpaceRecord>(1, _omitFieldNames ? '' : 'space', $pb.PbFieldType.PM,
+        subBuilder: SpaceRecord.create)
+    ..pc<RoomRecord>(2, _omitFieldNames ? '' : 'room', $pb.PbFieldType.PM,
+        subBuilder: RoomRecord.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SpaceTree clone() => SpaceTree()..mergeFromMessage(this);
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SpaceTree copyWith(void Function(SpaceTree) updates) =>
+      super.copyWith((message) => updates(message as SpaceTree)) as SpaceTree;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static SpaceTree create() => SpaceTree._();
+  @$core.override
+  SpaceTree createEmptyInstance() => create();
+  static $pb.PbList<SpaceTree> createRepeated() => $pb.PbList<SpaceTree>();
+  @$core.pragma('dart2js:noInline')
+  static SpaceTree getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<SpaceTree>(create);
+  static SpaceTree? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $pb.PbList<SpaceRecord> get space => $_getList(0);
+
+  @$pb.TagNumber(2)
+  $pb.PbList<RoomRecord> get room => $_getList(1);
 }
 
 const $core.bool _omitFieldNames =

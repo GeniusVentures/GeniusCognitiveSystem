@@ -1,6 +1,6 @@
 // This is a generated file - do not edit.
 //
-// Generated from proto/gcs_chat.proto.
+// Generated from gcs_chat.proto.
 
 // @dart = 3.3
 

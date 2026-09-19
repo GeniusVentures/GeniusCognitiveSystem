@@ -1,6 +1,6 @@
 // This is a generated file - do not edit.
 //
-// Generated from proto/gcs_chat.proto.
+// Generated from gcs_chat.proto.
 
 // @dart = 3.3
 
@@ -136,6 +136,33 @@ const GcsCommand$json = {
       '9': 0,
       '10': 'sendText'
     },
+    {
+      '1': 'create_space',
+      '3': 3,
+      '4': 1,
+      '5': 11,
+      '6': '.gcs.chat.CreateSpaceCommand',
+      '9': 0,
+      '10': 'createSpace'
+    },
+    {
+      '1': 'create_room',
+      '3': 4,
+      '4': 1,
+      '5': 11,
+      '6': '.gcs.chat.CreateRoomCommand',
+      '9': 0,
+      '10': 'createRoom'
+    },
+    {
+      '1': 'update_space',
+      '3': 5,
+      '4': 1,
+      '5': 11,
+      '6': '.gcs.chat.UpdateSpaceCommand',
+      '9': 0,
+      '10': 'updateSpace'
+    },
   ],
   '8': [
     {'1': 'payload'},
@@ -146,7 +173,11 @@ const GcsCommand$json = {
 final $typed_data.Uint8List gcsCommandDescriptor = $convert.base64Decode(
     'CgpHY3NDb21tYW5kEjsKCmpvaW5fdG9waWMYASABKAsyGi5nY3MuY2hhdC5Kb2luVG9waWNDb2'
     '1tYW5kSABSCWpvaW5Ub3BpYxI4CglzZW5kX3RleHQYAiABKAsyGS5nY3MuY2hhdC5TZW5kVGV4'
-    'dENvbW1hbmRIAFIIc2VuZFRleHRCCQoHcGF5bG9hZA==');
+    'dENvbW1hbmRIAFIIc2VuZFRleHQSQQoMY3JlYXRlX3NwYWNlGAMgASgLMhwuZ2NzLmNoYXQuQ3'
+    'JlYXRlU3BhY2VDb21tYW5kSABSC2NyZWF0ZVNwYWNlEj4KC2NyZWF0ZV9yb29tGAQgASgLMhsu'
+    'Z2NzLmNoYXQuQ3JlYXRlUm9vbUNvbW1hbmRIAFIKY3JlYXRlUm9vbRJBCgx1cGRhdGVfc3BhY2'
+    'UYBSABKAsyHC5nY3MuY2hhdC5VcGRhdGVTcGFjZUNvbW1hbmRIAFILdXBkYXRlU3BhY2VCCQoH'
+    'cGF5bG9hZA==');
 
 @$core.Deprecated('Use chatMessageStateDescriptor instead')
 const ChatMessageState$json = {
@@ -258,6 +289,15 @@ const GcsEvent$json = {
       '9': 0,
       '10': 'error'
     },
+    {
+      '1': 'space_tree',
+      '3': 5,
+      '4': 1,
+      '5': 11,
+      '6': '.gcs.chat.SpaceTree',
+      '9': 0,
+      '10': 'spaceTree'
+    },
   ],
   '8': [
     {'1': 'payload'},
@@ -269,5 +309,138 @@ final $typed_data.Uint8List gcsEventDescriptor = $convert.base64Decode(
     'CghHY3NFdmVudBI2CgdtZXNzYWdlGAEgASgLMhouZ2NzLmNoYXQuQ2hhdE1lc3NhZ2VTdGF0ZU'
     'gAUgdtZXNzYWdlEjEKCXJvb21fbGlzdBgCIAEoCzISLmdjcy5jaGF0LlJvb21MaXN0SABSCHJv'
     'b21MaXN0EjMKCXJlYWRpbmVzcxgDIAEoCzITLmdjcy5jaGF0LlJlYWRpbmVzc0gAUglyZWFkaW'
-    '5lc3MSLQoFZXJyb3IYBCABKAsyFS5nY3MuY2hhdC5FcnJvck5vdGljZUgAUgVlcnJvckIJCgdw'
-    'YXlsb2Fk');
+    '5lc3MSLQoFZXJyb3IYBCABKAsyFS5nY3MuY2hhdC5FcnJvck5vdGljZUgAUgVlcnJvchI0Cgpz'
+    'cGFjZV90cmVlGAUgASgLMhMuZ2NzLmNoYXQuU3BhY2VUcmVlSABSCXNwYWNlVHJlZUIJCgdwYX'
+    'lsb2Fk');
+
+@$core.Deprecated('Use spaceRecordDescriptor instead')
+const SpaceRecord$json = {
+  '1': 'SpaceRecord',
+  '2': [
+    {'1': 'id', '3': 1, '4': 1, '5': 9, '10': 'id'},
+    {'1': 'name', '3': 2, '4': 1, '5': 9, '10': 'name'},
+    {'1': 'is_public', '3': 3, '4': 1, '5': 8, '10': 'isPublic'},
+    {'1': 'auto_join_rooms', '3': 4, '4': 1, '5': 8, '10': 'autoJoinRooms'},
+    {'1': 'created_at_ms', '3': 5, '4': 1, '5': 3, '10': 'createdAtMs'},
+    {'1': 'updated_at_ms', '3': 6, '4': 1, '5': 3, '10': 'updatedAtMs'},
+    {'1': 'deleted', '3': 7, '4': 1, '5': 8, '10': 'deleted'},
+    {'1': 'deleted_at_ms', '3': 8, '4': 1, '5': 3, '10': 'deletedAtMs'},
+  ],
+};
+
+/// Descriptor for `SpaceRecord`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List spaceRecordDescriptor = $convert.base64Decode(
+    'CgtTcGFjZVJlY29yZBIOCgJpZBgBIAEoCVICaWQSEgoEbmFtZRgCIAEoCVIEbmFtZRIbCglpc1'
+    '9wdWJsaWMYAyABKAhSCGlzUHVibGljEiYKD2F1dG9fam9pbl9yb29tcxgEIAEoCFINYXV0b0pv'
+    'aW5Sb29tcxIiCg1jcmVhdGVkX2F0X21zGAUgASgDUgtjcmVhdGVkQXRNcxIiCg11cGRhdGVkX2'
+    'F0X21zGAYgASgDUgt1cGRhdGVkQXRNcxIYCgdkZWxldGVkGAcgASgIUgdkZWxldGVkEiIKDWRl'
+    'bGV0ZWRfYXRfbXMYCCABKANSC2RlbGV0ZWRBdE1z');
+
+@$core.Deprecated('Use roomRecordDescriptor instead')
+const RoomRecord$json = {
+  '1': 'RoomRecord',
+  '2': [
+    {'1': 'id', '3': 1, '4': 1, '5': 9, '10': 'id'},
+    {'1': 'name', '3': 2, '4': 1, '5': 9, '10': 'name'},
+    {'1': 'parent_space_id', '3': 3, '4': 1, '5': 9, '10': 'parentSpaceId'},
+    {'1': 'created_at_ms', '3': 4, '4': 1, '5': 3, '10': 'createdAtMs'},
+    {'1': 'updated_at_ms', '3': 5, '4': 1, '5': 3, '10': 'updatedAtMs'},
+    {'1': 'deleted', '3': 6, '4': 1, '5': 8, '10': 'deleted'},
+    {'1': 'deleted_at_ms', '3': 7, '4': 1, '5': 3, '10': 'deletedAtMs'},
+  ],
+};
+
+/// Descriptor for `RoomRecord`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List roomRecordDescriptor = $convert.base64Decode(
+    'CgpSb29tUmVjb3JkEg4KAmlkGAEgASgJUgJpZBISCgRuYW1lGAIgASgJUgRuYW1lEiYKD3Bhcm'
+    'VudF9zcGFjZV9pZBgDIAEoCVINcGFyZW50U3BhY2VJZBIiCg1jcmVhdGVkX2F0X21zGAQgASgD'
+    'UgtjcmVhdGVkQXRNcxIiCg11cGRhdGVkX2F0X21zGAUgASgDUgt1cGRhdGVkQXRNcxIYCgdkZW'
+    'xldGVkGAYgASgIUgdkZWxldGVkEiIKDWRlbGV0ZWRfYXRfbXMYByABKANSC2RlbGV0ZWRBdE1z');
+
+@$core.Deprecated('Use entityManifestDescriptor instead')
+const EntityManifest$json = {
+  '1': 'EntityManifest',
+  '2': [
+    {'1': 'space_id', '3': 1, '4': 3, '5': 9, '10': 'spaceId'},
+    {'1': 'room_id', '3': 2, '4': 3, '5': 9, '10': 'roomId'},
+  ],
+};
+
+/// Descriptor for `EntityManifest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List entityManifestDescriptor = $convert.base64Decode(
+    'Cg5FbnRpdHlNYW5pZmVzdBIZCghzcGFjZV9pZBgBIAMoCVIHc3BhY2VJZBIXCgdyb29tX2lkGA'
+    'IgAygJUgZyb29tSWQ=');
+
+@$core.Deprecated('Use createSpaceCommandDescriptor instead')
+const CreateSpaceCommand$json = {
+  '1': 'CreateSpaceCommand',
+  '2': [
+    {'1': 'name', '3': 1, '4': 1, '5': 9, '10': 'name'},
+    {'1': 'is_public', '3': 2, '4': 1, '5': 8, '10': 'isPublic'},
+    {'1': 'auto_join_rooms', '3': 3, '4': 1, '5': 8, '10': 'autoJoinRooms'},
+  ],
+};
+
+/// Descriptor for `CreateSpaceCommand`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List createSpaceCommandDescriptor = $convert.base64Decode(
+    'ChJDcmVhdGVTcGFjZUNvbW1hbmQSEgoEbmFtZRgBIAEoCVIEbmFtZRIbCglpc19wdWJsaWMYAi'
+    'ABKAhSCGlzUHVibGljEiYKD2F1dG9fam9pbl9yb29tcxgDIAEoCFINYXV0b0pvaW5Sb29tcw==');
+
+@$core.Deprecated('Use createRoomCommandDescriptor instead')
+const CreateRoomCommand$json = {
+  '1': 'CreateRoomCommand',
+  '2': [
+    {'1': 'name', '3': 1, '4': 1, '5': 9, '10': 'name'},
+    {'1': 'parent_space_id', '3': 2, '4': 1, '5': 9, '10': 'parentSpaceId'},
+  ],
+};
+
+/// Descriptor for `CreateRoomCommand`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List createRoomCommandDescriptor = $convert.base64Decode(
+    'ChFDcmVhdGVSb29tQ29tbWFuZBISCgRuYW1lGAEgASgJUgRuYW1lEiYKD3BhcmVudF9zcGFjZV'
+    '9pZBgCIAEoCVINcGFyZW50U3BhY2VJZA==');
+
+@$core.Deprecated('Use updateSpaceCommandDescriptor instead')
+const UpdateSpaceCommand$json = {
+  '1': 'UpdateSpaceCommand',
+  '2': [
+    {'1': 'space_id', '3': 1, '4': 1, '5': 9, '10': 'spaceId'},
+    {'1': 'name', '3': 2, '4': 1, '5': 9, '10': 'name'},
+    {'1': 'is_public', '3': 3, '4': 1, '5': 8, '10': 'isPublic'},
+    {'1': 'auto_join_rooms', '3': 4, '4': 1, '5': 8, '10': 'autoJoinRooms'},
+  ],
+};
+
+/// Descriptor for `UpdateSpaceCommand`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List updateSpaceCommandDescriptor = $convert.base64Decode(
+    'ChJVcGRhdGVTcGFjZUNvbW1hbmQSGQoIc3BhY2VfaWQYASABKAlSB3NwYWNlSWQSEgoEbmFtZR'
+    'gCIAEoCVIEbmFtZRIbCglpc19wdWJsaWMYAyABKAhSCGlzUHVibGljEiYKD2F1dG9fam9pbl9y'
+    'b29tcxgEIAEoCFINYXV0b0pvaW5Sb29tcw==');
+
+@$core.Deprecated('Use spaceTreeDescriptor instead')
+const SpaceTree$json = {
+  '1': 'SpaceTree',
+  '2': [
+    {
+      '1': 'space',
+      '3': 1,
+      '4': 3,
+      '5': 11,
+      '6': '.gcs.chat.SpaceRecord',
+      '10': 'space'
+    },
+    {
+      '1': 'room',
+      '3': 2,
+      '4': 3,
+      '5': 11,
+      '6': '.gcs.chat.RoomRecord',
+      '10': 'room'
+    },
+  ],
+};
+
+/// Descriptor for `SpaceTree`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List spaceTreeDescriptor = $convert.base64Decode(
+    'CglTcGFjZVRyZWUSKwoFc3BhY2UYASADKAsyFS5nY3MuY2hhdC5TcGFjZVJlY29yZFIFc3BhY2'
+    'USKAoEcm9vbRgCIAMoCzIULmdjcy5jaGF0LlJvb21SZWNvcmRSBHJvb20=');

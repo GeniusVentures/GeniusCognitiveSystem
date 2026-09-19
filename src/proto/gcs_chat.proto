@@ -97,8 +97,8 @@ message GcsEvent {
 
 // Authoritative persistent space entity record. This proto type IS the C++ half
 // (D-01/D-02): C++ stamps id/timestamps/tombstone; Dart renders. Stored as the
-// value bytes under gcs/entities/spaces/<id>. Name is mutable display metadata;
-// id is identity.
+// value bytes under `gcs/entities/spaces/<id>`. Name is mutable display
+// metadata; id is identity.
 message SpaceRecord {
   string id = 1;             // opaque C++-minted id (D-01)
   string name = 2;
@@ -112,7 +112,7 @@ message SpaceRecord {
 
 // Authoritative persistent room entity record. C++ stamps id/timestamps/
 // tombstone; Dart renders. Stored as the value bytes under
-// gcs/entities/rooms/<id>. Topic is derived: gcs/chat/<id>.
+// `gcs/entities/rooms/<id>`. Topic is derived: `gcs/chat/<id>`.
 message RoomRecord {
   string id = 1;             // opaque C++-minted id (D-01)
   string name = 2;
