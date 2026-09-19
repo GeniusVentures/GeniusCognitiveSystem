@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: GCS Chat
 status: executing
-stopped_at: Completed 02-01-PLAN.md (EntityStore + proto + tests)
-last_updated: "2026-09-19T19:12:23.992Z"
+stopped_at: Completed 02-02-PLAN.md (FFI entity dispatch + SpaceTree push + derived joins)
+last_updated: "2026-09-19T19:20:32.416Z"
 last_activity: 2026-09-19
 progress:
   total_phases: 7
   completed_phases: 1
   total_plans: 16
-  completed_plans: 12
+  completed_plans: 13
   percent: 14
 ---
 
@@ -26,11 +26,11 @@ See: .planning/workstreams/app/PROJECT.md (updated 2026-08-15)
 ## Current Position
 
 Phase: 02 (Spaces & Rooms) — EXECUTING
-Plan: 2 of 5
+Plan: 3 of 5
 Status: Ready to execute
 Last activity: 2026-09-19
 
-Progress: [████████░░] 75%
+Progress: [████████░░] 81%
 
 ## Performance Metrics
 
@@ -53,6 +53,7 @@ Progress: [████████░░] 75%
 
 *Updated after each plan completion*
 | Phase 02 P01 | 9min | 3 tasks | 6 files |
+| Phase 02 P02 | 5min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -71,6 +72,9 @@ Recent decisions affecting current work:
 - [Phase 02]: EntityStore rejections reuse Error::GcsDbError — no NotFound code added; FFI arms do INVALID_ARGUMENT validation first
 - [Phase 02]: UpdateSpace preserves created_at_ms + tombstone state from stored record; full-state rewrite otherwise
 - [Phase 02]: Tombstoned records stay in-memory (hidden by readers) so IsValidParentSpace keeps returning false
+- [Phase 02]: FFI entity arms validate first (empty name / unknown parent / empty space_id -> INVALID_ARGUMENT before any Put); store failures surface as GENERIC with the entity name in the raw error string
+- [Phase 02]: create_space pushes SpaceTree only (new space has no rooms); create_room/update_space run RefreshDerivedJoins before pushing so SpaceTree + RoomList stay consistent in one publish
+- [Phase 02]: Derived-join projection — failed topic registration keeps the topic out of g_roomTopics; toggle-false removes from projection only while pubsub stays sticky (no Remove*Topic API, Pitfall 4)
 
 ### Pending Todos
 
@@ -90,6 +94,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-19T19:12:23.985Z
-Stopped at: Completed 02-01-PLAN.md (EntityStore + proto + tests)
+Last session: 2026-09-19T19:20:32.408Z
+Stopped at: Completed 02-02-PLAN.md (FFI entity dispatch + SpaceTree push + derived joins)
 Resume file: None
