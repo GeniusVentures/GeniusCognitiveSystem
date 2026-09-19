@@ -152,6 +152,12 @@ class _DialogForm extends ChangeNotifier {
   /// Whether the inline empty-name error is showing.
   bool _showNameError = false;
 
+  /// One-shot confirm guard: a held Enter key (key-repeat on
+  /// [TextFormField.onFieldSubmitted]) or a fast Enter-then-tap can invoke
+  /// [submit] twice before the route finishes popping -- without the guard
+  /// each invocation publishes another command (WR-04).
+  bool _submitHandled = false;
+
   /// Dialog title per mode (UI-SPEC copy table).
   String get dialogTitle {
     switch (mode) {
@@ -256,8 +262,13 @@ class _DialogForm extends ChangeNotifier {
 
   /// Confirm (UI-SPEC behavior contract): empty name -> inline error and
   /// no publish; valid name -> publish and close immediately; refused
-  /// publish -> error toast, dialog stays open for a retry.
+  /// publish -> error toast, dialog stays open for a retry. Exactly one
+  /// publish per confirm -- re-entrant invocations (Enter key-repeat,
+  /// Enter-then-tap) are ignored (WR-04).
   void submit(BuildContext context) {
+    if (_submitHandled) {
+      return;
+    }
     final String name = nameController.text.trim();
     if (name.isEmpty) {
       _showNameError = true;
@@ -274,6 +285,7 @@ class _DialogForm extends ChangeNotifier {
       );
       return;
     }
+    _submitHandled = true;
     // Close immediately -- no spinner, no waiting for the SpaceTree push.
     Navigator.of(context).pop();
   }

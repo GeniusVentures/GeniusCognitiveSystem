@@ -255,4 +255,24 @@ void main() {
     await tester.pump(const Duration(seconds: 5));
     await tester.pump(const Duration(milliseconds: 300));
   });
+
+  testWidgets('DoubleConfirmPublishesExactlyOnce', (WidgetTester tester) async {
+    final _RecordingTransport transport = _RecordingTransport();
+    await _openDialog(
+      tester,
+      transport: transport,
+      mode: SpaceRoomDialogMode.createFromHeader,
+    );
+
+    await tester.enterText(find.byType(TextFormField), 'Design');
+    await tester.pump();
+    // Re-entrancy (WR-04): a fast Enter-then-tap fires submit twice before
+    // the route finishes popping -- exactly one command may publish.
+    await tester.tap(find.text('Create space'));
+    await tester.tap(find.text('Create space'));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(transport.commands, hasLength(1));
+    expect(find.byType(BottomDrawer), findsNothing);
+  });
 }
