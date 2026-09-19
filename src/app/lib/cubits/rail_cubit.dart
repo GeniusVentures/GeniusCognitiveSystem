@@ -139,6 +139,10 @@ class RailCubit extends Cubit<RailState> {
   /// and each [RoomRecord] to a [RailRoom]; rooms with a non-empty
   /// [RoomRecord.parentSpaceId] are grouped under the matching space in
   /// pushed order, rooms with an empty parent become standalone (D-01).
+  /// A room whose parent id matches NO pushed space (e.g. a tombstoned
+  /// parent -- C++ Spaces() skips it while Rooms() keeps the live room)
+  /// also degrades to standalone: documented graceful fallback so a live
+  /// room is never dropped from the rail entirely.
   /// Never touches the joined view (`rooms`/`activeRoom`) -- RoomList
   /// pushes keep driving those via [setRooms].
   void setTree(List<SpaceRecord> spaces, List<RoomRecord> rooms) {
