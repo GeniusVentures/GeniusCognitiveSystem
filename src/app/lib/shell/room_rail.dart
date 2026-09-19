@@ -145,6 +145,15 @@ class _RoomRailState extends State<RoomRail> {
   /// The populated tree: space nodes, then the standalone Rooms section
   /// (hidden entirely while empty -- no empty-section noise).
   Widget _buildTree(BuildContext context, RailState rail, ScaffoldDimens dimens) {
+    // Prune collapse state for spaces absent from the pushed tree (IN-02):
+    // stale ids would otherwise accumulate for the whole session lifetime
+    // (ids are unique per creation, so they never come back). Safe to mutate
+    // mid-build without setState -- a pruned key cannot affect this frame
+    // because its space is not rendering.
+    _collapsedSpaceIds.removeWhere(
+      (String id, bool collapsed) =>
+          !rail.spaces.any((RailSpace space) => space.id == id),
+    );
     final ScaffoldPalette palette = context.palette;
     return ListView(
       children: <Widget>[
