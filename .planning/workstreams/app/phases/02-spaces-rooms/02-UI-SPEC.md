@@ -1,10 +1,11 @@
 ---
 phase: 2
 slug: spaces-rooms
-status: draft
+status: approved
 shadcn_initialized: false
 preset: none
 created: 2026-09-19
+reviewed_at: 2026-09-19
 ---
 
 # Phase 2 — UI Design Contract
