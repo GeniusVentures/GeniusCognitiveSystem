@@ -75,7 +75,12 @@ extern "C"
      * list is non-empty.
      *
      * Thread-safe via global mutex; idempotent — when a session already exists
-     * its handle is returned again. Returns NULL on failure (invalid arguments,
+     * its handle is returned again and configBytes is IGNORED: the first
+     * successful call's configuration (db path, codec) stays bound to the
+     * single global session for its lifetime, so a second call passing a
+     * different config silently keeps the first session (IN-05; documented
+     * behavior, correct for the single-session Dart lifecycle). Returns NULL
+     * on failure (invalid arguments,
      * config parse failure, unsupported codec, or initialization failure). Null
      * configBytes is invalid.
      *
