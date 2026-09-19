@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: GCS Chat
-status: executing
-stopped_at: Completed 02-02-PLAN.md (FFI entity dispatch + SpaceTree push + derived joins)
-last_updated: "2026-09-19T19:39:20.386Z"
+status: verifying
+stopped_at: Completed 02-05-PLAN.md (phase 02 final plan — rail tree; phase complete, ready for verification)
+last_updated: "2026-09-19T19:48:25.436Z"
 last_activity: 2026-09-19
 progress:
   total_phases: 7
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 16
-  completed_plans: 15
-  percent: 14
+  completed_plans: 16
+  percent: 29
 ---
 
 # Project State
@@ -27,10 +27,10 @@ See: .planning/workstreams/app/PROJECT.md (updated 2026-08-15)
 
 Phase: 02 (Spaces & Rooms) — EXECUTING
 Plan: 5 of 5
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-09-19
 
-Progress: [█████████░] 94%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -56,6 +56,7 @@ Progress: [█████████░] 94%
 | Phase 02 P02 | 5min | 2 tasks | 2 files |
 | Phase 02 P03 | 3min | 3 tasks | 7 files |
 | Phase 02 P04 | 2min | 2 tasks | 3 files |
+| Phase 02 P05 | 3min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -82,6 +83,8 @@ Recent decisions affecting current work:
 - [Phase ?]: Phase 02 P04: dialog form state lives in a private _DialogForm ChangeNotifier shared by the children/footer subtrees (ResponsiveDrawer.show mounts them separately; one State cannot rebuild both); disposal rides the drawer's onClose
 - [Phase ?]: Phase 02 P04: dialog confirm disables only on raw-empty name; whitespace-only stays enabled so the inline 'Enter a name.' validation is reachable
 - [Phase ?]: Phase 02 P04: dialog title is static per open (atom title is a String); createFromHeader opens as 'New space' on the default type — hint and confirm label flip live with the selector
+- [Phase 02 P05]: Rail expansion state is a view-local collapsed-ids map (absent = expanded) on RoomRail — new spaces default open, keyed by id so expansion survives setTree full replacements; never enters RailState
+- [Phase 02 P05]: One _TreeRoomRow serves nested + standalone rows (leadingInset parameter); standalone rows are permanently dimmed emergently (never in the pushed RoomList in Phase 2), and unjoined gating layers ScaffoldPressable(disabled) over the selectRoom joined-only guard (T-02-11)
 
 ### Pending Todos
 
@@ -101,6 +104,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-19T19:39:20.379Z
-Stopped at: Completed 02-02-PLAN.md (FFI entity dispatch + SpaceTree push + derived joins)
+Last session: 2026-09-19T19:48:25.429Z
+Stopped at: Completed 02-05-PLAN.md (phase 02 final plan — rail tree; phase complete, ready for verification)
 Resume file: None
