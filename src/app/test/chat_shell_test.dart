@@ -3,11 +3,13 @@
 ///
 /// Pumps the real [GCSChat] three-region shell with cubits injected (no FFI:
 /// the session cubit is inert, readiness toggled through a test subclass).
-/// Proves: rail + flow + composer render; the pushed room list renders rail
-/// rows; rail selection projects onto the composer (active-room hint); the
-/// composer stays disabled until session readiness; appended flow items
-/// render; the send affordance publishes a send_text envelope for the active
-/// room through the transport seam.
+/// Proves: rail + flow + composer render; the pushed SpaceTree renders the
+/// rail tree (loading skeleton before the first push, no-spaces CTA, private
+/// badge, nested + standalone sections, joined/unjoined row dimming); rail
+/// selection projects onto the composer (active-room hint); the composer
+/// stays disabled until session readiness; appended flow items render; the
+/// send affordance publishes a send_text envelope for the active room
+/// through the transport seam.
 ///
 /// Cubits are constructed INSIDE each test body (never `setUp`): cubit
 /// streams are async broadcast controllers, and only cubits created in the
@@ -28,6 +30,8 @@ import 'package:flutter_app/generated/proto/gcs_chat.pb.dart';
 import 'package:flutter_app/shell/gcs_shell.dart';
 import 'package:flutter_app/shell/room_rail.dart';
 import 'package:flutter_app/theme/gcs_theme.dart';
+import 'package:frontend_scaffold/components/scaffold_pressable.dart';
+import 'package:frontend_scaffold/components/scaffold_state_view.dart';
 
 /// Inert [SessionCubit] the test can flip to ready (no bindings = no FFI).
 class _ReadyableSessionCubit extends SessionCubit {
@@ -65,6 +69,30 @@ Future<void> _pumpUntil(
   }
 }
 
+/// Seeds the rail with one space ('ops') holding the named rooms as its
+/// children, then marks every room joined via the RoomList path (Phase 2:
+/// rows render from the pushed SpaceTree; tappability derives from the
+/// pushed RoomList, never local computation).
+void _seedJoinedRooms(RailCubit rail, List<String> roomNames) {
+  rail.setTree(
+    <SpaceRecord>[
+      SpaceRecord()
+        ..id = 'space-1'
+        ..name = 'ops',
+    ],
+    <RoomRecord>[
+      for (final String name in roomNames)
+        RoomRecord()
+          ..id = name
+          ..name = name
+          ..parentSpaceId = 'space-1',
+    ],
+  );
+  rail.setRooms(<String>[
+    for (final String name in roomNames) 'gcs/chat/$name',
+  ]);
+}
+
 void main() {
   testWidgets('shell renders rail + flow + composer', (
     WidgetTester tester,
@@ -100,11 +128,16 @@ void main() {
     expect(find.byType(RoomRail), findsOneWidget);
     expect(find.byType(ChatMessageFlow), findsOneWidget);
     expect(find.byType(GCSChat), findsOneWidget);
-    // Empty rail renders the scaffold empty state, not a hardcoded list.
-    expect(find.text('No rooms yet'), findsOneWidget);
+    // Pre-tree rail renders the toolbar + loading skeleton, not a hardcoded
+    // room list (treeReceived flag, D-02).
+    expect(find.text('Spaces'), findsOneWidget);
+    expect(
+      tester.widget<ScaffoldStateView>(find.byType(ScaffoldStateView)).state,
+      'loading',
+    );
   });
 
-  testWidgets('pushed room list renders rail rows (D-21)', (
+  testWidgets('pushed tree + room list render rail rows (D-02/D-21)', (
     WidgetTester tester,
   ) async {
     final RailCubit rail = RailCubit();
@@ -134,7 +167,7 @@ void main() {
       ),
     );
 
-    rail.setRooms(<String>['gcs/chat/smoke-test', 'gcs/chat/smoke-test-2']);
+    _seedJoinedRooms(rail, <String>['smoke-test', 'smoke-test-2']);
     await tester.pump();
 
     expect(find.text('smoke-test'), findsOneWidget);
@@ -172,7 +205,7 @@ void main() {
       ),
     );
 
-    rail.setRooms(<String>['gcs/chat/smoke-test', 'gcs/chat/smoke-test-2']);
+    _seedJoinedRooms(rail, <String>['smoke-test', 'smoke-test-2']);
     await tester.pump();
 
     expect(find.text('Select a room to start messaging'), findsOneWidget);
@@ -218,7 +251,7 @@ void main() {
       ),
     );
 
-    rail.setRooms(<String>['gcs/chat/smoke-test']);
+    _seedJoinedRooms(rail, <String>['smoke-test']);
     await tester.pump();
     await tester.tap(find.text('smoke-test'));
     await tester.pump();
@@ -307,7 +340,7 @@ void main() {
       ),
     );
 
-    rail.setRooms(<String>['gcs/chat/smoke-test', 'gcs/chat/smoke-test-2']);
+    _seedJoinedRooms(rail, <String>['smoke-test', 'smoke-test-2']);
     await tester.pump();
     await tester.tap(find.text('smoke-test-2'));
     await _pumpUntil(tester, () => composer.state.activeRoom != null);
@@ -336,4 +369,281 @@ void main() {
     );
     expect(transport.commands.single.sendText.text, 'hello from the shell');
   });
+
+  testWidgets('rail shows the loading skeleton until the first SpaceTree push', (
+    WidgetTester tester,
+  ) async {
+    final RailCubit rail = RailCubit();
+    final MessageFlowCubit flow = MessageFlowCubit();
+    final _ReadyableSessionCubit session = _ReadyableSessionCubit(
+      railCubit: rail,
+      messageFlowCubit: flow,
+    );
+    final ComposerCubit composer = ComposerCubit(
+      transport: _RecordingTransport(),
+      railCubit: rail,
+    );
+    addTearDown(composer.close);
+    addTearDown(session.close);
+    addTearDown(flow.close);
+    addTearDown(rail.close);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: GcsTheme.light,
+        home: GCSChat(
+          sessionCubit: session,
+          railCubit: rail,
+          messageFlowCubit: flow,
+          composerCubit: composer,
+        ),
+      ),
+    );
+
+    // Fresh rail (treeReceived false): skeleton, never the empty state.
+    expect(find.byType(ScaffoldStateView), findsOneWidget);
+    expect(
+      tester.widget<ScaffoldStateView>(find.byType(ScaffoldStateView)).state,
+      'loading',
+    );
+    // The toolbar (and its create affordance) stays visible while loading.
+    expect(find.text('Spaces'), findsOneWidget);
+    expect(find.bySemanticsLabel('Create space or room'), findsOneWidget);
+  });
+
+  testWidgets('empty catalog shows the no-spaces empty state with CTA', (
+    WidgetTester tester,
+  ) async {
+    final RailCubit rail = RailCubit();
+    final MessageFlowCubit flow = MessageFlowCubit();
+    final _ReadyableSessionCubit session = _ReadyableSessionCubit(
+      railCubit: rail,
+      messageFlowCubit: flow,
+    );
+    final ComposerCubit composer = ComposerCubit(
+      transport: _RecordingTransport(),
+      railCubit: rail,
+    );
+    addTearDown(composer.close);
+    addTearDown(session.close);
+    addTearDown(flow.close);
+    addTearDown(rail.close);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: GcsTheme.light,
+        home: GCSChat(
+          sessionCubit: session,
+          railCubit: rail,
+          messageFlowCubit: flow,
+          composerCubit: composer,
+        ),
+      ),
+    );
+
+    rail.setTree(<SpaceRecord>[], <RoomRecord>[]);
+    await tester.pump();
+
+    expect(find.text('No spaces yet'), findsOneWidget);
+    expect(
+      find.text(
+        'Spaces organize your rooms. Create your first space to get started.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Create space'), findsOneWidget);
+  });
+
+  testWidgets('private space renders the Private badge, public space none', (
+    WidgetTester tester,
+  ) async {
+    final RailCubit rail = RailCubit();
+    final MessageFlowCubit flow = MessageFlowCubit();
+    final _ReadyableSessionCubit session = _ReadyableSessionCubit(
+      railCubit: rail,
+      messageFlowCubit: flow,
+    );
+    final ComposerCubit composer = ComposerCubit(
+      transport: _RecordingTransport(),
+      railCubit: rail,
+    );
+    addTearDown(composer.close);
+    addTearDown(session.close);
+    addTearDown(flow.close);
+    addTearDown(rail.close);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: GcsTheme.light,
+        home: GCSChat(
+          sessionCubit: session,
+          railCubit: rail,
+          messageFlowCubit: flow,
+          composerCubit: composer,
+        ),
+      ),
+    );
+
+    rail.setTree(
+      <SpaceRecord>[
+        SpaceRecord()
+          ..id = 'space-priv'
+          ..name = 'ops'
+          ..isPublic = false,
+        SpaceRecord()
+          ..id = 'space-pub'
+          ..name = 'eng'
+          ..isPublic = true,
+      ],
+      <RoomRecord>[],
+    );
+    await tester.pump();
+
+    expect(find.text('ops'), findsOneWidget);
+    expect(find.text('eng'), findsOneWidget);
+    // Exactly one badge: the private space only (privacy is signaled by
+    // exception).
+    expect(find.text('Private'), findsOneWidget);
+  });
+
+  testWidgets('nested and standalone rooms render under their sections', (
+    WidgetTester tester,
+  ) async {
+    final RailCubit rail = RailCubit();
+    final MessageFlowCubit flow = MessageFlowCubit();
+    final _ReadyableSessionCubit session = _ReadyableSessionCubit(
+      railCubit: rail,
+      messageFlowCubit: flow,
+    );
+    final ComposerCubit composer = ComposerCubit(
+      transport: _RecordingTransport(),
+      railCubit: rail,
+    );
+    addTearDown(composer.close);
+    addTearDown(session.close);
+    addTearDown(flow.close);
+    addTearDown(rail.close);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: GcsTheme.light,
+        home: GCSChat(
+          sessionCubit: session,
+          railCubit: rail,
+          messageFlowCubit: flow,
+          composerCubit: composer,
+        ),
+      ),
+    );
+
+    rail.setTree(
+      <SpaceRecord>[
+        SpaceRecord()
+          ..id = 'space-1'
+          ..name = 'ops',
+      ],
+      <RoomRecord>[
+        RoomRecord()
+          ..id = 'room-1'
+          ..name = 'general'
+          ..parentSpaceId = 'space-1',
+        RoomRecord()
+          ..id = 'room-2'
+          ..name = 'lounge',
+      ],
+    );
+    await tester.pump();
+
+    // Nested room under the (default-expanded) space; standalone room under
+    // the Rooms section header.
+    expect(find.text('general'), findsOneWidget);
+    expect(find.text('lounge'), findsOneWidget);
+    expect(find.text('Rooms'), findsOneWidget);
+
+    // No standalone rooms -> the Rooms section hides entirely.
+    rail.setTree(
+      <SpaceRecord>[
+        SpaceRecord()
+          ..id = 'space-1'
+          ..name = 'ops',
+      ],
+      <RoomRecord>[
+        RoomRecord()
+          ..id = 'room-1'
+          ..name = 'general'
+          ..parentSpaceId = 'space-1',
+      ],
+    );
+    await tester.pump();
+    expect(find.text('Rooms'), findsNothing);
+    expect(find.text('general'), findsOneWidget);
+  });
+
+  testWidgets(
+    'unjoined room rows are disabled until the RoomList joins them (D-04)',
+    (WidgetTester tester) async {
+      final RailCubit rail = RailCubit();
+      final MessageFlowCubit flow = MessageFlowCubit();
+      final _ReadyableSessionCubit session = _ReadyableSessionCubit(
+        railCubit: rail,
+        messageFlowCubit: flow,
+      );
+      final ComposerCubit composer = ComposerCubit(
+        transport: _RecordingTransport(),
+        railCubit: rail,
+      );
+      addTearDown(composer.close);
+      addTearDown(session.close);
+      addTearDown(flow.close);
+      addTearDown(rail.close);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: GcsTheme.light,
+          home: GCSChat(
+            sessionCubit: session,
+            railCubit: rail,
+            messageFlowCubit: flow,
+            composerCubit: composer,
+          ),
+        ),
+      );
+
+      rail.setTree(
+        <SpaceRecord>[
+          SpaceRecord()
+            ..id = 'space-1'
+            ..name = 'ops',
+        ],
+        <RoomRecord>[
+          RoomRecord()
+            ..id = 'room-1'
+            ..name = 'general'
+            ..parentSpaceId = 'space-1',
+        ],
+      );
+      await tester.pump();
+
+      ScaffoldPressable roomRow() => tester.widget<ScaffoldPressable>(
+        find
+            .ancestor(
+              of: find.text('general'),
+              matching: find.byType(ScaffoldPressable),
+            )
+            .first,
+      );
+      // Catalog-but-not-joined: dimmed + non-tappable (T-02-11).
+      expect(roomRow().disabled, isTrue);
+
+      // The joined push un-dims the row (criterion-3 observable).
+      rail.setRooms(<String>['gcs/chat/room-1']);
+      await tester.pump();
+      expect(roomRow().disabled, isFalse);
+
+      // The un-dimmed row selects through the normal tap path.
+      await tester.tap(find.text('general'));
+      await _pumpUntil(tester, () => rail.state.activeRoom != null);
+      expect(rail.state.activeRoom, 'gcs/chat/room-1');
+    },
+  );
 }
