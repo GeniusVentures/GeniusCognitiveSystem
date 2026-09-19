@@ -101,6 +101,15 @@ namespace
     /// ("msg-<wallclock-ms>-<random-token>-<seq>" carries two: a revert to a
     /// bare per-process counter carries none and revisits prior key space).
     constexpr int kMinIdSaltSeparators = 2;
+    /// Entity id prefixes (mirror gcs_entity_store.cpp kSpace/kRoomIdPrefix).
+    constexpr const char kSpaceIdPrefix[] = "space-";
+    constexpr const char kRoomIdPrefix[]  = "room-";
+    /// Derived room-topic prefix (D-01: gcs/chat/<room-id>).
+    constexpr const char kRoomTopicPrefix[] = "gcs/chat/";
+    /// Space name created in the entity persistence test.
+    constexpr const char kSpaceName[] = "ops";
+    /// Room name created inside kSpaceName.
+    constexpr const char kRoomName[] = "general";
     /// GossipPubSub bind address for the verification store.
     constexpr const char kListenIp[] = "0.0.0.0";
 
@@ -297,6 +306,55 @@ namespace gcs::test
         }
 
         /**
+         * @brief gcs_init against dbPath with the protobuf codec (D-29).
+         *
+         * @param[in] dbPath Persistent CRDT store path.
+         * @return Session handle, or nullptr when gcs_init failed.
+         */
+        GcsSession *InitSession( const std::string &dbPath )
+        {
+            gcs::chat::GcsConfig config;
+            config.set_db_path( dbPath );
+            config.set_codec( gcs::chat::CODEC_PROTOBUF );
+            const std::string configBytes = config.SerializeAsString();
+            return gcs_init( reinterpret_cast<const uint8_t *>( configBytes.data() ),
+                             configBytes.size() );
+        }
+
+        /**
+         * @brief Drains the pushed-event log; reports the latest SpaceTree.
+         *
+         * gcs_ffi posts synchronously under its own mutex, so every push from
+         * the preceding publishes/subscribe is already buffered when this
+         * runs — no wait needed.
+         *
+         * \param[out] outEvents Every drained event parsed, in push order
+         *                       (ordering assertions inspect this).
+         * \param[out] outTree   The latest (last-pushed) SpaceTree seen.
+         * @return true when at least one SpaceTree event was drained.
+         */
+        bool TakeLatestSpaceTree( std::vector<gcs::chat::GcsEvent> &outEvents,
+                                  gcs::chat::SpaceTree &outTree )
+        {
+            bool found = false;
+            for ( const std::string &eventBytes : g_pushedEvents.Take() )
+            {
+                gcs::chat::GcsEvent event;
+                if ( !event.ParseFromString( eventBytes ) )
+                {
+                    continue;
+                }
+                outEvents.push_back( event );
+                if ( event.has_space_tree() )
+                {
+                    outTree = event.space_tree();
+                    found   = true;
+                }
+            }
+            return found;
+        }
+
+        /**
          * @brief Stand up a real GossipPubSub on an ephemeral port for the
          *        verification store (mirrors test_gcs_core_smoke.cpp).
          *
@@ -417,5 +475,110 @@ namespace gcs::test
 
         verifyDb.Shutdown();
         pubsub->Stop();
+    }
+
+    /**
+     * @brief Phase 2 entity flow through the real ABI: create_space +
+     *        create_room mutate the catalog and push SpaceTree; the room in
+     *        the autoJoin space derives into the pushed RoomList (D-04); the
+     *        whole catalog survives a full init/shutdown cycle on the SAME
+     *        db_path (restart persistence, criterion 4 — Pitfall 6: shutdown
+     *        between cycles so the second gcs_init is a true restart).
+     */
+    TEST_F( GcsFfiSdk, CreateSpaceAndRoomPersistAcrossSessionCyclesOnSharedDb )
+    {
+        ASSERT_TRUE( InstallFakeApiDlTable() ) << "gcs_ffi rejected the fake Dart API_DL table";
+
+        const char *initPath = GeniusSDKInit( m_tempPath.c_str(), kDevConfig );
+        if ( initPath == nullptr )
+        {
+            GTEST_SKIP() << "GeniusSDKInit could not boot a node in this environment (option C)";
+        }
+        m_sdkStarted = true;
+
+        const std::string dbPath = m_tempPath + "/db";
+        std::string       spaceId;
+        std::string       roomId;
+
+        // Cycle A: create the space, then the room inside it.
+        GcsSession *handleA = InitSession( dbPath );
+        ASSERT_NE( handleA, nullptr ) << "SDK is up but gcs_init cycle A failed";
+        ASSERT_EQ( gcs_subscribe( handleA, kEventTopic, kFakeDartPort ), GCS_OK );
+
+        gcs::chat::GcsCommand createSpace;
+        createSpace.mutable_create_space()->set_name( kSpaceName );
+        createSpace.mutable_create_space()->set_is_public( true );
+        createSpace.mutable_create_space()->set_auto_join_rooms( true );
+        PublishCommand( handleA, createSpace );
+
+        std::vector<gcs::chat::GcsEvent> eventsA;
+        gcs::chat::SpaceTree             treeA;
+        ASSERT_TRUE( TakeLatestSpaceTree( eventsA, treeA ) ) << "create_space pushed no SpaceTree";
+        ASSERT_EQ( treeA.space_size(), 1 );
+        spaceId = treeA.space( 0 ).id();
+        EXPECT_EQ( spaceId.rfind( kSpaceIdPrefix, 0 ), 0 ) << "space id lost its prefix";
+        EXPECT_EQ( treeA.space( 0 ).name(), kSpaceName );
+        EXPECT_TRUE( treeA.space( 0 ).auto_join_rooms() );
+
+        gcs::chat::GcsCommand createRoom;
+        createRoom.mutable_create_room()->set_name( kRoomName );
+        createRoom.mutable_create_room()->set_parent_space_id( spaceId );
+        PublishCommand( handleA, createRoom );
+
+        eventsA.clear();
+        ASSERT_TRUE( TakeLatestSpaceTree( eventsA, treeA ) ) << "create_room pushed no SpaceTree";
+        ASSERT_EQ( treeA.space_size(), 1 );
+        ASSERT_EQ( treeA.room_size(), 1 );
+        roomId = treeA.room( 0 ).id();
+        EXPECT_EQ( roomId.rfind( kRoomIdPrefix, 0 ), 0 ) << "room id lost its prefix";
+        EXPECT_EQ( treeA.room( 0 ).name(), kRoomName );
+        EXPECT_EQ( treeA.room( 0 ).parent_space_id(), spaceId );
+
+        // Derived join (D-04): a RoomList pushed after the SpaceTree carrying
+        // the room must contain the room's derived topic gcs/chat/<room-id>.
+        const std::string derivedTopic = std::string( kRoomTopicPrefix ) + roomId;
+        bool sawTreeCarryingRoom       = false;
+        bool roomListCarriesDerived    = false;
+        for ( const gcs::chat::GcsEvent &event : eventsA )
+        {
+            if ( event.has_space_tree() && event.space_tree().room_size() == 1 )
+            {
+                sawTreeCarryingRoom = true;
+            }
+            if ( sawTreeCarryingRoom && event.has_room_list() )
+            {
+                for ( const std::string &topic : event.room_list().room_topic() )
+                {
+                    if ( topic == derivedTopic )
+                    {
+                        roomListCarriesDerived = true;
+                    }
+                }
+            }
+        }
+        EXPECT_TRUE( sawTreeCarryingRoom ) << "create_room pushed no SpaceTree carrying the room";
+        EXPECT_TRUE( roomListCarriesDerived ) << "derived join topic '" << derivedTopic
+                                              << "' missing from the pushed RoomList";
+
+        gcs_shutdown( handleA );
+
+        // Cycle B: reopen the SAME db_path — the catalog must survive restart.
+        GcsSession *handleB = InitSession( dbPath );
+        ASSERT_NE( handleB, nullptr ) << "SDK is up but gcs_init cycle B failed";
+        ASSERT_EQ( gcs_subscribe( handleB, kEventTopic, kFakeDartPort ), GCS_OK );
+
+        std::vector<gcs::chat::GcsEvent> eventsB;
+        gcs::chat::SpaceTree             treeB;
+        ASSERT_TRUE( TakeLatestSpaceTree( eventsB, treeB ) )
+            << "subscribe pushed no SpaceTree after restart";
+        ASSERT_EQ( treeB.space_size(), 1 );
+        ASSERT_EQ( treeB.room_size(), 1 );
+        EXPECT_EQ( treeB.space( 0 ).id(), spaceId );
+        EXPECT_EQ( treeB.space( 0 ).name(), kSpaceName );
+        EXPECT_EQ( treeB.room( 0 ).id(), roomId );
+        EXPECT_EQ( treeB.room( 0 ).name(), kRoomName );
+        EXPECT_EQ( treeB.room( 0 ).parent_space_id(), spaceId );
+
+        gcs_shutdown( handleB );
     }
 } // namespace gcs::test
