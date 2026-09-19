@@ -50,6 +50,9 @@ message GcsCommand {
   oneof payload {
     JoinTopicCommand join_topic = 1;
     SendTextCommand send_text = 2;
+    CreateSpaceCommand create_space = 3;
+    CreateRoomCommand create_room = 4;
+    UpdateSpaceCommand update_space = 5;
   }
 }
 
@@ -86,5 +89,75 @@ message GcsEvent {
     RoomList room_list = 2;
     Readiness readiness = 3;
     ErrorNotice error = 4;
+    SpaceTree space_tree = 5;
   }
+}
+
+// === Phase 2: Spaces & Rooms (append-only additions — D-24/D-26) ===
+
+// Authoritative persistent space entity record. This proto type IS the C++ half
+// (D-01/D-02): C++ stamps id/timestamps/tombstone; Dart renders. Stored as the
+// value bytes under gcs/entities/spaces/<id>. Name is mutable display metadata;
+// id is identity.
+message SpaceRecord {
+  string id = 1;             // opaque C++-minted id (D-01)
+  string name = 2;
+  bool is_public = 3;
+  bool auto_join_rooms = 4;  // D-04 derived-join source of truth
+  int64 created_at_ms = 5;   // wall-clock ms (same stamp as ChatMessageState)
+  int64 updated_at_ms = 6;
+  bool deleted = 7;          // D-03 tombstone fields, present from creation,
+  int64 deleted_at_ms = 8;   // set by NO Phase 2 command
+}
+
+// Authoritative persistent room entity record. C++ stamps id/timestamps/
+// tombstone; Dart renders. Stored as the value bytes under
+// gcs/entities/rooms/<id>. Topic is derived: gcs/chat/<id>.
+message RoomRecord {
+  string id = 1;             // opaque C++-minted id (D-01)
+  string name = 2;
+  string parent_space_id = 3; // empty = standalone (D-01 unified room model)
+  int64 created_at_ms = 4;    // wall-clock ms (same stamp as ChatMessageState)
+  int64 updated_at_ms = 5;
+  bool deleted = 6;           // D-03 tombstone fields, present from creation,
+  int64 deleted_at_ms = 7;    // set by NO Phase 2 command
+}
+
+// Manifest of known entity ids (D-02). Value bytes under gcs/index/manifest.
+// Exists because GcsGlobalDb has no enumeration/prefix query. Writers follow a
+// read-union-write convention (append-only membership); readers skip ids whose
+// record is missing or tombstoned.
+message EntityManifest {
+  repeated string space_id = 1;
+  repeated string room_id = 2;
+}
+
+// Data-only create command (D-27: data-only; C++ stamps authority — the id,
+// timestamps, and tombstone fields never come from Dart).
+message CreateSpaceCommand {
+  string name = 1;
+  bool is_public = 2;
+  bool auto_join_rooms = 3;
+}
+
+// Data-only create command (D-27: data-only; C++ stamps authority).
+message CreateRoomCommand {
+  string name = 1;
+  string parent_space_id = 2; // empty = standalone
+}
+
+// Data-only edit command (D-27: data-only; C++ stamps authority). Full desired
+// state, never a patch (per-key LWW replaces the whole value).
+message UpdateSpaceCommand {
+  string space_id = 1;
+  string name = 2;
+  bool is_public = 3;
+  bool auto_join_rooms = 4;
+}
+
+// Pushed entity-catalog event (D-02): FLAT records — Dart builds the tree.
+// Reuses the same record protos stored in the KV values (one type, no drift).
+message SpaceTree {
+  repeated SpaceRecord space = 1;
+  repeated RoomRecord room = 2;
 }
