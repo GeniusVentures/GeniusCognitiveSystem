@@ -200,14 +200,20 @@ void GcsGlobalDb::Shutdown() noexcept {
     return;
   }
 
-  if (m_db) {
-    m_db->ShutdownNow(); // idempotent per GlobalDB contract
-  }
+  // Quiesce the io thread BEFORE ShutdownNow: ShutdownNow destroys the
+  // GlobalDB's graphsync (PubSubBroadcasterExt -> GraphsyncDAGSyncer ->
+  // GraphsyncImpl) and its mutexes; with the io thread still servicing
+  // handlers, a destroyed mutex gets locked and the noexcept destructor
+  // chain terminates the process (EINVAL system_error — SIGABRT on macOS
+  // app quit, crash reports 2026-09-19 16:51/16:55/16:58).
   if (m_io) {
     m_io->stop();
   }
   if (m_ioThread.joinable()) {
     m_ioThread.join();
+  }
+  if (m_db) {
+    m_db->ShutdownNow(); // idempotent per GlobalDB contract
   }
   m_db.reset();
   m_generator.reset();
