@@ -30,6 +30,7 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <cstdlib>
 #include <cstring>
 #include <filesystem>
 #include <limits>
@@ -74,7 +75,9 @@ namespace
                                                    // eviction; guarded by g_mutex)
     bool g_sdkBootedHere = false;                  // gcs_init booted the embedded GeniusSDK node —
                                                    // pairs that boot with GeniusSDKShutdown in
-                                                   // gcs_shutdown (guarded by g_mutex)
+                                                   // TeardownSessionAndNode (guarded by g_mutex)
+    bool g_exitHookRegistered = false;             // std::atexit pairing hook registered once per
+                                                   // process (written only under g_mutex)
     std::atomic<int64_t> g_dartPort{ 0 };          // registered Dart port (0 = unregistered)
     std::atomic<uint64_t> g_messageSeq{ 0 };       // in-process component of the message id (CR-01)
     // One-shot guard for the per-process Dart API_DL table state check in gcs_init
@@ -106,6 +109,52 @@ namespace
             basePath = ".";
         }
         return basePath;
+    }
+
+    /**
+     * \brief Tears the global session and the embedded node down (no lock).
+     *
+     * Single teardown body shared by gcs_shutdown (under g_mutex) and the
+     * exit-time pairing hook (unlocked — see EnsureSdkBooted). Port first so
+     * nothing posts into a dying Dart VM, then the session, then the node —
+     * but only the node this library booted: an externally booted node (host
+     * harness) outlives the session and is not ours to tear down. Safe to
+     * call repeatedly: every arm checks its own guard.
+     *
+     * Callers must hold g_mutex OR be the process-exit path (the exit hook
+     * runs after the Dart threads are gone; taking the mutex there could
+     * wedge forever on a thread that died mid-call — the same unlocked
+     * precedent the C++ test fixtures' TearDown sets).
+     */
+    void TeardownSessionAndNode()
+    {
+        // Quiesce the node BEFORE tearing down the session. GcsGlobalDb
+        // borrows the node's pubsub and shared graphsync Network (D-17), so
+        // the session's ShutdownNow() destructor chain unsubscribes from the
+        // node's pubsub and closes node-owned peer streams. Running that
+        // chain while the node's threads are still live (pubsub reactor,
+        // io threads, consensus timer) races destruction against concurrent
+        // callbacks — a destroyed mutex gets locked and the noexcept
+        // ~GraphsyncImpl terminates the process (EINVAL system_error —
+        // SIGABRT on macOS app quit, crash report 2026-09-19 19:11).
+        // GeniusSDKShutdown() runs ~GeniusNode's coordinated stop first; the
+        // borrowed objects stay alive for the session teardown because the
+        // shared Network owns shared_ptrs to the host and scheduler.
+        if ( g_sdkBootedHere )
+        {
+            g_sdkBootedHere = false;
+            GeniusSDKShutdown();
+        }
+        if ( g_session != nullptr )
+        {
+            g_dartPort = 0; // unregister the port BEFORE teardown
+            g_session->Shutdown();
+            g_session.reset();
+            g_roomTopics.clear();
+            g_derivedTopics.clear();
+            g_explicitTopics.clear();
+            g_entities.reset();
+        }
     }
 
     /**
@@ -157,6 +206,25 @@ namespace
         g_sdkBootedHere = true;
         spdlog::info( "gcs_ffi: booted embedded GeniusSDK node under '{}' (child wallet created when none present)",
                       basePathString );
+        // Exit-time pairing for that boot. A macOS app quit never runs the
+        // Dart dispose path (NSApplication terminate: goes straight through
+        // exit()), so gcs_shutdown is never called and the SDK's static
+        // shared_ptr<GeniusNode> destructor destroys a STILL-RUNNING node at
+        // exit — ~GeniusNode throws with its worker threads alive and the
+        // process dies with SIGABRT (crash report 2026-09-19). Registering
+        // here (at gcs_init, later than the dylib-load-time static
+        // destructor) means LIFO runs this hook FIRST, while the process
+        // world is intact; the static destructor afterwards sees an empty
+        // shared_ptr. One registration per process — the hook re-checks the
+        // pairing flag when it actually fires.
+        if ( !g_exitHookRegistered )
+        {
+            g_exitHookRegistered = ( std::atexit( &TeardownSessionAndNode ) == 0 );
+            if ( !g_exitHookRegistered )
+            {
+                spdlog::error( "gcs_ffi: std::atexit registration failed — quitting the host app will crash at exit" );
+            }
+        }
         return true;
     }
 
@@ -749,22 +817,9 @@ extern "C"
 
         if ( g_session != nullptr && reinterpret_cast<gcs::CoreSession*>( session ) == g_session.get() )
         {
-            g_dartPort = 0; // unregister the port BEFORE teardown
-            g_session->Shutdown();
-            g_session.reset();
-            g_roomTopics.clear();
-            g_derivedTopics.clear();
-            g_explicitTopics.clear();
-            g_entities.reset();
-
-            // Pair the boot from gcs_init: shut the embedded node down only
-            // when this library booted it — an externally booted node (host
-            // harness) outlives the session and is not ours to tear down.
-            if ( g_sdkBootedHere )
-            {
-                GeniusSDKShutdown();
-                g_sdkBootedHere = false;
-            }
+            // Shared teardown body — also pairs the gcs_init boot: the
+            // embedded node goes down only when this library booted it.
+            TeardownSessionAndNode();
         }
     }
 } // extern "C"
