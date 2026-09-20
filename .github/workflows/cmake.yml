@@ -8,6 +8,9 @@ on:
     paths-ignore:
       - ".github/**"
       - "Readme.md"
+      - "docs/**"
+      - ".planning/**"
+      - "llms-meta.json"
   pull_request:
     branches:
       - develop
@@ -15,6 +18,9 @@ on:
     paths-ignore:
       - ".github/**"
       - "Readme.md"
+      - "docs/**"
+      - ".planning/**"
+      - "llms-meta.json"
   workflow_dispatch:
     inputs:
       tag:
@@ -124,8 +130,104 @@ jobs:
           echo "windows=$(pick_runner   'SG-WIN11'        "$SH_WINDOWS"   "$FB_WINDOWS")" >> "$GITHUB_OUTPUT"
           echo "mac=$(pick_runner       'gv-OSX-Large'    "$SH_MAC"       "$FB_MAC")"     >> "$GITHUB_OUTPUT"
 
+  docs-gate:
+    # Docs-only pushes skip the build matrix; deploy.yaml (Deploy documentation)
+    # owns those changes. paths-ignore can't see inside a submodule, so a
+    # docs-only pin bump (e.g. GNUS-NEO-SWARM .planning/ doc commits) is
+    # detected here by diffing each moved gitlink's range. Anything unevaluable
+    # (PRs, dispatch, force-push) or containing any non-docs file builds.
+    runs-on: ubuntu-latest
+    outputs:
+      docs_only: ${{ steps.check.outputs.docs_only }}
+    steps:
+      - name: Check out superproject (full history, no submodules)
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          fetch-depth: 0
+      - name: Detect docs-only push
+        id: check
+        # continue-on-error: a dead gate must never kill the matrix — an
+        # unwritten output reads as '' and the build job still runs.
+        continue-on-error: true
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+        shell: bash
+        run: |
+          set -uo pipefail
+          # No -e: every path funnels into the single docs_only write at the end, and an
+          # unexpected failure must not fail the job (the build job's if reads only the
+          # output value; a failed gate step would skip the matrix via the needs graph).
+
+          docs_only=true
+
+          # Only pushes with a usable before-SHA can be evaluated; everything else
+          # (PRs, dispatch, force-push/new branch) builds.
+          if [ "$EVENT_NAME" != "push" ] \
+             || [ -z "$BEFORE" ] \
+             || [ "$BEFORE" = "0000000000000000000000000000000000000000" ] \
+             || ! git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+            docs_only=false
+          fi
+
+          if [ "$docs_only" = "true" ]; then
+            submodules="$(git ls-files --stage | awk '$1 == "160000" {print $4}')"
+            files="$(git diff --name-only "$BEFORE" "$AFTER")"
+            if [ -z "$files" ]; then
+              docs_only=false   # unexplainable diff — build
+            fi
+
+            # Superproject files outside the docs surface force a build. The docs
+            # surface: docs/, .planning/, llms-meta.json, Readme.md. (.github/ changes
+            # are intentionally NOT docs — mixed workflow+docs pushes build.)
+            super_files="$(printf '%s\n' "$files" | grep -v -x -F -f <(printf '%s\n' "$submodules") || true)"
+            if printf '%s\n' "$super_files" \
+               | grep -Ev '^(docs/|\.planning/)' \
+               | grep -Ev '^(llms-meta\.json|Readme\.md)$' \
+               | grep -q .; then
+              docs_only=false
+            fi
+          fi
+
+          # A moved gitlink only skips the build when the submodule's own diff is
+          # docs-only too (paths-ignore cannot see inside a submodule).
+          if [ "$docs_only" = "true" ]; then
+            while IFS= read -r sub; do
+              [ -n "$sub" ] || continue
+              old_pin="$(git rev-parse "$BEFORE:$sub" 2>/dev/null || true)"
+              new_pin="$(git rev-parse "$AFTER:$sub" 2>/dev/null || true)"
+              if [ -z "$old_pin" ] || [ -z "$new_pin" ] || [ "$old_pin" = "$new_pin" ]; then
+                # Submodule added/removed in this range → build; pin unmoved → fine.
+                if [ -z "$old_pin" ] || [ -z "$new_pin" ]; then
+                  docs_only=false
+                fi
+                continue
+              fi
+              git submodule update --init --depth 1 "$sub" || true
+              if ! git -C "$sub" fetch --depth 1 origin "$old_pin" 2>/dev/null; then
+                if ! git -C "$sub" fetch origin "$old_pin"; then
+                  docs_only=false   # cannot inspect the range — build
+                  continue
+                fi
+              fi
+              sub_files="$(git -C "$sub" diff --name-only "$old_pin" "$new_pin" 2>/dev/null || true)"
+              if grep -Ev '^(\.planning/|docs/)' <<<"$sub_files" \
+                 | grep -Ev '^(Readme\.md|README\.md)$' \
+                 | grep -q .; then
+                docs_only=false
+              fi
+            done <<<"$submodules"
+          fi
+
+          echo "docs_only=$docs_only" >> "$GITHUB_OUTPUT"
+          exit 0
+
   build:
-    needs: resolve-runners
+    needs: [resolve-runners, docs-gate]
+    # Skip the whole matrix on docs-only pushes (see docs-gate). An empty
+    # docs-gate output (gate died mid-flight) reads as not-'true' → build.
+    if: needs.docs-gate.outputs.docs_only != 'true'
     env:
       GRPC_BUILD_ENABLE_CCACHE: "ON"
       GH_TOKEN: ${{ secrets.GNUS_TOKEN_1 }}
