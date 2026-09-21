@@ -1,11 +1,11 @@
 ---
 phase: 02-spaces-rooms
-fixed_at: 2026-09-19T20:45:00Z
+fixed_at: 2026-09-21T22:25:48Z
 review_path: .planning/workstreams/app/phases/02-spaces-rooms/02-REVIEW.md
-iteration: 1
-findings_in_scope: 11
-fixed: 9
-skipped: 2
+iteration: 2
+findings_in_scope: 5
+fixed: 4
+skipped: 1
 status: partial
 ---
 
@@ -165,6 +165,110 @@ writer; concurrent sessions can lose entries; manifest ids grow forever.
 
 ---
 
-_Fixed: 2026-09-19T20:45:00Z_
+# Phase 02: Code Review Fix Report — Iteration 2
+
+**Fixed at:** 2026-09-21T22:25:48Z
+**Source review:** .planning/workstreams/app/phases/02-spaces-rooms/02-REVIEW.md
+(re-review commit `12b09f7`: 0 Critical / 1 Warning / 4 Info)
+**Iteration:** 2 (--all scope)
+
+**Summary:**
+- Findings in scope: 5 (WR-05, IN-03, IN-06, IN-08, IN-09)
+- Fixed: 4 (one atomic commit each, `fix(02): <ID> <description>`)
+- Deferred by instruction: 1 (IN-06 — recorded in deferred-items.md, no code change)
+
+Fixes were applied and committed in an isolated worktree (branch
+`gsd-reviewfix/02-68567`, fast-forwarded to `develop`):
+`dd718b1`, `548e7e8`, `545b692`, `2864865`.
+
+**Verification evidence (final state, on `develop`):**
+- C++: `ninja -C build/OSX/Debug` clean; `ctest --test-dir build/OSX/Debug
+  -R "gcs" -E "test_gcs_global_db_sdk"` — 6/6 binaries green. Direct run of
+  `--gtest_filter='*OverLength*'` confirms both regression tests executed
+  (not option-C skipped).
+- Dart: `cd src/app && flutter test` — 47 passed, 1 skipped (unchanged
+  baseline; IN-03 extended an existing test rather than adding one).
+
+## Fixed Issues (iteration 2)
+
+### WR-05: Name-length cap counts bytes (C++) vs characters (Dart)
+
+**Files modified:** `src/ffi/gcs_core_ffi.cpp`, `test/test_gcs_ffi_sdk.cpp`
+**Commit:** dd718b1
+**Applied fix:** Added `Utf8CodePointCount` (counts non-`0b10xxxxxx`
+continuation bytes) in the FFI anonymous namespace; all three name-cap arms
+(create_space/create_room/update_space) now count Unicode code points, keeping
+the 64-unit cap equivalent to the Dart dialog's character-based
+`kMaxNameLength`. The constant's comment no longer claims a raw byte mirror.
+Regression coverage extended in `OverLengthNamesRejectedAcrossCreateArms`: a
+22-CJK-code-point name (66 UTF-8 bytes — sub-cap in code points, over-cap in
+bytes) must be accepted and appear in the pushed SpaceTree, while 65 CJK code
+points stay rejected; the ASCII 64/65 boundary assertions are unchanged.
+Classification note: logic-unit fix — semantics verified by the regression
+test above, which fails against the pre-fix byte count.
+
+### IN-03: Dialog title stays "New space" when the type selector flips to "Standalone room"
+
+**Files modified:** `src/app/lib/shell/space_room_dialog.dart`,
+`src/app/test/shell/space_room_dialog_test.dart`,
+`.planning/.../02-UI-SPEC.md` (copy table, uncommitted — orchestrator commit)
+**Commit:** 548e7e8 (code + test)
+**Applied fix:** Owner-approved type-neutral copy: the header-launch
+`dialogTitle` is now `'New'`, correct for both selector states; the
+skip-decision comment at the call site was replaced with the rationale, and
+the UI-SPEC copy table row now specifies the type-neutral title (supersedes
+the per-type "New space"/"New room" rows). No test previously asserted "New
+space"; `CreateStandaloneRoomPublishesEmptyParent` now asserts the title
+stays 'New' after flipping the selector.
+
+### IN-08: `send_text.text` and topic strings remain unbounded at the FFI boundary
+
+**Files modified:** `src/ffi/gcs_core_ffi.cpp`, `test/test_gcs_ffi_sdk.cpp`
+**Commit:** 545b692
+**Applied fix:** Added named constexpr bounds in the entity-name-constant
+style: `kMaxTopicLength = 128` bytes (join_topic and send_text `room_topic`;
+topics are ASCII by construction — derived topics are `gcs/chat/` + entity id,
+~60 bytes max, so the cap always admits minted topics) and
+`kMaxMessageTextLength = 4096` bytes (send_text `text`; documented as a
+transport-size bound, not a character contract). Over-length values are
+rejected with `PostErrorNotice` + `GCS_ERROR_INVALID_ARGUMENT`, mirroring the
+WR-01 rejection shape. New regression test
+`OverLengthTopicAndTextRejectedInMessagingArms`: over-length topic (join and
+send arms) and over-length text are rejected with the pushed ErrorNotices
+observed, while exactly-boundary values are accepted (128-byte topic joins,
+4096-byte text publishes and echoes).
+
+### IN-09: Library-resolution error copy misleads when `GCS_FFI_LIBRARY` is set to a bad path
+
+**Files modified:** `src/app/lib/cubits/session_cubit.dart`
+**Commit:** 2864865
+**Applied fix:** `openDefault` reads the env value alongside
+`_resolveLibraryPath`; when resolution fails while `GCS_FFI_LIBRARY` is
+non-empty (which by construction means the configured file does not exist),
+the initial error names the path: `gcs_ffi library not found at <path> (check
+GCS_FFI_LIBRARY)`. The set-the-variable copy now appears only when the
+variable is genuinely unset. Not unit-tested: `openDefault` short-circuits to
+the inert session under the Flutter test harness (`FLUTTER_TEST=true`) before
+any resolution runs, and a Dart test process cannot mutate
+`Platform.environment` at runtime — driving this path requires a real process
+env (integration run), out of scope for a minimal fix.
+
+## Deferred Issues (iteration 2)
+
+### IN-06: Manifest convention is lost-update-prone and grows unboundedly
+
+**File:** `src/lib/gcs_entity_store.cpp:55-102`
+**Reason:** Deferred by owner instruction (accepted forward-looking Phase 3
+territory: "local-restart persistence only this phase"). Manifest versioning,
+per-entity index keys, and tombstone GC are multi-writer-era architectural
+work. Now durably recorded in
+`.planning/workstreams/app/phases/02-spaces-rooms/deferred-items.md` so it
+reaches Phase 3 planning independently of this report.
+**Original issue:** Read-union-write on `gcs/index/manifest` assumes a single
+writer; concurrent sessions can lose entries; manifest ids grow forever.
+
+---
+
+_Fixed: 2026-09-21T22:25:48Z_
 _Fixer: Claude (gsd-code-fixer)_
-_Iteration: 1_
+_Iteration: 2_

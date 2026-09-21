@@ -80,6 +80,12 @@ two new minor Info items were found in the fresh pass.
 
 #### WR-05: Name-length cap counts bytes (C++) vs characters (Dart) — non-ASCII names dead-end
 
+**Status (fix pass 2):** FIXED — commit `dd718b1`. The cap now counts UTF-8 code points
+(`Utf8CodePointCount`) in all three arms; the constant's comment documents the
+code-point semantic. Regression coverage extended in
+`OverLengthNamesRejectedAcrossCreateArms`: a 22-CJK-code-point name (66 bytes) is
+accepted, 65 CJK code points stay rejected, ASCII 64 boundary unchanged.
+
 **File:** `src/ffi/gcs_core_ffi.cpp:53-56, 680-684, 709-713, 747-751`; `src/app/lib/shell/space_room_dialog.dart:59, 382`
 **Issue:** The WR-01 fix mirrors the Dart cap as `kMaxEntityNameLength = 64` counted via
 `name().size()` — UTF-8 **bytes**. The Dart dialog enforces `maxLength: kMaxNameLength`
@@ -122,6 +128,11 @@ chars = 66 bytes, 22 code points → accepted under code points, rejected under 
 
 #### IN-03: Dialog title stays "New space" when the type selector flips to "Standalone room" (carried, still present)
 
+**Status (fix pass 2):** FIXED (owner-approved type-neutral copy) — commit `548e7e8`.
+The header-launch title is now "New", correct for both type-selector states; the
+UI-SPEC copy table row was updated to match, and the widget test pins the title after
+flipping to Standalone room.
+
 **File:** `src/app/lib/shell/space_room_dialog.dart:105-108, 173-182`
 **Issue:** Unchanged behavior from the prior review: `title: form.dialogTitle` is computed
 once at open (`createFromHeader` -> "New space") while the hint and confirm label flip
@@ -137,6 +148,10 @@ vs type-flipping selector vs type-neutral copy) so it survives this phase's arti
 
 #### IN-06: Manifest convention is lost-update-prone and grows unboundedly (carried, still present — accepted)
 
+**Status (fix pass 2):** DEFERRED by owner (Phase 3 territory, no code change this
+phase) — now durably tracked in `deferred-items.md` (this phase's artifacts) instead of
+only REVIEW-FIX.md.
+
 **File:** `src/lib/gcs_entity_store.cpp:55-102`
 **Issue:** Unchanged from the prior review: read-union-write on `gcs/index/manifest`
 assumes a single writer; concurrent sessions can lose entries, and manifest ids accumulate
@@ -147,6 +162,12 @@ this phase; carrying so it reaches Phase 3 planning.
 keys; prune ids whose records are tombstoned past a GC horizon.
 
 #### IN-08: `send_text.text` and topic strings remain unbounded at the FFI boundary (new)
+
+**Status (fix pass 2):** FIXED — commit `545b692`. Named bounds `kMaxTopicLength`
+(128 bytes, join_topic + send_text room_topic) and `kMaxMessageTextLength` (4096
+bytes, send_text text) reject with `PostErrorNotice` + `GCS_ERROR_INVALID_ARGUMENT`;
+regression test `OverLengthTopicAndTextRejectedInMessagingArms` covers rejections,
+pushed ErrorNotices, and boundary acceptance.
 
 **File:** `src/ffi/gcs_core_ffi.cpp:589-670`
 **Issue:** WR-01 closed the trust-boundary gap only for entity display names. The
@@ -160,6 +181,10 @@ rejected with `GCS_ERROR_INVALID_ARGUMENT` + `PostErrorNotice`, mirroring the WR
 (and count bytes for topics, which are ASCII by construction).
 
 #### IN-09: Library-resolution error copy misleads when `GCS_FFI_LIBRARY` is set to a bad path (new)
+
+**Status (fix pass 2):** FIXED — commit `2864865`. `openDefault` now reports
+`'gcs_ffi library not found at <path> (check GCS_FFI_LIBRARY)'` when the env var is
+set but its file is absent, keeping the set-the-variable copy only for the unset case.
 
 **File:** `src/app/lib/cubits/session_cubit.dart:157-163, 202-219`
 **Issue:** `_resolveLibraryPath` treats "env var set but file absent" the same as "env var
