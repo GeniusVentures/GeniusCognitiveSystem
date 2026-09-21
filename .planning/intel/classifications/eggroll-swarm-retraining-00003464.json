@@ -1,0 +1,32 @@
+{
+  "source_path": "/Users/Shared/SSDevelopment/Development/GeniusVentures/GeniusNetwork/GeniusCogntiveSystem/docs/architecture/eggroll-swarm-retraining.md",
+  "type": "SPEC",
+  "confidence": "medium",
+  "manifest_override": false,
+  "title": "19. EGGROLL Swarm Retraining Architecture",
+  "summary": "Defines an EGGROLL-style evolutionary swarm retraining layer for GeniusCognitiveSystem: deterministic perturbation reconstruction, compact fitness packets, beehive-local aggregation, and reputation-gated promotion.",
+  "scope": [
+    "EGGROLL swarm retraining",
+    "GeniusCognitiveSystem",
+    "expert adapters",
+    "Expert Judgment Models (EJMs)",
+    "deterministic perturbation reconstruction",
+    "fitness packets",
+    "beehives",
+    "GNUS processing rooms",
+    "IPFS-lite artifact distribution",
+    "libp2p pub/sub coordination",
+    "gRPC result transport",
+    "reputation system",
+    "canonical decision corpus",
+    "distillation views",
+    "StateShard / BranchShard",
+    "router and routing EJM",
+    "safety and governance policy hashes",
+    "canary promotion"
+  ],
+  "cross_refs": [],
+  "locked": false,
+  "precedence": null,
+  "notes": "Ambiguity resolved per precedence rule: architecture chapter mixes design-rationale prose (DOC lean) with normative technical content. SPEC signals dominate — fitness packet JSON schema, required training-job fields, Distillation View Manifest identity list, seed derivation function, shard data models, hierarchical aggregation flow, phased rollout plan. No ADR hallmarks (no Status field, no Decision/Consequences sections), so not locked; no user-story language, so not PRD. No markdown links or doc-path mentions found, hence empty cross_refs."
+}

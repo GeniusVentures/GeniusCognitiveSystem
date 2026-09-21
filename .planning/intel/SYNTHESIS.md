@@ -1,91 +1,62 @@
 # Synthesis Summary
 
-**Generated:** 2026-07-19 | **Mode:** merge
-**Source:** `docs/architecture/` (29 documents)
+**Generated:** 2026-09-21 | **Mode:** merge (app workstream: .planning/workstreams/app/)
+**Source:** docs/architecture/ — 30 classified docs (27 top-level, 2 decisions/ ADRs, 1 exploratory/)
+**Purpose of this ingest (user):** find gaps and changes to planning and roadmap vs the current app workstream. Bias: gap/change detection, not wholesale re-description.
+**Supersedes:** the 2026-07-19 synthesis (all-DOC manifest typing, no typed intel extracted).
 
 ## Doc Counts by Type
 
-| Type | Count |
-|------|-------|
-| DOC  | 29    |
-| ADR  | 0     |
-| SPEC | 0     |
-| PRD  | 0     |
+- ADR: 2 (both LOCKED, high confidence)
+- SPEC: 17 (all medium confidence, unlocked)
+- DOC: 11 (all medium confidence, unlocked)
+- PRD: 0 | UNKNOWN: 0
 
-All 29 documents classified as DOC with high confidence.
+16 of 30 docs were refreshed 2026-09-21 (the Expert Model generalization pass: secure-agent, objective-memory-vtg, model-and-router, local-cognitive-second-brain, frozen-mtp, executive-summary, execution-integrity, epistemic, eggroll, distributed-swarm-thinking, context-lifecycle, cognitive-retaining, cognitive-evolution-control, capability-system, agentic-memory-layer, agent-module-inventory). 2 more on 2026-09-17 (system-overview, speculative-decoding). Older generation: ADRs 2026-07-28; sgfp4/openai-api/forecast 2026-07-19; roadmap-and-risks, reputation-consensus, grounding, future-and-positioning, execution-and-performance, ai-safety 2026-06-28; sloth-integration 2026-06-13.
 
-## Architecture Chapters (26 substantive + 3 index)
+## Decisions Locked (2)
 
-Index documents: SUMMARY.md, SUMMARY_EXT.md, README.md
+- D-ADR-01 Embeddable GCS SDK and Modular Native Build — docs/architecture/decisions/adr-embeddable-sdk-and-modular-build.md
+- D-ADR-02 Runtime Component Ownership Boundaries — docs/architecture/decisions/adr-runtime-component-ownership.md
 
-Substantive chapters:
-1. Executive Summary -- system identity, objectives, cognitive architecture, component roles
-2. System Architecture Overview -- layered stack, GNUS component mapping (Compute, Distributed, Security)
-3. Model Architecture and Router Design -- Semantic Core, ELMs (role-based + domain-specific), Router Layer
-4. Reputation-Based Consensus -- data model, weighted updates, swarm execution flow, Byzantine tolerance
-5. Grounding and Retrieval -- Grokipedia, retrieval pipeline, validation, private knowledge grounding
-6. GAML (Agentic Memory Layer) -- structured memory, Cognitive Asset model, privacy scopes, replication
-7. Execution and Performance -- four execution modes, performance targets, execution strategy principles
-8. Execution Roadmap and Risk Analysis -- 4-phase roadmap, 7 risks with mitigations
-9. Future Compatibility and Strategic Positioning -- Latent World Model Core compatibility
-10. AI Safety Philosophy -- decentralized multi-layer safety, safety profiles, no centralized gateway
-11. Distributed Swarm Thinking Context -- 5-layer architecture, specialists, routing, thinking traces
-12. Context Lifecycle, Caching, and Governance -- context-efficiency contract, Context Compiler, Prefix Cache
-13. Secure Agent Architecture -- PTDS with layers, Tool Intermediary, trust tiers, higher/lower-trust memory
-14. EGGROLL Swarm Retraining -- deterministic perturbation reconstruction, beehives, fitness packets
-15. Targeted Retraining and HCTS -- cognitive resistance layer, bias-aware reasoning, cognitive twin
-16. Epistemic Arbitration and Cognitive OS -- GQHSM, Sanskrit epistemology, Kripke modal reasoning, plugins
-17. SGFP4 Adaptive Quantization Format -- 64x64 macroblocks, FP4_AFFINE/T158_AFFINE, GPU decode
-18. Objective Memory and VTG -- verified cognitive execution substrate, transition edges, candidate frontiers
-19. Speculative Decoding and VTG -- micro-speculation, drafter variants, confidence scheduler
-20. Frozen Micro-MTP and VTG -- edge inference, multi-token prediction heads on frozen backbones
-21. OpenAI-Compatible API Router and GCS Job Queue -- API translation, signed queue jobs, streaming
-22. Local Cognitive Second Brain Mode -- private local operation, GAML + ELMs + EGGROLL
-23. Forecast-Driven Cognition -- anticipatory cognition engine, predictive prefetching
-24. Execution Integrity System (EIS) -- execution contracts, checkpoint-band matching, teacher-forced spot-checks
-25. GCS Capability System -- capability contracts, MCP connector adapter, capability routing
-26. Agent and Module Development Inventory -- implementation inventory, deployment profiles, workstreams
+Complementary; no LOCKED-vs-LOCKED contradiction; no conflict with app workstream context (no locked decisions there). Detail: intel/decisions.md.
 
-## Decisions Locked
+## Requirements Extracted (6 derived groups; 0 PRDs)
 
-0 -- no ADR-type documents in this ingest.
+No PRD-type docs. Derived from SPEC acceptance/implementation sections, all variants preserved per source:
+REQ-context-lifecycle (15 MUSTs + 15 acceptance), REQ-openai-api-mvp (19 acceptance + 9 open questions), REQ-capability-system (10), REQ-forecast-cognition (12), REQ-second-brain (8), REQ-secure-agent-targets (5). Detail: intel/requirements.md.
 
-## Requirements Extracted
+## Constraints (17)
 
-0 -- no PRD-type documents in this ingest.
+Type breakdown: schema 8 (agent-inventory, agentic-memory, context-lifecycle, forecast, frozen-mtp, objective-memory-vtg, sgfp4, speculative-decoding), api-contract 4 (capability-system, epistemic, openai-api-router, secure-agent), protocol 4 (cognitive-evolution-control, eggroll, execution-integrity, reputation-consensus), nfr 1 (ai-safety). One self-declared draft (EIS). Detail: intel/constraints.md.
 
-## Constraints
+## Context Topics (11)
 
-0 -- no SPEC-type documents in this ingest.
-
-## Context Topics
-
-28 topics covering the full GCS architecture landscape. See `.planning/intel/context.md` for detail.
+executive-summary, system-overview, model-and-router, grounding, execution-and-performance, future-and-positioning, distributed-swarm-thinking-context, cognitive-retaining-system, local-cognitive-second-brain, roadmap-and-risks (legacy-flagged), sloth-integration (exploratory). Detail: intel/context.md.
 
 ## Conflicts
 
-| Bucket | Count |
-|--------|-------|
-| BLOCKERS (unresolved) | 0 |
-| WARNINGS (competing-variants) | 0 |
-| INFO (auto-resolved) | 3 |
+- BLOCKERS: 0
+- WARNINGS (competing variants / user must pick): 3 — cross-ref cycles (downgraded from process-default BLOCKER, rationale in report), competing roadmap framings, GCSB-04 ELM-vs-Expert-Model terminology
+- INFO (auto-resolved / recorded): 6
 
-**Cycles:** 3 cross-reference cycles detected (all DOC type, informational only):
-- `sgfp4-format` <-> `model-and-router`
-- `sgfp4-format` <-> `system-overview`
-- `frozen-mtp-and-vtg` <-> `speculative-decoding-and-vtg`
+Report: /Users/Shared/SSDevelopment/Development/GeniusVentures/GeniusNetwork/GeniusCogntiveSystem/.planning/INGEST-CONFLICTS.md
 
-**Conflicts report:** `.planning/INGEST-CONFLICTS.md`
+## Gap/Change Findings vs App Workstream Planning (for gsd-roadmapper)
+
+Directly affects the app workstream:
+1. GCSB-04 / ROADMAP Phase 6 criterion 4 use superseded ELM-only routing language; refreshed model-and-router.md specifies capability-first Expert Model (ELM/EJM/EDM) selection, rule-based MVP router, and calls existing IELM code a migration compatibility path. WARNING 3.
+2. LOCKED ADR-01 gaps vs completed Phase 1: neoswarm_ffi still a pubspec dependency; packages/{gcs_client,gcs_chat,gcs_native}, include/gcs/, and the per-module src split do not exist yet. ADR-01's consequences direct migration, not removal. INFO 2.
+3. ADR-01 already governs the app's native boundary and is consistent with Phase 1 work (gcs_ffi C ABI, D-26 push-not-pull); no rework implied.
+
+System-level content with no app-workstream counterpart (candidate separate workstreams/milestones, not v1.0 chat scope): OpenAI-compatible API router + GCS job queue (8-phase MVP + open questions), GCS Capability System (10 requirements), Context Lifecycle/Caching (15 MUSTs), GAML v1, Objective Memory/VTG (6 phases), Speculative Decoding (6 phases), Frozen Micro-MTP (5 phases), EGGROLL retraining (5 phases), Forecast-Driven Cognition (5 phases), EIS (draft), Epistemic Arbitration/Cognitive OS, Local Cognitive Second Brain, reputation/consensus, secure agent architecture, agent/module inventory.
+
+Roadmap framing decision required (WARNING 2): legacy 4-phase roadmap-and-risks.md vs per-topic rollout plans in refreshed SPECs vs the 7-phase app roadmap. Recommendation encoded in the report: mark roadmap-and-risks.md superseded; keep app roadmap as the execution roadmap; treat per-topic plans as system-level workstream inputs.
 
 ## Per-Type Intel Files
 
-| File | Contents |
-|------|----------|
-| `.planning/intel/context.md` | 28 topics extracted from 29 DOC documents |
-| `.planning/intel/decisions.md` | Empty (no ADRs) |
-| `.planning/intel/requirements.md` | Empty (no PRDs) |
-| `.planning/intel/constraints.md` | Empty (no SPECs) |
-
-## Merge Mode Notes
-
-Existing `.planning/` files are for the unrelated `doc-template` workstream (a documentation template project). The `.planning/intel/cross-submodule-capabilities.md` file from a previous ingest is consistent with this synthesis. No conflicts or contradictions with existing context.
+- intel/decisions.md — 2 LOCKED ADRs + non-ADR decision-flavored items
+- intel/requirements.md — 6 derived requirement groups + gap notes vs app REQUIREMENTS.md
+- intel/constraints.md — 17 SPEC entries with type, status, and provenance
+- intel/context.md — 11 DOC topics with supersession flags
+- intel/cross-submodule-capabilities.md — prior-run (2026-07-18) artifact, left in place, consistent with this run

@@ -1,0 +1,28 @@
+{
+  "source_path": "/Users/Shared/SSDevelopment/Development/GeniusVentures/GeniusNetwork/GeniusCogntiveSystem/docs/architecture/exploratory/sloth-integration.md",
+  "type": "DOC",
+  "confidence": "medium",
+  "manifest_override": false,
+  "title": "sloth-integration",
+  "summary": "Exploratory analysis recommending Unsloth for the Genius training stack's LoRA-based Teacher-Parent-Specialist distillation, FP4 quantized training, adapter export, and EGGROLL swarm retraining integration.",
+  "scope": [
+    "Unsloth",
+    "LoRA adapters",
+    "Teacher-Parent-Specialist distillation",
+    "FP4 Ultra quantization",
+    "TurboQuant",
+    "EGGROLL swarm retraining",
+    "FastLanguageModel",
+    "adapter merging",
+    "GFP4 macroblock codec",
+    "surprise-gated memory",
+    "Mixture of Experts",
+    "GeniusLLM",
+    "DeepSpeed",
+    "CRDT consensus"
+  ],
+  "cross_refs": [],
+  "locked": false,
+  "precedence": null,
+  "notes": "Contains an informal 'Verdict: Integrate Unsloth' recommendation and code snippets, which superficially resemble ADR/SPEC signals; however it has no Status field, no Context/Decision/Consequences structure, lives under docs/architecture/exploratory/, and reads as exploratory design rationale — resolved to DOC."
+}

@@ -1,18 +1,18 @@
 {
   "source_path": "/Users/Shared/SSDevelopment/Development/GeniusVentures/GeniusNetwork/GeniusCogntiveSystem/docs/architecture/openai-compatible-api-router-and-gcs-job-queue.md",
-  "type": "DOC",
-  "confidence": "high",
-  "manifest_override": true,
+  "type": "SPEC",
+  "confidence": "medium",
+  "manifest_override": false,
   "title": "26 OpenAI-Compatible API Router and GCS Job Queue Architecture",
-  "summary": "Specification for an OpenAI-compatible API router that translates OpenAI API calls into signed GNUS.ai distributed queue jobs, preserving the p2p architecture while providing a familiar developer API surface.",
+  "summary": "Technical specification for an OpenAI-compatible API router that translates API calls into signed GCS API request jobs executed on the GNUS.ai democratized p2p queue.",
   "scope": [
     "OpenAI-compatible API Router",
-    "GCS Job Queue",
-    "API Request Jobs",
+    "GCS API Request Jobs",
     "Processing Chunk Jobs",
-    "Streaming Proxy",
+    "GCS Job Queue",
+    "Streaming SSE Proxy",
     "Node Registration",
-    "Claim/Lease Semantics",
+    "Claim and Lease Semantics",
     "Cloudflare Edge",
     "GCS Gateway Node",
     "Pub/Sub Channels",
@@ -22,5 +22,5 @@
   "cross_refs": [],
   "locked": false,
   "precedence": null,
-  "notes": ""
+  "notes": "PRD-style sections (Goals 26.3, Non-Goals 26.4, Acceptance Criteria 26.25) coexist with dominant SPEC content (endpoint surface, signed job/claim/stream/result JSON schemas, proto data model, CRDT keyspace, pub/sub channels, lease semantics); SPEC selected per ADR>SPEC>PRD precedence rule. Doc self-labels 'Product Technical Design Specification'. No frontmatter or spec-path filename convention, so confidence is content-based only. Prior run classified DOC via manifest override; no manifest provided this run."
 }

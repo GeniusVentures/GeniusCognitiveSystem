@@ -1,13 +1,33 @@
 {
   "source_path": "/Users/Shared/SSDevelopment/Development/GeniusVentures/GeniusNetwork/GeniusCogntiveSystem/docs/architecture/speculative-decoding-and-vtg.md",
-  "type": "DOC",
-  "confidence": "high",
-  "manifest_override": true,
+  "type": "SPEC",
+  "confidence": "medium",
+  "manifest_override": false,
   "title": "24 Speculative Decoding and VTG Candidate Scheduling",
-  "summary": "Defines the speculative decoding architecture using micro-speculation, local verification, and swarm-level learning for resource-constrained GNUS edge nodes.",
-  "scope": ["speculative decoding", "micro-speculation", "VTG", "Micro Drafter", "Confidence Scheduler", "Local Verifier", "VTG Hot Shard", "Swarm Learning Loop", "Frozen Micro-MTP", "EGGROLL", "Micro-Diffusion Block Drafter", "VTG Lookup Drafter", "Rule/Schema Drafter", "Tiny Causal Tree Drafting", "GNUS nodes", "Node Capability Advertisement", "Router", "ELM", "Semantic Core"],
-  "cross_refs": ["./objective-memory-vtg.md", "./frozen-mtp-and-vtg.md"],
+  "summary": "Defines the micro-speculation architecture for speculative decoding on constrained GNUS nodes: drafter backend classes, confidence-scheduled verification, VTG hot shards, and signed swarm outcome events.",
+  "scope": [
+    "speculative decoding (micro-speculation)",
+    "VTG (Verified Transition Graph)",
+    "VTG hot shards",
+    "EGGROLL",
+    "GeniusCognitiveSystem",
+    "micro drafter",
+    "confidence scheduler",
+    "local verifier",
+    "Frozen Micro-MTP heads",
+    "micro-diffusion block drafting",
+    "rule/grammar/schema drafters",
+    "tiny causal tree drafting (JetSpec-style)",
+    "node capability advertisement profile",
+    "swarm outcome events",
+    "Expert Models",
+    "Router"
+  ],
+  "cross_refs": [
+    "./objective-memory-vtg.md",
+    "./frozen-mtp-and-vtg.md"
+  ],
   "locked": false,
   "precedence": null,
-  "notes": ""
+  "notes": "SPEC vs DOC ambiguity resolved toward SPEC per precedence rule: architecture chapter mixes rationale prose (DOC lean) with normative technical contracts. SPEC signals dominate — node capability advertisement JSON schema consumed by the Router, signed (ed25519) swarm outcome event schema with required fields, backend-selection ordering, role-specific speculation policy table, operating budgets and branch/depth limits, phased implementation plan. No ADR hallmarks (no Status field, no Decision/Consequences sections); no user-story language. Filename hash is a deterministic fallback (hex of first four slug chars) because no code-execution tool was available to compute SHA-256; slug itself is unique so no sibling collision."
 }

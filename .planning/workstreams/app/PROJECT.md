@@ -71,6 +71,8 @@ Users can create a space, invite others, and have a group conversation where an 
 | Multiple Admins, no single Owner | Avoids "who owns this" problem, enables succession | — Pending |
 | Super Admin = creator, cannot be demoted | Prevents rogue admin lockout | — Pending |
 | Destructive actions need Super Admin approval when 2+ admins | Balance between agility and safety | — Pending |
+| Embeddable SDK boundary per ADR-01: RuntimeCoordinator interface, backend-neutral Flutter contracts, per-module CMake ownership | Existing NeoSwarm bridges migrate rather than duplicate; heavy deps never leak through the SDK | — Locked (ADR `docs/architecture/decisions/adr-embeddable-sdk-and-modular-build.md`, 2026-07-28) |
+| Runtime component ownership per ADR-02: MNN is the only native SGFP4/generation runtime; SGProcessingManager never owns the GCS request lifecycle | Prevents duplicate generation loops and SGFP4-as-input misuse | — Locked (ADR `docs/architecture/decisions/adr-runtime-component-ownership.md`, 2026-07-28) |
 
 ## Evolution
 

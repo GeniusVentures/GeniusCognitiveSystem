@@ -1,0 +1,25 @@
+{
+  "source_path": "/Users/Shared/SSDevelopment/Development/GeniusVentures/GeniusNetwork/GeniusCogntiveSystem/docs/architecture/ai-safety.md",
+  "type": "SPEC",
+  "confidence": "medium",
+  "manifest_override": false,
+  "title": "15 AI Safety Philosophy",
+  "summary": "Specifies the decentralized, node-local AI safety enforcement model for GeniusCognitiveSystem across four layers: node screening, reputation penalties, client preference filtering, and tool intermediary control.",
+  "scope": [
+    "AI safety enforcement",
+    "Genius ELM",
+    "GeniusCognitiveSystem",
+    "NodeCapabilities",
+    "safety profiles",
+    "reputation penalties",
+    "swarm mode",
+    "grounding",
+    "tool intermediary",
+    "IPFS",
+    "compliance and liability model"
+  ],
+  "cross_refs": [],
+  "locked": false,
+  "precedence": null,
+  "notes": "SPEC vs DOC ambiguity resolved toward SPEC: prose-heavy 'Philosophy' framing and no frontmatter or filename convention, but content defines normative technical contracts (NodeCapabilities data model, versioned signed safety profiles distributed via IPFS, reputation penalty formula, swarm-mode safety sequence, explicit no-GeoIP constraints)."
+}
