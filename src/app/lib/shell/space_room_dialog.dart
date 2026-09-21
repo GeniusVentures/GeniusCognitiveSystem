@@ -102,9 +102,10 @@ Future<void> showSpaceRoomDialog({
   );
   return ResponsiveDrawer.show<void>(
     context: context,
-    // The atom takes a static title per open; createFromHeader opens on
-    // the default Space type. The hint and confirm label (inside the
-    // form's subtrees) DO flip with the type selector.
+    // The atom takes a static title per open, so the header-launch title is
+    // the type-neutral 'New' (IN-03) -- correct for both the default Space
+    // type and a flipped Standalone-room selection. The hint and confirm
+    // label (inside the form's subtrees) DO flip with the type selector.
     title: form.dialogTitle,
     children: <Widget>[_DialogFields(form: form)],
     footer: _DialogFooter(form: form),
@@ -169,11 +170,14 @@ class _DialogForm extends ChangeNotifier {
   /// each invocation publishes another command (WR-04).
   bool _submitHandled = false;
 
-  /// Dialog title per mode (UI-SPEC copy table).
+  /// Dialog title per mode (UI-SPEC copy table). The header-launch title is
+  /// the type-neutral 'New': the drawer atom takes a static title per open,
+  /// so a type-specific title would go stale when the selector flips to
+  /// Standalone room (IN-03).
   String get dialogTitle {
     switch (mode) {
       case SpaceRoomDialogMode.createFromHeader:
-        return 'New space';
+        return 'New';
       case SpaceRoomDialogMode.createRoomInSpace:
         return 'New room in ${parent!.name}';
       case SpaceRoomDialogMode.editSpace:

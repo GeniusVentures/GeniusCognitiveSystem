@@ -124,6 +124,9 @@ void main() {
 
     await tester.tap(find.text('Standalone room'));
     await tester.pump();
+    // Type-neutral title (IN-03): stays 'New' after the selector flips --
+    // no stale 'New space' header over the room form.
+    expect(find.text('New'), findsOneWidget);
     // Room type hides the space-config controls.
     expect(find.byType(ScaffoldSelectionIndicatorToggle), findsNothing);
     expect(find.text('Public'), findsNothing);
