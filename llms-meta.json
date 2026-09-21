@@ -3633,7 +3633,7 @@
       "nav_section": "**Genius Cognitive System Architecture Documentation**"
     },
     "docs:./eggroll-swarm-retraining.md": {
-      "hash": "c62659960f109009",
+      "hash": "8ba418ca06c06795",
       "description": "Answers how distributed retraining uses EGGROLL-style evolutionary optimization over the GNUS swarm \u2014 locality-aware coordination, fitness communication, and reputation-gated promotion.",
       "category": "architecture",
       "optional": false,
