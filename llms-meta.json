@@ -3569,7 +3569,7 @@
       "nav_section": "**Genius Cognitive System Architecture Documentation**"
     },
     "docs:./agentic-memory-layer.md": {
-      "hash": "65af549b213e8bd1",
+      "hash": "bc0690a31a23e02f",
       "description": "Answers how GAML provides structured long-term memory beyond vector RAG, including privacy scoping, temporal coherence, and multi-hop reasoning.",
       "category": "architecture",
       "optional": false,
@@ -3625,7 +3625,7 @@
       "nav_section": "**Genius Cognitive System Architecture Documentation**"
     },
     "docs:./secure-agent-architecture.md": {
-      "hash": "dec13f46e3f980e4",
+      "hash": "63ecedadca3f2d75",
       "description": "Answers how secure agent execution works in the GCS decentralized system \u2014 policy-scoped tool intermediation, trust controls, and capability-scoped security choke-points.",
       "category": "architecture",
       "optional": false,
@@ -3649,7 +3649,7 @@
       "nav_section": "**Genius Cognitive System Architecture Documentation**"
     },
     "docs:./epistemic-arbitration-and-cognitive-os.md": {
-      "hash": "ae7f12a7d31b66a2",
+      "hash": "4f1cb240cda99b49",
       "description": "Answers how an epistemic arbitration layer selects and executes reasoning frameworks (Nyaya, modal, hybrid) over Semantic Core outputs before final response synthesis.",
       "category": "architecture",
       "optional": false,
@@ -3673,7 +3673,7 @@
       "nav_section": "**Genius Cognitive System Architecture Documentation**"
     },
     "docs:./frozen-mtp-and-vtg.md": {
-      "hash": "9f5427a457db94a0",
+      "hash": "801c812c1aa292f4",
       "description": "Answers how a small frozen multi-token prediction head attaches to an existing frozen backbone for edge inference without modifying the base model.",
       "category": "architecture",
       "optional": false,
@@ -3689,7 +3689,7 @@
       "nav_section": "**Genius Cognitive System Architecture Documentation**"
     },
     "docs:./local-cognitive-second-brain.md": {
-      "hash": "b831b9992dc4f6e9",
+      "hash": "6e7089c379c16e82",
       "description": "Answers how GCS runs as a private on-device memory and reasoning system for personal, SMB, or enterprise workflows behind a privacy boundary.",
       "category": "architecture",
       "optional": false,
@@ -3713,7 +3713,7 @@
       "nav_section": "**Genius Cognitive System Architecture Documentation**"
     },
     "docs:./capability-system.md": {
-      "hash": "5331d6008430c2c3",
+      "hash": "49e9c88cb9fb0dc9",
       "description": "Answers how GCS discovers, governs, routes, and executes external and local operations across MCP, REST, gRPC, databases, and OS services via a protocol-neutral contract.",
       "category": "architecture",
       "optional": false,
