@@ -3537,7 +3537,7 @@
       "nav_section": "**Genius Cognitive System Architecture Documentation**"
     },
     "docs:./system-overview.md": {
-      "hash": "c145dfa9442c6ff2",
+      "hash": "b0f47a151b13bfe8",
       "description": "Answers what the layered pipeline looks like from client API through router, memory, execution, verification, grounding, and final response.",
       "category": "architecture",
       "optional": false,
@@ -3545,7 +3545,7 @@
       "nav_section": "**Genius Cognitive System Architecture Documentation**"
     },
     "docs:./model-and-router.md": {
-      "hash": "ae1b2daf593f13f5",
+      "hash": "a72cae706ca76193",
       "description": "Answers how the Semantic Core is selected and quantized, how Expert Models expose language and judgment contracts, and how processor architectures such as autoregressive and diffusion implement those capabilities.",
       "category": "architecture",
       "optional": false,
@@ -3609,7 +3609,7 @@
       "nav_section": "**Genius Cognitive System Architecture Documentation**"
     },
     "docs:./distributed-swarm-thinking-context.md": {
-      "hash": "a1138cfad1e3df60",
+      "hash": "053c7ac621a298dd",
       "description": "Answers how distributed swarm thinking orchestrates routing, memory, expert selection, multi-expert synthesis, and user-visible reasoning traces across local and remote workers.",
       "category": "architecture",
       "optional": false,
@@ -3625,7 +3625,7 @@
       "nav_section": "**Genius Cognitive System Architecture Documentation**"
     },
     "docs:./secure-agent-architecture.md": {
-      "hash": "63ecedadca3f2d75",
+      "hash": "fa202f6b5d12340a",
       "description": "Answers how secure agent execution works in the GCS decentralized system \u2014 policy-scoped tool intermediation, trust controls, and capability-scoped security choke-points.",
       "category": "architecture",
       "optional": false,
@@ -3641,7 +3641,7 @@
       "nav_section": "**Genius Cognitive System Architecture Documentation**"
     },
     "docs:./cognitive-retaining-system.md": {
-      "hash": "bf4bd6230c6b7ba4",
+      "hash": "d832b5742b49dd72",
       "description": "Answers how targeted retraining enables continuous lightweight adaptation of user/role-specific cognition via adapters, routing weights, and critic weights without full model retraining.",
       "category": "architecture",
       "optional": false,
@@ -3649,7 +3649,7 @@
       "nav_section": "**Genius Cognitive System Architecture Documentation**"
     },
     "docs:./epistemic-arbitration-and-cognitive-os.md": {
-      "hash": "4f1cb240cda99b49",
+      "hash": "93296fb5e50b5abd",
       "description": "Answers how an epistemic arbitration layer selects and executes reasoning frameworks (Nyaya, modal, hybrid) over Semantic Core outputs before final response synthesis.",
       "category": "architecture",
       "optional": false,
@@ -3657,7 +3657,7 @@
       "nav_section": "**Genius Cognitive System Architecture Documentation**"
     },
     "docs:./objective-memory-vtg.md": {
-      "hash": "c78b08b99accd855",
+      "hash": "9909676cc3d5a380",
       "description": "Answers how Objective Memory and the Verified Transition Graph record reusable, verified cognitive-state transitions as durable swarm intelligence without treating cached output as truth.",
       "category": "architecture",
       "optional": false,
@@ -3665,7 +3665,7 @@
       "nav_section": "**Genius Cognitive System Architecture Documentation**"
     },
     "docs:./speculative-decoding-and-vtg.md": {
-      "hash": "a0083c68dece536c",
+      "hash": "5b68b63c3e5c85b3",
       "description": "Answers how GNUS nodes perform micro-speculative decoding under tight memory/GPU budgets and publish accepted-prefix outcomes into VTG and EGGROLL.",
       "category": "architecture",
       "optional": false,
@@ -3673,7 +3673,7 @@
       "nav_section": "**Genius Cognitive System Architecture Documentation**"
     },
     "docs:./frozen-mtp-and-vtg.md": {
-      "hash": "801c812c1aa292f4",
+      "hash": "f952b73963b45f45",
       "description": "Answers how a small frozen multi-token prediction head attaches to an existing frozen backbone for edge inference without modifying the base model.",
       "category": "architecture",
       "optional": false,
@@ -3689,7 +3689,7 @@
       "nav_section": "**Genius Cognitive System Architecture Documentation**"
     },
     "docs:./local-cognitive-second-brain.md": {
-      "hash": "6e7089c379c16e82",
+      "hash": "b9793a089231b359",
       "description": "Answers how GCS runs as a private on-device memory and reasoning system for personal, SMB, or enterprise workflows behind a privacy boundary.",
       "category": "architecture",
       "optional": false,
@@ -3705,7 +3705,7 @@
       "nav_section": "**Genius Cognitive System Architecture Documentation**"
     },
     "docs:./execution-integrity-system.md": {
-      "hash": "8a51fdc76b010626",
+      "hash": "060b29aab7c26a6d",
       "description": "Answers how GCS verifies a node actually ran the declared model, kernel manifest, and execution contract rather than a cheaper substitute.",
       "category": "architecture",
       "optional": false,
@@ -3713,7 +3713,7 @@
       "nav_section": "**Genius Cognitive System Architecture Documentation**"
     },
     "docs:./capability-system.md": {
-      "hash": "49e9c88cb9fb0dc9",
+      "hash": "1b2e536874055cd7",
       "description": "Answers how GCS discovers, governs, routes, and executes external and local operations across MCP, REST, gRPC, databases, and OS services via a protocol-neutral contract.",
       "category": "architecture",
       "optional": false,
@@ -3721,7 +3721,7 @@
       "nav_section": "**Genius Cognitive System Architecture Documentation**"
     },
     "docs:./agent-module-development-inventory.md": {
-      "hash": "2cbe8b76567d81e2",
+      "hash": "cca9bc73f778e135",
       "description": "What agents, deterministic services, Expert Models, EJM learning services, connectors, and infrastructure components does GCS require, decomposed into workstreams, milestones, trust tiers, and deployment profiles?",
       "category": "architecture",
       "optional": false,
@@ -3729,7 +3729,7 @@
       "nav_section": "**Genius Cognitive System Architecture Documentation**"
     },
     "docs:./context-lifecycle-caching-governance.md": {
-      "hash": "2f5e9d44c20ab088",
+      "hash": "981707623bb74a30",
       "description": "Answers how GCS compiles minimal authorized context per task \u2014 stable-prefix/volatile-suffix separation, tenant-isolated prefix caching, context compaction, hierarchical token budgets, completion-token reservation, cache-aware routing, Context Inspector, and acceptance criteria for context efficiency without correctness or privacy regression.",
       "category": "architecture",
       "optional": false,
@@ -3737,7 +3737,7 @@
       "nav_section": "**Genius Cognitive System Architecture Documentation**"
     },
     "docs:./cognitive-evolution-control.md": {
-      "hash": "763e9c6fc884305e",
+      "hash": "007b4cc85f7aa601",
       "description": "Answers how GCS turns qualified cognitive events into governed memory, transition, routing, arbitration, benchmark, and EGGROLL adaptation workflows through shared replay and promotion contracts.",
       "category": "architecture",
       "optional": false,
