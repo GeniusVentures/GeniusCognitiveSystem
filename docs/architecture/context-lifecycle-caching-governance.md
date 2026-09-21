@@ -8,7 +8,7 @@ GCS already provides selective memory retrieval, Bridge Blocks, specialist execu
 
 The core architectural rule is:
 
-> Every token entering an ELM must be authorized, relevant, budgeted, explainable, cacheable where possible, and removable when it stops being useful.
+> Every token or model-visible state entering an Expert Model must be authorized, relevant, budgeted, explainable, cacheable where possible, and removable when it stops being useful.
 
 The objective is not simply to reduce prompt size. The objective is to reduce **fresh input work per accepted task** while preserving or improving task quality and completion.
 
@@ -27,7 +27,7 @@ A deployment may use different model providers, runtimes, cache mechanisms, stor
 This specification applies to:
 
 * Semantic Core inference
-* role-based and domain-specific ELM execution
+* role-based and domain-specific Expert Model execution, including ELM generation and EJM judgment
 * local, private, public, and hybrid execution modes
 * single-node, expert-assisted, and distributed-swarm workflows
 * OpenAI-compatible API requests
@@ -86,7 +86,7 @@ Prefix Cache Manager
     ├── compatibility and isolation checks
     └── cache-affinity routing signals
                     ↓
-Semantic Core or Specialist ELM
+Semantic Core or Specialist Expert Model
     ├── bounded internal context
     ├── external artifact references
     └── bounded ExpertDigest return
@@ -297,7 +297,7 @@ A cache entry is eligible for reuse only when:
 
 * tenant, user, workspace, and privacy boundaries permit reuse
 * authorization scope is compatible
-* model, tokenizer, quantization, runtime, and adapter are compatible
+* model lineage, expert artifact, tokenizer/template, quantization, runtime, adapter/head/readout, processor architecture, and capability contract are compatible
 * system and tenant policy versions are compatible
 * capability contracts exposed in the prefix are compatible
 * the stable prefix is byte-identical under the same canonicalization version
@@ -308,6 +308,32 @@ Cache entries MUST NOT be shared across tenants, users, or privacy scopes merely
 Private cache keys SHOULD use tenant-scoped keyed hashes to reduce cross-scope correlation.
 
 ---
+
+### **17.9.1 EJM Shared-State Cache Isolation**
+
+JEV-style bounded judgment introduces a specific cache invariant.
+
+Multiple independent judgment branches may reuse one authorized shared state or prefix:
+
+```text
+Shared State S
+    ├── Judgment Q1
+    ├── Judgment Q2
+    └── Judgment Q3
+```
+
+For branches declared `Independent`:
+
+- Q1, Q2, and Q3 may each attend to S;
+- the processor MAY reuse the same prefill/KV state or equivalent diffusion/encoder state;
+- no branch may consume a sibling question, sibling answer, sibling probability distribution, or sibling intermediate activation/state;
+- batching, fan-out, or shared-canvas execution MUST preserve the same result semantics as isolated execution within declared numeric tolerance.
+
+Sequential/dependent judgments are different: predecessor branch IDs are explicit inputs and must participate in cache/context identity.
+
+The cache key or eligibility check for bounded judgment SHOULD therefore include the semantic shared-state identity plus target model lineage, expert/capability, tokenizer/template, adapter/head/readout, processor architecture, dependency mode, and canonicalization version.
+
+A shared-state cache hit is an execution optimization, never authorization to widen a branch's visible context.
 
 ## **17.10 Cache Lifecycle and Invalidation**
 
@@ -326,8 +352,8 @@ observe
 
 Material changes that MUST invalidate or bypass reuse include:
 
-* model or tokenizer change
-* quantization, kernel, runtime, or adapter incompatibility
+* model lineage, expert artifact, tokenizer/template, or readout/head change
+* quantization, kernel, runtime, processor, adapter, or capability-contract incompatibility
 * system, tenant, workspace, or user-policy change
 * authorization or privacy-scope change
 * capability-contract change
@@ -658,8 +684,8 @@ Representative ranking inputs include:
 ```text
 policy eligibility
 privacy and placement eligibility
-model and adapter compatibility
-stable-prefix cache affinity
+model/expert and adapter/head/readout compatibility
+stable-prefix or shared-state cache affinity
 artifact locality
 current health and load
 expected latency
@@ -670,7 +696,7 @@ failure probability
 
 Cache affinity MUST NOT override privacy, policy, required model identity, or quality constraints.
 
-Switching models, tokenizers, adapters, or incompatible runtimes invalidates prefix reuse unless the cache implementation explicitly proves compatibility.
+Switching model lineage, expert artifact, tokenizer/template, adapter/head/readout, processor architecture, capability contract, or incompatible runtime invalidates prefix/shared-state reuse unless the cache implementation explicitly proves compatibility.
 
 Distributed fan-out SHOULD use early cancellation. When sufficient verified output has arrived, unnecessary claims, specialists, or hedged requests SHOULD be cancelled, and discarded compute SHOULD be metered.
 
