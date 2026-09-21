@@ -440,6 +440,16 @@ find_package(LLVM CONFIG REQUIRED)
 
 set(SUPERGENIUS_BUILD_DIR "${PROJECT_SUPER_ROOT}/SuperGenius/build/${BUILD_PLATFORM_NAME}/${CMAKE_BUILD_TYPE}${ABI_SUBFOLDER_NAME}" CACHE STRING "Default SuperGenius Build Directory")
 
+# SuperGenius's exported sgns::secure_storage target links
+# PkgConfig::LIBSECRET in its INTERFACE, but the prebuilt package does not
+# re-run the pkg_check_modules() that defines it — every consumer must
+# discover libsecret itself before find_package(SuperGenius) resolves the
+# link interface (same as GeniusSDK's cmake/CommonBuildParameters.cmake).
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    find_package(PkgConfig)
+    pkg_check_modules(LIBSECRET REQUIRED IMPORTED_TARGET libsecret-1>=0.18.4)
+endif()
+
 # SuperGenius project
 set(evmrelay_DIR "${SUPERGENIUS_BUILD_DIR}/SuperGenius/lib/cmake/evmrelay/")
 set(SuperGenius_DIR "${SUPERGENIUS_BUILD_DIR}/SuperGenius/lib/cmake/SuperGenius/")

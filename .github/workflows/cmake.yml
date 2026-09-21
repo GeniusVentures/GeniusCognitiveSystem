@@ -35,6 +35,10 @@ on:
         description: "Tag for SuperGenius dependency (defaults to main tag if not specified)"
         required: false
         type: string
+      zkllvm_tag:
+        description: "Tag for zkLLVM dependency (defaults to main tag if not specified)"
+        required: false
+        type: string
       geniussdk_tag:
         description: "Tag for GeniusSDK dependency (defaults to main tag if not specified)"
         required: false
@@ -523,9 +527,68 @@ jobs:
               echo "THIRDPARTY_DIR=$(pwd)" >> $GITHUB_ENV
           fi
 
-      # D-09: GCS has NO explicit zkLLVM step (deleted from the GeniusSDK
-      # template). cmaketemplate auto-downloads the headers-only zkLLVM at
-      # configure time; no assigner binaries are fetched.
+      # Replaces D-09 (cmaketemplate auto-download): an explicit zkLLVM step
+      # like GeniusSDK/SuperGenius have, so the release/tag is pinned and
+      # controllable (zkllvm_tag input) instead of always fetching develop at
+      # configure time. Only the headers/libs cmake needs are extracted — the
+      # assigner toolchain binaries are excluded to keep the workspace small.
+      - name: Download zkLLVM release
+        working-directory: ${{github.workspace}}
+        shell: bash
+        env:
+          ZKLLVM_TAG: ${{ github.event.inputs.zkllvm_tag || github.event.inputs.tag }}
+        run: |
+          # zkLLVM only publishes Release artifacts for non-Windows platforms
+          # (cmaketemplate's own fallback maps non-Windows Debug builds onto
+          # the Release zkLLVM), so ZK_TYPE is Release everywhere but Windows.
+          if [ "${{ matrix.target }}" = "Windows" ]; then
+              ZK_TYPE=${{ matrix.build-type }}
+          else
+              ZK_TYPE=Release
+          fi
+
+          # Same branch/tag determination as the other dep downloads
+          if [ "$IS_TAG" == "true" ]; then
+              zkLLVM_branch="${ZKLLVM_TAG}"
+          elif [ "$CURRENT_BRANCH" == "main" ]; then
+              zkLLVM_branch="main"
+          else
+              zkLLVM_branch="develop"
+          fi
+
+          echo "Using ${zkLLVM_branch} branch/tag from zkLLVM"
+
+          mkdir zkLLVM
+          cd zkLLVM
+
+          if [ "$IS_TAG" == "true" ]; then
+              tag_name="${zkLLVM_branch}"
+          else
+              if [ '${{matrix.abi}}' ]; then
+                  tag_name="${{matrix.target}}-${{matrix.abi}}-${zkLLVM_branch}-${ZK_TYPE}"
+              else
+                  tag_name="${{matrix.target}}-${zkLLVM_branch}-${ZK_TYPE}"
+              fi
+          fi
+
+          if [ '${{matrix.abi}}' ]; then
+              ZKLLVM_FILE_NAME=${{matrix.target}}-${{matrix.abi}}-${ZK_TYPE}.tar.gz
+              ZKLLVM_BUILD_DIR=build/${{matrix.target}}/${ZK_TYPE}/${{matrix.abi}}
+          else
+              ZKLLVM_FILE_NAME=${{matrix.target}}-${ZK_TYPE}.tar.gz
+              ZKLLVM_BUILD_DIR=build/${{matrix.target}}/${ZK_TYPE}
+          fi
+
+          gh release download ${tag_name} --repo GeniusVentures/zkLLVM -p "${ZKLLVM_FILE_NAME}"
+
+          tar --exclude='*bin/assigner' --exclude='*bin/clang-zkllvm' --exclude='*bin/llvm-link-zkllvm' --exclude='*bin/transpiler' -xzf "${ZKLLVM_FILE_NAME}"
+
+          if [ "${{ matrix.target }}" = "Windows" ]; then
+              # Convert Unix path to Windows path for Windows builds
+              echo "ZKLLVM_BUILD_DIR=$(pwd -W)/${ZKLLVM_BUILD_DIR}" >> $GITHUB_ENV
+          else
+              echo "ZKLLVM_BUILD_DIR=$(pwd)/${ZKLLVM_BUILD_DIR}" >> $GITHUB_ENV
+          fi
 
       - name: Download SuperGenius
         shell: bash
@@ -686,7 +749,9 @@ jobs:
 
       # Configure deltas vs the GeniusSDK template:
       #   - working-directory is ${{github.workspace}} (GCS checkout IS the root)
-      #   - no -DZKLLVM_BUILD_DIR (D-09)
+      #   - -DZKLLVM_BUILD_DIR from the explicit download step (zkllvm_tag
+      #     input); Linux also uses it to pin clang (AlmaLinux /usr/bin/c++ is
+      #     a real gcc-owned file, so update-alternatives fails silently)
       #   - -DTHIRDPARTY_DIR / -DTHIRDPARTY_BUILD_DIR / -DSUPERGENIUS_DIR /
       #     -DGENIUSSDK_DIR all use $(pwd)-computed GITHUB_ENV values: in
       #     container jobs ${{github.workspace}} is the RUNNER host path, not
@@ -728,7 +793,7 @@ jobs:
         # silently and CMake falls back to g++ 8.5, which cannot compile the
         # code built here (same failure observed in SuperGenius run
         # 35377550250).
-        run: cmake -S build/${{matrix.target}} -B $BUILD_DIRECTORY -DCMAKE_BUILD_TYPE=${{matrix.build-type}} -DCMAKE_C_COMPILER=$(which clang) -DCMAKE_CXX_COMPILER=$(which clang++) -DTHIRDPARTY_DIR=${{env.THIRDPARTY_DIR}} -DTHIRDPARTY_BUILD_DIR=${{env.THIRDPARTY_BUILD_DIR}} -DSUPERGENIUS_DIR=${{env.SUPERGENIUS_DIR}} -DGENIUSSDK_DIR=${{env.GENIUS_SDK_DIR}} -DABI_SUBFOLDER_NAME='/${{matrix.abi}}' -DBUILD_TESTS=ON
+        run: cmake -S build/${{matrix.target}} -B $BUILD_DIRECTORY -DCMAKE_BUILD_TYPE=${{matrix.build-type}} -DCMAKE_C_COMPILER=$(which clang) -DCMAKE_CXX_COMPILER=$(which clang++) -DTHIRDPARTY_DIR=${{env.THIRDPARTY_DIR}} -DTHIRDPARTY_BUILD_DIR=${{env.THIRDPARTY_BUILD_DIR}} -DZKLLVM_BUILD_DIR=${{env.ZKLLVM_BUILD_DIR}} -DSUPERGENIUS_DIR=${{env.SUPERGENIUS_DIR}} -DGENIUSSDK_DIR=${{env.GENIUS_SDK_DIR}} -DABI_SUBFOLDER_NAME='/${{matrix.abi}}' -DBUILD_TESTS=ON
 
       - name: Configure CMake for Windows
         if: ${{matrix.target == 'Windows'}}
