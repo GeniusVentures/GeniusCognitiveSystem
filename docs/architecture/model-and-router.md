@@ -82,6 +82,12 @@ Judgment execution should be bounded/read-only where possible: stop once the req
 
 EJM output is advisory. Deterministic services remain authoritative for authorization, policy enforcement, capability grants, privacy boundaries, side effects, and execution approval. Low-confidence or poorly calibrated judgments should trigger fallback, bounded rereads, additional evidence collection, specialist escalation, verification, swarm execution, or human approval according to task risk.
 
+#### 5.2.3.1 System-Wide Bounded Judgment
+
+Bounded judgment is a reusable GCS control primitive, not only a router feature. The Executive Controller, Router, Memory Governor, Cognitive Execution Scheduler (CES), Verifier, Arbiter, Tool-Support path, and learning pipeline may invoke an EJM or the GCS JDM implementation when a decision can be expressed as a bounded classification, choice, ranking, score, or probability over the current cognitive state.
+
+Where several independent judgments share the same state or context packet, they should be grouped into a parallel judgment bundle when this reduces repeated inference. Deterministic rules remain preferred when they are sufficient. Generative Planner or ELM reasoning should be reserved for decisions that cannot be usefully bounded, or used as an escalation path when judgment confidence or calibration is insufficient.
+
 ### 5.2.4 Diffusion-Backed Expert Processing
 
 A **diffusion processor** performs iterative denoising, masked/block infill, or structured reads over a seeded canvas. **EDM — Expert Diffusion Model** is shorthand for an expert implementation using this processor architecture.
