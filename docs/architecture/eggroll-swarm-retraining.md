@@ -147,6 +147,71 @@ For EJM targets, the reward definition may also include calibration metrics such
 
 This primitive is intentionally compact and swarm-friendly.
 
+### **19.6.1 EJM Distillation Storage and Sharding**
+
+For bounded judgment retraining, the task shard must preserve the distinction between **canonical semantic decision data** and **target-specific compiled training views**.
+
+The canonical store is content-addressed and reusable across compatible experts:
+
+```text
+Canonical Decision Corpus
+    ├── shared StateObject A
+    │     ├── independent DecisionBranch 1
+    │     ├── independent DecisionBranch 2
+    │     └── dependent DecisionBranch 3
+    └── shared StateObject B
+          └── DecisionBranch 4
+```
+
+A shared state may be a document, event history, program context, workflow state, grounded evidence bundle, or another policy-approved cognitive state. Each branch stores a bounded criterion, semantic choices, teacher probability targets, optional verified outcome, dependency semantics, provenance, and governance references.
+
+Independent branches may reuse the same state, prefix/KV cache, or equivalent processor state, but **must not observe sibling questions, sibling answers, or sibling intermediate state**. Dependent/sequential branches declare predecessor branch IDs explicitly.
+
+Canonical decision targets are semantic rather than tokenizer-specific. The store should preserve values such as:
+
+```text
+approve = 0.73
+review  = 0.21
+reject  = 0.06
+```
+
+rather than storing one target model's answer-token IDs as the canonical truth.
+
+A **Distillation View Manifest** compiles canonical records for one training target. Its identity should include at least:
+
+* target model lineage / base artifact
+* target expert artifact
+* capability, normally `JUDGE`
+* judgment family
+* optional paired language expert
+* tokenizer version/hash
+* prompt/template version/hash
+* readout or decision-head kind
+* training objective
+* validation policy
+* effective privacy/training governance
+* referenced canonical state/branch shards
+
+The primary partition is therefore **target model lineage + target expert + capability + judgment family**, not merely an ELM name. A Code Expert may expose both ELM generation and EJM judgment artifacts, while a Router EJM may expose only bounded judgment.
+
+Canonical shared state and branches should be independently sharded and content-addressed:
+
+```text
+StateShard
+  State A
+  State B
+
+BranchShard
+  State A -> Q1
+  State A -> Q2
+  State A -> Q3
+  State B -> Q1
+```
+
+An EGGROLL EJM `task_shard_ref` resolves to a small manifest joining the selected **Distillation View + StateShard + BranchShard + objective/policy**. This avoids duplicating large teacher contexts across specialist datasets and allows a worker to load or prefill one state once before evaluating many isolated branches.
+
+This storage model also allows multiple expert views to reference the same canonical decision records without sharing promotion state. Code, Math, Grounding, Router, Verifier, or other experts retain independent calibration, benchmark, canary, rollback, quantization, and promotion histories.
+
 ---
 
 ## **19.7 GNUS Processing Room Mapping**
@@ -171,7 +236,9 @@ It can reuse the processing-room model already used for distributed work assignm
 A beehive is a locality-aware sub-swarm that shares one or more of the following:
 
 * cached model artifacts
-* cached adapter artifacts
+* cached adapter or decision-head artifacts
+* cached canonical state shards
+* cached EJM branch shards / distillation views
 * domain-specific task shards
 * geographic or network proximity
 * hardware similarity
@@ -181,8 +248,8 @@ Beehives are important because they reduce unnecessary artifact movement.
 
 A beehive may specialize around:
 
-* a model family
-* a domain specialist
+* a model/expert lineage
+* a domain specialist or judgment family
 * a language or region
 * an application domain
 * a user-data enclave
@@ -224,13 +291,14 @@ This enables:
 
 A retraining worker performs the following steps:
 
-1. Resolve the referenced base model and adapter artifacts from local cache or IPFS-lite.
-2. Reconstruct the perturbation from the assigned seed and rank.
-3. Apply the perturbation to the target adapter or expert parameters.
-4. Execute the assigned task shard locally.
-5. Compute fitness according to the declared reward function.
-6. Package fitness output, latency, and attestation metadata.
-7. Return a compact result packet to the room coordinator.
+1. Resolve the referenced base model and adapter/decision-head artifacts from local cache or IPFS-lite.
+2. Resolve the task-shard manifest and its state/branch shards under the declared governance boundary.
+3. Reconstruct the perturbation from the assigned seed and rank.
+4. Apply the perturbation to the target adapter, head, or expert parameters.
+5. Execute the assigned task shard locally, grouping branches by shared state where possible.
+6. Compute fitness according to the declared reward function.
+7. Package fitness output, latency, shard identity, and attestation metadata.
+8. Return a compact result packet to the room coordinator.
 
 This workload is intentionally closer to inference than to classical synchronized backpropagation.
 
@@ -420,8 +488,13 @@ Reward signals:
 * low confident-error rate
 * correct escalation at uncertainty thresholds
 * downstream utility of the judgment
+* option-order / permutation robustness
+* paraphrase robustness
+* out-of-distribution and novel-composition performance
+* dependency-depth degradation
+* independent-branch isolation correctness under shared-state batching
 
-EJM promotion should not favor raw accuracy at the cost of systematically overconfident errors.
+EJM promotion should not favor raw accuracy at the cost of systematically overconfident errors. Promotion metrics should remain target-view and shard aware so one specialist's gain or regression is not hidden inside an aggregate EJM score.
 
 These targets are preferred because they are easier to score and safer to validate than full core-model evolution.
 
@@ -538,6 +611,8 @@ EGGROLL Swarm Retraining adds a new capability to GeniusCognitiveSystem:
 * deterministic seed-addressed perturbations
 * compact fitness communication
 * calibration-aware improvement of bounded EJMs
+* content-addressed canonical decision corpora with model/expert-specific distillation views and shards
+* locality-aware retraining that prefers cached model/head/state/branch artifacts
 * reputation-gated validation and promotion
 * embedded learning from real swarm outcomes
 
