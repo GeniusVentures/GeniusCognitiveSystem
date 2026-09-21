@@ -3,9 +3,9 @@
 
 This document specifies the secure agent execution architecture within the GNUS.ai decentralized cognitive system. It supersedes the older Chat Genius subsystem framing in this file and aligns agent execution with the broader GNUS cognitive stack of routing, structured memory, grounding, reputation-weighted consensus, secure tool intermediation, decentralized safety, and swarm-native adaptation.
 
-Rather than treating agents as a standalone Mixture-of-Agents subsystem, this document treats agent execution as one operating mode of the GNUS cognitive system. In that model, the Semantic Core, Expert Language Models (ELMs), memory services, grounding services, verification layers, and tool intermediaries cooperate under explicit policy and trust controls.
+Rather than treating agents as a standalone Mixture-of-Agents subsystem, this document treats agent execution as one operating mode of the GNUS cognitive system. In that model, the Semantic Core, Expert Models (including ELM generation and EJM judgment contracts), memory services, grounding services, verification layers, and tool intermediaries cooperate under explicit policy and trust controls.
 
-This version preserves the implementation-oriented depth of the prior PTDS while replacing outdated assumptions that all specialist cognition is best described as micro/nano SLMs coordinated primarily through an MoA aggregator. Where the older design referenced specialists, MoA topology, surprise-gated memory, and universal subspaces, those ideas are retained only when still compatible with the updated architecture and are otherwise replaced by the current concepts of role-based and domain-specific ELM execution, structured memory governance, inspectable reasoning, grounding-aware verification, and mandatory secure tool intermediation.
+This version preserves the implementation-oriented depth of the prior PTDS while replacing outdated assumptions that all specialist cognition is best described as micro/nano SLMs coordinated primarily through an MoA aggregator. Where the older design referenced specialists, MoA topology, surprise-gated memory, and universal subspaces, those ideas are retained only when still compatible with the updated architecture and are otherwise replaced by the current concepts of role-based and domain-specific Expert Model execution, structured memory governance, inspectable reasoning, grounding-aware verification, and mandatory secure tool intermediation.
 
 ### 18.1.1 Goals and Success Criteria
 
@@ -27,7 +27,7 @@ Trust and economics built-in
 Every job has attestations, policy envelopes, and settlement hooks, with privacy controls via policy-constrained execution and security boundaries via zero-trust sandboxing.
 
 Security by default
-No Semantic Core worker, ELM, verifier, arbiter, formatter, or tool-support component may directly cause side effects without passing through a deterministic, auditable, capability-scoped security choke-point.
+No Semantic Core worker, Expert Model, verifier, arbiter, formatter, or tool-support component may directly cause side effects without passing through a deterministic, auditable, capability-scoped security choke-point.
 
 #### 18.1.1.2 Operational targets
 
@@ -43,7 +43,7 @@ Utility
 
 Security targets
 - 100 percent of tool executions must have a valid intermediary attestation.
-- 0 direct side-effect executions from Semantic Core or ELM workers.
+- 0 direct side-effect executions from Semantic Core or Expert Model workers.
 - 100 percent of durable memory writes derived from tools or external content must contain provenance metadata and policy-compatible trust classification.
 
 #### 18.1.1.3 Non-goals for MVP
@@ -76,8 +76,8 @@ The secure agent architecture is decomposed into layers to preserve separation o
 
 - Expert execution layer
   - Semantic Core workers
-  - role-based ELM workers
-  - domain-specific ELM workers
+  - role-based Expert Model workers
+  - domain-specific Expert Model workers
   - verifier and arbiter services
   - formatter and grounding services
   - tool-support execution helpers
@@ -126,14 +126,14 @@ The secure agent architecture is decomposed into layers to preserve separation o
 ##### 18.1.2.1.1 Layer interactions
 
 The normal query path is:
-Client/API -> Router/Planner -> Memory Governor + Grounding Selection -> Semantic Core / ELM Execution -> Tool Intermediary (if tools proposed) -> Verification / Arbitration / Consensus -> Memory Write Evaluation -> Settlement / Attestation -> Client/API
+Client/API -> Router/Planner -> Memory Governor + Grounding Selection -> Semantic Core / Expert Model Execution -> Tool Intermediary (if tools proposed) -> Verification / Arbitration / Consensus -> Memory Write Evaluation -> Settlement / Attestation -> Client/API
 
 The normal learning path is:
 Memory write candidate -> novelty / utility / provenance gate -> replication / convergence -> evaluation queue -> router / ELM / policy / memory-governor improvements
 
 ##### 18.1.2.1.2 Security hardening insertion rationale
 
-The Tool Intermediary layer exists specifically because tool-using agents introduce a fundamentally different threat model than pure generation. A Semantic Core worker or ELM that can browse, open files, parse documents, call APIs, or emit shell-like commands can be manipulated by hostile external content. Therefore the architecture requires a mandatory intermediary choke-point between all proposal logic and all side effects. This design preserves useful agentic behavior while reducing the attack surface of prompt injection, memory poisoning, hidden instructions, and capability escalation.
+The Tool Intermediary layer exists specifically because tool-using agents introduce a fundamentally different threat model than pure generation. A Semantic Core or Expert Model worker that can browse, open files, parse documents, call APIs, or emit shell-like commands can be manipulated by hostile external content. Therefore the architecture requires a mandatory intermediary choke-point between all proposal logic and all side effects. This design preserves useful agentic behavior while reducing the attack surface of prompt injection, memory poisoning, hidden instructions, and capability escalation.
 
 #### 18.1.2.2 Node roles (typical deployment)
 
@@ -155,7 +155,7 @@ A GNUS node may host one or more roles. Local swarms use the same interfaces as 
   - synthesis fallback
   - default draft generation
 
-- ELM worker node
+- Expert Model worker node
   - role-specific or domain-specific expert inference
   - evidence packaging
   - tool proposal generation only
@@ -199,7 +199,7 @@ A GNUS node may host one or more roles. Local swarms use the same interfaces as 
 Suggested trust ranking for routing and memory promotion:
 - Tier A: Settlement / reputation, Tool Intermediary, higher-trust memory nodes
 - Tier B: Router / Planner, Verifier / Arbiter, Grounding nodes
-- Tier C: Semantic Core and ELM workers
+- Tier C: Semantic Core and Expert Model workers
 - Tier D: Opportunistic public compute nodes
 
 ### 18.1.3 Core Components
@@ -318,11 +318,11 @@ function route(request, context, policy, memory_hints, grounding_hints, swarm_st
     return sign(plan)
 ```
 
-#### 18.1.3.2 Semantic Core and ELM Services
+#### 18.1.3.2 Semantic Core and Expert Model Services
 
 ##### 18.1.3.2.1 Responsibilities
 
-The Semantic Core provides broad reasoning, synthesis, and fallback response generation. ELM services provide specialized reasoning optimized for specific roles, domains, or workflow constraints.
+The Semantic Core provides broad reasoning, synthesis, and fallback response generation. Expert Model services provide specialized capability-oriented execution for specific roles, domains, or workflow constraints; ELM contracts generate language while EJM contracts provide bounded judgments.
 
 Responsibilities:
 - produce answer candidates, critiques, verifications, or structured outputs
@@ -429,7 +429,7 @@ Experts may emit tool_calls[] but MUST NOT execute them. All tool_calls[] are pr
 ##### 18.1.3.3.2 Inputs
 
 - original query + context
-- Semantic Core and ELM outputs
+- Semantic Core and Expert Model outputs
 - retrieved memory snippets
 - grounding evidence
 - tool intermediary attestations and sanitized tool outputs
@@ -779,7 +779,7 @@ Mandatory rules for all experts and intermediaries:
 1. Ingress receives request, authenticates session, loads policy.
 2. Memory retrieval fetches relevant context snippets.
 3. Router / Planner produces signed execution plan.
-4. Swarm dispatch routes tasks to selected Semantic Core and ELM nodes via P2P.
+4. Swarm dispatch routes tasks to selected Semantic Core and Expert Model nodes via P2P.
 5. Experts compute drafts, critiques, verifications, or grounding outputs and return signed results.
 6. Any tool_calls[] are routed to Tool Intermediary Service.
 7. Tool Intermediary performs dry-run, sanitization, capability check, and optional human approval pause.
@@ -914,7 +914,7 @@ Phase 1 Foundations
 - Initial execution plan schema
 
 Phase 2 Expert execution + memory governance
-- Deploy initial Semantic Core and role/domain ELM set
+- Deploy initial Semantic Core and role/domain Expert Model set
 - Implement write scoring + structured memory writes
 - Validate memory replication in a local swarm
 - Add trust_class and provenance metadata to memory records
@@ -1029,4 +1029,4 @@ Expand this PTDS into implementation tickets with the following deliverables:
 
 ### 18.1.12 Summary
 
-This Product Technical Design Specification defines secure agent execution as part of the broader GNUS.ai decentralized cognitive system. The design centers on routing and planning, Semantic Core plus ELM execution, structured memory, grounding-aware verification, secure tool intermediation, reputation-aware trust controls, and auditable task completion. The principal security boundary remains the Tool Intermediary choke-point, reinforced by default-deny sandboxing, capability manifests, and provenance-aware memory promotion. Together, these measures reduce the most important agent-specific attack classes without abandoning the decentralized performance and auditability goals of the GNUS architecture.
+This Product Technical Design Specification defines secure agent execution as part of the broader GNUS.ai decentralized cognitive system. The design centers on routing and planning, Semantic Core plus Expert Model execution, structured memory, grounding-aware verification, secure tool intermediation, reputation-aware trust controls, and auditable task completion. The principal security boundary remains the Tool Intermediary choke-point, reinforced by default-deny sandboxing, capability manifests, and provenance-aware memory promotion. Together, these measures reduce the most important agent-specific attack classes without abandoning the decentralized performance and auditability goals of the GNUS architecture.
