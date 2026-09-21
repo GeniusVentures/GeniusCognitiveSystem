@@ -106,7 +106,7 @@ Representative Cognitive Asset types include:
 * **Consensus Record** — reputation-weighted agreement, disagreement, voting result, or swarm finalization artifact.
 * **Benchmark Result** — evaluation output used to measure model, specialist, router, memory, or execution-integrity quality.
 * **Distillation Sample** — training example derived from planning, routing, verification, synthesis, tool use, consensus, or final response behavior.
-* **Specialist Trace** — record of which ELM or service was invoked, what context it used, what it produced, and how it performed.
+* **Specialist Trace** — record of which Expert Model or service was invoked, which capability/processor contract it used, what context it used, what it produced, and how it performed.
 
 A Cognitive Asset should carry enough metadata to support future retrieval, verification, replication, privacy enforcement, and training governance:
 
@@ -380,7 +380,7 @@ Distributed Cognitive System
 It aligns directly with:
 
 * Hierarchical Reasoning Model
-* Semantic Core plus ELM execution
+* Semantic Core plus Expert Model execution
 * Execution Integrity System evidence and audit records
 * Reputation-weighted consensus
 * Distributed GNUS infrastructure
