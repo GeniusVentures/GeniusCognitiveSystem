@@ -19,7 +19,7 @@
 #include <libp2p/basic/scheduler/asio_scheduler_backend.hpp>
 #include <libp2p/basic/scheduler/scheduler_impl.hpp>
 
-#include "GeniusSDK.h"
+#include "GeniusSDK.hpp"
 
 #include "crdt/crdt_options.hpp"
 #include "crdt/globaldb/globaldb.hpp"
@@ -79,24 +79,23 @@ GcsGlobalDb::~GcsGlobalDb() { Shutdown(); }
 
 outcome::result<void> GcsGlobalDb::Initialize() {
   // Step 2: PubSub acquisition (D-15, D-16, D-16a) — pull from the in-process
-  // GeniusSDK. GeniusSDKGetPubSub() returns an opaque, non-owning handle to
-  // the SDK's internal GossipPubSub (ownership stays with GeniusSDK's node
-  // instance — D-20 ordering guarantees the SDK, and therefore this handle,
-  // outlives this component).
-  void *pubsubHandle = GeniusSDKGetPubSub();
-  if (!pubsubHandle) {
+  // GeniusSDK.
+  auto node = GeniusSDKGetNode();
+  if (!node) {
     m_logger->error(
-        "GcsGlobalDb::Initialize — GeniusSDKGetPubSub() returned nullptr; "
-        "GeniusSDK init chain has not run yet, or pubsub is not started "
-        "(D-20 ordering: SDK before GlobalDB)");
+        "GcsGlobalDb::Initialize — GeniusSDKGetNode() returned nullptr; "
+        "GeniusSDK init chain has not run (D-20 ordering: SDK before "
+        "GlobalDB)");
     return outcome::failure(Error::SdkNotInitialized);
   }
 
-  // Non-owning alias: no-op deleter, since GeniusSDK's node instance retains
-  // true ownership of the underlying GossipPubSub for the process lifetime.
-  auto pubsub = std::shared_ptr<sgns::ipfs_pubsub::GossipPubSub>(
-      static_cast<sgns::ipfs_pubsub::GossipPubSub *>(pubsubHandle),
-      [](sgns::ipfs_pubsub::GossipPubSub *) {});
+  auto pubsub = node->GetPubSub();
+  if (!pubsub) {
+    m_logger->error(
+        "GcsGlobalDb::Initialize — GeniusNode::GetPubSub() returned nullptr; "
+        "SDK is up but pubsub is not started");
+    return outcome::failure(Error::SdkNotInitialized);
+  }
 
   // Borrow the node's graphsync Network (D-17, amended 2026-08-27): a libp2p
   // host keeps ONE protocol-handler slot per protocol, so constructing a new
