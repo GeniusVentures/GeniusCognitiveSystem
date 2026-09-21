@@ -123,6 +123,12 @@ namespace
     /// bytes, over the pre-fix byte cap while under the code-point cap (the
     /// dialog counts characters, so the FFI must accept it — WR-05).
     constexpr int kMultiByteNameCodePoints = 22;
+    /// Maximum topic-string length accepted by the FFI messaging arms (mirror
+    /// of gcs_core_ffi.cpp kMaxTopicLength; IN-08 hardening).
+    constexpr size_t kMaxTopicLength = 128;
+    /// Maximum message-text length accepted by the send_text arm (mirror of
+    /// gcs_core_ffi.cpp kMaxMessageTextLength; IN-08 hardening).
+    constexpr size_t kMaxMessageTextLength = 4096;
 
     /**
      * @brief Thread-safe log of payloads posted to the fake Dart port.
@@ -704,6 +710,95 @@ namespace gcs::test
                                 reinterpret_cast<const uint8_t *>( payload.data() ),
                                 payload.size() ),
                    GCS_ERROR_INVALID_ARGUMENT );
+
+        gcs_shutdown( handle );
+    }
+
+    /**
+     * @brief IN-08 regression: join_topic and send_text reject over-length
+     *        room_topic strings and send_text rejects over-length text (the
+     *        only pre-fix bound was the INT_MAX payload-narrowing guard),
+     *        each surfacing as GCS_ERROR_INVALID_ARGUMENT plus a pushed
+     *        ErrorNotice, while boundary-length values are accepted.
+     */
+    TEST_F( GcsFfiSdk, OverLengthTopicAndTextRejectedInMessagingArms )
+    {
+        ASSERT_TRUE( InstallFakeApiDlTable() ) << "gcs_ffi rejected the fake Dart API_DL table";
+
+        const char *initPath = GeniusSDKInit( m_tempPath.c_str(), kDevConfig );
+        if ( initPath == nullptr )
+        {
+            GTEST_SKIP() << "GeniusSDKInit could not boot a node in this environment (option C)";
+        }
+        m_sdkStarted = true;
+
+        GcsSession *handle = InitSession( m_tempPath + "/db" );
+        ASSERT_NE( handle, nullptr ) << "SDK is up but gcs_init failed";
+        ASSERT_EQ( gcs_subscribe( handle, kEventTopic, kFakeDartPort ), GCS_OK );
+
+        // Over-length room_topic rejected by join_topic before any join.
+        gcs::chat::GcsCommand joinOverLength;
+        joinOverLength.mutable_join_topic()->set_room_topic( std::string( kMaxTopicLength + 1, 't' ) );
+        std::string payload = joinOverLength.SerializeAsString();
+        EXPECT_EQ( gcs_publish( handle,
+                                kCommandTopic,
+                                reinterpret_cast<const uint8_t *>( payload.data() ),
+                                payload.size() ),
+                   GCS_ERROR_INVALID_ARGUMENT );
+
+        // Join the regression room, then push an over-length text to it.
+        gcs::chat::GcsCommand joinRoom;
+        joinRoom.mutable_join_topic()->set_room_topic( kRoomTopic );
+        PublishCommand( handle, joinRoom );
+
+        gcs::chat::GcsCommand sendOverLength;
+        sendOverLength.mutable_send_text()->set_room_topic( kRoomTopic );
+        sendOverLength.mutable_send_text()->set_text( std::string( kMaxMessageTextLength + 1, 'x' ) );
+        payload = sendOverLength.SerializeAsString();
+        EXPECT_EQ( gcs_publish( handle,
+                                kCommandTopic,
+                                reinterpret_cast<const uint8_t *>( payload.data() ),
+                                payload.size() ),
+                   GCS_ERROR_INVALID_ARGUMENT );
+
+        // Boundary: exactly kMaxTopicLength topic bytes join, and exactly
+        // kMaxMessageTextLength text bytes publish + echo.
+        gcs::chat::GcsCommand joinBoundary;
+        joinBoundary.mutable_join_topic()->set_room_topic( std::string( kMaxTopicLength, 'b' ) );
+        PublishCommand( handle, joinBoundary );
+
+        gcs::chat::GcsCommand sendBoundary;
+        sendBoundary.mutable_send_text()->set_room_topic( kRoomTopic );
+        sendBoundary.mutable_send_text()->set_text( std::string( kMaxMessageTextLength, 'y' ) );
+        PublishCommand( handle, sendBoundary );
+
+        bool sawTopicError   = false;
+        bool sawTextError    = false;
+        bool sawBoundaryEcho = false;
+        for ( const std::string &eventBytes : g_pushedEvents.Take() )
+        {
+            gcs::chat::GcsEvent event;
+            ASSERT_TRUE( event.ParseFromString( eventBytes ) );
+            if ( event.has_error() )
+            {
+                if ( event.error().message().find( "room_topic exceeds maximum length" )
+                     != std::string::npos )
+                {
+                    sawTopicError = true;
+                }
+                if ( event.error().message().find( "text exceeds maximum length" ) != std::string::npos )
+                {
+                    sawTextError = true;
+                }
+            }
+            if ( event.has_message() && event.message().text().size() == kMaxMessageTextLength )
+            {
+                sawBoundaryEcho = true;
+            }
+        }
+        EXPECT_TRUE( sawTopicError ) << "over-length topic rejection pushed no ErrorNotice";
+        EXPECT_TRUE( sawTextError ) << "over-length text rejection pushed no ErrorNotice";
+        EXPECT_TRUE( sawBoundaryEcho ) << "boundary-length text was not accepted and echoed";
 
         gcs_shutdown( handle );
     }
