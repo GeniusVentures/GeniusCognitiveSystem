@@ -45,6 +45,17 @@ A Qualified Cognitive Event is a versioned Cognitive Asset that records enough i
   "source_assets": ["asset_id"],
   "source_policy_hashes": ["policy_hash"],
   "model_and_expert_versions": ["version_or_cid"],
+  "adaptive_artifact_refs": {
+    "model_lineage_id": "optional_lineage",
+    "target_expert_id": "optional_expert",
+    "capability": "optional_generate|judge|classify|rank|refine|infill|embed",
+    "judgment_family": "optional_family",
+    "distillation_view_ref": "optional_content_id",
+    "state_shard_ref": "optional_content_id",
+    "branch_shard_ref": "optional_content_id",
+    "adapter_or_head_version": "optional_version_or_cid",
+    "readout_kind": "optional_next_token|candidate_readout|decision_head|diffusion_structured_read"
+  },
   "policy_hash": "effective_policy_hash",
   "tenant_scope": "optional_tenant_id",
   "owner_id": "optional_owner_id",
@@ -143,7 +154,26 @@ All adaptive paths should accept a common event envelope with:
 - structured outcomes and reward signals;
 - provenance and signatures.
 
-Subsystem-specific payloads remain allowed. VTG transition outcomes, EGGROLL fitness packets, Cognitive Training Events, verifier results, and benchmark results may keep their specialized fields while sharing the common envelope.
+Subsystem-specific payloads remain allowed. VTG transition outcomes, EGGROLL fitness packets, Cognitive Training Events, EJM canonical decision records, Distillation View manifests, verifier results, and benchmark results may keep their specialized fields while sharing the common envelope.
+
+For EJM learning, the shared envelope governs every derived layer: canonical decision state/branch artifacts, target-specific Distillation Views, EGGROLL training-shard manifests, and promoted adapter/head/readout artifacts. Derived artifacts inherit the effective privacy boundary and training/export restrictions of all source events.
+
+### EJM Decision Replay and Distillation Lineage
+
+A bounded judgment replay must distinguish **semantic source data** from **target-specific compiled training data**.
+
+The semantic layer references a canonical decision state plus one or more decision branches containing criteria, semantic choices, probability targets or verified outcomes, dependency semantics, provenance, and governance. The compiled layer references a Distillation View for one target model/expert lineage, tokenizer/template, readout/head kind, objective, and validation policy.
+
+Replay must therefore be able to answer:
+
+- Which canonical state and branch records produced this training example?
+- Which target model lineage and expert/capability compiled the example?
+- Which tokenizer/template and readout/head representation was used?
+- Which EGGROLL state/branch shard was evaluated?
+- Which privacy/training/export policies were effective?
+- Which artifact version was eventually promoted or rolled back?
+
+Independent decision branches may share a canonical state and processor prefix/cache, but replay must verify that they did not consume sibling questions, answers, or intermediate state unless their dependency graph explicitly permits it.
 
 ### Replay Contract
 
@@ -151,7 +181,7 @@ A replayable event should identify:
 
 - the Qualified Cognitive Event schema version and effective policy hash;
 - the execution plan or plan reference;
-- model, expert, adapter, tokenizer, quantization, and runtime versions;
+- model lineage, expert, capability, adapter/head/readout, tokenizer/template, quantization, processor, and runtime versions;
 - context packet and policy hashes;
 - tool and capability contract versions;
 - deterministic seeds or execution class where available;
@@ -197,8 +227,10 @@ The public runtime event stream may expose policy-safe summaries of:
 - which adaptive event classes were emitted;
 - which target subsystem received them;
 - candidate artifact identifiers;
+- target model lineage and expert/capability identity where applicable;
+- Distillation View, state-shard, and branch-shard identifiers for EJM training/replay;
 - validation and canary status;
-- active artifact versions;
+- active model, adapter, head/readout, tokenizer/template, and runtime artifact versions;
 - provenance, policy, and approval state.
 
 Raw hidden reasoning and restricted source material remain governed by the existing thinking-context, privacy, and Cognitive Asset rules.
