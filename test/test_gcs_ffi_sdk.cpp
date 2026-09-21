@@ -115,6 +115,14 @@ namespace
     /// Maximum entity name length accepted by the FFI command arms (mirror
     /// of the Dart dialog kMaxNameLength, T-02-09; WR-01 defense in depth).
     constexpr size_t kMaxEntityNameLength = 64;
+    /// One CJK code point (U+8A2D) as explicit UTF-8 bytes (no reliance on the
+    /// toolchain's execution charset) — exercises the multibyte name-cap path
+    /// (WR-05).
+    constexpr const char kCjkCodePoint[] = "\xE8\xA8\xAD";
+    /// CJK code points in the multibyte boundary name: 22 * 3 = 66 UTF-8
+    /// bytes, over the pre-fix byte cap while under the code-point cap (the
+    /// dialog counts characters, so the FFI must accept it — WR-05).
+    constexpr int kMultiByteNameCodePoints = 22;
 
     /**
      * @brief Thread-safe log of payloads posted to the fake Dart port.
@@ -590,6 +598,9 @@ namespace gcs::test
      *        name longer than the 64-char cap (defense in depth — any FFI
      *        client, not just the Dart dialog, is bounded), while a
      *        boundary-length (64-char) name is accepted and persisted.
+     *        WR-05 regression: the cap counts UTF-8 CODE POINTS, not bytes —
+     *        a 22-CJK-code-point name (66 bytes) is accepted (the Dart dialog
+     *        counts characters), while 65 CJK code points stay rejected.
      */
     TEST_F( GcsFfiSdk, OverLengthNamesRejectedAcrossCreateArms )
     {
@@ -650,6 +661,49 @@ namespace gcs::test
             << "boundary create_space pushed no SpaceTree";
         ASSERT_EQ( tree.space_size(), 1 );
         EXPECT_EQ( tree.space( 0 ).name().size(), kMaxEntityNameLength );
+
+        // Multibyte boundary (WR-05): 22 CJK code points are 66 UTF-8 bytes —
+        // over the pre-fix byte cap, under the code-point cap — so the name
+        // must be accepted exactly like the dialog's character count admits it.
+        std::string multiByteName;
+        for ( int i = 0; i < kMultiByteNameCodePoints; ++i )
+        {
+            multiByteName += kCjkCodePoint;
+        }
+        ASSERT_GT( multiByteName.size(), kMaxEntityNameLength )
+            << "test bug: the multibyte name no longer exceeds the byte cap";
+
+        gcs::chat::GcsCommand multiByteBoundary;
+        multiByteBoundary.mutable_create_space()->set_name( multiByteName );
+        PublishCommand( handle, multiByteBoundary );
+
+        events.clear();
+        ASSERT_TRUE( TakeLatestSpaceTree( events, tree ) )
+            << "multibyte create_space pushed no SpaceTree";
+        bool sawMultiByteName = false;
+        for ( const gcs::chat::SpaceRecord &space : tree.space() )
+        {
+            if ( space.name() == multiByteName )
+            {
+                sawMultiByteName = true;
+            }
+        }
+        EXPECT_TRUE( sawMultiByteName ) << "multibyte name rejected by a byte-count cap";
+
+        // Over the cap in code points (not merely in bytes): still rejected.
+        std::string overCodePointsName;
+        for ( size_t i = 0; i < kMaxEntityNameLength + 1; ++i )
+        {
+            overCodePointsName += kCjkCodePoint;
+        }
+        gcs::chat::GcsCommand overCodePoints;
+        overCodePoints.mutable_create_space()->set_name( overCodePointsName );
+        payload = overCodePoints.SerializeAsString();
+        EXPECT_EQ( gcs_publish( handle,
+                                kCommandTopic,
+                                reinterpret_cast<const uint8_t *>( payload.data() ),
+                                payload.size() ),
+                   GCS_ERROR_INVALID_ARGUMENT );
 
         gcs_shutdown( handle );
     }

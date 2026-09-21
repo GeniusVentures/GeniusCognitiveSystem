@@ -50,9 +50,11 @@ namespace
     constexpr const char* kSmokeTopicB = "gcs/chat/smoke-test-2";
     // Prefix for C++-stamped message ids (D-04: authority fields never come from Dart).
     constexpr const char* kMessageIdPrefix = "msg-";
-    // Maximum entity display-name length in bytes (T-02-09 — mirror of the
-    // Dart dialog's kMaxNameLength; the FFI re-validates so any client, not
-    // just the dialog, is bounded).
+    // Maximum entity display-name length in Unicode code points (T-02-09 —
+    // matches the Dart dialog's kMaxNameLength, which counts characters, not
+    // bytes; the FFI re-validates so any client, not just the dialog, is
+    // bounded). Counted via Utf8CodePointCount so non-ASCII names keep the
+    // same effective cap on both sides of the boundary (WR-05).
     constexpr size_t kMaxEntityNameLength = 64;
     // Dev config accepted by GeniusSDKInit's parser — offline-safe placeholder
     // token parameters (identical to the C++ test fixtures' kDevConfig). Used
@@ -83,6 +85,25 @@ namespace
     // One-shot guard for the per-process Dart API_DL table state check in gcs_init
     // (the table itself is initialized via the exported Dart_InitializeApiDL).
     std::atomic<bool> g_apiDlInitialized{ false };
+
+    /**
+     * \brief Counts Unicode code points in a UTF-8 string.
+     *
+     * A code point begins at every byte that is not a 0b10xxxxxx continuation
+     * byte, so the count of non-continuation bytes equals the code-point
+     * count. Mirrors the Dart dialog's character-based name cap: counting
+     * raw bytes instead would shrink the effective limit for every non-ASCII
+     * name (30 CJK characters are 90 UTF-8 bytes) and reject names the
+     * client already accepted (WR-05).
+     *
+     * \param[in] text  The UTF-8 string to count.
+     * \return The number of Unicode code points in text.
+     */
+    size_t Utf8CodePointCount( const std::string &text )
+    {
+        return static_cast<size_t>( std::count_if( text.begin(), text.end(),
+            []( unsigned char byte ) { return ( byte & 0xC0 ) != 0x80; } ) );
+    }
 
     /**
      * \brief Derives the session base path everything GCS writes calls home.
@@ -677,7 +698,7 @@ extern "C"
                 PostErrorNotice( "create_space rejected: name is empty" ); // D-29: raw error string on the push port
                 return GCS_ERROR_INVALID_ARGUMENT;
             }
-            if ( createSpace.name().size() > kMaxEntityNameLength )
+            if ( Utf8CodePointCount( createSpace.name() ) > kMaxEntityNameLength )
             {
                 PostErrorNotice( "create_space rejected: name exceeds maximum length" ); // D-29: raw error string on the push port
                 return GCS_ERROR_INVALID_ARGUMENT;
@@ -706,7 +727,7 @@ extern "C"
                 PostErrorNotice( "create_room rejected: name is empty" ); // D-29: raw error string on the push port
                 return GCS_ERROR_INVALID_ARGUMENT;
             }
-            if ( createRoom.name().size() > kMaxEntityNameLength )
+            if ( Utf8CodePointCount( createRoom.name() ) > kMaxEntityNameLength )
             {
                 PostErrorNotice( "create_room rejected: name exceeds maximum length" ); // D-29: raw error string on the push port
                 return GCS_ERROR_INVALID_ARGUMENT;
@@ -744,7 +765,7 @@ extern "C"
                 PostErrorNotice( "update_space rejected: space_id and name must be non-empty" ); // D-29: raw error string on the push port
                 return GCS_ERROR_INVALID_ARGUMENT;
             }
-            if ( updateSpace.name().size() > kMaxEntityNameLength )
+            if ( Utf8CodePointCount( updateSpace.name() ) > kMaxEntityNameLength )
             {
                 PostErrorNotice( "update_space rejected: name exceeds maximum length" ); // D-29: raw error string on the push port
                 return GCS_ERROR_INVALID_ARGUMENT;
