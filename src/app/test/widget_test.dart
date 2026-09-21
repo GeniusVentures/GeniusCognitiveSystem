@@ -1,30 +1,27 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
+/// Root smoke test (plan 01-11 Task 3): the rewritten app boots to the themed
+/// [GCSChat] shell.
+///
+/// Render-only -- no FFI assertion: under the test harness
+/// `SessionCubit.openDefault` stays inert (no native library), and the shell
+/// still renders rail + flow + composer (composer disabled until readiness
+/// would be pushed). This replaces the stock `MyApp` test.
+library;
 
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:frontend_scaffold/components/scaffold_composer.dart';
 
 import 'package:flutter_app/main.dart';
+import 'package:flutter_app/shell/gcs_shell.dart';
+import 'package:flutter_app/shell/room_rail.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  testWidgets('GCSChatApp boots to the GCSChat shell (rail + composer)', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const GCSChatApp());
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
-
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
-
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    expect(find.byType(GCSChat), findsOneWidget);
+    expect(find.byType(RoomRail), findsOneWidget);
+    expect(find.byType(ScaffoldComposer), findsOneWidget);
   });
 }

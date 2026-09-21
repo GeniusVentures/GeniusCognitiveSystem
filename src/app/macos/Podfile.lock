@@ -1,21 +1,15 @@
 PODS:
   - FlutterMacOS (1.0.0)
-  - neoswarm_ffi (0.0.1):
-    - FlutterMacOS
 
 DEPENDENCIES:
   - FlutterMacOS (from `Flutter/ephemeral`)
-  - neoswarm_ffi (from `Flutter/ephemeral/.symlinks/plugins/neoswarm_ffi/macos`)
 
 EXTERNAL SOURCES:
   FlutterMacOS:
     :path: Flutter/ephemeral
-  neoswarm_ffi:
-    :path: Flutter/ephemeral/.symlinks/plugins/neoswarm_ffi/macos
 
 SPEC CHECKSUMS:
   FlutterMacOS: d0db08ddef1a9af05a5ec4b724367152bb0500b1
-  neoswarm_ffi: 85f346af54e21b807f7ca0b071473aabaa30925a
 
 PODFILE CHECKSUM: 54d867c82ac51cbd61b565781b9fada492027009
 

@@ -361,27 +361,9 @@ set(xxHash_LIBRARY_DIR "${THIRDPARTY_BUILD_DIR}/xxhash/lib")
 set(xxHash_DIR "${THIRDPARTY_BUILD_DIR}/xxhash/lib/cmake/xxHash")
 find_package(xxHash CONFIG REQUIRED)
 
-# Prefer package config files while loading Libssh2's dependencies.
-# Libssh2 config calls `find_dependency(ZLIB)` without `CONFIG`, which can
-# otherwise resolve to CMake's FindZLIB module on Windows CI.
-set(_SGNS_CMAKE_FIND_PACKAGE_PREFER_CONFIG_WAS_DEFINED FALSE)
-if(DEFINED CMAKE_FIND_PACKAGE_PREFER_CONFIG)
-    set(_SGNS_CMAKE_FIND_PACKAGE_PREFER_CONFIG_WAS_DEFINED TRUE)
-    set(_SGNS_CMAKE_FIND_PACKAGE_PREFER_CONFIG_PREV "${CMAKE_FIND_PACKAGE_PREFER_CONFIG}")
-endif()
-set(CMAKE_FIND_PACKAGE_PREFER_CONFIG ON)
-
 # libssh2
 set(Libssh2_DIR "${THIRDPARTY_BUILD_DIR}/libssh2/lib/cmake/libssh2")
 find_package(Libssh2 CONFIG REQUIRED)
-
-if(_SGNS_CMAKE_FIND_PACKAGE_PREFER_CONFIG_WAS_DEFINED)
-    set(CMAKE_FIND_PACKAGE_PREFER_CONFIG "${_SGNS_CMAKE_FIND_PACKAGE_PREFER_CONFIG_PREV}")
-else()
-    unset(CMAKE_FIND_PACKAGE_PREFER_CONFIG)
-endif()
-unset(_SGNS_CMAKE_FIND_PACKAGE_PREFER_CONFIG_PREV)
-unset(_SGNS_CMAKE_FIND_PACKAGE_PREFER_CONFIG_WAS_DEFINED)
 
 # AsyncIOManager
 set(AsyncIOManager_INCLUDE_DIR "${THIRDPARTY_BUILD_DIR}/AsyncIOManager/include")
@@ -412,11 +394,6 @@ set_target_properties(wallet_core_rs PROPERTIES IMPORTED_LOCATION "${wallet_core
 set_target_properties(TrustWalletCore PROPERTIES IMPORTED_LOCATION "${TrustWalletCore_PATH}")
 
 target_include_directories(TrustWalletCore INTERFACE "${TrustWalletCore_INCLUDE_DIR}")
-
-if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-    find_package(PkgConfig)
-    pkg_check_modules(LIBSECRET REQUIRED IMPORTED_TARGET libsecret-1>=0.18.4)
-endif()
 
 # --------------------------------------------------------
 # zkLLVM / crypto3 (GCS's own CommonCompilerOptions.cmake already resolves
@@ -461,30 +438,7 @@ find_package(LLVM CONFIG REQUIRED)
 # call below, so it remains visible to both the GNUS-NEO-SWARM subtree and
 # the GCS-level src/ subtree.
 
-# --------------------------------------------------------
-# SuperGenius (sibling repo under GeniusNetwork). Must be found BEFORE
-# GeniusSDK below — GeniusSDK's exported sgns::GeniusSDK target links
-# sgns::genius_node, which itself links SuperGenius's exported targets, so
-# those packages need to already exist by the time find_package(GeniusSDK)
-# resolves its own target graph. Ported verbatim from
-# GeniusNetwork/GeniusSDK/cmake/CommonBuildParameters.cmake, which locates
-# SuperGenius the same way for the exact same reason.
-if(NOT DEFINED SUPERGENIUS_BUILD_DIR)
-    if(NOT DEFINED SUPERGENIUS_DIR)
-        if(EXISTS "${PROJECT_SUPER_ROOT}/SuperGenius")
-            print("Setting default SuperGenius directory")
-            set(SUPERGENIUS_DIR "${PROJECT_SUPER_ROOT}/SuperGenius" CACHE STRING "Default SuperGenius Library")
-
-            # get absolute path
-            cmake_path(SET SUPERGENIUS_DIR NORMALIZE "${SUPERGENIUS_DIR}")
-        else()
-            message(FATAL_ERROR "Cannot find SuperGenius directory required to build")
-        endif()
-    endif()
-    print("Setting SuperGenius build directory default")
-    get_filename_component(BUILD_PLATFORM_NAME ${CMAKE_CURRENT_SOURCE_DIR} NAME)
-    set(SUPERGENIUS_BUILD_DIR "${SUPERGENIUS_DIR}/build/${BUILD_PLATFORM_NAME}/${CMAKE_BUILD_TYPE}${ABI_SUBFOLDER_NAME}" CACHE STRING "Default Super Genius Build Directory")
-endif()
+set(SUPERGENIUS_BUILD_DIR "${PROJECT_SUPER_ROOT}/SuperGenius/build/${BUILD_PLATFORM_NAME}/${CMAKE_BUILD_TYPE}${ABI_SUBFOLDER_NAME}" CACHE STRING "Default SuperGenius Build Directory")
 
 # SuperGenius project
 set(evmrelay_DIR "${SUPERGENIUS_BUILD_DIR}/SuperGenius/lib/cmake/evmrelay/")
@@ -511,35 +465,63 @@ find_package(evmrelay CONFIG REQUIRED)
 find_package(ProofSystem CONFIG REQUIRED)
 find_package(SGProcessingManager CONFIG REQUIRED)
 find_package(SuperGenius CONFIG REQUIRED)
-include_directories(${SuperGenius_INCLUDE_DIR})
+message(STATUS "Looking for GeniusSDK at ${PROJECT_SUPER_ROOT}/GeniusSDK")
+if(EXISTS "${PROJECT_SUPER_ROOT}/GeniusSDK")
+    set(GENIUS_SDK_DIR "${PROJECT_SUPER_ROOT}/GeniusSDK")
+    message(STATUS "Found GeniusSDK source at ${GENIUS_SDK_DIR}")
+else()
+    message(STATUS "GeniusSDK not found locally — attempting to obtain from releases")
 
-# --------------------------------------------------------
-# GeniusSDK (sibling repo under GeniusNetwork — GeniusCognitiveSystem links
-# directly against it). Located and found the same way GeniusSDK's own
-# CommonBuildParameters.cmake locates SuperGenius: a sibling of
-# PROJECT_SUPER_ROOT, with a per-platform/build-type install tree at
-# <repo>/build/<Platform>/<BuildType>/<repo>/lib/cmake/<Package>/.
-if(NOT DEFINED GENIUSSDK_BUILD_DIR)
-    if(NOT DEFINED GENIUSSDK_DIR)
-        if(EXISTS "${PROJECT_SUPER_ROOT}/GeniusSDK")
-            print("Setting default GeniusSDK directory")
-            set(GENIUSSDK_DIR "${PROJECT_SUPER_ROOT}/GeniusSDK" CACHE STRING "Default GeniusSDK Library")
-
-            # get absolute path
-            cmake_path(SET GENIUSSDK_DIR NORMALIZE "${GENIUSSDK_DIR}")
-        else()
-            message(FATAL_ERROR "Cannot find GeniusSDK directory required to build")
-        endif()
+    set(GITHUB_SDK_REPO "GeniusVentures/GeniusSDK")
+    set(SDK_TARGET_BRANCH "${BUILD_PLATFORM_NAME}-develop-${CMAKE_BUILD_TYPE}")
+    if(ANDROID)
+        set(SDK_TARGET_BRANCH "${BUILD_PLATFORM_NAME}-${ANDROID_ABI}-develop-${CMAKE_BUILD_TYPE}")
+    elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND DEFINED ARCH)
+        set(SDK_TARGET_BRANCH "${BUILD_PLATFORM_NAME}-${ARCH}-develop-${CMAKE_BUILD_TYPE}")
     endif()
-    print("Setting GeniusSDK build directory default")
-    get_filename_component(BUILD_PLATFORM_NAME ${CMAKE_CURRENT_SOURCE_DIR} NAME)
-    set(GENIUSSDK_BUILD_DIR "${GENIUSSDK_DIR}/build/${BUILD_PLATFORM_NAME}/${CMAKE_BUILD_TYPE}${ABI_SUBFOLDER_NAME}" CACHE STRING "Default GeniusSDK Build Directory")
+
+    set(SDK_ARCHIVE_NAME "${BUILD_PLATFORM_NAME}-${CMAKE_BUILD_TYPE}.tar.gz")
+    set(SDK_RELEASE_URL "https://github.com/${GITHUB_SDK_REPO}/releases/download/${SDK_TARGET_BRANCH}/${SDK_ARCHIVE_NAME}")
+    set(SDK_ARCHIVE "${CMAKE_BINARY_DIR}/geniussdk-${SDK_ARCHIVE_NAME}")
+    set(SDK_EXTRACT_DIR "${PROJECT_SUPER_ROOT}/GeniusSDK")
+
+    message(STATUS "Downloading GeniusSDK from ${SDK_RELEASE_URL}")
+    execute_process(
+            COMMAND curl -L -o ${SDK_ARCHIVE} ${SDK_RELEASE_URL}
+            RESULT_VARIABLE SDK_DOWNLOAD_RESULT
+    )
+
+    if(NOT SDK_DOWNLOAD_RESULT EQUAL 0)
+        message(WARNING "Failed to download GeniusSDK from ${SDK_RELEASE_URL} — build without connectivity")
+        set(GENIUS_SDK_DIR "")
+    else()
+        file(MAKE_DIRECTORY ${SDK_EXTRACT_DIR})
+        execute_process(
+                COMMAND ${CMAKE_COMMAND} -E tar xzf ${SDK_ARCHIVE}
+                WORKING_DIRECTORY ${SDK_EXTRACT_DIR}
+                RESULT_VARIABLE SDK_EXTRACT_RESULT
+        )
+
+        if(NOT SDK_EXTRACT_RESULT EQUAL 0)
+            message(WARNING "Failed to extract GeniusSDK archive — build without connectivity")
+            set(GENIUS_SDK_DIR "")
+        else()
+            set(GENIUS_SDK_DIR "${SDK_EXTRACT_DIR}")
+            message(STATUS "GeniusSDK downloaded and extracted to ${SDK_EXTRACT_DIR}")
+        endif()
+        file(REMOVE ${SDK_ARCHIVE})
+    endif()
 endif()
 
-# GeniusSDK project
-set(GeniusSDK_DIR "${GENIUSSDK_BUILD_DIR}/GeniusSDK/lib/cmake/GeniusSDK/")
-print("GeniusSDK_DIR: ${GeniusSDK_DIR}")
-find_package(GeniusSDK CONFIG REQUIRED)
+# Compute GENIUS_SDK_BUILD_DIR from GENIUS_SDK_DIR
+if(GENIUS_SDK_DIR AND NOT "${GENIUS_SDK_DIR}" STREQUAL "")
+    set(GENIUS_SDK_BUILD_DIR "${GENIUS_SDK_DIR}/build/${BUILD_PLATFORM_NAME}/${CMAKE_BUILD_TYPE}${ABI_SUBFOLDER_NAME}" CACHE STRING "Default GeniusSDK Build Directory")
+    cmake_path(SET GENIUS_SDK_BUILD_DIR NORMALIZE "${GENIUS_SDK_BUILD_DIR}")
+    message(STATUS "GENIUS_SDK_BUILD_DIR set to ${GENIUS_SDK_BUILD_DIR}")
+endif()
+
+set(GeniusSDK_DIR "${GENIUS_SDK_BUILD_DIR}/GeniusSDK/lib/cmake/GeniusSDK/" CACHE PATH "GeniusSDK cmake config")
+find_package(GeniusSDK CONFIG QUIET)
 
 # --------------------------------------------------------
 # Project options
@@ -563,6 +545,7 @@ enable_testing()
 
 # GNUS-NEO-SWARM: C++ inference engine library (neoswarm_* targets)
 add_subdirectory(${PROJECT_ROOT}/GNUS-NEO-SWARM ${CMAKE_BINARY_DIR}/GNUS-NEO-SWARM)
+
 
 # GCS-level source tree (storage, api, FFI)
 # Binary dir is gcs_src (not "src") — GNUS-NEO-SWARM's own CommonBuildParameters

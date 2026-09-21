@@ -6,8 +6,9 @@ Client API
 ↓ Execution Contract + EIS Policy Selection  
 ↓ Execution Nodes      
 ├── Semantic Core      
-├── Role-Based ELMs      
-├── Domain-Specific ELMs      
+├── Role-Based Expert Models      
+├── Domain-Specific Expert Models      
+├── Capability-Driven Expert Processing      
 └── Tool-Support / Verification Services  
 ↓ Verification / Arbitration / Synthesis  
 ↓ Reputation-Weighted Consensus  
@@ -17,6 +18,10 @@ Client API
 ↓ GAML / VTG / Routing / Arbitration / EGGROLL Adaptation Paths
 
 The RuntimeCoordinator owns the request lifecycle and the coordination of qualified post-execution events. Cognitive evolution is not a separate runtime: it routes policy-approved Cognitive Assets and outcome signals to the existing memory, transition, policy, benchmark, and retraining subsystems through the shared contracts defined in [Cognitive Evolution Coordination](./cognitive-evolution-control.md).
+
+The specialist layer uses **Expert Model (EM)** as the neutral umbrella term. Expert execution is described across separate dimensions: **cognitive role**, **public contract/capability**, **processor architecture**, and **execution backend**. **ELM — Expert Language Model** denotes a language-generation/transformation contract, while **EJM — Expert Judgment Model** denotes bounded typed judgment. Diffusion is a processor architecture rather than a mutually exclusive contract; an **EDM — Expert Diffusion Model** is shorthand for a diffusion-backed implementation and may also expose the EJM contract when used for structured judgment.
+
+GQHSM-compatible hierarchical state machines may coordinate expert-stage lifecycle and processor dispatch through data-driven states, guards, events, and registered callbacks. The state machine owns orchestration semantics such as selection, fallback, verification, and escalation; it resolves the **required capability first**, then allows the processor registry to choose a compatible autoregressive, diffusion, encoder, multimodal, local, or distributed implementation. It does not own model-specific generation, selected-logit evaluation, diffusion loops, KV-cache internals, or tensor execution.
 
 EIS verification is normally sampled and asynchronous rather than a blocking step in the interactive inference path. The execution contract is selected before dispatch, while EIS validates execution integrity through claims, spot-checks, and reputation evidence outside semantic answer scoring.
 
@@ -51,7 +56,7 @@ Key properties:
 - **Flags-in-offsets:** Mode selection and metadata are embedded in the low 4 bits of aligned payload offsets — zero additional memory cost.
 - Compressed weights are **decoded in shared memory at inference time** by GPU compute shaders with per-workgroup branching.
 
-The Semantic Core is expected to be the primary beneficiary of aggressive compression, while role-based and domain-specific experts may use different quantization tradeoffs depending on whether they optimize for breadth, control, verification quality, deterministic formatting, or workflow specialization.
+The Semantic Core is expected to be the primary beneficiary of aggressive compression, while role-based and domain-specific experts may use different quantization tradeoffs depending on whether they optimize for breadth, language generation, bounded judgment quality, deterministic formatting, diffusion/refinement stability, verification quality, or workflow specialization.
 
 ---
 
@@ -70,13 +75,15 @@ The **Distributed Layer** is fundamental to operating GeniusCognitiveSystem as a
 The broader cognitive stack is organized into the following layers:
 
 1. **Client and API Layer** — session lifecycle, authentication, request submission, policy attachment, and response delivery.
-2. **Orchestration Layer** — router, planner, memory governor, execution mode selector, EIS policy selector, policy evaluator, task decomposition logic, and cognitive evolution coordination.
-3. **Expert Execution Layer** — Semantic Core, role-based ELMs, domain-specific ELMs, and local or distributed inference services.
+2. **Orchestration Layer** — router, planner, RuntimeCoordinator, optional GQHSM-compatible state-machine definitions, memory governor, execution mode selector, EIS policy selector, policy evaluator, task decomposition logic, and cognitive evolution coordination.
+3. **Expert Execution Layer** — Semantic Core plus role-based and domain-specific Expert Models. Public contracts include ELM language generation and EJM bounded judgment; processor architectures such as autoregressive and diffusion implement those contracts and bounded refinement/infill through local or distributed model-processing services.
 4. **Execution Integrity Layer** — execution contracts, determinism classes, kernel manifests, checkpoint-band calibration, teacher-forced spot-checks, and fraud verdicts.
 5. **Consensus and Grounding Layer** — reputation-weighted consensus, verification, critique, arbitration, Grokipedia integration, and private knowledge grounding.
 6. **Security and Tool Intermediary Layer** — dry-run, sanitization, permission checks, approval gates, and execution attestations.
 7. **Memory and Cognitive Asset Layer** — GAML-based structured memory, bridge blocks, facts, policies, retrieval pipelines, qualified cognitive events, EIS evidence assets, and CRDT-backed replication.
 8. **Distributed Infrastructure Layer** — messaging, discovery, storage propagation, scheduling, health monitoring, and settlement integration.
+
+ELM and EJM are public contract labels, while diffusion/autoregressive/encoder/multimodal are processor-architecture labels. They do not form separate top-level architectural layers. A diffusion-backed Verifier may expose the EJM contract; a diffusion-backed Formatter may expose REFINE/INFILL; one artifact may expose both. EJM probability and uncertainty outputs may inform routing, verification, arbitration, capability selection, and escalation, while deterministic services retain authority over policy, permissions, privacy, and side effects. Refinement output remains provisional until the configured verifier accepts it.
 
 ---
 
@@ -85,11 +92,11 @@ The broader cognitive stack is organized into the following layers:
 The **4.3 Security Layer** is designed to establish trust, ensure data integrity, and protect communication and execution boundaries across the decentralized network.
 
 * **libsecp256k1: Node Identity**  
-   This elliptic curve digital signature algorithm is foundational for establishing unique identities within the GeniusCognitiveSystem ecosystem. It is used to generate the cryptographic keys that uniquely identify GNUS nodes, which is a prerequisite for participation, attestation, and reputation-weighted coordination.
+   This elliptic curve digital signature algorithm is foundational for establishing unique identities of GNUS nodes, which is a prerequisite for participation, attestation, and reputation-weighted coordination.
 * **ed25519: Message Signing**  
   A high-speed, secure public-key signature system is employed for message signing across the network. This ensures the authenticity and integrity of inter-node communications, such as plan distribution, expert result submission, tool attestations, execution claims, adaptive event records, and finalization records.
 * **OpenSSL: Secure Transport**  
-  The system relies on OpenSSL to provide secure, encrypted transport layers (TLS/SSL) for network communication. This secures data in transit, protecting sensitive information and maintaining the confidentiality of communication between the Client API, orchestration services, and execution nodes.
+  The system relies on OpenSSL to provide secure, encrypted transport layers (TLS/SSL) for network communication. This protects data in transit between the Client API, orchestration services, and execution nodes.
 * **wallet-core: Reputation and secure state storage**  
   This component is used for secure and robust storage of reputation-related data and other persistent trust state required by distributed task execution.
 * **Tool Intermediary boundary:**  
@@ -100,7 +107,7 @@ The **4.3 Security Layer** is designed to establish trust, ensure data integrity
 The system is built around three main execution and reasoning classes:
 
 * **Semantic Core** — a broadly capable reasoning substrate responsible for general understanding, synthesis, and default response generation.
-* **Expert Language Models (ELMs)** — narrower specialized units invoked when additional expertise, verification, structure, grounding, or action competence is required.
+* **Expert Models (EMs)** — narrower specialized units invoked for additional expertise, verification, structure, grounding, bounded judgment, refinement, or action support. ELM and EJM identify public contracts; autoregressive, diffusion, encoder, reranker, and multimodal identify processor architectures that may implement one or more of those contracts.
 * **Execution Integrity System (EIS)** — the integrity subsystem that verifies execution contracts and detects model, adapter, kernel, quantization, or sampling substitution.
 
-This distinction is foundational. GNUS.ai does not assume that every task should be solved by a single general-purpose model, and it does not assume semantic consensus alone is sufficient to prove that the declared computation was honestly executed.
+This distinction is foundational. GNUS.ai does not assume that every task should be solved by a single general-purpose model, that every expert must generate language, or that semantic consensus alone is sufficient to prove that the declared computation was honestly executed.

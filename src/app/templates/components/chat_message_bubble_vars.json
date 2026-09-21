@@ -1,0 +1,7 @@
+{
+  "widget_class_name": "ChatMessageBubble",
+  "file_stem": "chat_message_bubble",
+  "roles": ["user_self", "user_peer", "assistant", "system"],
+  "states": ["pending", "streaming", "thinking", "complete", "error"],
+  "payload": "text"
+}

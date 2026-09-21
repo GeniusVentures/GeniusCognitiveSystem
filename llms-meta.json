@@ -3537,7 +3537,7 @@
       "nav_section": "**Genius Cognitive System Architecture Documentation**"
     },
     "docs:./system-overview.md": {
-      "hash": "855d5a3c8d7cb78d",
+      "hash": "c145dfa9442c6ff2",
       "description": "Answers what the layered pipeline looks like from client API through router, memory, execution, verification, grounding, and final response.",
       "category": "architecture",
       "optional": false,
@@ -3545,8 +3545,8 @@
       "nav_section": "**Genius Cognitive System Architecture Documentation**"
     },
     "docs:./model-and-router.md": {
-      "hash": "2572aaa0e0ff8dc7",
-      "description": "Answers how the Semantic Core base model is chosen, how SGFP4 quantization works, and what Expert Language Models and specialist modules are.",
+      "hash": "ae1b2daf593f13f5",
+      "description": "Answers how the Semantic Core is selected and quantized, how Expert Models expose language and judgment contracts, and how processor architectures such as autoregressive and diffusion implement those capabilities.",
       "category": "architecture",
       "optional": false,
       "exclude": false,
@@ -3633,7 +3633,7 @@
       "nav_section": "**Genius Cognitive System Architecture Documentation**"
     },
     "docs:./eggroll-swarm-retraining.md": {
-      "hash": "138ae7c8a1427b7f",
+      "hash": "8ba418ca06c06795",
       "description": "Answers how distributed retraining uses EGGROLL-style evolutionary optimization over the GNUS swarm \u2014 locality-aware coordination, fitness communication, and reputation-gated promotion.",
       "category": "architecture",
       "optional": false,
@@ -3665,7 +3665,7 @@
       "nav_section": "**Genius Cognitive System Architecture Documentation**"
     },
     "docs:./speculative-decoding-and-vtg.md": {
-      "hash": "9f4674ed6a450495",
+      "hash": "a0083c68dece536c",
       "description": "Answers how GNUS nodes perform micro-speculative decoding under tight memory/GPU budgets and publish accepted-prefix outcomes into VTG and EGGROLL.",
       "category": "architecture",
       "optional": false,
@@ -3731,6 +3731,14 @@
     "docs:./context-lifecycle-caching-governance.md": {
       "hash": "34b1f8642c9dcd89",
       "description": "Answers how GCS compiles minimal authorized context per task \u2014 stable-prefix/volatile-suffix separation, tenant-isolated prefix caching, context compaction, hierarchical token budgets, completion-token reservation, cache-aware routing, Context Inspector, and acceptance criteria for context efficiency without correctness or privacy regression.",
+      "category": "architecture",
+      "optional": false,
+      "exclude": false,
+      "nav_section": "**Genius Cognitive System Architecture Documentation**"
+    },
+    "docs:./cognitive-evolution-control.md": {
+      "hash": "bbf2ad97a9b01736",
+      "description": "Answers how GCS turns qualified cognitive events into governed memory, transition, routing, arbitration, benchmark, and EGGROLL adaptation workflows through shared replay and promotion contracts.",
       "category": "architecture",
       "optional": false,
       "exclude": false,

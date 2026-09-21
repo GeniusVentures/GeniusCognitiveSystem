@@ -450,6 +450,8 @@ Responsibilities:
 
 * register model families and versions
 * register adapters
+* register EJM decision heads/readouts and calibration artifacts
+* register Distillation View manifests and training-shard manifests
 * register SGFP4 containers
 * register tokenizers
 * register kernel manifests
@@ -465,34 +467,36 @@ Responsibilities:
 
 Responsibilities:
 
-* register role-based ELMs
-* register domain-specific ELMs
-* declare supported capabilities
+* register role-based Expert Models
+* register domain-specific Expert Models
+* declare supported capabilities such as GENERATE, JUDGE, CLASSIFY, RANK, REFINE, INFILL, and EMBED
+* declare processor architecture bindings such as autoregressive, diffusion, encoder, reranker, or multimodal
 * declare privacy and deployment restrictions
-* declare model and adapter dependencies
+* declare model, adapter, decision-head/readout, tokenizer/template, and runtime dependencies
 * expose reputation and benchmark data
 * expose expected cost and latency
 * expose version and compatibility metadata
 
-## **31.5.5 Role-Based ELMs**
+## **31.5.5 Role-Based Expert Models**
 
 Initial role-based experts include:
 
-| ELM                   | Responsibilities                                                           |
-| --------------------- | -------------------------------------------------------------------------- |
-| **Planner ELM**       | Task decomposition, dependency identification, execution-graph proposals   |
-| **Primary Draft ELM** | High-quality initial answer or artifact generation                         |
-| **Verifier ELM**      | Factual, logical, mathematical, code, policy, and schema checking          |
-| **Arbiter ELM**       | Resolve disagreement between experts, memories, or evidence                |
-| **Refiner ELM**       | Improve clarity, organization, tone, and completeness                      |
-| **Formatter ELM**     | Enforce output schemas, templates, and deterministic formatting            |
-| **Grounding ELM**     | Identify claims requiring evidence and interpret retrieved evidence        |
-| **Tool-Support ELM**  | Convert user intent into bounded capability proposals                      |
-| **Memory ELM**        | Assist extraction, linking, summarization, and memory-candidate generation |
-| **Contradiction ELM** | Identify conflicts across evidence, memory, plans, and outputs             |
-| **Synthesis ELM**     | Combine verified specialist outputs into a coherent response               |
+| Expert Role | Typical Contracts | Responsibilities |
+| --- | --- | --- |
+| **Planner Expert** | EJM + optional ELM | Task decomposition, bounded route/plan judgments, execution-graph proposals, generated plans when needed |
+| **Primary Draft Expert** | ELM | High-quality initial answer or artifact generation |
+| **Verifier Expert** | EJM + optional ELM | Factual, logical, mathematical, code, policy, schema, contradiction, and correctness judgments; explanations when requested |
+| **Arbiter Expert** | EJM + optional ELM | Resolve disagreement through ranking/selection and optionally generated synthesis |
+| **Refiner / Formatter Expert** | ELM / REFINE / INFILL | Improve clarity, structure, templates, schemas, and deterministic formatting |
+| **Grounding Expert** | EJM + optional ELM | Judge evidence support/contradiction and interpret retrieved evidence |
+| **Tool-Support Expert** | EJM + optional ELM | Score/classify capability proposals and construct bounded tool-support text |
+| **Memory Expert** | EJM + optional ELM | Judge extraction/linking candidates and generate summaries where needed |
+| **Contradiction Expert** | EJM | Identify conflicts across evidence, memory, plans, and outputs |
+| **Synthesis Expert** | EJM + ELM | Select/rank supported material and generate coherent synthesis |
 
-## **31.5.6 Domain-Specific ELMs**
+A single expert lineage may expose multiple capability artifacts while sharing a backbone. For example, a Verifier may use an EJM decision head for bounded correctness judgments and an ELM adapter for explanation text. These artifacts keep distinct calibration, evaluation, promotion, and rollback state.
+
+## **31.5.6 Domain-Specific Expert Models**
 
 Initial domain classes may include:
 
@@ -509,7 +513,7 @@ Initial domain classes may include:
 * private enterprise domains
 * tenant-defined specialist domains
 
-Domain ELMs must declare their evaluation set, expected limitations, and permitted tool and memory access.
+Domain Expert Models must declare their supported capabilities, processor bindings, evaluation sets, expected limitations, and permitted tool and memory access.
 
 ## **31.5.7 Expert Output Packager**
 
@@ -526,7 +530,7 @@ Responsibilities:
 * sign output where required
 * reject malformed or unsigned outputs
 
-## **31.5.8 Private and Local ELM Manager**
+## **31.5.8 Private and Local Expert Model Manager**
 
 Responsibilities:
 
@@ -535,8 +539,8 @@ Responsibilities:
 * bind models to user or enterprise scopes
 * enforce local-only execution policies
 * load and unload models based on demand
-* coordinate adapter selection
-* protect private prompts and memory
+* coordinate adapter, decision-head/readout, and capability selection
+* protect private prompts, judgment state, and memory
 * report runtime capabilities to the Router
 
 ## **31.5.9 Expert Evaluation Harness**
@@ -548,7 +552,7 @@ Responsibilities:
 * measure latency, cost, and reliability
 * evaluate tool proposal quality
 * evaluate grounding and verification behavior
-* detect regression after model or adapter changes
+* detect regression after model, adapter, decision-head/readout, tokenizer/template, processor, or calibration changes
 * produce promotion and rollback recommendations
 
 ---
@@ -749,7 +753,7 @@ Responsibilities:
 Responsibilities:
 
 * store large documents and artifacts outside core memory records
-* store model, tool, and verification artifacts
+* store model, tool, verification, canonical decision-state/branch, Distillation View, and training-shard artifacts
 * expose content identifiers
 * verify hashes on retrieval
 * support IPFS-lite or another approved content-addressed mechanism
@@ -2314,10 +2318,11 @@ Responsibilities:
 * filter lower-trust data
 * require stronger provenance for adaptation than retrieval
 
-## **31.17.3 Distillation Sample Builder**
+## **31.17.3 Distillation and Decision Corpus Builder**
 
 Responsibilities:
 
+* create language-generation distillation samples
 * create planning samples
 * create routing samples
 * create memory-selection samples
@@ -2325,7 +2330,46 @@ Responsibilities:
 * create synthesis samples
 * create tool-use samples
 * create forecast samples
-* preserve evidence and outcome metadata
+* create canonical EJM decision-state records
+* create isolated EJM decision-branch records with semantic choices and probability/outcome targets
+* preserve dependency semantics for independent versus sequential judgments
+* deduplicate and content-address shared decision state
+* preserve evidence, provenance, governance, and outcome metadata
+
+## **31.17.3.1 Distillation View Compiler**
+
+Responsibilities:
+
+* select canonical decision records for one target model/expert lineage
+* bind capability and judgment family
+* bind tokenizer and prompt/template versions
+* bind adapter or decision-head/readout identity
+* compile semantic choices to target-specific token IDs, head indices, or diffusion slots only inside the view
+* emit content-addressed Distillation View manifests
+* guarantee that canonical records remain tokenizer/readout independent
+
+## **31.17.3.2 EJM State and Branch Shard Builder**
+
+Responsibilities:
+
+* shard canonical shared states independently from decision branches
+* group branches by state to maximize prefill/cache reuse
+* preserve independent-branch isolation metadata
+* build content-addressed EGGROLL training-shard manifests
+* attach effective privacy, training, export, and retention governance
+* support locality-aware placement by model/head/state/branch cache affinity
+
+## **31.17.3.3 Judgment Calibration and Robustness Evaluator**
+
+Responsibilities:
+
+* compute bounded-choice accuracy, log loss, Brier score, calibration error, confidence reliability, and confident-error rate
+* test option permutations and choice-description paraphrases
+* test independent-branch isolation under shared-state batching
+* test out-of-distribution and novel-symbol/compositional decision tasks
+* measure performance degradation as dependency depth increases
+* compare raw next-token, candidate-readout, trained decision-head, and diffusion structured-read variants when applicable
+* provide shard-aware promotion gates so specialist regressions are not hidden by global averages
 
 ## **31.17.4 Fitness Evaluator**
 
@@ -2341,10 +2385,12 @@ Responsibilities:
 Responsibilities:
 
 * schedule local or distributed adaptation jobs
-* select model, adapter, router, critic, or policy targets
+* select model, adapter, EJM decision-head/readout, router, critic, or policy targets
+* resolve Distillation View and state/branch training-shard manifests
+* prefer workers that already cache the target model/head and required state/branch shards
 * distribute approved training work
 * collect results
-* preserve experiment lineage
+* preserve experiment and canonical-data lineage
 
 ## **31.17.6 Promotion Gate**
 
@@ -2371,12 +2417,15 @@ Responsibilities:
 
 Responsibilities:
 
-* version datasets
+* version datasets and canonical decision corpora
+* version Distillation View manifests
+* version state/branch training-shard manifests
 * version adapters
+* version EJM decision heads/readouts and calibration artifacts
 * version routing policies
 * version memory policies
 * version forecast models
-* preserve benchmark and promotion evidence
+* preserve benchmark, calibration, promotion, and rollback evidence
 
 ---
 
@@ -2688,6 +2737,12 @@ ProcessingChunkJob
 TaskResult
 LearningEvent
 DistillationSample
+DecisionStateRecord
+DecisionBranchRecord
+DistillationViewManifest
+JudgmentTrainingShardManifest
+JudgmentResult
+JudgmentBundleResult
 BenchmarkResult
 ReputationUpdate
 AuditEvent
@@ -2715,7 +2770,7 @@ Includes:
 
 * local client
 * Executive Controller
-* local Semantic Core or ELM
+* local Semantic Core or Expert Model
 * local GAML
 * private capability connectors
 * local Tool Intermediary
@@ -2738,7 +2793,7 @@ Includes:
 
 * enterprise identity and policy
 * private GAML nodes
-* private ELMs
+* private Expert Models, including ELM and EJM capabilities
 * enterprise connectors
 * private capability registry
 * isolated Tool Intermediary
@@ -2750,7 +2805,7 @@ Includes:
 Includes:
 
 * public request and processing queues
-* distributed Semantic Core and ELM workers
+* distributed Semantic Core and Expert Model workers
 * EIS
 * reputation and consensus
 * settlement

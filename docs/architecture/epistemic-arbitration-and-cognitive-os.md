@@ -429,6 +429,12 @@ Because GQHSM is an explicit runtime with states, guards, entry actions, exit ac
 
 These are all desirable properties for the arbitration layer.
 
+### 21.7.5 Selective EJM/JDM judgment callbacks
+
+GQHSM states and guards may selectively invoke EJM/JDM bounded-judgment callbacks when a transition requires semantic classification, choice, ranking, scoring, or probability estimation. A machine should prefer deterministic guards when they are sufficient, invoke bounded judgment when the choice space is known, and escalate to a Planner or ELM, specialist execution, swarm execution, or human review when the decision cannot be bounded adequately or judgment confidence falls below the state's configured threshold.
+
+Judgment callbacks advise state transitions; they do not override deterministic authorization, privacy, capability, spending, or irreversible-side-effect policy. This lets ordinary GQHSM transitions remain model-free while using EJM/JDM only where semantic judgment adds value.
+
 ---
 
 ## 21.8 Native implementation model: C++, MNN, and separation of concerns

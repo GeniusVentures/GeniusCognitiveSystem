@@ -3,6 +3,10 @@
  * @brief      GCS GlobalDB component implementation — init-style lifecycle
  * (D-13), PubSub acquired from GeniusSDK (D-15/D-16a), GlobalDB::Error mapped
  * to NEO-SWARM codes at the boundary (D-14).
+ * @details    STYLE EXEMPTION (review IN-04): this file was moved verbatim
+ * from GNUS-NEO-SWARM/src/storage (D-25) and keeps its original attached
+ * (K&R) braces + 2-space indentation so it stays diffable against its origin;
+ * do NOT reformat it piecemeal. New files follow the repo Allman standard.
  * @date       2026-08-10
  */
 
@@ -94,11 +98,27 @@ outcome::result<void> GcsGlobalDb::Initialize() {
       static_cast<sgns::ipfs_pubsub::GossipPubSub *>(pubsubHandle),
       [](sgns::ipfs_pubsub::GossipPubSub *) {});
 
-  return Initialize(std::move(pubsub));
+  // Borrow the node's graphsync Network (D-17, amended 2026-08-27): a libp2p
+  // host keeps ONE protocol-handler slot per protocol, so constructing a new
+  // Network on the node's host would silently replace the node's
+  // /ipfs/graphsync/1.0.0 registration — inbound graphsync for the node's own
+  // GlobalDBs would be dispatched into ours. Sharing one Network is the
+  // designed path (Network::start() appends per-consumer feedbacks).
+  auto graphsyncNetwork = node->GetGraphsyncNetwork();
+  if (!graphsyncNetwork) {
+    m_logger->error(
+        "GcsGlobalDb::Initialize — GeniusNode::GetGraphsyncNetwork() "
+        "returned nullptr; node content exchange is not initialized");
+    return outcome::failure(Error::SdkNotInitialized);
+  }
+
+  return Initialize(std::move(pubsub), std::move(graphsyncNetwork));
 }
 
 outcome::result<void> GcsGlobalDb::Initialize(
-    std::shared_ptr<sgns::ipfs_pubsub::GossipPubSub> pubsub) {
+    std::shared_ptr<sgns::ipfs_pubsub::GossipPubSub> pubsub,
+    std::shared_ptr<sgns::ipfs_lite::ipfs::graphsync::Network>
+        graphsyncNetwork) {
   // Step 1: Guard — double Initialize() is a programmer error.
   if (m_running.load()) {
     m_logger->error("GcsGlobalDb::Initialize called twice — already running");
@@ -110,16 +130,22 @@ outcome::result<void> GcsGlobalDb::Initialize(
     return outcome::failure(Error::GcsDbError);
   }
 
-  // Step 3: Local construction (D-17, D-04) — mirror
-  // globaldb_integration.cpp:100-107.
+  if (!graphsyncNetwork) {
+    m_logger->error("GcsGlobalDb::Initialize — null graphsync network injected");
+    return outcome::failure(Error::GcsDbError);
+  }
+
+  // Step 3: Local construction (D-17, amended 2026-08-27, D-04) — io,
+  // scheduler, and generator are constructed locally; the graphsync Network
+  // is BORROWED from the injector (the node, in production): a libp2p host has
+  // a single protocol-handler slot per protocol, so a second Network on the
+  // same host would silently replace the existing registration.
   m_io = std::make_shared<boost::asio::io_context>();
   m_scheduler = std::make_shared<libp2p::basic::SchedulerImpl>(
       std::make_shared<libp2p::basic::AsioSchedulerBackend>(m_io),
       libp2p::basic::Scheduler::Config{
           std::chrono::milliseconds{kSchedulerTickMs}});
-  m_graphsyncNetwork =
-      std::make_shared<sgns::ipfs_lite::ipfs::graphsync::Network>(
-          pubsub->GetHost(), m_scheduler);
+  m_graphsyncNetwork = std::move(graphsyncNetwork);
   m_generator =
       std::make_shared<sgns::ipfs_lite::ipfs::graphsync::RequestIdGenerator>();
 
@@ -176,14 +202,20 @@ void GcsGlobalDb::Shutdown() noexcept {
     return;
   }
 
-  if (m_db) {
-    m_db->ShutdownNow(); // idempotent per GlobalDB contract
-  }
+  // Quiesce the io thread BEFORE ShutdownNow: ShutdownNow destroys the
+  // GlobalDB's graphsync (PubSubBroadcasterExt -> GraphsyncDAGSyncer ->
+  // GraphsyncImpl) and its mutexes; with the io thread still servicing
+  // handlers, a destroyed mutex gets locked and the noexcept destructor
+  // chain terminates the process (EINVAL system_error — SIGABRT on macOS
+  // app quit, crash reports 2026-09-19 16:51/16:55/16:58).
   if (m_io) {
     m_io->stop();
   }
   if (m_ioThread.joinable()) {
     m_ioThread.join();
+  }
+  if (m_db) {
+    m_db->ShutdownNow(); // idempotent per GlobalDB contract
   }
   m_db.reset();
   m_generator.reset();
@@ -195,6 +227,11 @@ void GcsGlobalDb::Shutdown() noexcept {
 }
 
 bool GcsGlobalDb::IsRunning() const noexcept { return m_running.load(); }
+
+std::shared_ptr<sgns::ipfs_lite::ipfs::graphsync::Network>
+GcsGlobalDb::GraphsyncNetwork() const noexcept {
+  return m_graphsyncNetwork;
+}
 
 outcome::result<void>
 GcsGlobalDb::AddBroadcastTopic(const std::string &topicName) {

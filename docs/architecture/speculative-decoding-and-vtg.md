@@ -24,7 +24,7 @@ The baseline GNUS speculative decoding profile is optimized for nodes with limit
 Representative local budget:
 
 ```text
-active model / ELM budget: 100MB to 350MB
+active model / Expert Model budget: 100MB to 350MB
 micro drafter or MTP head: 5MB to 50MB
 hot VTG shard: 10MB to 100MB
 runtime buffers, KV cache, and shader state: remaining local budget
@@ -71,7 +71,7 @@ small drafter / MTP head / rule helper / VTG lookup
     ↓
 draft 1 to 4 tokens or one small state block
     ↓
-local verifier, schema check, target ELM, compiler, tool dry-run, or arbiter check
+local verifier, schema check, target Expert Model, compiler, tool dry-run, or arbiter check
     ↓
 commit accepted prefix
     ↓
@@ -88,7 +88,7 @@ EGGROLL tunes policy across the swarm
 |----------|----------------|
 | **Micro Drafter** | Proposes a tiny future prefix or one small state block. |
 | **Confidence Scheduler** | Selects the portion of the proposal that should be verified. |
-| **Local Verifier** | Accepts the prefix using the local target model, schema validator, tool dry-run, test result, or ELM verifier. |
+| **Local Verifier** | Accepts the prefix using the local target model, schema validator, tool dry-run, test result, or verifier expert. |
 | **VTG Hot Shard** | Supplies locally relevant verified transition candidates. |
 | **Swarm Learning Loop** | Publishes compact outcome events for VTG and EGGROLL. |
 
@@ -173,7 +173,7 @@ A VTG candidate may represent:
 
 The hot shard on a node contains graph fragments relevant to:
 
-- local model or ELM role
+- local model / Expert Model role
 - tenant boundary
 - current policy hash
 - recent workload family
@@ -209,6 +209,10 @@ tool-call template -> fill arguments -> dry-run validates
 ```
 
 Micro-diffusion is best suited to low-entropy structured regions where verification is cheap and deterministic.
+
+The same **diffusion processor architecture** may also support bounded EJM structured reads without changing the cognitive contract. A compatible processor can seed a mostly fixed answer canvas, leave one or more validated single-token judgment slots unresolved, run a bounded/read-only denoise step, and return exact candidate-token distributions for those slots. That use is **judgment**, not speculative block commitment: it follows EJM calibration/escalation rules rather than the refinement commit path.
+
+This distinction is intentional: diffusion describes **how the computation runs**; JUDGE or REFINE describes **what operation GCS requested**.
 
 ---
 
@@ -250,7 +254,7 @@ This reduces duplicated context processing and avoids a separate standalone draf
 GNUS deployment profile:
 
 ```text
-frozen ELM or Semantic Core
+frozen Expert Model or Semantic Core
     ↓
 small role-specific MTP head
     ↓
@@ -271,12 +275,12 @@ The first targets are formatter/schema and code-specialist paths.
 
 | Role | Policy |
 |------|--------|
-| Formatter / Schema ELM | Highest speculative depth; deterministic validation is cheap. |
-| Tool-Support ELM | Short depth with tool dry-run validation before side effects. |
+| Formatter / Schema Expert | Highest speculative depth; deterministic validation is cheap. |
+| Tool-Support Expert | Short depth with tool dry-run validation before side effects. |
 | Code Specialist | Moderate depth with compiler, tests, static analysis, or code verifier. |
 | Primary Draft ELM | Short depth for low-risk repeated text patterns. |
-| Verifier ELM | Minimal depth; consistency is prioritized. |
-| Grounding ELM | Minimal depth when evidence alignment is required. |
+| Verifier Expert | Minimal depth; consistency is prioritized. |
+| Grounding Expert | Minimal depth when evidence alignment is required. |
 | Synthesizer / Arbiter | Short depth over known synthesis patterns; arbitration remains authoritative. |
 
 Speculation depth is a policy decision, not a fixed model property.
@@ -297,6 +301,8 @@ Nodes advertise micro-speculation capabilities in a compact profile.
     "schema_rule",
     "frozen_micro_mtp"
   ],
+  "processor_architectures": ["autoregressive", "diffusion"],
+  "expert_capabilities": ["generate", "judge", "refine"],
   "max_spec_depth": 4,
   "max_branch_factor": 2,
   "verification_modes": [
@@ -304,7 +310,7 @@ Nodes advertise micro-speculation capabilities in a compact profile.
     "schema",
     "tool_dry_run",
     "compiler",
-    "verifier_elm"
+    "verifier_expert"
   ]
 }
 ```
@@ -384,7 +390,7 @@ Implement the cheapest paths first:
 
 ### **24.15.3 Phase 3 — Frozen Micro-MTP Head**
 
-Attach a small MTP head to the formatter/schema ELM or another deterministic specialist.
+Attach a small MTP head to the formatter/schema Expert Model or another deterministic specialist.
 
 ### **24.15.4 Phase 4 — Tiny Causal Tree Head**
 
@@ -410,7 +416,7 @@ Larger experimental backends may exist in research or benchmark environments, bu
 
 ## **24.17 Design Principle**
 
-GNUS treats diffusion, tree drafting, Frozen MTP, schema rules, and VTG lookup as micro-speculative primitives.
+GNUS treats diffusion, tree drafting, Frozen MTP, schema rules, and VTG lookup as micro-speculative primitives when they are used to propose provisional content. Diffusion processors may separately expose bounded JUDGE capabilities; those judgment reads are not speculative commits.
 
 They run locally, verify cheaply, and improve collectively through VTG and EGGROLL.
 

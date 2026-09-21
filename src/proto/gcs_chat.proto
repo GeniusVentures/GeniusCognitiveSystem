@@ -1,0 +1,169 @@
+syntax = "proto3";
+
+package gcs.chat;
+
+// Wire codec bound to a store at creation (D-29: per-store codec choice).
+enum Codec {
+  CODEC_UNSPECIFIED = 0;
+  CODEC_PROTOBUF = 1;
+  CODEC_JSON = 2;
+}
+
+// Store/session configuration carried by gcs_init bytes (D-29: codec bound at creation).
+message GcsConfig {
+  string db_path = 1;
+  Codec codec = 2;
+  // Optional mnemonic for the embedded SGNUS node's signing identity. Empty
+  // (default) = the SDK boots with the wallet persisted under the base path,
+  // creating a fresh CHILD WALLET when none exists; that child wallet connects
+  // to a parent wallet through other mechanisms (Child Wallets, later phase).
+  // Non-empty = boot the provided account's wallet directly.
+  string mnemonic = 3;
+}
+
+// Message role taxonomy (D-18).
+enum MessageRole {
+  MESSAGE_ROLE_UNSPECIFIED = 0;
+  MESSAGE_ROLE_USER_SELF = 1;
+  MESSAGE_ROLE_USER_PEER = 2;
+  MESSAGE_ROLE_ASSISTANT = 3;
+  MESSAGE_ROLE_SYSTEM = 4;
+}
+
+// Message state taxonomy (D-19).
+enum MessageState {
+  MESSAGE_STATE_UNSPECIFIED = 0;
+  MESSAGE_STATE_PENDING = 1;
+  MESSAGE_STATE_STREAMING = 2;
+  MESSAGE_STATE_THINKING = 3;
+  MESSAGE_STATE_COMPLETE = 4;
+  MESSAGE_STATE_ERROR = 5;
+}
+
+// Thin chat-shaped struct Dart publishes for a send (D-27: data-only; C++ stamps authority).
+message SendTextCommand {
+  string room_topic = 1;
+  string text = 2;
+}
+
+// Join a chat room topic (C++ joins GossipSub and pushes the updated RoomList).
+message JoinTopicCommand {
+  string room_topic = 1;
+}
+
+// Envelope for every Dart -> C++ command publish (D-27: commands are topic publishes).
+message GcsCommand {
+  oneof payload {
+    JoinTopicCommand join_topic = 1;
+    SendTextCommand send_text = 2;
+    CreateSpaceCommand create_space = 3;
+    CreateRoomCommand create_room = 4;
+    UpdateSpaceCommand update_space = 5;
+  }
+}
+
+// Authoritative message record. This proto type IS the C++ half (D-24 reinterpreted by D-26):
+// C++ stamps id/timestamp/role/state; Dart renders.
+message ChatMessageState {
+  string id = 1;
+  string room_topic = 2;
+  MessageRole role = 3;
+  MessageState state = 4;
+  string text = 5;
+  int64 timestamp = 6;
+}
+
+// Pushed room-list event (D-21/D-26): the set of topics the session is in.
+message RoomList {
+  repeated string room_topic = 1;
+}
+
+// Pushed readiness event (D-26): true once init + smoke-topic pre-join completes.
+message Readiness {
+  bool ready = 1;
+}
+
+// Pushed raw error string (D-29: errors cross FFI as raw strings on the push port).
+message ErrorNotice {
+  string message = 1;
+}
+
+// Envelope for every C++ -> Dart pushed event (D-26 push-not-pull).
+message GcsEvent {
+  oneof payload {
+    ChatMessageState message = 1;
+    RoomList room_list = 2;
+    Readiness readiness = 3;
+    ErrorNotice error = 4;
+    SpaceTree space_tree = 5;
+  }
+}
+
+// === Phase 2: Spaces & Rooms (append-only additions — D-24/D-26) ===
+
+// Authoritative persistent space entity record. This proto type IS the C++ half
+// (D-01/D-02): C++ stamps id/timestamps/tombstone; Dart renders. Stored as the
+// value bytes under `gcs/entities/spaces/<id>`. Name is mutable display
+// metadata; id is identity.
+message SpaceRecord {
+  string id = 1;             // opaque C++-minted id (D-01)
+  string name = 2;
+  bool is_public = 3;
+  bool auto_join_rooms = 4;  // D-04 derived-join source of truth
+  int64 created_at_ms = 5;   // wall-clock ms (same stamp as ChatMessageState)
+  int64 updated_at_ms = 6;
+  bool deleted = 7;          // D-03 tombstone fields, present from creation,
+  int64 deleted_at_ms = 8;   // set by NO Phase 2 command
+}
+
+// Authoritative persistent room entity record. C++ stamps id/timestamps/
+// tombstone; Dart renders. Stored as the value bytes under
+// `gcs/entities/rooms/<id>`. Topic is derived: `gcs/chat/<id>`.
+message RoomRecord {
+  string id = 1;             // opaque C++-minted id (D-01)
+  string name = 2;
+  string parent_space_id = 3; // empty = standalone (D-01 unified room model)
+  int64 created_at_ms = 4;    // wall-clock ms (same stamp as ChatMessageState)
+  int64 updated_at_ms = 5;
+  bool deleted = 6;           // D-03 tombstone fields, present from creation,
+  int64 deleted_at_ms = 7;    // set by NO Phase 2 command
+}
+
+// Manifest of known entity ids (D-02). Value bytes under gcs/index/manifest.
+// Exists because GcsGlobalDb has no enumeration/prefix query. Writers follow a
+// read-union-write convention (append-only membership); readers skip ids whose
+// record is missing or tombstoned.
+message EntityManifest {
+  repeated string space_id = 1;
+  repeated string room_id = 2;
+}
+
+// Data-only create command (D-27: data-only; C++ stamps authority — the id,
+// timestamps, and tombstone fields never come from Dart).
+message CreateSpaceCommand {
+  string name = 1;
+  bool is_public = 2;
+  bool auto_join_rooms = 3;
+}
+
+// Data-only create command (D-27: data-only; C++ stamps authority).
+message CreateRoomCommand {
+  string name = 1;
+  string parent_space_id = 2; // empty = standalone
+}
+
+// Data-only edit command (D-27: data-only; C++ stamps authority). Full desired
+// state, never a patch (per-key LWW replaces the whole value).
+message UpdateSpaceCommand {
+  string space_id = 1;
+  string name = 2;
+  bool is_public = 3;
+  bool auto_join_rooms = 4;
+}
+
+// Pushed entity-catalog event (D-02): FLAT records — Dart builds the tree.
+// Reuses the same record protos stored in the KV values (one type, no drift).
+message SpaceTree {
+  repeated SpaceRecord space = 1;
+  repeated RoomRecord room = 2;
+}
