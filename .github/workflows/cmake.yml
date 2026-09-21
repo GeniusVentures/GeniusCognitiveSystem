@@ -308,6 +308,11 @@ jobs:
     runs-on: ${{ fromJson(needs.resolve-runners.outputs[matrix.runner_key]) }}
     container:
       image: ${{matrix.container}}
+      # IPC_LOCK lets gnome-keyring-daemon start inside the container
+      # (mlock for the keyring); without it the Linux ctest keyring wrapper
+      # fails with "Operation not permitted" and every node-booting test
+      # dies on "Account creation failed" (SuperGenius precedent).
+      options: --cap-add=IPC_LOCK
       credentials:
         username: ${{github.actor}}
         password: ${{secrets.GNUS_TOKEN_1}}
