@@ -45,7 +45,7 @@ The scaffold uses a **2px-base scale** — token `spaceN` resolves to `2 × N` p
 | minTouchTarget | 48px | Hit target; send button visual = `minTouchTarget - space4` = **40px** circle |
 | radiusMd | 12px | Bubble corner radius, composer surface corner radius |
 
-Exceptions (inherited, do not change): the scaffold scale is **2px-based, not 8-point** — `space6` (12px) and the unused `space3` (6px) are not multiples of 4. Messaging consumes only `space2/4/6/8/12` + `minTouchTarget` + `radiusMd` and adds no new spacing tokens.
+Exceptions (inherited, do not change): the scaffold scale is **2px-based, not 8-point** — `space6` (12px) is a multiple of 4 but outside the 8-point set (4/8/16/24/32…); `space3` (6px) is unused by messaging and is not a multiple of 4. Messaging consumes only `space2/4/6/8/12` + `minTouchTarget` + `radiusMd` and adds no new spacing tokens.
 
 ---
 
@@ -58,9 +58,9 @@ M3 text-theme roles (no hand-rolled sizes — see `gcs_theme.dart` and the compo
 | Body | 14px | 400 | 1.43 | Message text (`bodyMedium`), composer input |
 | Label | 11px | 500 | 1.45 | Sender label, secondary text (`labelSmall`) |
 | Heading | 14px | 500 | 1.43 | Rail/room section headers (`titleSmall`) |
-| Display | 24px | 600 | 1.33 | Empty-state headline (`headlineSmall`, weight forced to 600 by `ScaffoldStateView`) |
+| Display | 24px | 400 | 1.33 | Empty-state headline (`headlineSmall` M3 default; `ScaffoldStateView` renders it at w600 — scaffold-owned, not declared) |
 
-Weights: **400 (regular)** + **500 (medium)**. The single **600** weight is inherited from the scaffold `ScaffoldStateView` empty-state panel (`headlineSmall` at `FontWeight.w600`) — messaging does not introduce it, it reuses the existing empty-state pattern.
+Weights: **400 (regular)** + **500 (medium)** — the phase's declared scale is exactly these two weights. The empty-state headline's **600** weight is scaffold-owned (not part of this scale): `ScaffoldStateView` forces `headlineSmall` to `FontWeight.w600` at render time, and messaging merely reuses that existing empty-state panel without declaring a third weight.
 
 ---
 
@@ -86,6 +86,8 @@ Accent (`#00EAAE`) reserved for — never "all interactive elements":
 2. Send button fill (circular `Icons.send` surface)
 3. Focus ring (keyboard + screen-reader focus states)
 4. Thinking/typing indicator first dot (with `blue500` + `lightGreenSecondary` companions — assistant state, unreachable until Phase 6 but already in the composite)
+
+**Primary focal point:** the accent-filled circular send button is the single visual focal point of the messaging surface — accent is applied to it (and to the sender's own bubble) so no other element competes for that hue; peers, assistants, and system notices all sit on the dominant `#05090F` surface.
 
 Destructive/error (`#FF4D4D`) reserved for failed-message error chrome and error toasts only. **No destructive user actions exist in Phase 3** (message deletion is Phase 5), so this token paints terminal send-failure tint, never a deletion affordance.
 
