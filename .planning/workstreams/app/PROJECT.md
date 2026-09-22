@@ -24,12 +24,11 @@ Users can create a space, invite others, and have a group conversation where an 
 
 ### Validated
 
-(None yet — ship to validate)
+- ✓ **CHAT-01**: User can create a space (public or private) — Phase 2
+- ✓ **CHAT-02**: User can create rooms within a space or standalone — Phase 2
 
 ### Active
 
-- [ ] **CHAT-01**: User can create a space (public or private)
-- [ ] **CHAT-02**: User can create rooms within a space or standalone
 - [ ] **CHAT-03**: User can invite others via capability tokens
 - [ ] **CHAT-04**: User can send and receive messages in real-time
 - [ ] **CHAT-05**: User can @mention the GCS bot for AI responses
@@ -67,7 +66,7 @@ Users can create a space, invite others, and have a group conversation where an 
 |----------|-----------|---------|
 | Single unified room model with `autoAnswer` policy | Simplifies state; Solo/Multi/Q&A are just config | — Pending |
 | App-layer encryption (not libp2p PSK) | Per-room keys, easier rotation, existence visible | — Pending |
-| Spaces as containers with `autoJoinRooms` config | Flexible: boundary or loose grouping | — Pending |
+| Spaces as containers with `autoJoinRooms` config | Flexible: boundary or loose grouping | — Validated (Phase 2, 2026-09-22) |
 | Multiple Admins, no single Owner | Avoids "who owns this" problem, enables succession | — Pending |
 | Super Admin = creator, cannot be demoted | Prevents rogue admin lockout | — Pending |
 | Destructive actions need Super Admin approval when 2+ admins | Balance between agility and safety | — Pending |
@@ -92,4 +91,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-08-15 after milestone v1.0 creation*
+*Last updated: 2026-09-22 after Phase 2 (Spaces & Rooms)*
