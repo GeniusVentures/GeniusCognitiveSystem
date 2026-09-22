@@ -43,3 +43,9 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Scaffold-generated chat composites — rendered from templates/components/
+# by the CMake codegen targets (app_generate_chat_components; a dependency
+# of app_analyze/app_test/app_build_macos). Never hand-edit; proto/ stays
+# committed (no CMake generator — see README).
+/lib/generated/chat/
