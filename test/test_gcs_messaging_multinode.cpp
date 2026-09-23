@@ -146,7 +146,16 @@ namespace gcs::test
         auto startError  = startFuture.get();
         ASSERT_FALSE( startError ) << "Could not start GossipPubSub: " << startError.message();
 
-        node.graphsync = MakeGraphsyncContext( node.pubsub );
+        // Graphsync Network scheduler MUST share the pubsub host's RUNNING asio
+        // context (../SuperGenius globaldb_integration.cpp pattern): the Network
+        // writes yamux streams on the host context, and a scheduler on a
+        // private, never-run io stalls the CRDT DAG fetch indefinitely.
+        node.graphsync.io = node.pubsub->GetAsioContext();
+        node.graphsync.scheduler = std::make_shared<libp2p::basic::SchedulerImpl>(
+            std::make_shared<libp2p::basic::AsioSchedulerBackend>( node.graphsync.io ),
+            libp2p::basic::Scheduler::Config{ std::chrono::milliseconds{ kGraphsyncSchedulerTickMs } } );
+        node.graphsync.network = std::make_shared<sgns::ipfs_lite::ipfs::graphsync::Network>(
+            node.pubsub->GetHost(), node.graphsync.scheduler );
     }
 
     /**
