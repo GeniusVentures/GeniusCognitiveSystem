@@ -1,8 +1,8 @@
 # Phase 3: Messaging - Pattern Map
 
-**Mapped:** 2026-09-23
-**Files analyzed:** 14 (9 modify, 3 new, 2 conditional/regenerate)
-**Analogs found:** 13 / 14
+**Mapped:** 2026-09-23 (updated same day — D-08 crypto seam added to the map; all other analogs unchanged)
+**Files analyzed:** 16 (10 modify, 4 new, 2 conditional/regenerate)
+**Analogs found:** 15 / 16
 
 ## File Classification
 
@@ -15,6 +15,8 @@
 | `src/ffi/gcs_core_ffi.cpp` | controller (FFI command dispatcher) | event-driven + request-response | self — `send_text` arm (667-720), `join_topic` arm (621-666) | exact (modify) |
 | `src/proto/gcs_chat.proto` | config (wire schema) | data-model | self — append-only Phase 2 section | exact (modify) |
 | `src/lib/gcs_messaging.{hpp,cpp}` | service (messaging component) | event-driven + CRUD | `src/lib/gcs_entity_store.{hpp,cpp}` | role-match (new) |
+| `src/lib/gcs_crypto.{hpp,cpp}` (D-08) | service (crypto adapter) | transform (encrypt/derive) | self — stateless free functions; the ONLY file including `<openssl/*>` | role-match (new) |
+| `src/CMakeLists.txt` (D-08) | config (build) | — | self — existing `target_link_libraries` blocks (13-16, 25-29) | exact (modify — one line: `OpenSSL::Crypto`) |
 | `src/app/lib/cubits/message_flow_cubit.dart` | store (cubit state holder) | event-driven | self — `append` + `buildChatFlowItemTextBubble` | exact (modify) |
 | `src/app/lib/cubits/session_cubit.dart` | store (cubit dispatcher) | event-driven | self — `_dispatchEvent` | exact (modify) |
 | `test/test_gcs_messaging.cpp` | test | event-driven | `test/test_gcs_entities.cpp` | exact (new) |
@@ -165,6 +167,10 @@ for (const std::string &spaceId : manifest.space_id()) {
 ```
 
 **Id minting** (`gcs_entity_store.cpp` lines 110-119) — same seed + counter idiom the send path already uses (`gcs_core_ffi.cpp` lines 449-458 `NextMessageId`). Phase 3 MOVES id minting into `gcs::Messaging::NextMessageId` (03-04); the FFI's free function is deleted in 03-05 and `send_text` delegates to `Messaging::SendMessage`. C++ still owns id authority (D-04) — the component mints, the FFI does not.
+
+---
+
+**D-08 injected crypto seam (added 2026-09-23):** `Messaging` gains two OPTIONAL callables at construction (EncryptFn/DecryptFn over `roomTopic` + payload bytes; empty/absent = plaintext path). Copy the constructor-injection shape above; the seam members are `std::function` values, not a base class (composition over inheritance). `Messaging` never includes `<openssl/*>` — the OpenSSL-backed implementation lives in `src/lib/gcs_crypto.{hpp,cpp}` (`gcs::crypto`: `DeriveRoomKey` / `EncryptRecord` / `DecryptRecord`, stateless, fresh `EVP_CIPHER_CTX`/`EVP_PKEY_CTX` per call) and is injected at composition time in the FFI/session setup. Envelope layout pinned in 03-RESEARCH (Pattern 6): `nonce(12) || ciphertext || tag(16)`; decrypt failure = skip-and-log (same loop posture as the unparseable-record skip below). Verified crypto surface + threading constraint: 03-RESEARCH "D-08 Crypto Surface".
 
 ---
 
