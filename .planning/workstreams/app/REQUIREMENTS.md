@@ -12,7 +12,7 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **CORE-01**: User can create a space (public or private)
 - [x] **CORE-02**: User can create a room within a space or standalone
 - [x] **CORE-03**: User can configure space `autoJoinRooms` setting
-- [ ] **CORE-04**: User can send and receive text messages in real-time
+- [x] **CORE-04**: User can send and receive text messages in real-time
 - [x] **CORE-05**: Messages sync via CRDT across all room participants
 
 ### Membership
@@ -86,7 +86,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CORE-01 | Phase 2 | Complete |
 | CORE-02 | Phase 2 | Complete |
 | CORE-03 | Phase 2 | Complete |
-| CORE-04 | Phase 3 | Pending |
+| CORE-04 | Phase 3 | Complete |
 | CORE-05 | Phase 1 | Complete |
 | MEMB-01 | Phase 4 | Pending |
 | MEMB-02 | Phase 4 | Pending |

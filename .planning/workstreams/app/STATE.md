@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: GCS Chat
 status: executing
-stopped_at: Phase 3 UI-SPEC approved
-last_updated: "2026-09-23T18:51:04.255Z"
-last_activity: 2026-09-23 -- Phase 03 planning complete
+stopped_at: Completed 03-01-PLAN.md
+last_updated: "2026-09-23T21:39:18.989Z"
+last_activity: 2026-09-23
 progress:
   total_phases: 7
   completed_phases: 2
   total_plans: 22
-  completed_plans: 16
+  completed_plans: 17
   percent: 29
 ---
 
@@ -21,16 +21,16 @@ progress:
 See: .planning/workstreams/app/PROJECT.md (updated 2026-09-22)
 
 **Core value:** Users can create a space, invite others, and have a group conversation where an AI participant (GCS) responds to questions — all synchronized via CRDT without central servers.
-**Current focus:** Phase 3 — messaging
+**Current focus:** Phase 03 — messaging
 
 ## Current Position
 
-Phase: 3
-Plan: Not started
+Phase: 03 (messaging) — EXECUTING
+Plan: 2 of 6
 Status: Ready to execute
-Last activity: 2026-09-23 -- Phase 03 planning complete
+Last activity: 2026-09-23
 
-Progress: [████████████████████] 16/16 plans (100%)
+Progress: [████████░░] 77%
 
 ## Performance Metrics
 
@@ -57,6 +57,7 @@ Progress: [████████████████████] 16/16 p
 | Phase 02 P03 | 3min | 3 tasks | 7 files |
 | Phase 02 P04 | 2min | 2 tasks | 3 files |
 | Phase 02 P05 | 3min | 2 tasks | 2 files |
+| Phase 03 P01 | 8min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -85,6 +86,9 @@ Recent decisions affecting current work:
 - [Phase ?]: Phase 02 P04: dialog title is static per open (atom title is a String); createFromHeader opens as 'New space' on the default type — hint and confirm label flip live with the selector
 - [Phase 02 P05]: Rail expansion state is a view-local collapsed-ids map (absent = expanded) on RoomRail — new spaces default open, keyed by id so expansion survives setTree full replacements; never enters RailState
 - [Phase 02 P05]: One _TreeRoomRow serves nested + standalone rows (leadingInset parameter); standalone rows are permanently dimmed emergently (never in the pushed RoomList in Phase 2), and unjoined gating layers ScaffoldPressable(disabled) over the selectRoom joined-only guard (T-02-11)
+- [Phase 03]: Buffer::toString() returns std::string_view (binary-safe data+size); use std::string{buf.toString()} for D-08 envelope bytes — never C-string APIs
+- [Phase 03]: OpenSSL linkage: OpenSSL::Crypto imported target (vendored 3.3.3) is the only sanctioned handle; pkgcfg_lib__OPENSSL_crypto/ssl + _OPENSSL_LDFLAGS point at homebrew 3.6.3 (forbidden)
+- [Phase 03]: HKDF PKEY setters are legacy-3.0-guarded (OPENSSL_NO_DEPRECATED_3_0) but present in the default vendored build; 03-02 must retain m_pubsub before the std::move into GlobalDB::New
 
 ### Pending Todos
 
@@ -110,6 +114,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-22T22:28:23.719Z
-Stopped at: Phase 3 UI-SPEC approved
-Resume file: .planning/workstreams/app/phases/03-messaging/03-UI-SPEC.md
+Last session: 2026-09-23T21:39:15.414Z
+Stopped at: Completed 03-01-PLAN.md
+Resume file: .planning/workstreams/app/phases/03-messaging/03-02-PLAN.md
