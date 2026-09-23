@@ -5,7 +5,7 @@
 
 **Date:** 2026-09-23 (update session on the 2026-09-22 context)
 **Phase:** 03-messaging
-**Areas discussed:** encrypted chat-history storage (D-04 amendment + new D-08)
+**Areas discussed:** encrypted chat-history storage (D-04 amendment + new D-08), crypto encapsulation seam
 
 ---
 
@@ -67,9 +67,22 @@ D-03 pub/sub fast path. Six committed plans exist and will be replanned for D-08
 
 ---
 
+## Crypto Encapsulation (injection seam)
+
+| Option | Description | Selected |
+|--------|-------------|----------|
+| Injected crypto seam | Messaging takes injected encrypt/decrypt functions; they are simply not called when encryption is disabled — plaintext flows; both paths testable in this phase | ✓ |
+| Inline OpenSSL calls | Messaging calls EVP directly behind an enabled flag; no injection seam | |
+
+**User's choice:** "keep the messaging encapsulated, so that if the room/messaging doesn't have encryption enabled, it just doesn't call the injected crypto functions. That way we can test both paths in this phase"
+**Notes:** Default remains encryption-enabled for all Phase 3 rooms; the disabled path is exercised by tests now and becomes the v1.1 per-room opt-out with no architectural change. Messaging never calls OpenSSL directly.
+
+---
+
 ## Claude's Discretion
 
 - Exact HKDF parameters, nonce size, OpenSSL EVP call pattern (pinned in 03-01 signature record).
+- Injection shape of the crypto seam (pair of `std::function` encrypt/decrypt vs a small interface), as long as Messaging never calls OpenSSL directly and the seam is injectable per room/messaging instance.
 - Decryption-failure log level (warn vs debug).
 - Crypto helper placement inside the Messaging component.
 
