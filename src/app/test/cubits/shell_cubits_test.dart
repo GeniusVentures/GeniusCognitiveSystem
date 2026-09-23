@@ -119,6 +119,26 @@ class _RecordingTransport implements GcsCommandTransport {
   }
 }
 
+/// Transport double returning a fixed publish result (D-07 seam): false to
+/// model a refused publish, true to model an accepted one. Records commands
+/// the same way [_RecordingTransport] does.
+class _FixedResultTransport implements GcsCommandTransport {
+  /// Creates a fake returning [result] from every publish.
+  _FixedResultTransport(this.result);
+
+  /// The fixed publish result this fake returns.
+  final bool result;
+
+  /// Published command envelopes (D-27 seam).
+  final List<GcsCommand> commands = <GcsCommand>[];
+
+  @override
+  bool publishCommand(GcsCommand command) {
+    commands.add(command);
+    return result;
+  }
+}
+
 void main() {
   group('RailCubit', () {
     test('starts empty with no selection and no hardcoded rooms', () {
@@ -213,6 +233,79 @@ void main() {
       expect(item.state, 'pending');
       expect(item.text, 'hello');
     });
+
+    test('upsert replaces an existing item by instanceId (D-07)', () {
+      final MessageFlowCubit cubit = MessageFlowCubit();
+      addTearDown(cubit.close);
+      const ChatFlowItemTextBubble pending = ChatFlowItemTextBubble(
+        instanceId: 'm1',
+        role: 'user_self',
+        state: 'pending',
+        text: 'hello',
+      );
+      const ChatFlowItemTextBubble complete = ChatFlowItemTextBubble(
+        instanceId: 'm1',
+        role: 'user_self',
+        state: 'complete',
+        text: 'hello',
+      );
+      cubit.append(pending);
+      cubit.upsert(complete);
+      expect(cubit.state, hasLength(1));
+      expect((cubit.state.single as ChatFlowItemTextBubble).state, 'complete');
+    });
+
+    test('replaceAll replaces the whole list with each snapshot (D-06)', () {
+      final MessageFlowCubit cubit = MessageFlowCubit();
+      addTearDown(cubit.close);
+      const ChatFlowItemTextBubble a = ChatFlowItemTextBubble(
+        instanceId: 'a',
+        role: 'user_self',
+        text: 'one',
+      );
+      const ChatFlowItemTextBubble b = ChatFlowItemTextBubble(
+        instanceId: 'b',
+        role: 'user_peer',
+        text: 'two',
+      );
+      const ChatFlowItemTextBubble c = ChatFlowItemTextBubble(
+        instanceId: 'c',
+        role: 'system',
+        text: 'three',
+      );
+      cubit.replaceAll(<ChatFlowItem>[a, b]);
+      expect(cubit.state, hasLength(2));
+      cubit.replaceAll(<ChatFlowItem>[c]);
+      expect(cubit.state, hasLength(1));
+      expect((cubit.state.single as ChatFlowItemTextBubble).instanceId, 'c');
+    });
+
+    test('buildChatFlowItemTextBubble truncates a long sender label (D-04)',
+        () {
+      final MessageFlowCubit cubit = MessageFlowCubit();
+      addTearDown(cubit.close);
+      final String longSender = '0x${List<String>.filled(128, 'a').join()}';
+      final ChatFlowItemTextBubble truncated = cubit.buildChatFlowItemTextBubble(
+        ChatMessageState()
+          ..id = 'id-sender'
+          ..role = MessageRole.MESSAGE_ROLE_USER_PEER
+          ..state = MessageState.MESSAGE_STATE_COMPLETE
+          ..text = 'hi'
+          ..sender = longSender,
+      );
+      expect(truncated.senderName, isNotNull);
+      expect(truncated.senderName, startsWith('0x'));
+      expect(truncated.senderName, contains('…'));
+
+      final ChatFlowItemTextBubble unnamed = cubit.buildChatFlowItemTextBubble(
+        ChatMessageState()
+          ..id = 'id-none'
+          ..role = MessageRole.MESSAGE_ROLE_USER_PEER
+          ..state = MessageState.MESSAGE_STATE_COMPLETE
+          ..text = 'hi',
+      );
+      expect(unnamed.senderName, isNull);
+    });
   });
 
   group('ComposerCubit', () {
@@ -256,6 +349,48 @@ void main() {
       expect(transport.commands, isEmpty);
       expect(cubit.state.draft, '   ');
     });
+
+    test(
+      'send returns false and keeps the draft when the transport refuses',
+      () async {
+        final _FixedResultTransport transport = _FixedResultTransport(false);
+        final RailCubit rail = RailCubit();
+        final ComposerCubit cubit = ComposerCubit(
+          transport: transport,
+          railCubit: rail,
+        );
+        addTearDown(cubit.close);
+        addTearDown(rail.close);
+        rail.setRooms(<String>['gcs/chat/room-one']);
+        rail.selectRoom('gcs/chat/room-one');
+        await pumpEventQueue();
+        cubit.updateDraft('hello world');
+        expect(cubit.send(), isFalse);
+        expect(transport.commands, hasLength(1));
+        expect(cubit.state.draft, 'hello world');
+      },
+    );
+
+    test(
+      'send returns true and clears the draft on publish success',
+      () async {
+        final _FixedResultTransport transport = _FixedResultTransport(true);
+        final RailCubit rail = RailCubit();
+        final ComposerCubit cubit = ComposerCubit(
+          transport: transport,
+          railCubit: rail,
+        );
+        addTearDown(cubit.close);
+        addTearDown(rail.close);
+        rail.setRooms(<String>['gcs/chat/room-one']);
+        rail.selectRoom('gcs/chat/room-one');
+        await pumpEventQueue();
+        cubit.updateDraft('hello world');
+        expect(cubit.send(), isTrue);
+        expect(transport.commands, hasLength(1));
+        expect(cubit.state.draft, isEmpty);
+      },
+    );
   });
 
   group('SessionCubit', () {
@@ -371,6 +506,81 @@ void main() {
         (GcsEvent()..error = (ErrorNotice()..message = 'boom')).writeToBuffer(),
       );
       expect(cubit.state.error, 'boom');
+    });
+
+    test(
+      'pushed messageHistory replaces the flow with the full batch (D-06)',
+      () {
+        final RailCubit rail = RailCubit();
+        final MessageFlowCubit flow = MessageFlowCubit();
+        final SessionCubit cubit = SessionCubit(
+          railCubit: rail,
+          messageFlowCubit: flow,
+        );
+        addTearDown(cubit.close);
+        addTearDown(rail.close);
+        addTearDown(flow.close);
+
+        cubit.handlePushedBytes(
+          (GcsEvent()
+                ..messageHistory = (MessageHistory()
+                  ..roomTopic = 'gcs/chat/a'
+                  ..message.addAll(<ChatMessageState>[
+                    ChatMessageState()
+                      ..id = 'h1'
+                      ..role = MessageRole.MESSAGE_ROLE_USER_SELF
+                      ..state = MessageState.MESSAGE_STATE_COMPLETE
+                      ..text = 'first',
+                    ChatMessageState()
+                      ..id = 'h2'
+                      ..role = MessageRole.MESSAGE_ROLE_USER_PEER
+                      ..state = MessageState.MESSAGE_STATE_COMPLETE
+                      ..text = 'second',
+                  ])))
+              .writeToBuffer(),
+        );
+
+        expect(flow.state, hasLength(2));
+        expect((flow.state[0] as ChatFlowItemTextBubble).instanceId, 'h1');
+        expect((flow.state[0] as ChatFlowItemTextBubble).text, 'first');
+        expect((flow.state[1] as ChatFlowItemTextBubble).instanceId, 'h2');
+        expect((flow.state[1] as ChatFlowItemTextBubble).text, 'second');
+      },
+    );
+
+    test('pushed messageHistory preserves pushed roles (D-04/D-06)', () {
+      final RailCubit rail = RailCubit();
+      final MessageFlowCubit flow = MessageFlowCubit();
+      final SessionCubit cubit = SessionCubit(
+        railCubit: rail,
+        messageFlowCubit: flow,
+      );
+      addTearDown(cubit.close);
+      addTearDown(rail.close);
+      addTearDown(flow.close);
+
+      cubit.handlePushedBytes(
+        (GcsEvent()
+              ..messageHistory = (MessageHistory()
+                ..roomTopic = 'gcs/chat/a'
+                ..message.addAll(<ChatMessageState>[
+                  ChatMessageState()
+                    ..id = 'self'
+                    ..role = MessageRole.MESSAGE_ROLE_USER_SELF
+                    ..state = MessageState.MESSAGE_STATE_COMPLETE
+                    ..text = 'me',
+                  ChatMessageState()
+                    ..id = 'peer'
+                    ..role = MessageRole.MESSAGE_ROLE_USER_PEER
+                    ..state = MessageState.MESSAGE_STATE_COMPLETE
+                    ..text = 'them',
+                ])))
+            .writeToBuffer(),
+      );
+
+      expect(flow.state, hasLength(2));
+      expect((flow.state[0] as ChatFlowItemTextBubble).role, 'user_self');
+      expect((flow.state[1] as ChatFlowItemTextBubble).role, 'user_peer');
     });
 
     test(
