@@ -81,6 +81,10 @@ gcs_test(test_gcs_crypto test_gcs_crypto.cpp "gcs_core;gcs_storage;neoswarm_comm
 # Phase 3 Messaging component (03-04 Task 1/3): injected-pubsub send/receive/
 # history/dedupe + encrypted/plaintext both-path coverage over gcs::Messaging.
 gcs_test(test_gcs_messaging test_gcs_messaging.cpp "gcs_core;gcs_storage;neoswarm_common")
+# Phase 3 two-node integration (03-06): live cross-node delivery, converged
+# histories, at-rest opacity, and restart replay over the REAL GossipSub
+# transport (two nodes in one process, ../SuperGenius multinode pattern).
+gcs_test(test_gcs_messaging_multinode test_gcs_messaging_multinode.cpp "gcs_core;gcs_storage;neoswarm_common")
 # FFI ABI smoke (01-04 Task 3): config-bytes gcs_init failure classes, arg
 # validation, shutdown-null. Also links gcs_proto so the test can serialize a
 # gcs::chat::GcsConfig via gcs_chat.pb.h (D-29 codec-tagged init bytes).
