@@ -28,6 +28,12 @@
 #include <soralog/logging_system.hpp>
 
 #include "gcs_storage/gcs_global_db.hpp"
+// SuperGenius house pattern (38 upstream test files): in-memory secure
+// storage instead of the OS keychain — CI runners (session-scoped macOS
+// login keychain) make SecItemAdd flaky and account creation fails (runs
+// 35904291986 / 35918456744). This binary boots the node from its own
+// static chain, so the direct C++ call sets the right image's factory.
+#include "gcs_storage/common/test_env.hpp"
 
 #include "GeniusSDK.hpp"
 
@@ -77,6 +83,11 @@ namespace sgns::neoswarm::storage::test
     protected:
         static void SetUpTestSuite()
         {
+            // Before any account exists: redirect secure storage away from the
+            // OS keychain (see test_env.hpp header — the IMAGE RULE is why this
+            // binary calls the C++ helper, not the FFI seam).
+            gcs_storage::test::UseInMemorySecureStorage();
+
             auto loggerConfigurator = std::make_shared<libp2p::log::Configurator>();
             auto configFromYaml     = std::make_shared<soralog::ConfiguratorFromYAML>( loggerConfigurator,
                                                                                        std::string{ kLoggingYaml } );

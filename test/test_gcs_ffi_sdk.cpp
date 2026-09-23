@@ -242,6 +242,14 @@ namespace gcs::test
 
         void SetUp() override
         {
+            // The node boots through gcs_ffi's exported GeniusSDKInit (dylib
+            // wins by linkage order), so the secure-storage factory must be
+            // set inside the DLL's image — the exported seam, not the C++
+            // helper (IMAGE RULE, gcs_storage/common/test_env.hpp). Avoids
+            // the flaky OS keychain on CI runners (35904291986 / 35918456744:
+            // "Failed to generate Genius address from private key" → skip).
+            gcs_use_test_secure_storage();
+
             const auto *info       = ::testing::UnitTest::GetInstance()->current_test_info();
             const auto  uniqueSalt = std::chrono::steady_clock::now().time_since_epoch().count();
             m_tempPath = ( std::filesystem::temp_directory_path()

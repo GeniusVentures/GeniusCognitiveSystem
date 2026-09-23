@@ -57,6 +57,15 @@ namespace gcs::test
     protected:
         void SetUp() override
         {
+            // The embedded node boots INSIDE gcs_ffi's image (gcs_init boots
+            // it), so the secure-storage factory must be set on the DLL's
+            // copy — hence the exported seam, not the C++ helper (IMAGE RULE,
+            // gcs_storage/common/test_env.hpp). Before any gcs_init; without
+            // it the OS keychain makes account creation flaky on CI runners
+            // (runs 35904291986 / 35918456744: "Failed to generate Genius
+            // address from private key").
+            gcs_use_test_secure_storage();
+
             const auto *info       = ::testing::UnitTest::GetInstance()->current_test_info();
             const auto  uniqueSalt = std::chrono::steady_clock::now().time_since_epoch().count();
             m_tempPath = ( std::filesystem::temp_directory_path()
