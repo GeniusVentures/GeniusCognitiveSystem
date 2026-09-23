@@ -53,6 +53,29 @@ macro(gcs_test name sources libs)
         ${libs}
     )
     add_test(NAME ${name} COMMAND ${name})
+    # Windows: two DLLs the test exes import live outside their output dir
+    # (gcs_test/Release) and Windows has no build-tree rpath:
+    #   - vulkan-1.dll: every test links the SuperGenius static chain, which
+    #     pulls the vendored Vulkan loader; hosted CI runners (windows-2022
+    #     fallback) ship no Vulkan runtime, and without the DLL next to the exe
+    #     the process dies with 0xc0000135 before main() runs (run 35904291986,
+    #     all 7 tests). Ported from SuperGenius cmake/functions.cmake addtest();
+    #     VULKAN_RUNTIME_DLL is resolved in cmake/CommonBuildParameters.cmake.
+    #   - gcs_ffi.dll: the FFI tests link the dylib, which the linker places in
+    #     gcs_src/ffi/Release, not next to the tests.
+    # copy_if_different makes repeat builds no-ops.
+    if(WIN32)
+        if(VULKAN_RUNTIME_DLL)
+            add_custom_command(TARGET ${name} POST_BUILD
+                COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+                    "${VULKAN_RUNTIME_DLL}" "$<TARGET_FILE_DIR:${name}>/vulkan-1.dll")
+        endif()
+        if("${libs}" MATCHES "(^|;)gcs_ffi(;|$)")
+            add_custom_command(TARGET ${name} POST_BUILD
+                COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+                    "$<TARGET_FILE:gcs_ffi>" "$<TARGET_FILE_DIR:${name}>")
+        endif()
+    endif()
 endmacro()
 
 # Moved GlobalDB lifecycle test (01-01) — exercises the GcsGlobalDb component
