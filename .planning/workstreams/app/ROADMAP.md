@@ -119,7 +119,7 @@ Plans:
 Plans:
 **Wave 1**
 
-- [ ] 03-01-PLAN.md — Wave 1 — SuperGenius/GeniusSDK signature verification (QueryKeyValues/PutLocal/RegisterNewElementCallback/GetAddress/Publish/Subscribe) + append-only proto additions (sender/deleted/deleted_at_ms + MessageHistory)
+- [x] 03-01-PLAN.md — Wave 1 — SuperGenius/GeniusSDK signature verification (QueryKeyValues/PutLocal/RegisterNewElementCallback/GetAddress/Publish/Subscribe) + append-only proto additions (sender/deleted/deleted_at_ms + MessageHistory)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -211,7 +211,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 |-------|----------------|--------|-----------|
 | 1. Foundation | 11/11 | Complete | 2026-09-16 |
 | 2. Spaces & Rooms | 5/5 | Complete   | 2026-09-19 |
-| 3. Messaging | 0/6 | Not started | - |
+| 3. Messaging | 1/6 | In Progress|  |
 | 4. Membership & Invites | 0/TBD | Not started | - |
 | 5. Moderation | 0/TBD | Not started | - |
 | 6. GCS Bot | 0/TBD | Not started | - |
