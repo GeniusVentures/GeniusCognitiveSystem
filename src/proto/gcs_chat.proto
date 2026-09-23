@@ -71,6 +71,9 @@ message ChatMessageState {
   MessageState state = 4;
   string text = 5;
   int64 timestamp = 6;
+  string sender = 7;        // D-04 wallet address, C++-stamped (unsigned, display-only)
+  bool deleted = 8;         // D-05 tombstone fields, present from creation
+  int64 deleted_at_ms = 9;  // (mirrors SpaceRecord deleted/deleted_at_ms)
 }
 
 // Pushed room-list event (D-21/D-26): the set of topics the session is in.
@@ -96,6 +99,7 @@ message GcsEvent {
     Readiness readiness = 3;
     ErrorNotice error = 4;
     SpaceTree space_tree = 5;
+    MessageHistory message_history = 6;
   }
 }
 
@@ -166,4 +170,12 @@ message UpdateSpaceCommand {
 message SpaceTree {
   repeated SpaceRecord space = 1;
   repeated RoomRecord room = 2;
+}
+
+// === Phase 3: Messaging (append-only additions — D-04/D-05/D-06) ===
+
+// Batch history replay (D-06): the full sorted room history pushed on join.
+message MessageHistory {
+  string room_topic = 1;
+  repeated ChatMessageState message = 2;
 }
