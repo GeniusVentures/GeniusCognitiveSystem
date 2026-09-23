@@ -4,14 +4,14 @@ milestone: v1.0
 milestone_name: GCS Chat
 status: executing
 stopped_at: Completed 03-05-PLAN.md
-last_updated: "2026-09-23T22:58:01.928Z"
+last_updated: "2026-09-23T23:42:16.432Z"
 last_activity: 2026-09-23
 progress:
   total_phases: 7
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 22
-  completed_plans: 21
-  percent: 29
+  completed_plans: 22
+  percent: 43
 ---
 
 # Project State
@@ -100,6 +100,7 @@ Recent decisions affecting current work:
 - [Phase 03]: RoomTopicFromKey strips raw datastore framing (/crdt/k/.../v) and the leading '/' HierarchicalKey adds to callback keys; QueryHistory ignores the raw QueryKeyValues key (the value carries room/id)
 - [Phase 03]: CryptoSeam built by member assignment, not brace-init — CryptoSeam{...} is not a C++17 aggregate (user-provided default ctor from 03-04), so the plan's brace-init form does not compile
 - [Phase 03]: Deleted NextMessageId()/kMessageIdPrefix/g_messageSeq from the FFI — id minting now lives entirely in gcs_messaging; the FFI is a thin validate-and-delegate dispatcher
+- [Phase ?]: Phase 03 P06 two-node deadlock root cause
 
 ### Pending Todos
 
@@ -108,6 +109,7 @@ None yet.
 ### Blockers/Concerns
 
 - Phase 1 depends on GlobalDB CRDT integration from GNUS-NEO-SWARM Phase 3 — verify availability before planning.
+- 03-06 two-node messaging test RED: production threading deadlock (ApplyMessage archive write blocks pubsub strand, deadlocking graphsync CRDT heal response)
 
 ### Quick Tasks Completed
 
@@ -125,6 +127,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-23T22:58:01.919Z
+Last session: 2026-09-23T23:42:09.227Z
 Stopped at: Completed 03-05-PLAN.md
 Resume file: None
