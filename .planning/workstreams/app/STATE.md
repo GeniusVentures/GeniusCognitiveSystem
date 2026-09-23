@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: GCS Chat
 status: executing
-stopped_at: Completed 03-01-PLAN.md
-last_updated: "2026-09-23T21:39:18.989Z"
+stopped_at: Completed 03-02-PLAN.md
+last_updated: "2026-09-23T21:56:26.010Z"
 last_activity: 2026-09-23
 progress:
   total_phases: 7
   completed_phases: 2
   total_plans: 22
-  completed_plans: 17
+  completed_plans: 18
   percent: 29
 ---
 
@@ -26,11 +26,11 @@ See: .planning/workstreams/app/PROJECT.md (updated 2026-09-22)
 ## Current Position
 
 Phase: 03 (messaging) — EXECUTING
-Plan: 2 of 6
+Plan: 3 of 6
 Status: Ready to execute
 Last activity: 2026-09-23
 
-Progress: [████████░░] 77%
+Progress: [████████░░] 82%
 
 ## Performance Metrics
 
@@ -58,6 +58,7 @@ Progress: [████████░░] 77%
 | Phase 02 P04 | 2min | 2 tasks | 3 files |
 | Phase 02 P05 | 3min | 2 tasks | 2 files |
 | Phase 03 P01 | 8min | 2 tasks | 2 files |
+| Phase 03 P02 | 12min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -89,6 +90,9 @@ Recent decisions affecting current work:
 - [Phase 03]: Buffer::toString() returns std::string_view (binary-safe data+size); use std::string{buf.toString()} for D-08 envelope bytes — never C-string APIs
 - [Phase 03]: OpenSSL linkage: OpenSSL::Crypto imported target (vendored 3.3.3) is the only sanctioned handle; pkgcfg_lib__OPENSSL_crypto/ssl + _OPENSSL_LDFLAGS point at homebrew 3.6.3 (forbidden)
 - [Phase 03]: HKDF PKEY setters are legacy-3.0-guarded (OPENSSL_NO_DEPRECATED_3_0) but present in the default vendored build; 03-02 must retain m_pubsub before the std::move into GlobalDB::New
+- [Phase 03]: QueryKeyValues returns raw datastore keys (/crdt/k/<key>/v); wrapper is a blind std::string passthrough — 03-04 parses the message id from the raw key
+- [Phase 03]: PutLocal (SuperGenius PutKeyLocal) is overwrite-only — requires the key's priority record to already exist; fresh-key PutLocal is rejected, so 03-04 receive-path archive write must account for this
+- [Phase 03]: GcsGlobalDb retains the shared GossipPubSub (m_pubsub) before std::move into GlobalDB::New — one handle backs CRDT broadcast + raw live path (D-03)
 
 ### Pending Todos
 
@@ -114,6 +118,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-23T21:39:15.414Z
-Stopped at: Completed 03-01-PLAN.md
-Resume file: .planning/workstreams/app/phases/03-messaging/03-02-PLAN.md
+Last session: 2026-09-23T21:56:21.610Z
+Stopped at: Completed 03-02-PLAN.md
+Resume file: None
