@@ -674,7 +674,7 @@ if (RAND_bytes(nonce, static_cast<int>(kGcmNonceLength)) != 1) { /* skip-and-log
 
 **Assumptions A1/A3/A4 all reduce to one environment fact:** the SuperGenius/GeniusSDK headers are prebuilt tarballs not present locally, so exact signatures must be re-verified against the resolved thirdparty build dir at plan/implement time. All are flagged MEDIUM confidence; none are presented as verified fact. **A5 was upgraded to verified this session.** A6/A7 are LOW-risk verification gaps around an otherwise fully verified mechanism. Every other D-08 crypto claim in this document is verified in-repo (headers, docs, archive symbols, build.ninja, CMakeCache) or explicitly cited (NIST bound).
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **SuperGenius header resolution at build time** — RESOLVED by plan 03-01 Task 1 (`03-API-SIGNATURES.md`): the Wave-0 task locates the resolved headers via `build/OSX/Debug/compile_commands.json` and records the exact `QueryKeyValues` / `RegisterNewElementCallback` / `GeniusSDKGetAddress` signatures before any implementation.
    - What we know: `gcs_global_db.cpp` includes `crdt/globaldb/globaldb.hpp`, `GeniusSDK.hpp`, `ipfs_pubsub/gossip_pubsub.hpp`; these resolve from the thirdparty prebuilt (not in local tree/git).
@@ -709,9 +709,9 @@ if (RAND_bytes(nonce, static_cast<int>(kGcmNonceLength)) != 1) { /* skip-and-log
 
 11. **HKDF parameters (D-08)** — RESOLVED (pinned, interim): `HKDF-SHA256(ikm=room_topic, salt="gcs-messages-hkdf-v1", info="gcs-messages-v1", L=32)`, EXTRACT_AND_EXPAND default mode. Swapped for member-key distribution at Phase 4 with no envelope change (D-08).
 
-12. **Decrypt-failure log level (warn vs debug)** — OPEN (Claude's discretion, non-blocking). Recommendation: `spdlog::warn` for a first failure per room scan and `spdlog::debug` for per-record detail, to avoid log flooding on a large pre-D-08 archive; planner picks one and pins it in 03-01/03-04.
+12. **Decrypt-failure log level (warn vs debug)** — RESOLVED by plan 03-04: `spdlog::warn` per failed record, mirroring the unparseable-record skip-and-log posture.
 
-13. **Crypto seam injection shape (std::function pair vs small interface)** — OPEN (discretion), with research recommendation recorded (two `std::function`s, optional, `src/lib/gcs_crypto.{hpp,cpp}` as the only OpenSSL-including file). Either shape satisfies D-08 as long as `Messaging` never calls OpenSSL directly.
+13. **Crypto seam injection shape (std::function pair vs small interface)** — RESOLVED by plan 03-04: `CryptoSeam{EncryptFn, DecryptFn, bool enabled}` — a `std::function` pair plus an enabled flag, injected per `Messaging` instance; `src/lib/gcs_crypto.{hpp,cpp}` is the only OpenSSL-including file and `Messaging` never calls OpenSSL directly.
 
 ## Environment Availability
 
