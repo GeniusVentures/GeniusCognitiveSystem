@@ -33,6 +33,38 @@ find_package(GTest CONFIG REQUIRED)
 include_directories(${GTest_INCLUDE_DIR})
 
 # --------------------------------------------------------
+# zlib (vendored, static) — MUST precede Protobuf: protobuf-config.cmake
+# ("if(NOT ZLIB_FOUND) find_package(ZLIB)") and libssh2-config.cmake
+# ("find_dependency(ZLIB)") further down both call find_package(ZLIB) in
+# MODULE mode, which ignores ZLIB_DIR/ZLIB::ZLIBSTATIC and searches system
+# paths. That is how CI run 35807447520 picked up the container's system
+# libz (x86 linked /usr/lib64/libz.so; arm recorded a multiarch libz.so
+# ninja then could not resolve), and how Windows died with "missing:
+# ZLIB_LIBRARY" — the vendored static lib is zs.lib on Windows (OUTPUT_NAME
+# z + "s" suffix), a name FindZLIB never searches. Resolve the vendored
+# CONFIG package first, then bridge its result into FindZLIB's own cache
+# variables so every later find_package(ZLIB) — guarded or not — reuses the
+# vendored library and never touches the system. A later FindZLIB re-run is
+# harmless: find_path/find_library early-out on the cached values, and its
+# ZLIB::ZLIB creation is guarded by NOT TARGET (the vendored config already
+# exposed the alias to ZLIB::ZLIBSTATIC).
+set(ZLIB_ROOT "${THIRDPARTY_BUILD_DIR}/zlib")
+set(ZLIB_DIR "${THIRDPARTY_BUILD_DIR}/zlib/lib/cmake/zlib")
+find_package(ZLIB CONFIG REQUIRED)
+# zs = Windows static name (OUTPUT_NAME z + "s" suffix); the same build sets
+# CMAKE_DEBUG_POSTFIX "d" on Windows, so Debug trees ship zsd.lib. z = plain
+# static name on Linux/macOS (libz.a). NO_DEFAULT_PATH keeps the search
+# inside the vendored tree on every platform and configuration.
+find_library(ZLIB_LIBRARY NAMES z zs zsd
+    PATHS "${THIRDPARTY_BUILD_DIR}/zlib/lib"
+    NO_DEFAULT_PATH REQUIRED)
+find_path(ZLIB_INCLUDE_DIR zlib.h
+    PATHS "${THIRDPARTY_BUILD_DIR}/zlib/include"
+    NO_DEFAULT_PATH REQUIRED)
+set(ZLIB_LIBRARIES "${ZLIB_LIBRARY}")
+set(ZLIB_INCLUDE_DIRS "${ZLIB_INCLUDE_DIR}")
+
+# --------------------------------------------------------
 # protobuf (+ absl / utf8_range) — needed by NEO-SWARM src/proto add_proto_library
 if(NOT DEFINED absl_DIR)
     set(absl_DIR "${THIRDPARTY_BUILD_DIR}/protobuf/lib/cmake/absl")
@@ -127,10 +159,9 @@ endif()
 find_package(Boost REQUIRED COMPONENTS container date_time filesystem random regex system thread log log_setup program_options json unit_test_framework coroutine)
 include_directories(${Boost_INCLUDE_DIRS})
 
-# zlib
-set(ZLIB_ROOT "${THIRDPARTY_BUILD_DIR}/zlib")
-set(ZLIB_DIR "${THIRDPARTY_BUILD_DIR}/zlib/lib/cmake/zlib")
-find_package(ZLIB CONFIG REQUIRED)
+# zlib: vendored discovery moved ABOVE Protobuf — see the zlib block near
+# the top of this file. It must run before any package whose config calls
+# find_package(ZLIB) in module mode (protobuf-config, libssh2-config).
 
 # fmt
 set(fmt_DIR "${THIRDPARTY_BUILD_DIR}/fmt/lib/cmake/fmt")
