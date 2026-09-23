@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: GCS Chat
 status: executing
-stopped_at: Completed 03-03-PLAN.md
-last_updated: "2026-09-23T22:13:10.377Z"
+stopped_at: Completed 03-04-PLAN.md
+last_updated: "2026-09-23T22:38:25.172Z"
 last_activity: 2026-09-23
 progress:
   total_phases: 7
   completed_phases: 2
   total_plans: 22
-  completed_plans: 19
+  completed_plans: 20
   percent: 29
 ---
 
@@ -26,11 +26,11 @@ See: .planning/workstreams/app/PROJECT.md (updated 2026-09-22)
 ## Current Position
 
 Phase: 03 (messaging) — EXECUTING
-Plan: 4 of 6
+Plan: 5 of 6
 Status: Ready to execute
 Last activity: 2026-09-23
 
-Progress: [█████████░] 86%
+Progress: [█████████░] 91%
 
 ## Performance Metrics
 
@@ -60,6 +60,7 @@ Progress: [█████████░] 86%
 | Phase 03 P01 | 8min | 2 tasks | 2 files |
 | Phase 03 P02 | 12min | 2 tasks | 5 files |
 | Phase 03 P03 | 10min | 2 tasks | 7 files |
+| Phase 03 P04 | 13min | 3 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -94,6 +95,8 @@ Recent decisions affecting current work:
 - [Phase 03]: QueryKeyValues returns raw datastore keys (/crdt/k/<key>/v); wrapper is a blind std::string passthrough — 03-04 parses the message id from the raw key
 - [Phase 03]: PutLocal (SuperGenius PutKeyLocal) is overwrite-only — requires the key's priority record to already exist; fresh-key PutLocal is rejected, so 03-04 receive-path archive write must account for this
 - [Phase 03]: GcsGlobalDb retains the shared GossipPubSub (m_pubsub) before std::move into GlobalDB::New — one handle backs CRDT broadcast + raw live path (D-03)
+- [Phase 03]: Receive-path archive write uses the 2-arg Put (empty topics = local-only, no rebroadcast) instead of PutLocal — SuperGenius PutLocal/PutKeyLocal is overwrite-only and rejects fresh keys (03-02 verified contract)
+- [Phase 03]: RoomTopicFromKey strips raw datastore framing (/crdt/k/.../v) and the leading '/' HierarchicalKey adds to callback keys; QueryHistory ignores the raw QueryKeyValues key (the value carries room/id)
 
 ### Pending Todos
 
@@ -119,6 +122,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-23T22:13:10.367Z
-Stopped at: Completed 03-03-PLAN.md
+Last session: 2026-09-23T22:38:25.164Z
+Stopped at: Completed 03-04-PLAN.md
 Resume file: None
