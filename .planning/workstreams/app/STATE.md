@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: GCS Chat
 status: executing
-stopped_at: Completed 03-04-PLAN.md
-last_updated: "2026-09-23T22:38:25.172Z"
+stopped_at: Completed 03-05-PLAN.md
+last_updated: "2026-09-23T22:58:01.928Z"
 last_activity: 2026-09-23
 progress:
   total_phases: 7
   completed_phases: 2
   total_plans: 22
-  completed_plans: 20
+  completed_plans: 21
   percent: 29
 ---
 
@@ -26,11 +26,11 @@ See: .planning/workstreams/app/PROJECT.md (updated 2026-09-22)
 ## Current Position
 
 Phase: 03 (messaging) — EXECUTING
-Plan: 5 of 6
+Plan: 6 of 6
 Status: Ready to execute
 Last activity: 2026-09-23
 
-Progress: [█████████░] 91%
+Progress: [██████████] 95%
 
 ## Performance Metrics
 
@@ -61,6 +61,7 @@ Progress: [█████████░] 91%
 | Phase 03 P02 | 12min | 2 tasks | 5 files |
 | Phase 03 P03 | 10min | 2 tasks | 7 files |
 | Phase 03 P04 | 13min | 3 tasks | 8 files |
+| Phase 03 P05 | 14min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -97,6 +98,8 @@ Recent decisions affecting current work:
 - [Phase 03]: GcsGlobalDb retains the shared GossipPubSub (m_pubsub) before std::move into GlobalDB::New — one handle backs CRDT broadcast + raw live path (D-03)
 - [Phase 03]: Receive-path archive write uses the 2-arg Put (empty topics = local-only, no rebroadcast) instead of PutLocal — SuperGenius PutLocal/PutKeyLocal is overwrite-only and rejects fresh keys (03-02 verified contract)
 - [Phase 03]: RoomTopicFromKey strips raw datastore framing (/crdt/k/.../v) and the leading '/' HierarchicalKey adds to callback keys; QueryHistory ignores the raw QueryKeyValues key (the value carries room/id)
+- [Phase 03]: CryptoSeam built by member assignment, not brace-init — CryptoSeam{...} is not a C++17 aggregate (user-provided default ctor from 03-04), so the plan's brace-init form does not compile
+- [Phase 03]: Deleted NextMessageId()/kMessageIdPrefix/g_messageSeq from the FFI — id minting now lives entirely in gcs_messaging; the FFI is a thin validate-and-delegate dispatcher
 
 ### Pending Todos
 
@@ -122,6 +125,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-23T22:38:25.164Z
-Stopped at: Completed 03-04-PLAN.md
+Last session: 2026-09-23T22:58:01.919Z
+Stopped at: Completed 03-05-PLAN.md
 Resume file: None

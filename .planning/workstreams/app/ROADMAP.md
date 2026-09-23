@@ -114,7 +114,7 @@ Plans:
   3. Message history is identical across all participants after sync
   4. Messages display in chronological order with sender identification
 
-**Plans:** 4/6 plans executed
+**Plans:** 5/6 plans executed
 
 Plans:
 **Wave 1**
@@ -132,7 +132,7 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 03-05-PLAN.md — Wave 4 (depends: 03-04) — FFI wiring (send_text delegate, join-time history replay, live subscribe + CRDT receive bridge)
+- [x] 03-05-PLAN.md — Wave 4 (depends: 03-04) — FFI wiring (send_text delegate, join-time history replay, live subscribe + CRDT receive bridge)
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
@@ -211,7 +211,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 |-------|----------------|--------|-----------|
 | 1. Foundation | 11/11 | Complete | 2026-09-16 |
 | 2. Spaces & Rooms | 5/5 | Complete   | 2026-09-19 |
-| 3. Messaging | 4/6 | In Progress|  |
+| 3. Messaging | 5/6 | In Progress|  |
 | 4. Membership & Invites | 0/TBD | Not started | - |
 | 5. Moderation | 0/TBD | Not started | - |
 | 6. GCS Bot | 0/TBD | Not started | - |
