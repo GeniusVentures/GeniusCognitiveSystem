@@ -401,55 +401,29 @@ jobs:
 
       - name: Clean workspace (self-hosted runners)
         if: ${{ runner.environment == 'self-hosted' }}
+        # SuperGenius pattern: working-directory as a STEP PROPERTY is
+        # runner-translated to the CONTAINER path for container jobs, and the
+        # body uses only relative paths. (Expanding ${{github.workspace}}
+        # inside the run: body instead yields the raw RUNNER HOST path —
+        # /home/<user>/actions-runner/_work/... — which does not exist in the
+        # container on the arm runner, so the whole wipe silently skipped and
+        # stale dev_almadocker-era dep trees poisoned every later configure:
+        # the arm64 libsecret phantom-path failures, runs 35810498890-35831659342.)
+        working-directory: ${{ runner.workspace }}
         shell: bash
         run: |
-          # Use sudo on Linux to handle root-owned files left by container jobs
-          SUDO=""
-          if [ "$(uname)" = "Linux" ]; then
-            SUDO="sudo"
-          fi
-
-          echo "=== PRE-CLEANUP DEBUG ==="
-          echo "Current working directory: $(pwd)"
-          # CRITICAL: use $GITHUB_WORKSPACE (the runtime env var), NOT the
-          # ${{github.workspace}} template expression. In container jobs the
-          # template expands to the RUNNER HOST path (/home/<user>/...), which
-          # does not exist inside the container — on the arm runner the whole
-          # wipe then silently skipped ("Workspace directory does not exist
-          # yet"), stale dep trees from earlier runs survived
-          # checkout+extract, and pkg_check_modules resolved libsecret to
-          # phantom Debian-style paths from the leftover artifacts
-          # (runs 35810498890..35831659342). $GITHUB_WORKSPACE is set to the
-          # CONTAINER path (/__w/...) inside the job, so the wipe actually
-          # runs where the build runs. $(pwd) equals it for run: steps.
-          WS="${GITHUB_WORKSPACE:-$(pwd)}"
-          echo "Workspace: ${WS}"
-
-          if [ -d "${WS}" ]; then
-            cd "${WS}"
-            echo "Changed to workspace directory: $(pwd)"
-            echo "Contents:"
-            ls -la
-
-            # Full wipe, SuperGenius-style (their clean has NO git commands):
-            # container jobs leave root-owned files not just in the downloaded
-            # dirs but inside the submodule build trees (e.g.
-            # build/Linux/Release/<abi>/CMakeFiles), which make `git clean
-            # -xfd` AND actions/checkout's own internal clean fail with
-            # permission errors on self-hosted runners. Removing everything
-            # with sudo lets checkout re-clone fresh.
-            echo "=== CLEANUP: full sudo wipe ==="
-            $SUDO rm -rf ./* ./.[!.]* || true
-          else
-            echo "Workspace directory does not exist yet, skipping cleanup"
-          fi
-
-          echo "=== POST-CLEANUP DEBUG ==="
-          if [ -d "${WS}" ]; then
-            cd "${WS}"
-            echo "Final workspace contents:"
-            ls -la
-          fi
+          # Container jobs leave root-owned files behind on Linux.
+          SUDO=$([ "$(uname)" = "Linux" ] && echo sudo || echo)
+          # Keep the checkout directory itself, drop its contents: root-owned
+          # files live not just in the downloaded dep dirs (thirdparty/,
+          # zkLLVM/, SuperGenius/, GeniusSDK/ — wiped again per-step in the
+          # download steps) but inside the submodule build trees (e.g.
+          # build/Linux/Release/<abi>/CMakeFiles), which make `git clean -xfd`
+          # AND actions/checkout's own internal clean fail with permission
+          # errors. The GCS checkout IS <workspace>/GeniusCognitiveSystem
+          # (no path: override), so this is the repo root.
+          [ -d GeniusCognitiveSystem ] && $SUDO rm -rf GeniusCognitiveSystem/* GeniusCognitiveSystem/.[!.]* || true
+          ls -la
 
       - name: Checkout GCS
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
