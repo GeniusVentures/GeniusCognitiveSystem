@@ -525,6 +525,7 @@ set(SUPERGENIUS_BUILD_DIR "${PROJECT_SUPER_ROOT}/SuperGenius/build/${BUILD_PLATF
                       endif()
                   endif()
               endif()
+          endif()
 
 # SuperGenius project
 set(evmrelay_DIR "${SUPERGENIUS_BUILD_DIR}/SuperGenius/lib/cmake/evmrelay/")
