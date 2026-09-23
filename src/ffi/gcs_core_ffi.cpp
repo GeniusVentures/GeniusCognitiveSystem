@@ -20,6 +20,8 @@
 #include "proto/gcs_chat.pb.h"
 
 #include "lib/gcs_core.hpp"
+#include "lib/gcs_messaging.hpp"
+#include "lib/gcs_crypto.hpp"
 #include "lib/gcs_entity_store.hpp"
 #include "gcs_storage/common/logging.hpp"
 
@@ -48,8 +50,6 @@ namespace
     // Pre-joined smoke topics (D-26 requires >= 2) so the pushed RoomList is non-empty.
     constexpr const char* kSmokeTopicA = "gcs/chat/smoke-test";
     constexpr const char* kSmokeTopicB = "gcs/chat/smoke-test-2";
-    // Prefix for C++-stamped message ids (D-04: authority fields never come from Dart).
-    constexpr const char* kMessageIdPrefix = "msg-";
     // Maximum entity display-name length in Unicode code points (T-02-09 —
     // matches the Dart dialog's kMaxNameLength, which counts characters, not
     // bytes; the FFI re-validates so any client, not just the dialog, is
@@ -81,9 +81,10 @@ namespace
      }
     )";
 
-    std::mutex g_mutex;                            // guards g_session + g_entities + topic sets
+    std::mutex g_mutex;                            // guards g_session + g_entities + g_messaging + topic sets
     std::unique_ptr<gcs::CoreSession> g_session;   // Phase 1: single global session
     std::unique_ptr<gcs::EntityStore> g_entities;  // Phase 2: entity catalog over g_session
+    std::unique_ptr<gcs::Messaging> g_messaging;   // Phase 3: messaging over g_session (D-03/D-08)
     std::vector<std::string> g_roomTopics;         // joined topic set (guarded by g_mutex)
     std::vector<std::string> g_derivedTopics;      // autoJoin-derived subset of g_roomTopics (D-04)
     std::vector<std::string> g_explicitTopics;     // join_topic-joined subset (WR-03: survives derived
@@ -94,7 +95,6 @@ namespace
     bool g_exitHookRegistered = false;             // std::atexit pairing hook registered once per
                                                    // process (written only under g_mutex)
     std::atomic<int64_t> g_dartPort{ 0 };          // registered Dart port (0 = unregistered)
-    std::atomic<uint64_t> g_messageSeq{ 0 };       // in-process component of the message id (CR-01)
     // One-shot guard for the per-process Dart API_DL table state check in gcs_init
     // (the table itself is initialized via the exported Dart_InitializeApiDL).
     std::atomic<bool> g_apiDlInitialized{ false };
@@ -188,6 +188,7 @@ namespace
             g_derivedTopics.clear();
             g_explicitTopics.clear();
             g_entities.reset();
+            g_messaging.reset();
         }
     }
 
@@ -432,30 +433,6 @@ namespace
         PostToDart( event );
     }
 
-    /**
-     * \brief Builds the next process-unique message id (D-04 authority stamp).
-     *
-     * The CRDT store persists across process launches while a bare per-process
-     * counter restarts at zero every launch — ids stamped as prefix + counter
-     * alone revisit a prior session's key space and silently overwrite its
-     * records under identical HierarchicalKeys (CR-01). The id therefore
-     * carries a per-process seed — wall-clock milliseconds plus a
-     * std::random_device token (two processes launched within the same
-     * millisecond still diverge) — followed by the in-process counter.
-     * Portable C++17 only; no platform headers.
-     *
-     * \return The next unique message id.
-     */
-    std::string NextMessageId()
-    {
-        static const std::string seed = [] {
-            const int64_t nowMs = std::chrono::duration_cast<std::chrono::milliseconds>(
-                std::chrono::system_clock::now().time_since_epoch() ).count();
-            std::random_device randomDevice;
-            return std::to_string( nowMs ) + "-" + std::to_string( randomDevice() );
-        }();
-        return kMessageIdPrefix + seed + "-" + std::to_string( g_messageSeq.fetch_add( 1 ) );
-    }
 } // namespace
 
 extern "C"
@@ -560,6 +537,23 @@ extern "C"
         }
 
         g_session = std::move( session );
+
+        // Phase 3 (D-08): construct the messaging component with the REAL
+        // vendored-OpenSSL crypto seam injected and encryption enabled by
+        // default for all Phase 3 rooms. The EventSink is PostToDart (callers
+        // already hold g_mutex). The FFI names the adapter functions here but
+        // never calls EVP directly — encryption/decryption happen inside
+        // Messaging, and the FFI/Dart only push/see plaintext events (D-08).
+        {
+            gcs::Messaging::CryptoSeam cryptoSeam;
+            cryptoSeam.encrypt = &gcs::crypto::EncryptPayload;
+            cryptoSeam.decrypt = &gcs::crypto::DecryptPayload;
+            cryptoSeam.enabled = true;
+            g_messaging = std::make_unique<gcs::Messaging>(
+                *g_session, std::string( GeniusSDKGetAddress().address ),
+                []( const gcs::chat::GcsEvent &event ) { PostToDart( event ); },
+                cryptoSeam );
+        }
 
         // Phase 2: replay the persisted entity catalog (D-02). Construct the
         // store ONLY after the g_session move — RefreshDerivedJoins uses the
@@ -688,34 +682,14 @@ extern "C"
                 PostErrorNotice( "send_text rejected: text exceeds maximum length" ); // D-29: raw error string on the push port
                 return GCS_ERROR_INVALID_ARGUMENT;
             }
-            gcs::chat::GcsEvent event;
-            gcs::chat::ChatMessageState* message = event.mutable_message();
-            // D-04: C++ stamps every authority field; Dart's SendTextCommand is data-only.
-            // The id is process-unique (CR-01) — see NextMessageId.
-            message->set_id( NextMessageId() );
-            message->set_room_topic( sendText.room_topic() );
-            message->set_role( gcs::chat::MESSAGE_ROLE_USER_SELF );
-            message->set_state( gcs::chat::MESSAGE_STATE_COMPLETE );
-            message->set_text( sendText.text() );
-            message->set_timestamp( std::chrono::duration_cast<std::chrono::milliseconds>(
-                                        std::chrono::system_clock::now().time_since_epoch() )
-                                        .count() );
-
-            // Phase 1 echo: store the authoritative record, then push it to the port
-            // (the real pub/sub flow lands in Phase 3). Key by the C++-stamped
-            // authority id (D-04) so per-room history survives — a room-topic-only
-            // key made each new message overwrite the previous one; store the
-            // payload message, not the push envelope.
-            if ( !g_session->Put( sendText.room_topic() + "/" + message->id(),
-                                  message->SerializeAsString() ).has_value() )
+            // D-03/D-04/D-07/D-08: delegate to the Messaging component, which
+            // mints the id, stamps the sender, pushes pending -> live publish +
+            // archive -> complete, and encrypts the envelope (production seam).
+            if ( !g_messaging->SendMessage( sendText.room_topic(), sendText.text() ).has_value() )
             {
-                spdlog::error( "gcs_ffi: send_text store write failed for room '{}'",
-                               sendText.room_topic() );
-                PostErrorNotice( "send_text store write failed for room '" + sendText.room_topic()
-                                 + "'" ); // D-29: raw error string on the push port
+                PostErrorNotice( "send_text failed for room '" + sendText.room_topic() + "'" );
                 return GCS_ERROR_GENERIC;
             }
-            PostToDart( event );
             return GCS_OK;
         }
         case gcs::chat::GcsCommand::kCreateSpace:
