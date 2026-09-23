@@ -358,24 +358,24 @@ outcome::result<void> GcsGlobalDb::Put(const std::string &key, const std::string
 
 **Assumptions A1/A3/A4/A5 all reduce to one environment fact:** the SuperGenius/GeniusSDK headers are prebuilt tarballs not present locally, so exact signatures must be re-verified against the resolved thirdparty build dir at plan/implement time. All are flagged MEDIUM confidence; none are presented as verified fact.
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **SuperGenius header resolution at build time**
+1. **SuperGenius header resolution at build time** — RESOLVED by plan 03-01 Task 1 (`03-API-SIGNATURES.md`): the Wave-0 task locates the resolved headers via `build/OSX/Debug/compile_commands.json` and records the exact `QueryKeyValues` / `RegisterNewElementCallback` / `GeniusSDKGetAddress` signatures before any implementation.
    - What we know: `gcs_global_db.cpp` includes `crdt/globaldb/globaldb.hpp`, `GeniusSDK.hpp`, `ipfs_pubsub/gossip_pubsub.hpp`; these resolve from the thirdparty prebuilt (not in local tree/git).
    - What's unclear: the exact resolved path after CMake configure on the dev machine and the exact API signatures.
    - Recommendation: Wave-0 task greps the resolved headers for `QueryKeyValues`, `RegisterNewElementCallback`, `GetAddress`, `Put(` and records exact signatures before any implementation.
 
-2. **Receive-side callback threading model**
+2. **Receive-side callback threading model** — RESOLVED by plan 03-01 Task 1 (threading note in the signature record) and plan 03-05 Task 2 (the receive-bridge lambda acquires `g_mutex` before touching `g_messaging`/`PostToDart`).
    - What we know: `RegisterNewElementCallback` exists; CONTEXT.md states it fires on the io thread (requires `g_mutex` when bridging into FFI session state).
    - What's unclear: whether the pub/sub fast path also delivers on the io thread or a separate pubsub reactor thread, and how the two receive paths serialize.
    - Recommendation: single funnel function `OnMessageArrived` that takes `g_mutex`; both callback paths call it. Verify thread ownership in the Wave-0 header read.
 
-3. **Dedupe-set scope and retention (Claude's discretion)**
+3. **Dedupe-set scope and retention (Claude's discretion)** — RESOLVED by plan 03-04 Task 2: a global `std::unordered_set<std::string> m_seenIds` bounded by `constexpr size_t kMaxSeenIds = 4096;` with clear-on-full.
    - What we know: apply-once keyed by message id; fixed-size LRU per room vs global keyed map, retention unspecified.
    - What's unclear: the eviction bound and whether it is per-room or global.
    - Recommendation: a global `std::unordered_set<std::string>` keyed by id with a per-room clear on join is the simplest correct MVP; planner may pick an LRU cap constant (`constexpr`).
 
-4. **Sender truncation format**
+4. **Sender truncation format** — RESOLVED by plan 03-03 Task 1: app-side `_truncateSender` helper with `kSenderShortPrefixLength = 8` / `kSenderShortSuffixLength = 8` (`0x` + first/last 8 hex + `…`).
    - What we know: UI renders sender short-form (D-04); scaffold has no built-in address formatter.
    - What's unclear: exact truncation (e.g. `0x1234…abcd` — first/last N chars).
    - Recommendation: app-side helper with a `constexpr` char budget; render the raw string as-is if under budget.
@@ -412,8 +412,8 @@ outcome::result<void> GcsGlobalDb::Put(const std::string &key, const std::string
 | Req ID | Behavior | Test Type | Automated Command | File Exists? |
 |--------|----------|-----------|-------------------|-------------|
 | CORE-04 SC1 | send_text pushes pending then complete with same id; local archive write | unit (FFI + injected pubsub) | `ctest -R test_gcs_messaging` (new) | ❌ Wave 0 |
-| CORE-04 SC2 | peer session receives message without refresh (pub/sub fast path) | integration (two sessions, shared GossipSub) | `ctest -R test_gcs_messaging` (new) | ❌ Wave 0 |
-| CORE-04 SC3 | two sessions' history converges (QueryKeyValues prefix scan equal after sync) | integration | `ctest -R test_gcs_messaging` (new) | ❌ Wave 0 |
+| CORE-04 SC2 | peer session receives message without refresh (live GossipSub fast path) | manual (human-verify, two live app instances) | — (03-06) | ✅ 03-06 |
+| CORE-04 SC3 | two sessions' history converges (QueryKeyValues prefix scan equal after sync) | manual (human-verify, two live app instances) | — (03-06) | ✅ 03-06 |
 | CORE-04 SC4 | history batch sorted `(timestamp, id)`; sender field stamped | unit | `ctest -R test_gcs_messaging` (new) | ❌ Wave 0 |
 | CORE-04 (D-07) | MessageFlowCubit upsert replaces pending→complete by id, no duplicate | unit (Dart) | `cd src/app && flutter test test/cubits/shell_cubits_test.dart` | ❌ extend existing |
 | CORE-04 (D-06) | SessionCubit dispatches messageHistory → replaceAll | unit (Dart) | `cd src/app && flutter test test/cubits/shell_cubits_test.dart` | ❌ extend existing |

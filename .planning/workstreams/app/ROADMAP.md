@@ -114,7 +114,30 @@ Plans:
   3. Message history is identical across all participants after sync
   4. Messages display in chronological order with sender identification
 
-**Plans**: TBD
+**Plans**: 6 plans
+
+Plans:
+**Wave 1**
+
+- [ ] 03-01-PLAN.md — Wave 1 — SuperGenius/GeniusSDK signature verification (QueryKeyValues/PutLocal/RegisterNewElementCallback/GetAddress/Publish/Subscribe) + append-only proto additions (sender/deleted/deleted_at_ms + MessageHistory)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 03-02-PLAN.md — Wave 2 (depends: 03-01) — Storage widening (topics-aware Put, PutLocal, QueryKeyValues, RegisterNewElementCallback, raw full-value Publish/Subscribe + CoreSession pass-throughs) + storage tests
+- [ ] 03-03-PLAN.md — Wave 2 (depends: 03-01) — Dart pb regen + MessageFlowCubit upsert/replaceAll + SessionCubit messageHistory dispatch + cubit tests
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 03-04-PLAN.md — Wave 3 (depends: 03-01, 03-02) — gcs::Messaging component (live full-value publish + archive send, two-route dedupe, history) + test_gcs_messaging (TDD)
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 03-05-PLAN.md — Wave 4 (depends: 03-04) — FFI wiring (send_text delegate, join-time history replay, live subscribe + CRDT receive bridge)
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
+- [ ] 03-06-PLAN.md — Wave 5 (depends: 03-03, 03-05) — Human-verify checkpoint (live send/receive + history convergence)
+
 **UI hint**: yes
 
 ### Phase 4: Membership & Invites
@@ -188,7 +211,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 |-------|----------------|--------|-----------|
 | 1. Foundation | 11/11 | Complete | 2026-09-16 |
 | 2. Spaces & Rooms | 5/5 | Complete   | 2026-09-19 |
-| 3. Messaging | 0/TBD | Not started | - |
+| 3. Messaging | 0/6 | Not started | - |
 | 4. Membership & Invites | 0/TBD | Not started | - |
 | 5. Moderation | 0/TBD | Not started | - |
 | 6. GCS Bot | 0/TBD | Not started | - |
