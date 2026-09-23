@@ -355,6 +355,55 @@ namespace
     }
 
     /**
+     * \brief Pushes the room's converged history as a MessageHistory batch.
+     *
+     * Callers must hold g_mutex (the sink serializes under it). The returned
+     * MessageHistory is already decrypted and role-flipped by
+     * Messaging::QueryHistory (D-08), so it is posted verbatim — no FFI-side
+     * decrypt or re-mapping. A failed scan is logged only (no error notice).
+     *
+     * \param[in] roomTopic The room topic to replay.
+     */
+    void PushMessageHistory( const std::string &roomTopic )
+    {
+        auto history = g_messaging->QueryHistory( roomTopic );
+        if ( !history.has_value() )
+        {
+            spdlog::error( "gcs_ffi: history scan failed for room '{}'", roomTopic );
+            return;
+        }
+        gcs::chat::GcsEvent event;
+        *event.mutable_message_history() = history.value();
+        PostToDart( event );
+    }
+
+    /**
+     * \brief Arms the raw GossipSub live subscribe for a room topic (D-03).
+     *
+     * Callers must hold g_mutex. The callback fires on the GossipPubSub
+     * strand thread (not the FFI command thread), so the lambda re-acquires
+     * g_mutex before touching g_messaging (T-03-14).
+     *
+     * \param[in] roomTopic The room topic to subscribe to.
+     */
+    void SubscribeLive( const std::string &roomTopic )
+    {
+        if ( !g_session->Subscribe( roomTopic,
+                                    []( const std::string &topic, const std::string &data )
+                                    {
+                                        std::lock_guard<std::mutex> lock( g_mutex );
+                                        if ( g_messaging )
+                                        {
+                                            g_messaging->OnLiveMessage( topic, data );
+                                        }
+                                    } )
+                  .has_value() )
+        {
+            spdlog::error( "gcs_ffi: live subscribe failed for room '{}'", roomTopic );
+        }
+    }
+
+    /**
      * \brief Recomputes the derived-join topic set (D-04) and syncs it into the
      *        session registrations and the joined-topic projection.
      *
@@ -399,6 +448,10 @@ namespace
             {
                 g_roomTopics.push_back( topic );
             }
+            // D-06: a newly derived (auto-joined) room replays its history and
+            // arms the live subscribe so it receives live messages (derived joins).
+            PushMessageHistory( topic );
+            SubscribeLive( topic );
         }
 
         // Topics no longer derived leave the projection only (Pitfall 4) —
@@ -555,6 +608,25 @@ extern "C"
                 cryptoSeam );
         }
 
+        // Bridge CRDT-synced message arrivals into the Messaging receive funnel
+        // (D-03 heal path). The callback fires on the io/DagWorker thread, so
+        // it re-acquires g_mutex before touching g_messaging/PostToDart
+        // (T-03-14). Decryption happens inside the Messaging funnel (D-08).
+        if ( !g_session->RegisterNewElementCallback(
+                   gcs::Messaging::kMessagesKeyPrefix,
+                   []( const std::string &key, const std::string &value )
+                   {
+                       std::lock_guard<std::mutex> lock( g_mutex );
+                       if ( g_messaging )
+                       {
+                           g_messaging->OnMessageArrived( key, value );
+                       }
+                   } )
+                  .has_value() )
+        {
+            spdlog::error( "gcs_ffi: message receive-callback registration failed" );
+        }
+
         // Phase 2: replay the persisted entity catalog (D-02). Construct the
         // store ONLY after the g_session move — RefreshDerivedJoins uses the
         // g_session global. A load failure is logged and never fails init:
@@ -656,6 +728,11 @@ extern "C"
                 g_explicitTopics.push_back( roomTopic );
             }
             PostToDart( BuildRoomListEvent() );
+            // D-06: replay the room's history as a pushed MessageHistory batch,
+            // THEN arm the raw live subscribe so any live message lands after
+            // the batch and is absorbed by the id-keyed dedupe (Pitfall 3).
+            PushMessageHistory( roomTopic );
+            SubscribeLive( roomTopic );
             return GCS_OK;
         }
         case gcs::chat::GcsCommand::kSendText:
