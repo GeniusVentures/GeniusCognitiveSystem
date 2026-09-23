@@ -140,8 +140,12 @@ outcome::result<void> GcsGlobalDb::Initialize(
   // a single protocol-handler slot per protocol, so a second Network on the
   // same host would silently replace the existing registration.
   m_io = std::make_shared<boost::asio::io_context>();
+  // The graphsync scheduler backend MUST share the pubsub host's io context
+  // (not the private m_io run on m_ioThread below): graphsync writes yamux
+  // streams on the pubsub context, and a scheduler on a private io races the
+  // WriteQueue cross-thread — ../SuperGenius fix 405513df5/ce91566ed.
   m_scheduler = std::make_shared<libp2p::basic::SchedulerImpl>(
-      std::make_shared<libp2p::basic::AsioSchedulerBackend>(m_io),
+      std::make_shared<libp2p::basic::AsioSchedulerBackend>(pubsub->GetAsioContext()),
       libp2p::basic::Scheduler::Config{
           std::chrono::milliseconds{kSchedulerTickMs}});
   m_graphsyncNetwork = std::move(graphsyncNetwork);
