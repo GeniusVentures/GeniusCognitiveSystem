@@ -33,41 +33,32 @@ find_package(GTest CONFIG REQUIRED)
 include_directories(${GTest_INCLUDE_DIR})
 
 # --------------------------------------------------------
-# zlib (vendored, static) — MUST precede Protobuf: protobuf-config.cmake
-# ("if(NOT ZLIB_FOUND) find_package(ZLIB)") and libssh2-config.cmake
-# ("find_dependency(ZLIB)") further down both call find_package(ZLIB) in
-# MODULE mode, which ignores ZLIB_DIR/ZLIB::ZLIBSTATIC and searches system
-# paths. That is how CI run 35807447520 picked up the container's system
-# libz (x86 linked /usr/lib64/libz.so; arm recorded a multiarch libz.so
-# ninja then could not resolve), and how Windows died with "missing:
-# ZLIB_LIBRARY" — the vendored static lib is zs.lib on Windows (OUTPUT_NAME
-# z + "s" suffix), a name FindZLIB never searches. Resolve the vendored
-# CONFIG package first, then bridge its result into FindZLIB's own cache
-# variables so every later find_package(ZLIB) — guarded or not — reuses the
-# vendored library and never touches the system. A later FindZLIB re-run is
-# harmless: find_path/find_library early-out on the cached values, and its
-# ZLIB::ZLIB creation is guarded by NOT TARGET (the vendored config already
-# exposed the alias to ZLIB::ZLIBSTATIC).
+# zlib (vendored, static) — MUST precede Protobuf and Libssh2: both of their
+# package configs call find_package(ZLIB) without CONFIG (protobuf-config
+# guards it with "if(NOT ZLIB_FOUND)", libssh2-config's find_dependency is
+# unguarded), which otherwise resolves to CMake's FindZLIB module and
+# searches system paths — run 35807447520 linked the container's system
+# libz on Linux and died "missing: ZLIB_LIBRARY" on Windows (the vendored
+# static lib is zs.lib there, a name FindZLIB never searches). Same layout
+# as SuperGenius build/CommonBuildParameters.cmake: resolve the vendored
+# CONFIG package first (it exports ZLIB::ZLIBSTATIC and knows zs.lib /
+# zsd.lib / libz.a itself), and set CMAKE_FIND_PACKAGE_PREFER_CONFIG below
+# so every later module-mode-shaped call re-finds THIS config instead of
+# the system. A re-find is harmless: the config's target creation is
+# guarded by NOT TARGET and ZLIB::ZLIB stays an alias of ZLIB::ZLIBSTATIC.
 set(ZLIB_ROOT "${THIRDPARTY_BUILD_DIR}/zlib")
 set(ZLIB_DIR "${THIRDPARTY_BUILD_DIR}/zlib/lib/cmake/zlib")
 find_package(ZLIB CONFIG REQUIRED)
-# zs = Windows static name (OUTPUT_NAME z + "s" suffix); the same build sets
-# CMAKE_DEBUG_POSTFIX "d" on Windows, so Debug trees ship zsd.lib. z = plain
-# static name on Linux/macOS (libz.a). NO_DEFAULT_PATH keeps the search
-# inside the vendored tree on every platform and configuration.
-# NO_CMAKE_FIND_ROOT_PATH: cross-compile toolchains (NDK, apple) re-root
-# find_path/find_library into the target sysroot and hide the host-side
-# vendored tree — run 35810498890's Android jobs died at find_path even
-# though the tarball ships zlib/include/zlib.h (the Android shim relaxes
-# MODE_LIBRARY but not MODE_INCLUDE, which is why find_library passed).
-find_library(ZLIB_LIBRARY NAMES z zs zsd
-    PATHS "${THIRDPARTY_BUILD_DIR}/zlib/lib"
-    NO_DEFAULT_PATH NO_CMAKE_FIND_ROOT_PATH REQUIRED)
-find_path(ZLIB_INCLUDE_DIR zlib.h
-    PATHS "${THIRDPARTY_BUILD_DIR}/zlib/include"
-    NO_DEFAULT_PATH NO_CMAKE_FIND_ROOT_PATH REQUIRED)
-set(ZLIB_LIBRARIES "${ZLIB_LIBRARY}")
-set(ZLIB_INCLUDE_DIRS "${ZLIB_INCLUDE_DIR}")
+# Applied from here on (not before GTest): a global PREFER_CONFIG would
+# also redirect other packages' module-mode finds (OpenSSL below is
+# deliberately module-mode against the vendored OPENSSL_DIR tree), so keep
+# the window as narrow as SuperGenius does around their own libssh2 call.
+# (Stays ON through the Protobuf find below; restored right after it.)
+set(_GCS_FIND_PREFER_CONFIG_PREV "")
+if(DEFINED CMAKE_FIND_PACKAGE_PREFER_CONFIG)
+    set(_GCS_FIND_PREFER_CONFIG_PREV "${CMAKE_FIND_PACKAGE_PREFER_CONFIG}")
+endif()
+set(CMAKE_FIND_PACKAGE_PREFER_CONFIG ON)
 
 # --------------------------------------------------------
 # protobuf (+ absl / utf8_range) — needed by NEO-SWARM src/proto add_proto_library
@@ -97,6 +88,16 @@ if(EXISTS "${Protobuf_PROTOC_EXECUTABLE}")
     set_target_properties(protobuf::protoc PROPERTIES
         IMPORTED_LOCATION ${Protobuf_PROTOC_EXECUTABLE})
 endif()
+
+# Restore the find mode right after the ZLIB-sensitive window (the protobuf
+# config find above): OpenSSL below is deliberately module-mode against the
+# vendored OPENSSL_DIR tree and Boost discovery must keep its usual mode.
+if(NOT "${_GCS_FIND_PREFER_CONFIG_PREV}" STREQUAL "")
+    set(CMAKE_FIND_PACKAGE_PREFER_CONFIG "${_GCS_FIND_PREFER_CONFIG_PREV}")
+else()
+    unset(CMAKE_FIND_PACKAGE_PREFER_CONFIG)
+endif()
+unset(_GCS_FIND_PREFER_CONFIG_PREV)
 
 # --------------------------------------------------------
 # Set config of OpenSSL
@@ -164,9 +165,7 @@ endif()
 find_package(Boost REQUIRED COMPONENTS container date_time filesystem random regex system thread log log_setup program_options json unit_test_framework coroutine)
 include_directories(${Boost_INCLUDE_DIRS})
 
-# zlib: vendored discovery moved ABOVE Protobuf — see the zlib block near
-# the top of this file. It must run before any package whose config calls
-# find_package(ZLIB) in module mode (protobuf-config, libssh2-config).
+# zlib: vendored discovery lives ABOVE, before Protobuf — see that block.
 
 # fmt
 set(fmt_DIR "${THIRDPARTY_BUILD_DIR}/fmt/lib/cmake/fmt")
@@ -398,8 +397,27 @@ set(xxHash_DIR "${THIRDPARTY_BUILD_DIR}/xxhash/lib/cmake/xxHash")
 find_package(xxHash CONFIG REQUIRED)
 
 # libssh2
+# PREFER_CONFIG (same mechanism as SuperGenius build/CommonBuildParameters.cmake
+# "Prefer package config files while loading Libssh2's dependencies"): its
+# config calls find_dependency(ZLIB) without CONFIG, which would otherwise
+# run FindZLIB in module mode and pick up a system libz — or die on
+# Windows where the vendored static lib (zs.lib) is not a name FindZLIB
+# searches. Re-enable the flag around this call (it was restored to its
+# pre-zlib value above); with it, the dependency re-finds the vendored
+# ZLIBConfig and links ZLIB::ZLIBSTATIC.
+set(_GCS_FIND_PREFER_CONFIG_PREV_2 "")
+if(DEFINED CMAKE_FIND_PACKAGE_PREFER_CONFIG)
+    set(_GCS_FIND_PREFER_CONFIG_PREV_2 "${CMAKE_FIND_PACKAGE_PREFER_CONFIG}")
+endif()
+set(CMAKE_FIND_PACKAGE_PREFER_CONFIG ON)
 set(Libssh2_DIR "${THIRDPARTY_BUILD_DIR}/libssh2/lib/cmake/libssh2")
 find_package(Libssh2 CONFIG REQUIRED)
+if(NOT "${_GCS_FIND_PREFER_CONFIG_PREV_2}" STREQUAL "")
+    set(CMAKE_FIND_PACKAGE_PREFER_CONFIG "${_GCS_FIND_PREFER_CONFIG_PREV_2}")
+else()
+    unset(CMAKE_FIND_PACKAGE_PREFER_CONFIG)
+endif()
+unset(_GCS_FIND_PREFER_CONFIG_PREV_2)
 
 # AsyncIOManager
 set(AsyncIOManager_INCLUDE_DIR "${THIRDPARTY_BUILD_DIR}/AsyncIOManager/include")
