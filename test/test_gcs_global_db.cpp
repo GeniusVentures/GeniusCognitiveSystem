@@ -244,4 +244,108 @@ namespace sgns::neoswarm::storage::test
         pubsub->Stop();
     }
 
+    /**
+     * @brief Widened storage surface round-trips (03-02): topics-aware Put,
+     *        2-arg Put, PutLocal, QueryKeyValues prefix scan, and raw GossipSub
+     *        Publish/Subscribe all succeed on a started injected pubsub. Local
+     *        loopback delivery is intentionally NOT asserted here — the injected
+     *        pubsub uses echo_forward_mode=false, so full-value delivery is
+     *        asserted at the component layer (03-04) and live cross-node (03-06).
+     */
+    TEST_F( GcsGlobalDbTest, WidenedStorageSurfaceRoundTrips )
+    {
+        constexpr const char *kRoomA               = "roomA";
+        constexpr const char *kRoomB               = "roomB";
+        constexpr const char *kPrefixA             = "gcs/messages/roomA/";
+        constexpr const char *kPrefixB             = "gcs/messages/roomB/";
+        constexpr const char *kPayloadOne          = "hello from one";
+        constexpr const char *kPayloadTwo          = "hello from two";
+        constexpr const char *kPayloadThree        = "hello from three";
+        constexpr size_t      kRoomAInitialEntries = 2;
+
+        auto pubsub = MakeStartedPubSub( m_tempPath + "/key" );
+        ASSERT_NE( pubsub, nullptr );
+        auto graphsync = ::gcs::test::MakeGraphsyncContext( pubsub );
+
+        GcsGlobalDb::Config cfg{};
+        cfg.m_dbPath = m_tempPath + "/db";
+        GcsGlobalDb db( cfg );
+
+        auto initRes = db.Initialize( pubsub, graphsync.network );
+        ASSERT_TRUE( initRes.has_value() );
+        EXPECT_TRUE( db.IsRunning() );
+
+        const std::string kKeyOne = std::string{ kPrefixA } + "msg-1";
+        const std::string kKeyTwo = std::string{ kPrefixA } + "msg-2";
+
+        // QueryKeyValues returns RAW datastore keys (/crdt/k/<key>/v), not the
+        // logical key — match on the embedded message id instead of the logical
+        // key (which 03-04 parses out of the raw key). Returns (found, value).
+        const auto valueForKeyFragment =
+            []( const std::vector<std::pair<std::string, std::string>> &entries,
+                const std::string &fragment ) {
+                for ( const auto &entry : entries )
+                {
+                    if ( entry.first.find( fragment ) != std::string::npos )
+                    {
+                        return std::make_pair( true, entry.second );
+                    }
+                }
+                return std::make_pair( false, std::string{} );
+            };
+
+        // Topics-aware Put + 2-arg Put both succeed.
+        EXPECT_TRUE( db.Put( kKeyOne, kPayloadOne, { kRoomA } ).has_value() );
+        EXPECT_TRUE( db.Put( kKeyTwo, kPayloadTwo ).has_value() );
+
+        // Prefix scan returns exactly the two roomA entries with their values.
+        auto       scanA    = db.QueryKeyValues( kPrefixA );
+        ASSERT_TRUE( scanA.has_value() );
+        const auto &entriesA = scanA.value();
+        ASSERT_EQ( entriesA.size(), kRoomAInitialEntries );
+
+        const auto foundOne = valueForKeyFragment( entriesA, "msg-1" );
+        EXPECT_TRUE( foundOne.first );
+        EXPECT_EQ( foundOne.second, kPayloadOne );
+        const auto foundTwo = valueForKeyFragment( entriesA, "msg-2" );
+        EXPECT_TRUE( foundTwo.first );
+        EXPECT_EQ( foundTwo.second, kPayloadTwo );
+
+        // roomB prefix returns empty.
+        auto scanB = db.QueryKeyValues( kPrefixB );
+        ASSERT_TRUE( scanB.has_value() );
+        EXPECT_TRUE( scanB.value().empty() );
+
+        // PutLocal overwrites an EXISTING key (SuperGenius contract: local
+        // side-effect writes bypass DAG broadcast and re-derive an existing
+        // record — a fresh key has no priority record, so PutLocal on a fresh
+        // key is rejected). Overwrite msg-1 and confirm the scan reflects it.
+        EXPECT_TRUE( db.PutLocal( kKeyOne, kPayloadThree, "local-rewrite" ).has_value() );
+        auto scanA2 = db.QueryKeyValues( kPrefixA );
+        ASSERT_TRUE( scanA2.has_value() );
+        const auto &entriesA2 = scanA2.value();
+        ASSERT_EQ( entriesA2.size(), kRoomAInitialEntries );
+        const auto rewrittenOne = valueForKeyFragment( entriesA2, "msg-1" );
+        EXPECT_TRUE( rewrittenOne.first );
+        EXPECT_EQ( rewrittenOne.second, kPayloadThree );
+        const auto unchangedTwo = valueForKeyFragment( entriesA2, "msg-2" );
+        EXPECT_TRUE( unchangedTwo.first );
+        EXPECT_EQ( unchangedTwo.second, kPayloadTwo );
+
+        // Raw Publish + Subscribe succeed on the injected (started) pubsub.
+        EXPECT_TRUE( db.Publish( kRoomA, kPayloadOne ).has_value() );
+        EXPECT_TRUE( db.Subscribe(
+                         kRoomA,
+                         []( const std::string & /*topic*/,
+                             const std::string & /*data*/ ) {
+                             // Loopback delivery intentionally not asserted here.
+                         } )
+                         .has_value() );
+
+        db.Shutdown();
+        EXPECT_FALSE( db.IsRunning() );
+
+        pubsub->Stop();
+    }
+
 } // namespace sgns::neoswarm::storage::test
