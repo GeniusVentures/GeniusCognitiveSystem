@@ -81,6 +81,11 @@ public:
   /// CRDT archive key prefix (one serialized/enveloped record per message key).
   static constexpr const char *kMessagesKeyPrefix = "gcs/messages/";
 
+  /// CRDT receive-callback regex pattern (FULL match per CRDTCallbackManager's
+  /// std::regex_match) — matches the archive key form the callback actually
+  /// receives, "/gcs/messages/<room>/<id>".
+  static constexpr const char *kMessagesKeyCallbackPattern = "/gcs/messages/.*";
+
   /**
    * @brief Construct the component, storing its dependencies only.
    *

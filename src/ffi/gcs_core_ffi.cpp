@@ -183,12 +183,16 @@ namespace
         {
             g_dartPort = 0; // unregister the port BEFORE teardown
             g_session->Shutdown();
+            // Destroy the messaging component (which drains + joins its archive
+            // worker) and the entity catalog BEFORE the session — both borrow the
+            // session reference, and the archive worker must not touch a dead
+            // session while draining.
+            g_messaging.reset();
+            g_entities.reset();
             g_session.reset();
             g_roomTopics.clear();
             g_derivedTopics.clear();
             g_explicitTopics.clear();
-            g_entities.reset();
-            g_messaging.reset();
         }
     }
 
@@ -613,7 +617,7 @@ extern "C"
         // it re-acquires g_mutex before touching g_messaging/PostToDart
         // (T-03-14). Decryption happens inside the Messaging funnel (D-08).
         if ( !g_session->RegisterNewElementCallback(
-                   gcs::Messaging::kMessagesKeyPrefix,
+                   gcs::Messaging::kMessagesKeyCallbackPattern,
                    []( const std::string &key, const std::string &value )
                    {
                        std::lock_guard<std::mutex> lock( g_mutex );

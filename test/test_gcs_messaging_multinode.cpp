@@ -198,7 +198,7 @@ namespace gcs::test
 
         // CRDT heal path (D-03): new-element callback -> Messaging receive.
         ASSERT_TRUE( node.session->RegisterNewElementCallback(
-                          gcs::Messaging::kMessagesKeyPrefix,
+                          gcs::Messaging::kMessagesKeyCallbackPattern,
                           [ &node ]( const std::string &key, const std::string &value ) {
                               if ( node.messaging )
                               {
@@ -236,16 +236,21 @@ namespace gcs::test
         if ( node.session )
         {
             node.session->Shutdown();
+        }
+        // Destroy the messaging component (drains + joins its archive worker)
+        // BEFORE the session it borrows, then the session, then the transport.
+        if ( node.messaging )
+        {
+            node.messaging.reset();
+        }
+        if ( node.session )
+        {
             node.session.reset();
         }
         if ( node.pubsub )
         {
             node.pubsub->Stop();
             node.pubsub.reset();
-        }
-        if ( node.messaging )
-        {
-            node.messaging.reset();
         }
     }
 
