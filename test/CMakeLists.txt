@@ -41,17 +41,31 @@ endif()
 
 enable_testing()
 
-# Helper macro
+# Helper macro. Options:
+#   OWN_MAIN — the source provides main() (gcs_exit_main.hpp) instead of
+#   linking GTest::Main. Used by SDK-node-booting tests whose detached
+#   retry stragglers must never see static destruction (see header).
 macro(gcs_test name sources libs)
+    set( _GCS_TEST_OPTIONS "" )
+    foreach( _arg IN ITEMS ${ARGN} )
+        list( APPEND _GCS_TEST_OPTIONS ${_arg} )
+    endforeach()
     add_executable(${name} ${sources})
     # GTest::Main must precede ${libs}: SuperGenius static libs PUBLIC-export
     # Boost::unit_test_framework, whose archive defines main(). If it precedes
     # gtest_main, ld pulls unit_test_main.o and init_unit_test_suite goes undefined.
-    target_link_libraries(${name} PRIVATE
-        GTest::GTest
-        GTest::Main
-        ${libs}
-    )
+    if( OWN_MAIN IN_LIST _GCS_TEST_OPTIONS )
+        target_link_libraries(${name} PRIVATE
+            GTest::GTest
+            ${libs}
+        )
+    else()
+        target_link_libraries(${name} PRIVATE
+            GTest::GTest
+            GTest::Main
+            ${libs}
+        )
+    endif()
     add_test(NAME ${name} COMMAND ${name})
     # Windows: two DLLs the test exes import live outside their output dir
     # (gcs_test/Release) and Windows has no build-tree rpath:
@@ -89,7 +103,7 @@ gcs_test(test_gcs_storage    test_gcs_global_db.cpp  "gcs_storage;neoswarm_commo
 # GeniusSDKInit/Shutdown toggle a process-global node, which must not leak into
 # the option-C tests above. Links gcs_storage (PUBLIC: GeniusSDK_shared +
 # SuperGenius/GeniusSDK include dirs); skips when the node cannot boot.
-gcs_test(test_gcs_global_db_sdk test_gcs_global_db_sdk.cpp "gcs_storage;neoswarm_common;sgns::crdt_globaldb")
+gcs_test(test_gcs_global_db_sdk test_gcs_global_db_sdk.cpp "gcs_storage;neoswarm_common;sgns::crdt_globaldb" OWN_MAIN)
 # CORE-05 substrate smoke (01-04 Task 2): CoreSession lifecycle + topic + Put/Get
 # round-trip over an injected port-0 GossipPubSub.
 gcs_test(test_gcs_core_smoke test_gcs_core_smoke.cpp "gcs_core;gcs_storage;neoswarm_common")
@@ -110,7 +124,7 @@ gcs_test(test_gcs_ffi        test_gcs_ffi.cpp        "gcs_ffi;gcs_proto")
 # dragged in transitively by gcs_storage (used only for the verification-side
 # injected-pubsub store). src/ffi is added for the vendored Dart API_DL
 # headers the fake post hook installs through the exported Dart_InitializeApiDL.
-gcs_test(test_gcs_ffi_sdk    test_gcs_ffi_sdk.cpp    "gcs_ffi;gcs_storage;neoswarm_common;gcs_proto")
+gcs_test(test_gcs_ffi_sdk    test_gcs_ffi_sdk.cpp    "gcs_ffi;gcs_storage;neoswarm_common;gcs_proto" OWN_MAIN)
 target_include_directories(test_gcs_ffi_sdk PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/../src/ffi"
 )
@@ -131,7 +145,7 @@ endif()
 # directly; the cold-boot path IS the test. Same gcs_ffi-first linkage and
 # process-global-node isolation as test_gcs_ffi_sdk; skips only when a direct
 # SDK probe proves the environment cannot boot a node at all.
-gcs_test(test_gcs_ffi_coldboot test_gcs_ffi_coldboot.cpp "gcs_ffi;gcs_storage;neoswarm_common;gcs_proto")
+gcs_test(test_gcs_ffi_coldboot test_gcs_ffi_coldboot.cpp "gcs_ffi;gcs_storage;neoswarm_common;gcs_proto" OWN_MAIN)
 target_include_directories(test_gcs_ffi_coldboot PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/../src/ffi"
 )

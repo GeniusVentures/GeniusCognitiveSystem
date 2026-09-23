@@ -23,6 +23,11 @@
 #include "test_graphsync_network.hpp"
 #include "test_wait_condition.hpp"
 
+// Own main() (std::_Exit after RUN_ALL_TESTS): the node's detached retry
+// threads must never observe static destruction — see gcs_exit_main.hpp for
+// the exit-time aborts this prevents (CI 35904291986 aarch64 segfaults).
+#include "gcs_exit_main.hpp"
+
 #include "gcs_storage/gcs_global_db.hpp"
 
 #include <algorithm>

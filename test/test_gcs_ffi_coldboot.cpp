@@ -27,6 +27,11 @@
 #include "proto/gcs_chat.pb.h"
 #include "gcs_storage/common/logging.hpp"
 
+// Own main() (std::_Exit after RUN_ALL_TESTS): the node's detached retry
+// threads must never observe static destruction — see gcs_exit_main.hpp for
+// the exit-time aborts this prevents (CI 35904291986 aarch64 segfaults).
+#include "gcs_exit_main.hpp"
+
 #include <chrono>
 #include <cstdint>
 #include <filesystem>

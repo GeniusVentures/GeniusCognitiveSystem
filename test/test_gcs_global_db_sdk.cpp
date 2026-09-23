@@ -31,6 +31,11 @@
 
 #include "GeniusSDK.hpp"
 
+// Own main() (std::_Exit after RUN_ALL_TESTS): the node's detached retry
+// threads must never observe static destruction — see header for the
+// exit-time mutex abort this prevents (CI 35910956692 OSX Debug).
+#include "gcs_exit_main.hpp"
+
 namespace
 {
     /// Minimal soralog YAML — console sink, error level (mirrors
