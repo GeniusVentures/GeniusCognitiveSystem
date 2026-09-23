@@ -494,38 +494,19 @@ find_package(LLVM CONFIG REQUIRED)
 
 set(SUPERGENIUS_BUILD_DIR "${PROJECT_SUPER_ROOT}/SuperGenius/build/${BUILD_PLATFORM_NAME}/${CMAKE_BUILD_TYPE}${ABI_SUBFOLDER_NAME}" CACHE STRING "Default SuperGenius Build Directory")
 
-# SuperGenius's exported sgns::secure_storage target links
-          # PkgConfig::LIBSECRET in its INTERFACE, but the prebuilt package
-          # does not re-run the pkg_check_modules() that defines it — every
-          # consumer must discover libsecret itself before
-          # find_package(SuperGenius) resolves the link interface (same as
-          # GeniusSDK's cmake/CommonBuildParameters.cmake).
-          # GUARD: the aarch64 image variant ships stale Debian-style
-          # pkg-config metadata (libdir=/usr/lib/aarch64-linux-gnu) that does
-          # not exist in the container — run 35810498890's arm jobs recorded
-          # that nonexistent .so and ninja died on it. When the advertised
-          # library file is missing, fall back to the RPM's real location
-          # (/usr/lib64) via PKG_CONFIG_LIBDIR-less override variables.
-          if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-              find_package(PkgConfig)
-              pkg_check_modules(LIBSECRET REQUIRED IMPORTED_TARGET libsecret-1>=0.18.4)
-              if(LIBSECRET_LINK_LIBRARIES)
-                  list(GET LIBSECRET_LINK_LIBRARIES 0 _gcs_libsecret_first)
-                  if(NOT EXISTS "${_gcs_libsecret_first}")
-                      message(STATUS "libsecret pkg-config advertises missing ${_gcs_libsecret_first}; checking /usr/lib64")
-                      find_library(_GCS_LIBSECRET_SO NAMES secret-1
-                          PATHS /usr/lib64 /usr/lib/aarch64-linux-gnu /usr/lib/x86_64-linux-gnu
-                        NO_DEFAULT_PATH)
-                      if(_GCS_LIBSECRET_SO)
-                          message(STATUS "Overriding PkgConfig::LIBSECRET location to ${_GCS_LIBSECRET_SO}")
-                          set_target_properties(PkgConfig::LIBSECRET PROPERTIES
-                              IMPORTED_LOCATION "${_GCS_LIBSECRET_SO}")
-                      else()
-                          message(FATAL_ERROR "libsecret: pkg-config path missing and no system copy found")
-                      endif()
-                  endif()
-              endif()
-          endif()
+# libsecret: pre-discovery (target override moved to the bottom of this
+# file). SuperGenius's own cmake/config.cmake.in bakes a second
+# pkg_check_modules(LIBSECRET ...) into the installed SuperGeniusConfig
+# (their a24beb24d, since 09-17) that RE-RUNS at every
+# find_package(SuperGenius) — GCS's own, and NEO-SWARM's subtree one — so a
+# PkgConfig::LIBSECRET IMPORTED_LOCATION override placed here would be
+# clobbered back to the phantom path before generate. IMPORTED_LOCATION is
+# only read at generate time, so the fix now runs after every discovery
+# site (see "libsecret phantom-path fix" at the bottom).
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    find_package(PkgConfig)
+    pkg_check_modules(LIBSECRET REQUIRED IMPORTED_TARGET libsecret-1>=0.18.4)
+endif()
 
 # SuperGenius project
 set(evmrelay_DIR "${SUPERGENIUS_BUILD_DIR}/SuperGenius/lib/cmake/evmrelay/")
@@ -645,5 +626,37 @@ if(BUILD_TESTS)
     if(IS_DIRECTORY "${PROJECT_ROOT}/test")
         add_subdirectory(${PROJECT_ROOT}/test ${CMAKE_BINARY_DIR}/gcs_test)
     endif()
+endif()
+
+# --------------------------------------------------------
+# libsecret phantom-path fix — MUST be the LAST libsecret-related statement
+# in this file. The aarch64 AlmaLinux-8 image variant ships stale Debian-style
+# pkg-config metadata (libdir=/usr/lib/aarch64-linux-gnu) advertising
+# /usr/lib/aarch64-linux-gnu/libsecret-1.so, which does not exist in the
+# container; ninja then dies with "needed by ... missing and no known rule to
+# make it" (runs 35810498890 and 35827987810). Earlier attempts patched
+# PkgConfig::LIBSECRET right after the first pkg_check_modules — but
+# SuperGenius's exported config embeds its own pkg_check_modules
+# (SUPERGENIUS_CONFIG_LIBSECRET, their a24beb24d) that re-runs at every
+# find_package(SuperGenius) (ours above AND NEO-SWARM's subtree one) and
+# re-clobbers the target back to the phantom path before generate. Since
+# IMPORTED_LOCATION is only read at generate time, running the override here —
+# after all discovery sites — is the version that actually lands.
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND TARGET PkgConfig::LIBSECRET)
+    get_target_property(_gcs_libsecret_loc PkgConfig::LIBSECRET IMPORTED_LOCATION)
+    if(_gcs_libsecret_loc AND NOT EXISTS "${_gcs_libsecret_loc}")
+        message(STATUS "libsecret target points at missing ${_gcs_libsecret_loc}; searching system paths")
+        find_library(_GCS_LIBSECRET_SO NAMES secret-1
+            PATHS /usr/lib64 /usr/lib /usr/lib/aarch64-linux-gnu /usr/lib/x86_64-linux-gnu
+            NO_DEFAULT_PATH)
+        if(_GCS_LIBSECRET_SO)
+            message(STATUS "Pointing PkgConfig::LIBSECRET at ${_GCS_LIBSECRET_SO}")
+            set_target_properties(PkgConfig::LIBSECRET PROPERTIES
+                IMPORTED_LOCATION "${_GCS_LIBSECRET_SO}")
+        else()
+            message(FATAL_ERROR "libsecret: target location missing and no system copy found")
+        endif()
+    endif()
+    unset(_gcs_libsecret_loc)
 endif()
 
