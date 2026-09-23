@@ -77,22 +77,25 @@ class ComposerCubit extends Cubit<ComposerState> {
   }
 
   /// Publishes the held draft for the active room as a `GcsCommand`
-  /// `send_text` envelope (D-27), then clears the draft. No-op (and no draft
-  /// loss) when there is no sendable draft or no room selection.
-  void send() {
+  /// `send_text` envelope (D-27), then clears the draft. Returns true when
+  /// the draft is published (cleared) or there is nothing sendable (no-op);
+  /// false only when a sendable draft's publish was refused by the transport
+  /// (D-07 transport failure -- the draft is retained for a manual re-send).
+  bool send() {
     final ComposerState current = state;
     final String? roomTopic = current.activeRoom;
     if (!current.isSendable || roomTopic == null) {
-      return;
+      return true;
     }
     final GcsCommand command = GcsCommand()
       ..sendText = (SendTextCommand()
         ..roomTopic = roomTopic
         ..text = current.draft);
     if (!_transport.publishCommand(command)) {
-      return;
+      return false;
     }
     emit(current.copyWith(draft: ''));
+    return true;
   }
 
   /// Projects the rail state onto the composer (active-room follow).

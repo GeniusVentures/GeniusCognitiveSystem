@@ -385,6 +385,9 @@ class ChatMessageState extends $pb.GeneratedMessage {
     MessageState? state,
     $core.String? text,
     $fixnum.Int64? timestamp,
+    $core.String? sender,
+    $core.bool? deleted,
+    $fixnum.Int64? deletedAtMs,
   }) {
     final result = create();
     if (id != null) result.id = id;
@@ -393,6 +396,9 @@ class ChatMessageState extends $pb.GeneratedMessage {
     if (state != null) result.state = state;
     if (text != null) result.text = text;
     if (timestamp != null) result.timestamp = timestamp;
+    if (sender != null) result.sender = sender;
+    if (deleted != null) result.deleted = deleted;
+    if (deletedAtMs != null) result.deletedAtMs = deletedAtMs;
     return result;
   }
 
@@ -421,6 +427,9 @@ class ChatMessageState extends $pb.GeneratedMessage {
         enumValues: MessageState.values)
     ..aOS(5, _omitFieldNames ? '' : 'text')
     ..aInt64(6, _omitFieldNames ? '' : 'timestamp')
+    ..aOS(7, _omitFieldNames ? '' : 'sender')
+    ..aOB(8, _omitFieldNames ? '' : 'deleted')
+    ..aInt64(9, _omitFieldNames ? '' : 'deletedAtMs')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -497,6 +506,33 @@ class ChatMessageState extends $pb.GeneratedMessage {
   $core.bool hasTimestamp() => $_has(5);
   @$pb.TagNumber(6)
   void clearTimestamp() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $core.String get sender => $_getSZ(6);
+  @$pb.TagNumber(7)
+  set sender($core.String value) => $_setString(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasSender() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearSender() => $_clearField(7);
+
+  @$pb.TagNumber(8)
+  $core.bool get deleted => $_getBF(7);
+  @$pb.TagNumber(8)
+  set deleted($core.bool value) => $_setBool(7, value);
+  @$pb.TagNumber(8)
+  $core.bool hasDeleted() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearDeleted() => $_clearField(8);
+
+  @$pb.TagNumber(9)
+  $fixnum.Int64 get deletedAtMs => $_getI64(8);
+  @$pb.TagNumber(9)
+  set deletedAtMs($fixnum.Int64 value) => $_setInt64(8, value);
+  @$pb.TagNumber(9)
+  $core.bool hasDeletedAtMs() => $_has(8);
+  @$pb.TagNumber(9)
+  void clearDeletedAtMs() => $_clearField(9);
 }
 
 /// Pushed room-list event (D-21/D-26): the set of topics the session is in.
@@ -659,7 +695,15 @@ class ErrorNotice extends $pb.GeneratedMessage {
   void clearMessage() => $_clearField(1);
 }
 
-enum GcsEvent_Payload { message, roomList, readiness, error, spaceTree, notSet }
+enum GcsEvent_Payload {
+  message,
+  roomList,
+  readiness,
+  error,
+  spaceTree,
+  messageHistory,
+  notSet
+}
 
 /// Envelope for every C++ -> Dart pushed event (D-26 push-not-pull).
 class GcsEvent extends $pb.GeneratedMessage {
@@ -669,6 +713,7 @@ class GcsEvent extends $pb.GeneratedMessage {
     Readiness? readiness,
     ErrorNotice? error,
     SpaceTree? spaceTree,
+    MessageHistory? messageHistory,
   }) {
     final result = create();
     if (message != null) result.message = message;
@@ -676,6 +721,7 @@ class GcsEvent extends $pb.GeneratedMessage {
     if (readiness != null) result.readiness = readiness;
     if (error != null) result.error = error;
     if (spaceTree != null) result.spaceTree = spaceTree;
+    if (messageHistory != null) result.messageHistory = messageHistory;
     return result;
   }
 
@@ -694,13 +740,14 @@ class GcsEvent extends $pb.GeneratedMessage {
     3: GcsEvent_Payload.readiness,
     4: GcsEvent_Payload.error,
     5: GcsEvent_Payload.spaceTree,
+    6: GcsEvent_Payload.messageHistory,
     0: GcsEvent_Payload.notSet
   };
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'GcsEvent',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gcs.chat'),
       createEmptyInstance: create)
-    ..oo(0, [1, 2, 3, 4, 5])
+    ..oo(0, [1, 2, 3, 4, 5, 6])
     ..aOM<ChatMessageState>(1, _omitFieldNames ? '' : 'message',
         subBuilder: ChatMessageState.create)
     ..aOM<RoomList>(2, _omitFieldNames ? '' : 'roomList',
@@ -711,6 +758,8 @@ class GcsEvent extends $pb.GeneratedMessage {
         subBuilder: ErrorNotice.create)
     ..aOM<SpaceTree>(5, _omitFieldNames ? '' : 'spaceTree',
         subBuilder: SpaceTree.create)
+    ..aOM<MessageHistory>(6, _omitFieldNames ? '' : 'messageHistory',
+        subBuilder: MessageHistory.create)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -789,6 +838,17 @@ class GcsEvent extends $pb.GeneratedMessage {
   void clearSpaceTree() => $_clearField(5);
   @$pb.TagNumber(5)
   SpaceTree ensureSpaceTree() => $_ensure(4);
+
+  @$pb.TagNumber(6)
+  MessageHistory get messageHistory => $_getN(5);
+  @$pb.TagNumber(6)
+  set messageHistory(MessageHistory value) => $_setField(6, value);
+  @$pb.TagNumber(6)
+  $core.bool hasMessageHistory() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearMessageHistory() => $_clearField(6);
+  @$pb.TagNumber(6)
+  MessageHistory ensureMessageHistory() => $_ensure(5);
 }
 
 /// Authoritative persistent space entity record. This proto type IS the C++ half
@@ -1424,6 +1484,71 @@ class SpaceTree extends $pb.GeneratedMessage {
 
   @$pb.TagNumber(2)
   $pb.PbList<RoomRecord> get room => $_getList(1);
+}
+
+/// Batch history replay (D-06): the full sorted room history pushed on join.
+class MessageHistory extends $pb.GeneratedMessage {
+  factory MessageHistory({
+    $core.String? roomTopic,
+    $core.Iterable<ChatMessageState>? message,
+  }) {
+    final result = create();
+    if (roomTopic != null) result.roomTopic = roomTopic;
+    if (message != null) result.message.addAll(message);
+    return result;
+  }
+
+  MessageHistory._();
+
+  factory MessageHistory.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory MessageHistory.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'MessageHistory',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gcs.chat'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'roomTopic')
+    ..pc<ChatMessageState>(
+        2, _omitFieldNames ? '' : 'message', $pb.PbFieldType.PM,
+        subBuilder: ChatMessageState.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  MessageHistory clone() => MessageHistory()..mergeFromMessage(this);
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  MessageHistory copyWith(void Function(MessageHistory) updates) =>
+      super.copyWith((message) => updates(message as MessageHistory))
+          as MessageHistory;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static MessageHistory create() => MessageHistory._();
+  @$core.override
+  MessageHistory createEmptyInstance() => create();
+  static $pb.PbList<MessageHistory> createRepeated() =>
+      $pb.PbList<MessageHistory>();
+  @$core.pragma('dart2js:noInline')
+  static MessageHistory getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<MessageHistory>(create);
+  static MessageHistory? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get roomTopic => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set roomTopic($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasRoomTopic() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearRoomTopic() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $pb.PbList<ChatMessageState> get message => $_getList(1);
 }
 
 const $core.bool _omitFieldNames =

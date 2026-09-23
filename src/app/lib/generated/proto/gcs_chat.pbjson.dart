@@ -204,6 +204,9 @@ const ChatMessageState$json = {
     },
     {'1': 'text', '3': 5, '4': 1, '5': 9, '10': 'text'},
     {'1': 'timestamp', '3': 6, '4': 1, '5': 3, '10': 'timestamp'},
+    {'1': 'sender', '3': 7, '4': 1, '5': 9, '10': 'sender'},
+    {'1': 'deleted', '3': 8, '4': 1, '5': 8, '10': 'deleted'},
+    {'1': 'deleted_at_ms', '3': 9, '4': 1, '5': 3, '10': 'deletedAtMs'},
   ],
 };
 
@@ -212,7 +215,9 @@ final $typed_data.Uint8List chatMessageStateDescriptor = $convert.base64Decode(
     'ChBDaGF0TWVzc2FnZVN0YXRlEg4KAmlkGAEgASgJUgJpZBIdCgpyb29tX3RvcGljGAIgASgJUg'
     'lyb29tVG9waWMSKQoEcm9sZRgDIAEoDjIVLmdjcy5jaGF0Lk1lc3NhZ2VSb2xlUgRyb2xlEiwK'
     'BXN0YXRlGAQgASgOMhYuZ2NzLmNoYXQuTWVzc2FnZVN0YXRlUgVzdGF0ZRISCgR0ZXh0GAUgAS'
-    'gJUgR0ZXh0EhwKCXRpbWVzdGFtcBgGIAEoA1IJdGltZXN0YW1w');
+    'gJUgR0ZXh0EhwKCXRpbWVzdGFtcBgGIAEoA1IJdGltZXN0YW1wEhYKBnNlbmRlchgHIAEoCVIG'
+    'c2VuZGVyEhgKB2RlbGV0ZWQYCCABKAhSB2RlbGV0ZWQSIgoNZGVsZXRlZF9hdF9tcxgJIAEoA1'
+    'ILZGVsZXRlZEF0TXM=');
 
 @$core.Deprecated('Use roomListDescriptor instead')
 const RoomList$json = {
@@ -299,6 +304,15 @@ const GcsEvent$json = {
       '9': 0,
       '10': 'spaceTree'
     },
+    {
+      '1': 'message_history',
+      '3': 6,
+      '4': 1,
+      '5': 11,
+      '6': '.gcs.chat.MessageHistory',
+      '9': 0,
+      '10': 'messageHistory'
+    },
   ],
   '8': [
     {'1': 'payload'},
@@ -311,8 +325,9 @@ final $typed_data.Uint8List gcsEventDescriptor = $convert.base64Decode(
     'gAUgdtZXNzYWdlEjEKCXJvb21fbGlzdBgCIAEoCzISLmdjcy5jaGF0LlJvb21MaXN0SABSCHJv'
     'b21MaXN0EjMKCXJlYWRpbmVzcxgDIAEoCzITLmdjcy5jaGF0LlJlYWRpbmVzc0gAUglyZWFkaW'
     '5lc3MSLQoFZXJyb3IYBCABKAsyFS5nY3MuY2hhdC5FcnJvck5vdGljZUgAUgVlcnJvchI0Cgpz'
-    'cGFjZV90cmVlGAUgASgLMhMuZ2NzLmNoYXQuU3BhY2VUcmVlSABSCXNwYWNlVHJlZUIJCgdwYX'
-    'lsb2Fk');
+    'cGFjZV90cmVlGAUgASgLMhMuZ2NzLmNoYXQuU3BhY2VUcmVlSABSCXNwYWNlVHJlZRJDCg9tZX'
+    'NzYWdlX2hpc3RvcnkYBiABKAsyGC5nY3MuY2hhdC5NZXNzYWdlSGlzdG9yeUgAUg5tZXNzYWdl'
+    'SGlzdG9yeUIJCgdwYXlsb2Fk');
 
 @$core.Deprecated('Use spaceRecordDescriptor instead')
 const SpaceRecord$json = {
@@ -445,3 +460,24 @@ const SpaceTree$json = {
 final $typed_data.Uint8List spaceTreeDescriptor = $convert.base64Decode(
     'CglTcGFjZVRyZWUSKwoFc3BhY2UYASADKAsyFS5nY3MuY2hhdC5TcGFjZVJlY29yZFIFc3BhY2'
     'USKAoEcm9vbRgCIAMoCzIULmdjcy5jaGF0LlJvb21SZWNvcmRSBHJvb20=');
+
+@$core.Deprecated('Use messageHistoryDescriptor instead')
+const MessageHistory$json = {
+  '1': 'MessageHistory',
+  '2': [
+    {'1': 'room_topic', '3': 1, '4': 1, '5': 9, '10': 'roomTopic'},
+    {
+      '1': 'message',
+      '3': 2,
+      '4': 3,
+      '5': 11,
+      '6': '.gcs.chat.ChatMessageState',
+      '10': 'message'
+    },
+  ],
+};
+
+/// Descriptor for `MessageHistory`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List messageHistoryDescriptor = $convert.base64Decode(
+    'Cg5NZXNzYWdlSGlzdG9yeRIdCgpyb29tX3RvcGljGAEgASgJUglyb29tVG9waWMSNAoHbWVzc2'
+    'FnZRgCIAMoCzIaLmdjcy5jaGF0LkNoYXRNZXNzYWdlU3RhdGVSB21lc3NhZ2U=');

@@ -10,7 +10,8 @@
 ///   spaceTree -> RailCubit.setTree            (D-02 pushed catalog tree)
 ///   roomList -> RailCubit.setRooms            (D-21 pushed room list)
 ///   readiness -> session ready flag
-///   message  -> MessageFlowCubit.append(buildChatFlowItemTextBubble(...))
+///   message  -> MessageFlowCubit.upsert(buildChatFlowItemTextBubble(...))
+///   messageHistory -> MessageFlowCubit.replaceAll(mapped batch) (D-06)
 ///   error    -> session error surface (raw string per D-29)
 ///
 /// [close] closes the ReceivePort BEFORE the native `gcs_shutdown` (pitfall
@@ -377,7 +378,17 @@ class SessionCubit extends Cubit<SessionState> implements GcsCommandTransport {
     if (event.hasMessage()) {
       final MessageFlowCubit? flow = _messageFlowCubit;
       if (flow != null) {
-        flow.append(flow.buildChatFlowItemTextBubble(event.message));
+        flow.upsert(flow.buildChatFlowItemTextBubble(event.message));
+      }
+      return;
+    }
+    if (event.hasMessageHistory()) {
+      final MessageFlowCubit? flow = _messageFlowCubit;
+      if (flow != null) {
+        flow.replaceAll([
+          for (final ChatMessageState m in event.messageHistory.message)
+            flow.buildChatFlowItemTextBubble(m),
+        ]);
       }
       return;
     }

@@ -14,6 +14,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:frontend_scaffold/components/scaffold_composer.dart';
 import 'package:frontend_scaffold/components/scaffold_pressable.dart';
 import 'package:frontend_scaffold/components/scaffold_surface.dart';
+import 'package:frontend_scaffold/components/toast/toast_manager.dart';
 import 'package:frontend_scaffold/theme/scaffold_colors.dart';
 import 'package:frontend_scaffold/theme/scaffold_dimens.dart';
 import 'package:frontend_scaffold/theme/scaffold_theme.dart';
@@ -24,6 +25,13 @@ import '../cubits/rail_cubit.dart';
 import '../cubits/session_cubit.dart';
 import '../generated/chat/chat_message_flow.dart';
 import 'room_rail.dart';
+
+/// Error-toast title for a failed message send (D-07 transport-error surface,
+/// UI-SPEC copy verbatim).
+const String kSendFailedToastTitle = 'Send failed';
+
+/// Error-toast body for a failed message send (D-07, UI-SPEC copy verbatim).
+const String kSendFailedToastMessage = 'Message not sent. Try again.';
 
 /// The app root shell (D-23): rail + flow + composer, themed by the host
 /// `MaterialApp` (D-12/D-22 -- see `lib/theme/gcs_theme.dart`).
@@ -70,6 +78,10 @@ class _GCSChatState extends State<GCSChat> {
   late final bool _ownsRailCubit;
   late final bool _ownsMessageFlowCubit;
   late final bool _ownsComposerCubit;
+
+  /// instanceIds of pushed error items already toasted (D-07): the terminal
+  /// transport-failure signal toasts once per message id, never per emission.
+  final Set<String> _toastedErrorIds = <String>{};
 
   @override
   void initState() {
@@ -135,11 +147,14 @@ class _GCSChatState extends State<GCSChat> {
               child: Column(
                 children: <Widget>[
                   Expanded(
-                    child: BlocBuilder<MessageFlowCubit, List<ChatFlowItem>>(
-                      builder:
-                          (BuildContext context, List<ChatFlowItem> items) {
-                            return ChatMessageFlow(items: items);
-                          },
+                    child: BlocListener<MessageFlowCubit, List<ChatFlowItem>>(
+                      listener: _onFlowChanged,
+                      child: BlocBuilder<MessageFlowCubit, List<ChatFlowItem>>(
+                        builder:
+                            (BuildContext context, List<ChatFlowItem> items) {
+                              return ChatMessageFlow(items: items);
+                            },
+                      ),
                     ),
                   ),
                   const _ComposerBar(),
@@ -149,6 +164,40 @@ class _GCSChatState extends State<GCSChat> {
           ],
         ),
       ),
+    );
+  }
+
+  /// Toasts once per newly-arrived error item (D-07): the C++ side pushes an
+  /// ERROR-state text bubble when a topic publish throws (03-04). Only text
+  /// bubbles carry the transport-failure signal; code/media items never toast.
+  /// Deduped by instanceId so a pending -> error upsert toasts exactly once.
+  void _onFlowChanged(BuildContext context, List<ChatFlowItem> items) {
+    for (final ChatFlowItem item in items) {
+      switch (item) {
+        case ChatFlowItemTextBubble():
+          _maybeToastSendFailure(context, item.instanceId, item.state);
+        case ChatFlowItemCodeBlock():
+        case ChatFlowItemMedia():
+          break;
+      }
+    }
+  }
+
+  /// Surfaces the D-07 "Send failed" toast for a terminal error state, once
+  /// per message id.
+  void _maybeToastSendFailure(
+    BuildContext context,
+    String instanceId,
+    String state,
+  ) {
+    if (state != 'error' || !_toastedErrorIds.add(instanceId)) {
+      return;
+    }
+    showToast(
+      context,
+      kSendFailedToastMessage,
+      title: kSendFailedToastTitle,
+      type: ToastType.error,
     );
   }
 }
@@ -191,7 +240,14 @@ class _ComposerBar extends StatelessWidget {
                 onSubmit: (String value) {
                   final ComposerCubit cubit = context.read<ComposerCubit>();
                   cubit.updateDraft(value);
-                  cubit.send();
+                  if (!cubit.send()) {
+                    showToast(
+                      context,
+                      kSendFailedToastMessage,
+                      title: kSendFailedToastTitle,
+                      type: ToastType.error,
+                    );
+                  }
                 },
                 actionRow: <Widget>[_SendButton(disabled: !session.isReady)],
               ),
@@ -241,7 +297,14 @@ class _SendButton extends StatelessWidget {
           editable.performAction(TextInputAction.send);
           return;
         }
-        context.read<ComposerCubit>().send();
+        if (!context.read<ComposerCubit>().send()) {
+          showToast(
+            context,
+            kSendFailedToastMessage,
+            title: kSendFailedToastTitle,
+            type: ToastType.error,
+          );
+        }
       },
       child: ScaffoldSurface(
         shape: BoxShape.circle,
