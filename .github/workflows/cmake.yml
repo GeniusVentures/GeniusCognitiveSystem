@@ -600,6 +600,22 @@ jobs:
               ZKLLVM_BUILD_DIR=build/${{matrix.target}}/${ZK_TYPE}
           fi
 
+          # Retry inline in EVERY step: each run: is a separate shell, so a
+          # function defined in the thirdparty step does not exist here
+          # ('download_with_retry: command not found' broke every build).
+          download_with_retry() {
+            local attempt=1
+            until "$@"; do
+              if [ "$attempt" -ge 3 ]; then
+                echo "::error::download failed after $attempt attempts: $*"
+                return 1
+              fi
+              echo "download attempt $attempt failed; retrying in 15s..."
+              attempt=$((attempt + 1))
+              sleep 15
+            done
+          }
+
           download_with_retry gh release download "${dep_release}" --repo GeniusVentures/zkLLVM -p "${ZKLLVM_FILE_NAME}"
 
           tar --exclude='*bin/assigner' --exclude='*bin/clang-zkllvm' --exclude='*bin/llvm-link-zkllvm' --exclude='*bin/transpiler' -xzf "${ZKLLVM_FILE_NAME}"
@@ -636,6 +652,21 @@ jobs:
           fi
 
           echo "Downloading SuperGenius from release ${dep_release}"
+
+          # Retry inline (self-contained per step — see the zkLLVM step note:
+          # shell functions do not survive across separate run: steps).
+          download_with_retry() {
+            local attempt=1
+            until "$@"; do
+              if [ "$attempt" -ge 3 ]; then
+                echo "::error::download failed after $attempt attempts: $*"
+                return 1
+              fi
+              echo "download attempt $attempt failed; retrying in 15s..."
+              attempt=$((attempt + 1))
+              sleep 15
+            done
+          }
 
           mkdir SuperGenius
           cd SuperGenius
@@ -678,6 +709,21 @@ jobs:
           fi
 
           echo "Downloading GeniusSDK from release ${dep_release}"
+
+          # Retry inline (self-contained per step — see the zkLLVM step note:
+          # shell functions do not survive across separate run: steps).
+          download_with_retry() {
+            local attempt=1
+            until "$@"; do
+              if [ "$attempt" -ge 3 ]; then
+                echo "::error::download failed after $attempt attempts: $*"
+                return 1
+              fi
+              echo "download attempt $attempt failed; retrying in 15s..."
+              attempt=$((attempt + 1))
+              sleep 15
+            done
+          }
 
           mkdir GeniusSDK
           cd GeniusSDK
