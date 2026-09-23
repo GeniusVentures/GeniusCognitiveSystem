@@ -760,6 +760,16 @@ jobs:
               sudo dnf install -y ccache ninja-build vulkan-loader-devel libsecret-devel libzstd-devel dbus gnome-keyring
             fi
           else
+            # Refresh the package index before installing: GitHub-hosted
+            # Ubuntu runners ship an apt list baked at image-build time, and
+            # security.ubuntu.com moves noble-updates packages forward
+            # continuously — a stale index fetches .deb URLs that now 404
+            # ("Unable to fetch some archives", exit 100; observed on the
+            # Android jobs when they land on hosted ubuntu-24.04). Self-hosted
+            # boxes refresh their own lists, so only the hosted path needs
+            # this. Best-effort: a transient mirror failure should fail the
+            # install below, not the update itself.
+            sudo apt-get update || true
             sudo apt install ccache ninja-build libvulkan-dev libzstd-dev libsecret-1-dev dbus gnome-keyring -y
           fi
           echo "CMAKE_GENERATOR=Ninja" >> $GITHUB_ENV
