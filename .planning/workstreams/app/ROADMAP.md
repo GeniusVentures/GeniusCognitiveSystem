@@ -123,7 +123,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 03-02-PLAN.md — Wave 2 (depends: 03-01) — Storage widening (topics-aware Put, PutLocal, QueryKeyValues, RegisterNewElementCallback, raw full-value Publish/Subscribe + CoreSession pass-throughs) + storage tests
+- [x] 03-02-PLAN.md — Wave 2 (depends: 03-01) — Storage widening (topics-aware Put, PutLocal, QueryKeyValues, RegisterNewElementCallback, raw full-value Publish/Subscribe + CoreSession pass-throughs) + storage tests
 - [ ] 03-03-PLAN.md — Wave 2 (depends: 03-01) — Dart pb regen + MessageFlowCubit upsert/replaceAll + SessionCubit messageHistory dispatch + cubit tests
 
 **Wave 3** *(blocked on Wave 2 completion)*
@@ -211,7 +211,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 |-------|----------------|--------|-----------|
 | 1. Foundation | 11/11 | Complete | 2026-09-16 |
 | 2. Spaces & Rooms | 5/5 | Complete   | 2026-09-19 |
-| 3. Messaging | 1/6 | In Progress|  |
+| 3. Messaging | 2/6 | In Progress|  |
 | 4. Membership & Invites | 0/TBD | Not started | - |
 | 5. Moderation | 0/TBD | Not started | - |
 | 6. GCS Bot | 0/TBD | Not started | - |
