@@ -26,6 +26,14 @@
 #include "ffi/gcs_core.h"
 #include "proto/gcs_chat.pb.h"
 
+// Own main() (std::_Exit after RUN_ALL_TESTS): gcs_init boots the embedded
+// node INSIDE gcs_ffi's image, so this binary has the same exit-time
+// straggler exposure as the SDK-booting tests — the node's detached retry
+// threads must never observe static destruction (run 35924087303 x86 Debug:
+// 8/8 passed, then "pthread lock: Invalid argument" abort at exit; see
+// gcs_exit_main.hpp).
+#include "gcs_exit_main.hpp"
+
 #include <chrono>
 #include <filesystem>
 #include <string>

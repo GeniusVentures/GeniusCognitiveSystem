@@ -114,7 +114,7 @@ gcs_test(test_gcs_entities test_gcs_entities.cpp "gcs_core;gcs_storage;neoswarm_
 # FFI ABI smoke (01-04 Task 3): config-bytes gcs_init failure classes, arg
 # validation, shutdown-null. Also links gcs_proto so the test can serialize a
 # gcs::chat::GcsConfig via gcs_chat.pb.h (D-29 codec-tagged init bytes).
-gcs_test(test_gcs_ffi        test_gcs_ffi.cpp        "gcs_ffi;gcs_proto")
+gcs_test(test_gcs_ffi        test_gcs_ffi.cpp        "gcs_ffi;gcs_proto" OWN_MAIN)
 # CR-01 regression (01 code review): two init/send/shutdown cycles against the
 # SAME db_path — session A's persisted records must survive session B. Own
 # binary for the same reason as test_gcs_global_db_sdk (GeniusSDKInit toggles
