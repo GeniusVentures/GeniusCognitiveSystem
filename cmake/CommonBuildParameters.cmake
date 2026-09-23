@@ -632,39 +632,50 @@ endif()
 # libsecret phantom-path fix — MUST be the LAST libsecret-related statement
 # in this file. The aarch64 AlmaLinux-8 image variant ships stale Debian-style
 # pkg-config metadata (libdir=/usr/lib/aarch64-linux-gnu) advertising
-# /usr/lib/aarch64-linux-gnu/libsecret-1.so, which does not exist in the
-# container; ninja then dies with "needed by ... missing and no known rule to
-# make it" (runs 35810498890, 35827987810, 35830559548). Earlier attempts:
-# (1) patching right after the first pkg_check_modules — SuperGenius's exported
-# config embeds its own pkg_check_modules (SUPERGENIUS_CONFIG_LIBSECRET, their
-# a24beb24d) that re-runs at every find_package(SuperGenius), ours AND the
-# NEO-SWARM subtree's, re-clobbering the target before generate; (2) patching
-# IMPORTED_LOCATION at the bottom — a no-op, because pkg_check_modules's
-# IMPORTED_TARGET creates an INTERFACE IMPORTED library that links through
-# INTERFACE_LINK_LIBRARIES (raw pkg-config strings) and never reads
-# IMPORTED_LOCATION (FindPkgConfig.cmake:330-338). The fix that actually
-# lands: rewrite INTERFACE_LINK_LIBRARIES after ALL discovery sites — entries
-# pointing at nonexistent files are replaced by the real system copy
-# (/usr/lib64 first — the RPM layout the el8 image actually ships).
+# paths like /usr/lib/aarch64-linux-gnu/libsecret-1.so that do not exist in
+# the container. The .pc pulls in the whole glib family — libsecret-1,
+# libgio-2.0, libgobject-2.0, libgmodule-2.0 — ALL with phantom paths, and
+# each must be repointed at its OWN library (run 35831659342: a previous
+# version substituted the single libsecret-1.so for every missing entry,
+# losing glib entirely -> "undefined reference to g_error_free" +
+# "libglib-2.0.so.0: DSO missing from command line" at test link).
+# History of this fix: (1) patching right after our pkg_check_modules —
+# SuperGenius's exported config embeds its own pkg_check_modules
+# (SUPERGENIUS_CONFIG_LIBSECRET, their a24beb24d) that re-runs at every
+# find_package(SuperGenius), ours AND the NEO-SWARM subtree's, re-clobbering
+# the target; (2) patching IMPORTED_LOCATION — a no-op, because
+# pkg_check_modules IMPORTED_TARGET creates an INTERFACE IMPORTED library
+# linking through INTERFACE_LINK_LIBRARIES (FindPkgConfig.cmake:330-338).
+# Correct mechanics: rewrite INTERFACE_LINK_LIBRARIES after ALL discovery
+# sites; for each absolute-path entry that does not exist on disk, resolve
+# that entry's own basename under the RPM layout (/usr/lib64 first — what
+# the el8 image actually ships) and substitute in place.
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND TARGET PkgConfig::LIBSECRET)
     get_target_property(_gcs_libsecret_libs PkgConfig::LIBSECRET INTERFACE_LINK_LIBRARIES)
     set(_gcs_libsecret_fixed "")
     set(_gcs_libsecret_changed FALSE)
     foreach(_gcs_lib IN LISTS _gcs_libsecret_libs)
-        if(_gcs_lib MATCHES "^-l" OR NOT EXISTS "${_gcs_lib}")
-            # First missing absolute path triggers the system search (once).
-            if(NOT _gcs_libsecret_changed AND NOT DEFINED _GCS_LIBSECRET_SO AND _gcs_lib MATCHES "^/")
-                find_library(_GCS_LIBSECRET_SO NAMES secret-1
-                    PATHS /usr/lib64 /usr/lib /usr/lib/aarch64-linux-gnu /usr/lib/x86_64-linux-gnu
-                    NO_DEFAULT_PATH)
-            endif()
-            if(_GCS_LIBSECRET_SO AND _gcs_lib MATCHES "^/")
-                message(STATUS "libsecret: replacing phantom ${_gcs_lib} with ${_GCS_LIBSECRET_SO}")
-                list(APPEND _gcs_libsecret_fixed "${_GCS_LIBSECRET_SO}")
+        if(_gcs_lib MATCHES "^/" AND NOT EXISTS "${_gcs_lib}")
+            # Repoint by the entry's OWN basename (libgio-2.0 must stay
+            # libgio-2.0) — one find_library per distinct missing library.
+            get_filename_component(_gcs_lib_name "${_gcs_lib}" NAME_WE)
+            find_library(_gcs_lib_real "${_gcs_lib_name}"
+                PATHS /usr/lib64 /usr/lib
+                NO_DEFAULT_PATH)
+            if(_gcs_lib_real)
+                message(STATUS "libsecret: repointing ${_gcs_lib} -> ${_gcs_lib_real}")
+                list(APPEND _gcs_libsecret_fixed "${_gcs_lib_real}")
                 set(_gcs_libsecret_changed TRUE)
             else()
+                message(WARNING "libsecret: no replacement found for ${_gcs_lib}; keeping it")
                 list(APPEND _gcs_libsecret_fixed "${_gcs_lib}")
             endif()
+            # unset(CACHE) is the critical half: find_library caches by
+            # variable name, and a plain unset() leaves the cache entry —
+            # every later iteration would then short-circuit to the FIRST
+            # library found (libsecret-1 substituting for gio/gobject/...).
+            unset(_gcs_lib_real CACHE)
+            unset(_gcs_lib_name)
         else()
             list(APPEND _gcs_libsecret_fixed "${_gcs_lib}")
         endif()
