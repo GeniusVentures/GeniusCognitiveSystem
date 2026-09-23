@@ -634,29 +634,49 @@ endif()
 # pkg-config metadata (libdir=/usr/lib/aarch64-linux-gnu) advertising
 # /usr/lib/aarch64-linux-gnu/libsecret-1.so, which does not exist in the
 # container; ninja then dies with "needed by ... missing and no known rule to
-# make it" (runs 35810498890 and 35827987810). Earlier attempts patched
-# PkgConfig::LIBSECRET right after the first pkg_check_modules — but
-# SuperGenius's exported config embeds its own pkg_check_modules
-# (SUPERGENIUS_CONFIG_LIBSECRET, their a24beb24d) that re-runs at every
-# find_package(SuperGenius) (ours above AND NEO-SWARM's subtree one) and
-# re-clobbers the target back to the phantom path before generate. Since
-# IMPORTED_LOCATION is only read at generate time, running the override here —
-# after all discovery sites — is the version that actually lands.
+# make it" (runs 35810498890, 35827987810, 35830559548). Earlier attempts:
+# (1) patching right after the first pkg_check_modules — SuperGenius's exported
+# config embeds its own pkg_check_modules (SUPERGENIUS_CONFIG_LIBSECRET, their
+# a24beb24d) that re-runs at every find_package(SuperGenius), ours AND the
+# NEO-SWARM subtree's, re-clobbering the target before generate; (2) patching
+# IMPORTED_LOCATION at the bottom — a no-op, because pkg_check_modules's
+# IMPORTED_TARGET creates an INTERFACE IMPORTED library that links through
+# INTERFACE_LINK_LIBRARIES (raw pkg-config strings) and never reads
+# IMPORTED_LOCATION (FindPkgConfig.cmake:330-338). The fix that actually
+# lands: rewrite INTERFACE_LINK_LIBRARIES after ALL discovery sites — entries
+# pointing at nonexistent files are replaced by the real system copy
+# (/usr/lib64 first — the RPM layout the el8 image actually ships).
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND TARGET PkgConfig::LIBSECRET)
-    get_target_property(_gcs_libsecret_loc PkgConfig::LIBSECRET IMPORTED_LOCATION)
-    if(_gcs_libsecret_loc AND NOT EXISTS "${_gcs_libsecret_loc}")
-        message(STATUS "libsecret target points at missing ${_gcs_libsecret_loc}; searching system paths")
-        find_library(_GCS_LIBSECRET_SO NAMES secret-1
-            PATHS /usr/lib64 /usr/lib /usr/lib/aarch64-linux-gnu /usr/lib/x86_64-linux-gnu
-            NO_DEFAULT_PATH)
-        if(_GCS_LIBSECRET_SO)
-            message(STATUS "Pointing PkgConfig::LIBSECRET at ${_GCS_LIBSECRET_SO}")
-            set_target_properties(PkgConfig::LIBSECRET PROPERTIES
-                IMPORTED_LOCATION "${_GCS_LIBSECRET_SO}")
+    get_target_property(_gcs_libsecret_libs PkgConfig::LIBSECRET INTERFACE_LINK_LIBRARIES)
+    set(_gcs_libsecret_fixed "")
+    set(_gcs_libsecret_changed FALSE)
+    foreach(_gcs_lib IN LISTS _gcs_libsecret_libs)
+        if(_gcs_lib MATCHES "^-l" OR NOT EXISTS "${_gcs_lib}")
+            # First missing absolute path triggers the system search (once).
+            if(NOT _gcs_libsecret_changed AND NOT DEFINED _GCS_LIBSECRET_SO AND _gcs_lib MATCHES "^/")
+                find_library(_GCS_LIBSECRET_SO NAMES secret-1
+                    PATHS /usr/lib64 /usr/lib /usr/lib/aarch64-linux-gnu /usr/lib/x86_64-linux-gnu
+                    NO_DEFAULT_PATH)
+            endif()
+            if(_GCS_LIBSECRET_SO AND _gcs_lib MATCHES "^/")
+                message(STATUS "libsecret: replacing phantom ${_gcs_lib} with ${_GCS_LIBSECRET_SO}")
+                list(APPEND _gcs_libsecret_fixed "${_GCS_LIBSECRET_SO}")
+                set(_gcs_libsecret_changed TRUE)
+            else()
+                list(APPEND _gcs_libsecret_fixed "${_gcs_lib}")
+            endif()
         else()
-            message(FATAL_ERROR "libsecret: target location missing and no system copy found")
+            list(APPEND _gcs_libsecret_fixed "${_gcs_lib}")
         endif()
+    endforeach()
+    if(_gcs_libsecret_changed)
+        set_target_properties(PkgConfig::LIBSECRET PROPERTIES
+            INTERFACE_LINK_LIBRARIES "${_gcs_libsecret_fixed}")
+        message(STATUS "libsecret: INTERFACE_LINK_LIBRARIES now: ${_gcs_libsecret_fixed}")
     endif()
-    unset(_gcs_libsecret_loc)
+    unset(_gcs_libsecret_libs)
+    unset(_gcs_libsecret_fixed)
+    unset(_gcs_libsecret_changed)
+    unset(_gcs_lib)
 endif()
 
