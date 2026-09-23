@@ -67,6 +67,55 @@ Messaging::Messaging( CoreSession &session, std::string senderAddress,
                            && static_cast<bool>( m_crypto.encrypt )
                            && static_cast<bool>( m_crypto.decrypt ) )
 {
+    m_archiveThread = std::thread( &Messaging::ArchiveWorker, this );
+}
+
+Messaging::~Messaging()
+{
+    {
+        std::lock_guard<std::mutex> lock( m_archiveMutex );
+        m_archiveStopped = true;
+    }
+    m_archiveCond.notify_all();
+    if ( m_archiveThread.joinable() )
+    {
+        m_archiveThread.join();
+    }
+}
+
+void Messaging::EnqueueArchive( const std::string &key, const std::string &value )
+{
+    {
+        std::lock_guard<std::mutex> lock( m_archiveMutex );
+        m_archiveQueue.emplace( key, value );
+    }
+    m_archiveCond.notify_one();
+}
+
+void Messaging::ArchiveWorker()
+{
+    for ( ;; )
+    {
+        std::pair<std::string, std::string> item;
+        {
+            std::unique_lock<std::mutex> lock( m_archiveMutex );
+            m_archiveCond.wait( lock,
+                                [ this ]() { return m_archiveStopped || !m_archiveQueue.empty(); } );
+            if ( m_archiveStopped && m_archiveQueue.empty() )
+            {
+                return;
+            }
+            item = std::move( m_archiveQueue.front() );
+            m_archiveQueue.pop();
+        }
+
+        const auto putResult = m_session.Put( item.first, item.second );
+        if ( !putResult.has_value() )
+        {
+            spdlog::warn( "gcs_messaging: failed to archive received message under key '{}'",
+                          item.first );
+        }
+    }
 }
 
 bool Messaging::EncryptionEnabled() const
@@ -134,7 +183,10 @@ outcome::result<void> Messaging::SendMessage( const std::string &roomTopic,
     msg.set_timestamp( NowMs() );
     msg.set_sender( m_sender );
 
-    m_seenIds.insert( id ); // absorb our own live/CRDT echo (apply-once)
+    {
+        std::lock_guard<std::mutex> lock( m_seenMutex );
+        m_seenIds.insert( id ); // absorb our own live/CRDT echo (apply-once)
+    }
 
     PushMessage( msg ); // pending plaintext echo (D-07)
 
@@ -230,30 +282,28 @@ void Messaging::ApplyMessage( const std::string &roomTopic, const std::string &v
         return;
     }
 
-    if ( m_seenIds.find( msg.id() ) != m_seenIds.end() )
     {
-        return; // apply-once — every message arrives twice (live + CRDT heal)
-    }
+        std::lock_guard<std::mutex> lock( m_seenMutex );
+        if ( m_seenIds.find( msg.id() ) != m_seenIds.end() )
+        {
+            return; // apply-once — every message arrives twice (live + CRDT heal)
+        }
 
-    if ( m_seenIds.size() >= kMaxSeenIds )
-    {
-        m_seenIds.clear(); // bounded policy (T-03-09)
+        if ( m_seenIds.size() >= kMaxSeenIds )
+        {
+            m_seenIds.clear(); // bounded policy (T-03-09)
+        }
+        m_seenIds.insert( msg.id() );
     }
-    m_seenIds.insert( msg.id() );
 
     PushMessage( msg ); // role flipped to PEER when sender != m_sender
 
     // Archive the envelope AS RECEIVED (never the decrypted plaintext) with an
     // EMPTY topic set — a local-only write that does not re-broadcast (D-03
-    // echo-loop guard, D-08 ciphertext at rest). Uses Put rather than PutLocal
-    // because SuperGenius PutLocal (PutKeyLocal) is overwrite-only and rejects
-    // fresh keys (03-02 verified contract).
-    const std::string key = BuildKey( msg.room_topic(), msg.id() );
-    const auto        putResult = m_session.Put( key, valueBytes );
-    if ( !putResult.has_value() )
-    {
-        spdlog::warn( "gcs_messaging: failed to archive received message '{}'", msg.id() );
-    }
+    // echo-loop guard, D-08 ciphertext at rest). The write is handed to the
+    // dedicated archive worker so it never blocks the GossipSub/CRDT callback
+    // thread (the strand deadlock fix).
+    EnqueueArchive( BuildKey( msg.room_topic(), msg.id() ), valueBytes );
 }
 
 outcome::result<chat::MessageHistory> Messaging::QueryHistory( const std::string &roomTopic )
@@ -318,13 +368,16 @@ outcome::result<chat::MessageHistory> Messaging::QueryHistory( const std::string
     }
 
     // Absorb every scanned id so a live/CRDT message landing mid-join is deduped.
-    for ( const auto &msg : messages )
     {
-        if ( m_seenIds.size() >= kMaxSeenIds )
+        std::lock_guard<std::mutex> lock( m_seenMutex );
+        for ( const auto &msg : messages )
         {
-            m_seenIds.clear();
+            if ( m_seenIds.size() >= kMaxSeenIds )
+            {
+                m_seenIds.clear();
+            }
+            m_seenIds.insert( msg.id() );
         }
-        m_seenIds.insert( msg.id() );
     }
 
     return history;

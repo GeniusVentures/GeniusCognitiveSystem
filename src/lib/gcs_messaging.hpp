@@ -27,9 +27,13 @@
 #ifndef GCS_MESSAGING_HPP
 #define GCS_MESSAGING_HPP
 
+#include <condition_variable>
 #include <cstddef>
 #include <functional>
+#include <mutex>
+#include <queue>
 #include <string>
+#include <thread>
 #include <unordered_set>
 #include <utility>
 
@@ -89,6 +93,15 @@ public:
    */
   explicit Messaging(CoreSession &session, std::string senderAddress,
                      EventSink sink, CryptoSeam crypto = {});
+
+  /**
+   * @brief Stop the archive worker and drain its queue.
+   *
+   * Signals the worker to stop, drains any queued archive writes, and joins the
+   * thread. The borrowed session reference must still be alive when this
+   * destructor runs (the worker may call Put on it while draining).
+   */
+  ~Messaging();
 
   /**
    * @brief Whether the encryption path is active for this instance.
@@ -198,13 +211,37 @@ private:
   static chat::MessageRole RoleFor(const chat::ChatMessageState &msg,
                                    const std::string &sender);
 
+  /**
+   * @brief Enqueue a received message's archive write for the worker thread.
+   *
+   * @param[in] key   Archive key (gcs/messages/<room>/<id>).
+   * @param[in] value The envelope bytes as received (ciphertext when enabled).
+   */
+  void EnqueueArchive(const std::string &key, const std::string &value);
+
+  /**
+   * @brief Archive worker loop: drain the queue, writing each record via the
+   *        session's local Put off the GossipSub/CRDT callback threads.
+   *
+   * Preserves per-message ordering (single worker) and exits once stopped with
+   * an empty queue.
+   */
+  void ArchiveWorker();
+
   CoreSession &m_session; ///< Borrowed session (Put/Publish/QueryKeyValues pass-throughs)
   std::string  m_sender;  ///< Injected local wallet address (D-04)
   EventSink    m_sink;    ///< Plaintext event sink
   CryptoSeam   m_crypto;  ///< D-08 injected seam (never called when disabled)
   bool         m_encryptionEnabled; ///< crypto.enabled && both callables set
+  std::mutex   m_seenMutex; ///< Guards the m_seenIds dedupe set
   std::unordered_set<std::string>
       m_seenIds; ///< Apply-once dedupe set (bounded by kMaxSeenIds)
+  std::mutex m_archiveMutex; ///< Guards the archive queue + stop flag
+  std::condition_variable m_archiveCond; ///< Wakes the archive worker
+  std::queue<std::pair<std::string, std::string>>
+      m_archiveQueue; ///< Pending archive writes
+  std::thread m_archiveThread; ///< Dedicated archive worker
+  bool m_archiveStopped = false; ///< Archive worker stop flag (guarded by m_archiveMutex)
 };
 
 } // namespace gcs
