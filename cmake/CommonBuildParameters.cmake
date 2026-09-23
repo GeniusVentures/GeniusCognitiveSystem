@@ -55,12 +55,17 @@ find_package(ZLIB CONFIG REQUIRED)
 # CMAKE_DEBUG_POSTFIX "d" on Windows, so Debug trees ship zsd.lib. z = plain
 # static name on Linux/macOS (libz.a). NO_DEFAULT_PATH keeps the search
 # inside the vendored tree on every platform and configuration.
+# NO_CMAKE_FIND_ROOT_PATH: cross-compile toolchains (NDK, apple) re-root
+# find_path/find_library into the target sysroot and hide the host-side
+# vendored tree — run 35810498890's Android jobs died at find_path even
+# though the tarball ships zlib/include/zlib.h (the Android shim relaxes
+# MODE_LIBRARY but not MODE_INCLUDE, which is why find_library passed).
 find_library(ZLIB_LIBRARY NAMES z zs zsd
     PATHS "${THIRDPARTY_BUILD_DIR}/zlib/lib"
-    NO_DEFAULT_PATH REQUIRED)
+    NO_DEFAULT_PATH NO_CMAKE_FIND_ROOT_PATH REQUIRED)
 find_path(ZLIB_INCLUDE_DIR zlib.h
     PATHS "${THIRDPARTY_BUILD_DIR}/zlib/include"
-    NO_DEFAULT_PATH REQUIRED)
+    NO_DEFAULT_PATH NO_CMAKE_FIND_ROOT_PATH REQUIRED)
 set(ZLIB_LIBRARIES "${ZLIB_LIBRARY}")
 set(ZLIB_INCLUDE_DIRS "${ZLIB_INCLUDE_DIR}")
 
@@ -472,14 +477,36 @@ find_package(LLVM CONFIG REQUIRED)
 set(SUPERGENIUS_BUILD_DIR "${PROJECT_SUPER_ROOT}/SuperGenius/build/${BUILD_PLATFORM_NAME}/${CMAKE_BUILD_TYPE}${ABI_SUBFOLDER_NAME}" CACHE STRING "Default SuperGenius Build Directory")
 
 # SuperGenius's exported sgns::secure_storage target links
-# PkgConfig::LIBSECRET in its INTERFACE, but the prebuilt package does not
-# re-run the pkg_check_modules() that defines it — every consumer must
-# discover libsecret itself before find_package(SuperGenius) resolves the
-# link interface (same as GeniusSDK's cmake/CommonBuildParameters.cmake).
-if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-    find_package(PkgConfig)
-    pkg_check_modules(LIBSECRET REQUIRED IMPORTED_TARGET libsecret-1>=0.18.4)
-endif()
+          # PkgConfig::LIBSECRET in its INTERFACE, but the prebuilt package
+          # does not re-run the pkg_check_modules() that defines it — every
+          # consumer must discover libsecret itself before
+          # find_package(SuperGenius) resolves the link interface (same as
+          # GeniusSDK's cmake/CommonBuildParameters.cmake).
+          # GUARD: the aarch64 image variant ships stale Debian-style
+          # pkg-config metadata (libdir=/usr/lib/aarch64-linux-gnu) that does
+          # not exist in the container — run 35810498890's arm jobs recorded
+          # that nonexistent .so and ninja died on it. When the advertised
+          # library file is missing, fall back to the RPM's real location
+          # (/usr/lib64) via PKG_CONFIG_LIBDIR-less override variables.
+          if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+              find_package(PkgConfig)
+              pkg_check_modules(LIBSECRET REQUIRED IMPORTED_TARGET libsecret-1>=0.18.4)
+              if(LIBSECRET_LINK_LIBRARIES)
+                  list(GET LIBSECRET_LINK_LIBRARIES 0 _gcs_libsecret_first)
+                  if(NOT EXISTS "${_gcs_libsecret_first}")
+                      message(STATUS "libsecret pkg-config advertises missing ${_gcs_libsecret_first}; checking /usr/lib64")
+                      find_library(_GCS_LIBSECRET_SO NAMES secret-1
+                          PATHS /usr/lib64 /usr/lib/aarch64-linux-gnu /usr/lib/x86_64-linux-gnu
+                        NO_DEFAULT_PATH)
+                      if(_GCS_LIBSECRET_SO)
+                          message(STATUS "Overriding PkgConfig::LIBSECRET location to ${_GCS_LIBSECRET_SO}")
+                          set_target_properties(PkgConfig::LIBSECRET PROPERTIES
+                              IMPORTED_LOCATION "${_GCS_LIBSECRET_SO}")
+                      else()
+                          message(FATAL_ERROR "libsecret: pkg-config path missing and no system copy found")
+                      endif()
+                  endif()
+              endif()
 
 # SuperGenius project
 set(evmrelay_DIR "${SUPERGENIUS_BUILD_DIR}/SuperGenius/lib/cmake/evmrelay/")

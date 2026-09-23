@@ -514,10 +514,27 @@ jobs:
           fi
           echo "FILE_NAME=${FILE_NAME}" >> $GITHUB_ENV
 
+          # Retry: gh release download occasionally dies on transient TLS
+          # handshake timeouts (run 35810498890 Windows Debug:
+          # 'Post "https://api.github.com/graphql": net/http: TLS handshake
+          # timeout'), which fails the job before any build starts.
+          download_with_retry() {
+            local attempt=1
+            until "$@"; do
+              if [ "$attempt" -ge 3 ]; then
+                echo "::error::download failed after $attempt attempts: $*"
+                return 1
+              fi
+              echo "download attempt $attempt failed; retrying in 15s..."
+              attempt=$((attempt + 1))
+              sleep 15
+            done
+          }
+
           mkdir thirdparty
           cd thirdparty
 
-          gh release download "${dep_release}" --repo GeniusVentures/thirdparty -p "${FILE_NAME}"
+          download_with_retry gh release download "${dep_release}" --repo GeniusVentures/thirdparty -p "${FILE_NAME}"
           tar -zxf "${FILE_NAME}"
 
           # Set THIRDPARTY_BUILD_DIR to the actual location where files were extracted
@@ -583,7 +600,7 @@ jobs:
               ZKLLVM_BUILD_DIR=build/${{matrix.target}}/${ZK_TYPE}
           fi
 
-          gh release download "${dep_release}" --repo GeniusVentures/zkLLVM -p "${ZKLLVM_FILE_NAME}"
+          download_with_retry gh release download "${dep_release}" --repo GeniusVentures/zkLLVM -p "${ZKLLVM_FILE_NAME}"
 
           tar --exclude='*bin/assigner' --exclude='*bin/clang-zkllvm' --exclude='*bin/llvm-link-zkllvm' --exclude='*bin/transpiler' -xzf "${ZKLLVM_FILE_NAME}"
 
@@ -623,7 +640,7 @@ jobs:
           mkdir SuperGenius
           cd SuperGenius
 
-          gh release download "${dep_release}" --repo GeniusVentures/SuperGenius -p "${FILE_NAME}"
+          download_with_retry gh release download "${dep_release}" --repo GeniusVentures/SuperGenius -p "${FILE_NAME}"
 
           tar -xzf "${FILE_NAME}"
 
@@ -665,7 +682,7 @@ jobs:
           mkdir GeniusSDK
           cd GeniusSDK
 
-          gh release download "${dep_release}" --repo GeniusVentures/GeniusSDK -p "${FILE_NAME}"
+          download_with_retry gh release download "${dep_release}" --repo GeniusVentures/GeniusSDK -p "${FILE_NAME}"
 
           tar -xzf "${FILE_NAME}"
 

@@ -91,6 +91,17 @@ gcs_test(test_gcs_ffi_sdk    test_gcs_ffi_sdk.cpp    "gcs_ffi;gcs_storage;neoswa
 target_include_directories(test_gcs_ffi_sdk PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/../src/ffi"
 )
+# MSVC only: this binary links gcs_ffi (whose DLL embeds and exports
+# GeniusSDKInit/GeniusSDKShutdown) AND gcs_storage, whose PUBLIC chain
+# drags the static GeniusSDK.lib defining the same symbols -> LNK2005
+# (run 35810498890, first Windows configure that got past zlib). /FORCE:MULTIPLE
+# keeps the FIRST definition — gcs_ffi is listed first in target_link_libraries,
+# so the DLL's exports win, which is exactly the documented Linux-side intent
+# ("the dylib must win symbol resolution over the SDK archives"). Scoped to
+# this binary only; other link combinations are unaffected.
+if(MSVC)
+    target_link_options(test_gcs_ffi_sdk PRIVATE /FORCE:MULTIPLE)
+endif()
 # Live-app regression (2026-09-19 UAT bug): a lone Flutter app reaches gcs_init
 # with NO GeniusSDK node in the process — gcs_init must boot the embedded node
 # itself (empty-mnemonic child-wallet path). This binary never boots the SDK
@@ -101,3 +112,7 @@ gcs_test(test_gcs_ffi_coldboot test_gcs_ffi_coldboot.cpp "gcs_ffi;gcs_storage;ne
 target_include_directories(test_gcs_ffi_coldboot PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/../src/ffi"
 )
+# Same MSVC dual-definition situation as test_gcs_ffi_sdk above.
+if(MSVC)
+    target_link_options(test_gcs_ffi_coldboot PRIVATE /FORCE:MULTIPLE)
+endif()
