@@ -24,23 +24,23 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Release tag (release to create/upload to; dep tags default to it)"
+        description: "GCS release tag to create/upload to (does NOT affect dep downloads - use the *_tag inputs)"
         required: false
         type: string
       thirdparty_tag:
-        description: "Tag for thirdparty dependency (defaults to main tag if not specified)"
+        description: "Combined thirdparty release tag (empty = normal main/develop per-platform releases)"
         required: false
         type: string
       supergenius_tag:
-        description: "Tag for SuperGenius dependency (defaults to main tag if not specified)"
+        description: "Combined SuperGenius release tag (empty = normal main/develop per-platform releases)"
         required: false
         type: string
       zkllvm_tag:
-        description: "Tag for zkLLVM dependency (defaults to main tag if not specified)"
+        description: "Combined zkLLVM release tag (empty = normal main/develop per-platform releases)"
         required: false
         type: string
       geniussdk_tag:
-        description: "Tag for GeniusSDK dependency (defaults to main tag if not specified)"
+        description: "Combined GeniusSDK release tag (empty = normal main/develop per-platform releases)"
         required: false
         type: string
       # Names must be build_<target>-<abi>_<build-type>: the skip step looks
@@ -465,7 +465,7 @@ jobs:
         env:
           GITHUB_EVENT_INPUTS_TAG: ${{ github.event.inputs.tag }}
           GITHUB_EVENT_PULL_REQUEST_HEAD_REF: ${{ github.event.pull_request.head.ref }}
-          THIRDPARTY_TAG: ${{ github.event.inputs.thirdparty_tag || github.event.inputs.tag }}
+          THIRDPARTY_TAG: ${{ github.event.inputs.thirdparty_tag }}
         run: |
           # Determine current branch or tag
           if [ "${{ github.event_name }}" == "workflow_dispatch" ] && [ "${GITHUB_EVENT_INPUTS_TAG}" ]; then
@@ -483,18 +483,29 @@ jobs:
           echo "CURRENT_BRANCH=${CURRENT_BRANCH}" >>$GITHUB_ENV
           echo "IS_TAG=${IS_TAG}" >>$GITHUB_ENV
 
-          # Determine thirdparty branch to use
-          if [ "$IS_TAG" == "true" ]; then
-              # For tags, use the thirdparty_tag input, falling back to the
-              # release tag itself (GeniusSDK/SuperGenius tag-build parity).
-              thirdparty_branch="${THIRDPARTY_TAG}"
-          elif [ "$CURRENT_BRANCH" == "main" ]; then
-              thirdparty_branch="main"
+          # Determine the thirdparty release to download from. An explicit
+          # thirdparty_tag names a COMBINED release (all platforms under one
+          # tag); otherwise the branch flow applies (main builds pull the
+          # main releases, everything else - including tag dispatches -
+          # pulls develop), where each platform is its own
+          # <platform>[-<abi>]-<branch>-<build-type> release. The dispatch
+          # `tag` input no longer redirects dependency downloads.
+          if [ -n "${THIRDPARTY_TAG}" ]; then
+              dep_release="${THIRDPARTY_TAG}"
           else
-              thirdparty_branch="develop"
+              if [ "${CURRENT_BRANCH}" == "main" ]; then
+                  dep_release_branch="main"
+              else
+                  dep_release_branch="develop"
+              fi
+              if [ '${{matrix.abi}}' ]; then
+                  dep_release="${{matrix.target}}-${{matrix.abi}}-${dep_release_branch}-${{matrix.build-type}}"
+              else
+                  dep_release="${{matrix.target}}-${dep_release_branch}-${{matrix.build-type}}"
+              fi
           fi
 
-          echo "Using ${thirdparty_branch} for thirdparty"
+          echo "Downloading thirdparty from release ${dep_release}"
 
           if [ '${{matrix.abi}}' ]; then
               FILE_NAME=${{matrix.target}}-${{matrix.abi}}-${{matrix.build-type}}.tar.gz
@@ -506,19 +517,7 @@ jobs:
           mkdir thirdparty
           cd thirdparty
 
-          if [ "$IS_TAG" == "true" ]; then
-              # For tags, use just the tag name
-              tag_name="${thirdparty_branch}"
-          else
-              # For branches, use the platform-branch-buildtype format
-              if [ '${{matrix.abi}}' ]; then
-                  tag_name="${{matrix.target}}-${{matrix.abi}}-${thirdparty_branch}-${{matrix.build-type}}"
-              else
-                  tag_name="${{matrix.target}}-${thirdparty_branch}-${{matrix.build-type}}"
-              fi
-          fi
-
-          gh release download ${tag_name} --repo GeniusVentures/thirdparty -p "${FILE_NAME}"
+          gh release download "${dep_release}" --repo GeniusVentures/thirdparty -p "${FILE_NAME}"
           tar -zxf "${FILE_NAME}"
 
           # Set THIRDPARTY_BUILD_DIR to the actual location where files were extracted
@@ -541,7 +540,7 @@ jobs:
         working-directory: ${{github.workspace}}
         shell: bash
         env:
-          ZKLLVM_TAG: ${{ github.event.inputs.zkllvm_tag || github.event.inputs.tag }}
+          ZKLLVM_TAG: ${{ github.event.inputs.zkllvm_tag }}
         run: |
           # zkLLVM only publishes Release artifacts for non-Windows platforms
           # (cmaketemplate's own fallback maps non-Windows Debug builds onto
@@ -552,29 +551,29 @@ jobs:
               ZK_TYPE=Release
           fi
 
-          # Same branch/tag determination as the other dep downloads
-          if [ "$IS_TAG" == "true" ]; then
-              zkLLVM_branch="${ZKLLVM_TAG}"
-          elif [ "$CURRENT_BRANCH" == "main" ]; then
-              zkLLVM_branch="main"
+          # Same release resolution as the other dep downloads: an explicit
+          # zkllvm_tag names a combined release; otherwise branch flow (main
+          # builds pull main, everything else - including tag dispatches -
+          # pulls develop).
+          if [ -n "${ZKLLVM_TAG}" ]; then
+              dep_release="${ZKLLVM_TAG}"
           else
-              zkLLVM_branch="develop"
+              if [ "${CURRENT_BRANCH}" == "main" ]; then
+                  dep_release_branch="main"
+              else
+                  dep_release_branch="develop"
+              fi
+              if [ '${{matrix.abi}}' ]; then
+                  dep_release="${{matrix.target}}-${{matrix.abi}}-${dep_release_branch}-${ZK_TYPE}"
+              else
+                  dep_release="${{matrix.target}}-${dep_release_branch}-${ZK_TYPE}"
+              fi
           fi
 
-          echo "Using ${zkLLVM_branch} branch/tag from zkLLVM"
+          echo "Downloading zkLLVM from release ${dep_release}"
 
           mkdir zkLLVM
           cd zkLLVM
-
-          if [ "$IS_TAG" == "true" ]; then
-              tag_name="${zkLLVM_branch}"
-          else
-              if [ '${{matrix.abi}}' ]; then
-                  tag_name="${{matrix.target}}-${{matrix.abi}}-${zkLLVM_branch}-${ZK_TYPE}"
-              else
-                  tag_name="${{matrix.target}}-${zkLLVM_branch}-${ZK_TYPE}"
-              fi
-          fi
 
           if [ '${{matrix.abi}}' ]; then
               ZKLLVM_FILE_NAME=${{matrix.target}}-${{matrix.abi}}-${ZK_TYPE}.tar.gz
@@ -584,7 +583,7 @@ jobs:
               ZKLLVM_BUILD_DIR=build/${{matrix.target}}/${ZK_TYPE}
           fi
 
-          gh release download ${tag_name} --repo GeniusVentures/zkLLVM -p "${ZKLLVM_FILE_NAME}"
+          gh release download "${dep_release}" --repo GeniusVentures/zkLLVM -p "${ZKLLVM_FILE_NAME}"
 
           tar --exclude='*bin/assigner' --exclude='*bin/clang-zkllvm' --exclude='*bin/llvm-link-zkllvm' --exclude='*bin/transpiler' -xzf "${ZKLLVM_FILE_NAME}"
 
@@ -598,37 +597,33 @@ jobs:
       - name: Download SuperGenius
         shell: bash
         env:
-          SUPERGENIUS_TAG: ${{ github.event.inputs.supergenius_tag || github.event.inputs.tag }}
+          SUPERGENIUS_TAG: ${{ github.event.inputs.supergenius_tag }}
         run: |
-          # Use same branch determination logic for SuperGenius
-          if [ "$IS_TAG" == "true" ]; then
-              # For tags, use the supergenius_tag input, falling back to the
-              # release tag itself.
-              sgns_branch="${SUPERGENIUS_TAG}"
-          elif [ "$CURRENT_BRANCH" == "main" ]; then
-              sgns_branch="main"
+          # Same release resolution as the other dep downloads: an explicit
+          # supergenius_tag names a combined release; otherwise branch flow
+          # (main builds pull main, everything else - including tag
+          # dispatches - pulls develop).
+          if [ -n "${SUPERGENIUS_TAG}" ]; then
+              dep_release="${SUPERGENIUS_TAG}"
           else
-              sgns_branch="develop"
+              if [ "${CURRENT_BRANCH}" == "main" ]; then
+                  dep_release_branch="main"
+              else
+                  dep_release_branch="develop"
+              fi
+              if [ '${{matrix.abi}}' ]; then
+                  dep_release="${{matrix.target}}-${{matrix.abi}}-${dep_release_branch}-${{matrix.build-type}}"
+              else
+                  dep_release="${{matrix.target}}-${dep_release_branch}-${{matrix.build-type}}"
+              fi
           fi
 
-          echo "Using ${sgns_branch} branch/tag from SuperGenius"
+          echo "Downloading SuperGenius from release ${dep_release}"
 
           mkdir SuperGenius
           cd SuperGenius
 
-          if [ "$IS_TAG" == "true" ]; then
-              # For tags, use just the tag name
-              tag_name="${sgns_branch}"
-          else
-              # For branches, use the platform-branch-buildtype format
-              if [ '${{matrix.abi}}' ]; then
-                  tag_name="${{matrix.target}}-${{matrix.abi}}-${sgns_branch}-${{matrix.build-type}}"
-              else
-                  tag_name="${{matrix.target}}-${sgns_branch}-${{matrix.build-type}}"
-              fi
-          fi
-
-          gh release download ${tag_name} --repo GeniusVentures/SuperGenius -p "${FILE_NAME}"
+          gh release download "${dep_release}" --repo GeniusVentures/SuperGenius -p "${FILE_NAME}"
 
           tar -xzf "${FILE_NAME}"
 
@@ -644,37 +639,33 @@ jobs:
       - name: Download GeniusSDK
         shell: bash
         env:
-          GENIUSSDK_TAG: ${{ github.event.inputs.geniussdk_tag || github.event.inputs.tag }}
+          GENIUSSDK_TAG: ${{ github.event.inputs.geniussdk_tag }}
         run: |
-          # Use same branch determination logic for GeniusSDK
-          if [ "$IS_TAG" == "true" ]; then
-              # For tags, use the geniussdk_tag input, falling back to the
-              # release tag itself.
-              sdk_branch="${GENIUSSDK_TAG}"
-          elif [ "$CURRENT_BRANCH" == "main" ]; then
-              sdk_branch="main"
+          # Same release resolution as the other dep downloads: an explicit
+          # geniussdk_tag names a combined release; otherwise branch flow
+          # (main builds pull main, everything else - including tag
+          # dispatches - pulls develop).
+          if [ -n "${GENIUSSDK_TAG}" ]; then
+              dep_release="${GENIUSSDK_TAG}"
           else
-              sdk_branch="develop"
+              if [ "${CURRENT_BRANCH}" == "main" ]; then
+                  dep_release_branch="main"
+              else
+                  dep_release_branch="develop"
+              fi
+              if [ '${{matrix.abi}}' ]; then
+                  dep_release="${{matrix.target}}-${{matrix.abi}}-${dep_release_branch}-${{matrix.build-type}}"
+              else
+                  dep_release="${{matrix.target}}-${dep_release_branch}-${{matrix.build-type}}"
+              fi
           fi
 
-          echo "Using ${sdk_branch} branch/tag from GeniusSDK"
+          echo "Downloading GeniusSDK from release ${dep_release}"
 
           mkdir GeniusSDK
           cd GeniusSDK
 
-          if [ "$IS_TAG" == "true" ]; then
-              # For tags, use just the tag name
-              tag_name="${sdk_branch}"
-          else
-              # For branches, use the platform-branch-buildtype format
-              if [ '${{matrix.abi}}' ]; then
-                  tag_name="${{matrix.target}}-${{matrix.abi}}-${sdk_branch}-${{matrix.build-type}}"
-              else
-                  tag_name="${{matrix.target}}-${sdk_branch}-${{matrix.build-type}}"
-              fi
-          fi
-
-          gh release download ${tag_name} --repo GeniusVentures/GeniusSDK -p "${FILE_NAME}"
+          gh release download "${dep_release}" --repo GeniusVentures/GeniusSDK -p "${FILE_NAME}"
 
           tar -xzf "${FILE_NAME}"
 
