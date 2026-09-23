@@ -13,6 +13,7 @@
 #include "gcs_storage/gcs_global_db.hpp"
 
 #include <chrono>
+#include <cstdint>
 #include <utility>
 
 #include <libp2p/basic/scheduler.hpp>
@@ -150,6 +151,11 @@ outcome::result<void> GcsGlobalDb::Initialize(
   // Step 4: GlobalDB::New (D-03, D-04) — nullptr datastore, default
   // BackupOptions{} (GCS backups are disabled; the blockchain GlobalDB's backup
   // policy is independent per D-01).
+  //
+  // Retain the shared GossipPubSub BEFORE moving it into GlobalDB::New: the
+  // same handle backs both the CRDT broadcast (inside GlobalDB) and the raw
+  // live Publish/Subscribe path (D-03) — one GossipPubSub instance, two paths.
+  m_pubsub = pubsub;
   auto dbResult = crdt::GlobalDB::New(
       m_io, m_cfg.m_dbPath, std::move(pubsub),
       crdt::CrdtOptions::DefaultOptions(), m_graphsyncNetwork, m_scheduler,
@@ -160,6 +166,7 @@ outcome::result<void> GcsGlobalDb::Initialize(
         "GcsGlobalDb::Initialize — GlobalDB::New failed: {} (value {})",
         dbError.message(), dbError.value());
     m_db.reset();
+    m_pubsub.reset();
     m_generator.reset();
     m_graphsyncNetwork.reset();
     m_scheduler.reset();
@@ -179,6 +186,7 @@ outcome::result<void> GcsGlobalDb::Initialize(
                     Config::kReputationTopic);
     m_db->ShutdownNow();
     m_db.reset();
+    m_pubsub.reset();
     m_generator.reset();
     m_graphsyncNetwork.reset();
     m_scheduler.reset();
@@ -216,6 +224,7 @@ void GcsGlobalDb::Shutdown() noexcept {
     m_db->ShutdownNow(); // idempotent per GlobalDB contract
   }
   m_db.reset();
+  m_pubsub.reset();
   m_generator.reset();
   m_graphsyncNetwork.reset();
   m_scheduler.reset();
@@ -255,16 +264,119 @@ GcsGlobalDb::AddListenTopic(const std::string &topicName) {
 
 outcome::result<void> GcsGlobalDb::Put(const std::string &key,
                                        const std::string &value) {
+  return Put(key, value, /*topics=*/{});
+}
+
+outcome::result<void>
+GcsGlobalDb::Put(const std::string &key, const std::string &value,
+                 const std::unordered_set<std::string> &topics) {
   if (!m_running.load()) {
     return outcome::failure(Error::GcsDbError);
   }
   crdt::HierarchicalKey keyTyped{key};
   crdt::GlobalDB::Buffer valueTyped;
   valueTyped.put(value);
-  // No publish topics — plain local store, not a broadcast write.
-  const std::unordered_set<std::string> kNoTopics{};
-  auto result = m_db->Put(keyTyped, valueTyped, kNoTopics);
+  auto result = m_db->Put(keyTyped, valueTyped, topics);
   if (result.has_error()) {
+    return outcome::failure(Error::GcsDbError);
+  }
+  return outcome::success();
+}
+
+outcome::result<void> GcsGlobalDb::PutLocal(const std::string &key,
+                                            const std::string &value,
+                                            const std::string &id) {
+  if (!m_running.load()) {
+    return outcome::failure(Error::GcsDbError);
+  }
+  crdt::HierarchicalKey keyTyped{key};
+  crdt::GlobalDB::Buffer valueTyped;
+  valueTyped.put(value);
+  auto result = m_db->PutLocal(keyTyped, valueTyped, id);
+  if (result.has_error()) {
+    return outcome::failure(Error::GcsDbError);
+  }
+  return outcome::success();
+}
+
+outcome::result<std::vector<std::pair<std::string, std::string>>>
+GcsGlobalDb::QueryKeyValues(const std::string &keyPrefix) {
+  if (!m_running.load()) {
+    return outcome::failure(Error::GcsDbError);
+  }
+  auto result = m_db->QueryKeyValues(keyPrefix);
+  if (result.has_error()) {
+    return outcome::failure(Error::GcsDbError);
+  }
+  std::vector<std::pair<std::string, std::string>> entries;
+  for (const auto &[key, value] : result.value()) {
+    // std::string{std::string_view} is size-explicit — binary-safe for the
+    // D-08 envelope's embedded NUL bytes (never a C-string API).
+    entries.emplace_back(std::string{key.toString()},
+                         std::string{value.toString()});
+  }
+  return entries;
+}
+
+outcome::result<void> GcsGlobalDb::RegisterNewElementCallback(
+    const std::string &pattern,
+    std::function<void(const std::string &key, const std::string &value)>
+        callback) {
+  if (!m_running.load()) {
+    return outcome::failure(Error::GcsDbError);
+  }
+  const bool registered = m_db->RegisterNewElementCallback(
+      pattern,
+      [callback](const std::pair<std::string, base::Buffer> &new_data,
+                 const std::string &cid) {
+        (void)cid;
+        callback(new_data.first, std::string{new_data.second.toString()});
+      });
+  if (!registered) {
+    return outcome::failure(Error::GcsDbError);
+  }
+  return outcome::success();
+}
+
+outcome::result<void> GcsGlobalDb::Publish(const std::string &topic,
+                                           const std::string &data) {
+  if (!m_running.load()) {
+    return outcome::failure(Error::GcsDbError);
+  }
+  if (!m_pubsub) {
+    return outcome::failure(Error::SdkNotInitialized);
+  }
+  std::vector<uint8_t> bytes{data.begin(), data.end()};
+  auto result = m_pubsub->Publish(topic, bytes);
+  if (result.has_error()) {
+    return outcome::failure(Error::GcsDbError);
+  }
+  return outcome::success();
+}
+
+outcome::result<void> GcsGlobalDb::Subscribe(
+    const std::string &topic,
+    std::function<void(const std::string &topic, const std::string &data)>
+        callback) {
+  if (!m_running.load()) {
+    return outcome::failure(Error::GcsDbError);
+  }
+  if (!m_pubsub) {
+    return outcome::failure(Error::SdkNotInitialized);
+  }
+  auto subscription =
+      m_pubsub->Subscribe(
+          topic,
+          [callback](
+              const libp2p::protocol::gossip::Gossip::SubscriptionData &data) {
+            if (!data) {
+              return;
+            }
+            const auto &msg = data.get();
+            callback(msg.topic, std::string(msg.data.begin(), msg.data.end()));
+          })
+          .get();
+  if (!subscription) {
     return outcome::failure(Error::GcsDbError);
   }
   return outcome::success();

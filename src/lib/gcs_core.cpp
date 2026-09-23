@@ -68,4 +68,40 @@ outcome::result<std::string> CoreSession::Get(const std::string &key) {
   return m_db->Get(key);
 }
 
+outcome::result<void>
+CoreSession::Put(const std::string &key, const std::string &value,
+                 const std::unordered_set<std::string> &topics) {
+  return m_db->Put(key, value, topics);
+}
+
+outcome::result<void> CoreSession::PutLocal(const std::string &key,
+                                            const std::string &value,
+                                            const std::string &id) {
+  return m_db->PutLocal(key, value, id);
+}
+
+outcome::result<std::vector<std::pair<std::string, std::string>>>
+CoreSession::QueryKeyValues(const std::string &keyPrefix) {
+  return m_db->QueryKeyValues(keyPrefix);
+}
+
+outcome::result<void> CoreSession::RegisterNewElementCallback(
+    const std::string &pattern,
+    std::function<void(const std::string &key, const std::string &value)>
+        callback) {
+  return m_db->RegisterNewElementCallback(pattern, std::move(callback));
+}
+
+outcome::result<void> CoreSession::Publish(const std::string &topic,
+                                           const std::string &data) {
+  return m_db->Publish(topic, data);
+}
+
+outcome::result<void> CoreSession::Subscribe(
+    const std::string &topic,
+    std::function<void(const std::string &topic, const std::string &data)>
+        callback) {
+  return m_db->Subscribe(topic, std::move(callback));
+}
+
 } // namespace gcs

@@ -16,9 +16,14 @@
 #define GCS_STORAGE_GCS_GLOBAL_DB_HPP
 
 #include <atomic>
+#include <cstdint>
+#include <functional>
 #include <memory>
 #include <string>
 #include <thread>
+#include <unordered_set>
+#include <utility>
+#include <vector>
 
 #include <boost/asio/io_context.hpp>
 
@@ -215,6 +220,106 @@ public:
    */
   outcome::result<std::string> Get(const std::string &key);
 
+  /**
+   * @brief Put a key/value pair into the CRDT store, replicating on the given
+   *        broadcast topics (D-02 topics-aware write).
+   *
+   * Wraps sgns::crdt::GlobalDB::Put with the 3-arg (topics) overload; the
+   * std::string key/value are converted to HierarchicalKey and Buffer at the
+   * call site.
+   *
+   * @param[in] key    Hierarchical key path.
+   * @param[in] value  UTF-8 payload bytes.
+   * @param[in] topics Broadcast topics the write replicates on.
+   * @return outcome::success on success; Error::GcsDbError if not running or
+   * the underlying call fails.
+   */
+  outcome::result<void> Put(const std::string &key, const std::string &value,
+                            const std::unordered_set<std::string> &topics);
+
+  /**
+   * @brief Put a key/value pair into local storage, bypassing DAG broadcast
+   *        (D-03 receive-path no-rebroadcast write).
+   *
+   * Wraps sgns::crdt::GlobalDB::PutLocal.
+   *
+   * @param[in] key   Hierarchical key path.
+   * @param[in] value UTF-8 payload bytes.
+   * @param[in] id    Provenance/tie-break identifier for the local write.
+   * @return outcome::success on success; Error::GcsDbError if not running or
+   * the underlying call fails.
+   */
+  outcome::result<void> PutLocal(const std::string &key,
+                                 const std::string &value,
+                                 const std::string &id);
+
+  /**
+   * @brief Enumerate key/value pairs under a key prefix (D-01 converged prefix
+   *        scan).
+   *
+   * Wraps sgns::crdt::GlobalDB::QueryKeyValues; converts each returned
+   * Buffer key/value to a size-explicit std::string (binary-safe for the D-08
+   * envelope's embedded NUL bytes).
+   *
+   * @param[in] keyPrefix Prefix to scan.
+   * @return outcome::success with the matching (key, value) pairs on success;
+   * Error::GcsDbError if not running or the underlying call fails.
+   */
+  outcome::result<std::vector<std::pair<std::string, std::string>>>
+  QueryKeyValues(const std::string &keyPrefix);
+
+  /**
+   * @brief Register a callback fired when a new element matching the pattern
+   *        converges into the CRDT store (D-03 heal path).
+   *
+   * Wraps sgns::crdt::GlobalDB::RegisterNewElementCallback; adapts the
+   * SuperGenius (key, Buffer, cid) callback down to (key, value std::string).
+   *
+   * @param[in] pattern  Regex matched against the key string.
+   * @param[in] callback (key, value) callback invoked on the CRDT worker thread.
+   * @return outcome::success on success; Error::GcsDbError if not running or
+   * registration is rejected.
+   */
+  outcome::result<void> RegisterNewElementCallback(
+      const std::string &pattern,
+      std::function<void(const std::string &key, const std::string &value)>
+          callback);
+
+  /**
+   * @brief Publish a full-value payload on a raw GossipSub topic (D-03 live
+   *        fast path).
+   *
+   * Wraps sgns::ipfs_pubsub::GossipPubSub::Publish — NOT the CRDT CID
+   * broadcast.
+   *
+   * @param[in] topic Topic to publish on.
+   * @param[in] data  Payload bytes.
+   * @return outcome::success on success; Error::SdkNotInitialized if the
+   * pubsub was not retained, Error::GcsDbError if not running or the
+   * underlying call fails.
+   */
+  outcome::result<void> Publish(const std::string &topic,
+                                const std::string &data);
+
+  /**
+   * @brief Subscribe a raw handler on a GossipSub topic (D-03 live fast path).
+   *
+   * Wraps sgns::ipfs_pubsub::GossipPubSub::Subscribe; the adapter drops the
+   * empty end-of-stream optional and forwards (topic, data) as std::string.
+   * Blocks on the returned future so the subscription is active before
+   * returning.
+   *
+   * @param[in] topic    Topic to subscribe to.
+   * @param[in] callback (topic, data) callback invoked on the GossipSub strand.
+   * @return outcome::success on success; Error::SdkNotInitialized if the
+   * pubsub was not retained, Error::GcsDbError if not running or the future
+   * resolves to a null subscription.
+   */
+  outcome::result<void> Subscribe(
+      const std::string &topic,
+      std::function<void(const std::string &topic, const std::string &data)>
+          callback);
+
 private:
   Config m_cfg; ///< Component configuration
   std::shared_ptr<boost::asio::io_context>
@@ -227,6 +332,8 @@ private:
       m_generator; ///< request-id generator
   std::shared_ptr<sgns::crdt::GlobalDB>
       m_db;               ///< Owned GlobalDB (nullptr until Initialize)
+  std::shared_ptr<sgns::ipfs_pubsub::GossipPubSub>
+      m_pubsub; ///< Shared GossipPubSub — retained for the raw live path (D-03)
   std::thread m_ioThread; ///< io->run() worker thread
   std::atomic<bool> m_running{false}; ///< Lifecycle flag
   Logger m_logger;                    ///< spdlog component logger
