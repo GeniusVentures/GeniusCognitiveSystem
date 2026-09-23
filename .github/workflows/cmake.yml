@@ -423,6 +423,12 @@ jobs:
           # errors. The GCS checkout IS <workspace>/GeniusCognitiveSystem
           # (no path: override), so this is the repo root.
           [ -d GeniusCognitiveSystem ] && $SUDO rm -rf GeniusCognitiveSystem/* GeniusCognitiveSystem/.[!.]* || true
+          # Dep dirs by name at the workspace level too (SuperGenius-style):
+          # they normally extract INSIDE the checkout (covered above), but
+          # any that ever land beside it — older workflow layouts, the
+          # cmake-side GeniusSDK auto-download — must not survive to poison
+          # a later configure (the arm64 stale-artifact failure mode).
+          $SUDO rm -rf thirdparty zkLLVM SuperGenius GeniusSDK
           ls -la
 
       - name: Checkout GCS
