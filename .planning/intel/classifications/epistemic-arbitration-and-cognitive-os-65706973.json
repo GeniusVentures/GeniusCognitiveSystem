@@ -1,25 +1,33 @@
 {
   "source_path": "/Users/Shared/SSDevelopment/Development/GeniusVentures/GeniusNetwork/GeniusCogntiveSystem/docs/architecture/epistemic-arbitration-and-cognitive-os.md",
-  "type": "DOC",
-  "confidence": "high",
-  "manifest_override": true,
+  "type": "SPEC",
+  "confidence": "medium",
+  "manifest_override": false,
   "title": "21. Data-Driven Epistemic Arbitration and Cognitive OS Extensions",
-  "summary": "Describes how the Requestor Node evolves into a formal epistemic arbitration layer using data-driven GQHSM state machines, modular reasoning framework plugins, and structured thinking traces for the Genius Cognitive OS.",
+  "summary": "Defines an Epistemic Arbitration Layer for the Cognitive OS: the Requestor Node runs GQHSM JSON-defined state machines with swappable Sanskrit, Kripke, and hybrid reasoning plugins emitting structured traces.",
   "scope": [
     "Requestor Node",
     "Epistemic Arbitration Layer",
     "Cognitive OS",
     "GQHSM",
+    "JSON machine definitions",
+    "Generic callback registry",
+    "Plugin architecture",
+    "Plugin ABI",
+    "EpistemicContext",
     "Sanskrit Epistemology",
     "Kripke Modal Reasoning",
     "Hybrid Arbitration",
-    "Plugin Architecture",
-    "WASM Extensions",
-    "EpistemicContext",
     "Thinking Trace",
     "GAML Memory",
     "Semantic Core",
-    "HCTS"
+    "ELM and EJM Expert Model contracts",
+    "Reputation-Weighted Consensus",
+    "HCTS",
+    "Grounding",
+    "Memory Writeback",
+    "Retraining Signals",
+    "WASM Extensions"
   ],
   "cross_refs": [
     "https://github.com/Super-Genius/GQHSM",
@@ -28,5 +36,5 @@
   ],
   "locked": false,
   "precedence": null,
-  "notes": ""
+  "notes": "Ambiguity resolved: docs/architecture design doc with heavy rationale prose (DOC signal) competing with substantial implementation contracts (JSON machine schema 21.14.2, plugin C++ ABI 21.16.3, callback and guard vocabulary 21.15, required EpistemicContext fields 21.18.1, JSON trace schema 21.20.1, normative must/should structural requirements 21.13.1). Chose SPEC per precedence rule (SPEC > DOC) so these contracts are preserved as technical constraints. No ADR hallmarks (no Status, no Decision/Consequences sections, no numbered filename) and covers multiple decisions, so not ADR. Prior classification of this file was DOC via manifest override; this run had no manifest, classified from content. Schemas are framed as representative/example, hence medium confidence."
 }

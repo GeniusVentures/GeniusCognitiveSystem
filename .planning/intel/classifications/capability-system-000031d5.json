@@ -1,0 +1,29 @@
+{
+  "source_path": "/Users/Shared/SSDevelopment/Development/GeniusVentures/GeniusNetwork/GeniusCogntiveSystem/docs/architecture/capability-system.md",
+  "type": "SPEC",
+  "confidence": "medium",
+  "manifest_override": false,
+  "title": "30. GCS Capability System",
+  "summary": "Specifies the protocol-neutral GCS Capability System: canonical capability contracts, connector discovery and translation, routing and reputation, credential handling, and Tool Intermediary-governed execution for external and local capabilities.",
+  "scope": [
+    "GCS Capability System",
+    "canonical capability contract",
+    "capability",
+    "connector",
+    "capability provider",
+    "MCP connector adapter",
+    "Tool Intermediary",
+    "GAML",
+    "capability routing",
+    "connector reputation",
+    "credential references",
+    "connector lifecycle",
+    "manifest drift detection",
+    "sandboxed execution",
+    "GeniusCognitiveSystem"
+  ],
+  "cross_refs": [],
+  "locked": false,
+  "precedence": null,
+  "notes": "Path docs/architecture/ leans DOC, but content is dominated by SPEC signals: canonical capability contract YAML schema (30.4), discovery/translation pipeline (30.5), GAML Cognitive Asset data model (30.12), connector lifecycle (30.13), and numbered implementation requirements (30.14); resolved to SPEC per precedence rule. Filename hash suffix 000031d5 is a deterministic byte-sum checksum of the 128-byte POSIX path, not SHA-256, because no shell tool was available to compute the real digest."
+}

@@ -1,0 +1,36 @@
+{
+  "source_path": "/Users/Shared/SSDevelopment/Development/GeniusVentures/GeniusNetwork/GeniusCogntiveSystem/docs/architecture/frozen-mtp-and-vtg.md",
+  "type": "SPEC",
+  "confidence": "medium",
+  "manifest_override": false,
+  "title": "25 Frozen Micro-MTP and VTG Edge Inference",
+  "summary": "Defines Frozen Micro-MTP, a small multi-token prediction head attached to frozen Semantic Core/ELM backbones on constrained GNUS edge nodes, with mandatory local verification and VTG/EGGROLL integration.",
+  "scope": [
+    "Frozen Micro-MTP",
+    "MTP head",
+    "frozen backbone",
+    "Semantic Core",
+    "ELM",
+    "VTG (Verified Transition Graph)",
+    "EGGROLL",
+    "local verifier",
+    "confidence scheduler",
+    "Router",
+    "node capability advertisement",
+    "candidate record",
+    "speculative decoding",
+    "micro-diffusion",
+    "tiny causal tree head",
+    "GAML Context Packet",
+    "Verifier Expert",
+    "EJM",
+    "Swarm Learning"
+  ],
+  "cross_refs": [
+    "./objective-memory-vtg.md",
+    "./speculative-decoding-and-vtg.md"
+  ],
+  "locked": false,
+  "precedence": null,
+  "notes": "SPEC-vs-DOC ambiguity resolved toward SPEC: prose design rationale is present but dominant signals are implementation contracts (candidate record schema, node capability advertisement, EGGROLL outcome event schema, verification requirements, MTP budget envelope). No ADR markers (no Status field, no Decision/Consequences sections) and no user stories. Filename hash suffix is a deterministic path checksum, not SHA-256 (no shell tool available); slug is unique in this batch so no sibling collision is possible."
+}

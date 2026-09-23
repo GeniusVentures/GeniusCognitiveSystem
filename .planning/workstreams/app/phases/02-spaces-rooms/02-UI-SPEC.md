@@ -124,8 +124,7 @@ Voice (inherited): sentence case, no exclamation marks, no "Oops". Error copy al
 | Rail-header "+" semantic label | "Create space or room" (icon-only pressable — WCAG 4.1.2) |
 | Space-node "+" semantic label | "New room in \<space name\>" |
 | Space-node edit semantic label | "Edit space \<space name\>" |
-| Dialog title — create from header, type = space | "New space" |
-| Dialog title — create from header, type = standalone room | "New room" |
+| Dialog title — create from header (either type) | "New" (type-neutral — the drawer atom takes a static title per open; owner-approved IN-03 fix, supersedes the per-type "New space"/"New room" rows) |
 | Dialog title — create from space node | "New room in \<space name\>" |
 | Dialog title — edit | "Edit space" |
 | Dialog type selector labels | "Space" / "Standalone room" (header-launch create mode only) |

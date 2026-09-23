@@ -1,0 +1,37 @@
+{
+  "source_path": "/Users/Shared/SSDevelopment/Development/GeniusVentures/GeniusNetwork/GeniusCogntiveSystem/docs/architecture/context-lifecycle-caching-governance.md",
+  "type": "SPEC",
+  "confidence": "medium",
+  "manifest_override": false,
+  "title": "17. Context Lifecycle, Caching, and Governance",
+  "summary": "Normative GCS specification for context efficiency: deterministic context compilation, stable-prefix caching with compatibility identity, hierarchical token budgets, expert digests, compaction lifecycle, and privacy governance.",
+  "scope": [
+    "Context Compiler",
+    "Prefix Cache Manager",
+    "Context Compaction Manager",
+    "stable prefix",
+    "prefix cache key",
+    "ContextPacket",
+    "ExpertDigest",
+    "Bridge Blocks",
+    "hierarchical token budgets",
+    "Context Inspector",
+    "privacy scope",
+    "capability schema loading",
+    "cache-affinity routing",
+    "verification tiers",
+    "GeniusCognitiveSystem (GCS)"
+  ],
+  "cross_refs": [
+    "distributed-swarm-thinking-context.md",
+    "agentic-memory-layer.md",
+    "openai-compatible-api-router-and-gcs-job-queue.md",
+    "local-cognitive-second-brain.md",
+    "forecast-driven-cognition.md",
+    "capability-system.md",
+    "agent-module-development-inventory.md"
+  ],
+  "locked": false,
+  "precedence": null,
+  "notes": "No frontmatter or filename convention; classified on content alone. PRD-style Acceptance Criteria and Rollout Plan sections compete weakly, but normative MUST/SHOULD contracts, data schemas, and interface definitions dominate; resolved to SPEC per precedence rule (SPEC > PRD)."
+}

@@ -115,6 +115,20 @@ namespace
     /// Maximum entity name length accepted by the FFI command arms (mirror
     /// of the Dart dialog kMaxNameLength, T-02-09; WR-01 defense in depth).
     constexpr size_t kMaxEntityNameLength = 64;
+    /// One CJK code point (U+8A2D) as explicit UTF-8 bytes (no reliance on the
+    /// toolchain's execution charset) — exercises the multibyte name-cap path
+    /// (WR-05).
+    constexpr const char kCjkCodePoint[] = "\xE8\xA8\xAD";
+    /// CJK code points in the multibyte boundary name: 22 * 3 = 66 UTF-8
+    /// bytes, over the pre-fix byte cap while under the code-point cap (the
+    /// dialog counts characters, so the FFI must accept it — WR-05).
+    constexpr int kMultiByteNameCodePoints = 22;
+    /// Maximum topic-string length accepted by the FFI messaging arms (mirror
+    /// of gcs_core_ffi.cpp kMaxTopicLength; IN-08 hardening).
+    constexpr size_t kMaxTopicLength = 128;
+    /// Maximum message-text length accepted by the send_text arm (mirror of
+    /// gcs_core_ffi.cpp kMaxMessageTextLength; IN-08 hardening).
+    constexpr size_t kMaxMessageTextLength = 4096;
 
     /**
      * @brief Thread-safe log of payloads posted to the fake Dart port.
@@ -590,6 +604,9 @@ namespace gcs::test
      *        name longer than the 64-char cap (defense in depth — any FFI
      *        client, not just the Dart dialog, is bounded), while a
      *        boundary-length (64-char) name is accepted and persisted.
+     *        WR-05 regression: the cap counts UTF-8 CODE POINTS, not bytes —
+     *        a 22-CJK-code-point name (66 bytes) is accepted (the Dart dialog
+     *        counts characters), while 65 CJK code points stay rejected.
      */
     TEST_F( GcsFfiSdk, OverLengthNamesRejectedAcrossCreateArms )
     {
@@ -650,6 +667,138 @@ namespace gcs::test
             << "boundary create_space pushed no SpaceTree";
         ASSERT_EQ( tree.space_size(), 1 );
         EXPECT_EQ( tree.space( 0 ).name().size(), kMaxEntityNameLength );
+
+        // Multibyte boundary (WR-05): 22 CJK code points are 66 UTF-8 bytes —
+        // over the pre-fix byte cap, under the code-point cap — so the name
+        // must be accepted exactly like the dialog's character count admits it.
+        std::string multiByteName;
+        for ( int i = 0; i < kMultiByteNameCodePoints; ++i )
+        {
+            multiByteName += kCjkCodePoint;
+        }
+        ASSERT_GT( multiByteName.size(), kMaxEntityNameLength )
+            << "test bug: the multibyte name no longer exceeds the byte cap";
+
+        gcs::chat::GcsCommand multiByteBoundary;
+        multiByteBoundary.mutable_create_space()->set_name( multiByteName );
+        PublishCommand( handle, multiByteBoundary );
+
+        events.clear();
+        ASSERT_TRUE( TakeLatestSpaceTree( events, tree ) )
+            << "multibyte create_space pushed no SpaceTree";
+        bool sawMultiByteName = false;
+        for ( const gcs::chat::SpaceRecord &space : tree.space() )
+        {
+            if ( space.name() == multiByteName )
+            {
+                sawMultiByteName = true;
+            }
+        }
+        EXPECT_TRUE( sawMultiByteName ) << "multibyte name rejected by a byte-count cap";
+
+        // Over the cap in code points (not merely in bytes): still rejected.
+        std::string overCodePointsName;
+        for ( size_t i = 0; i < kMaxEntityNameLength + 1; ++i )
+        {
+            overCodePointsName += kCjkCodePoint;
+        }
+        gcs::chat::GcsCommand overCodePoints;
+        overCodePoints.mutable_create_space()->set_name( overCodePointsName );
+        payload = overCodePoints.SerializeAsString();
+        EXPECT_EQ( gcs_publish( handle,
+                                kCommandTopic,
+                                reinterpret_cast<const uint8_t *>( payload.data() ),
+                                payload.size() ),
+                   GCS_ERROR_INVALID_ARGUMENT );
+
+        gcs_shutdown( handle );
+    }
+
+    /**
+     * @brief IN-08 regression: join_topic and send_text reject over-length
+     *        room_topic strings and send_text rejects over-length text (the
+     *        only pre-fix bound was the INT_MAX payload-narrowing guard),
+     *        each surfacing as GCS_ERROR_INVALID_ARGUMENT plus a pushed
+     *        ErrorNotice, while boundary-length values are accepted.
+     */
+    TEST_F( GcsFfiSdk, OverLengthTopicAndTextRejectedInMessagingArms )
+    {
+        ASSERT_TRUE( InstallFakeApiDlTable() ) << "gcs_ffi rejected the fake Dart API_DL table";
+
+        const char *initPath = GeniusSDKInit( m_tempPath.c_str(), kDevConfig );
+        if ( initPath == nullptr )
+        {
+            GTEST_SKIP() << "GeniusSDKInit could not boot a node in this environment (option C)";
+        }
+        m_sdkStarted = true;
+
+        GcsSession *handle = InitSession( m_tempPath + "/db" );
+        ASSERT_NE( handle, nullptr ) << "SDK is up but gcs_init failed";
+        ASSERT_EQ( gcs_subscribe( handle, kEventTopic, kFakeDartPort ), GCS_OK );
+
+        // Over-length room_topic rejected by join_topic before any join.
+        gcs::chat::GcsCommand joinOverLength;
+        joinOverLength.mutable_join_topic()->set_room_topic( std::string( kMaxTopicLength + 1, 't' ) );
+        std::string payload = joinOverLength.SerializeAsString();
+        EXPECT_EQ( gcs_publish( handle,
+                                kCommandTopic,
+                                reinterpret_cast<const uint8_t *>( payload.data() ),
+                                payload.size() ),
+                   GCS_ERROR_INVALID_ARGUMENT );
+
+        // Join the regression room, then push an over-length text to it.
+        gcs::chat::GcsCommand joinRoom;
+        joinRoom.mutable_join_topic()->set_room_topic( kRoomTopic );
+        PublishCommand( handle, joinRoom );
+
+        gcs::chat::GcsCommand sendOverLength;
+        sendOverLength.mutable_send_text()->set_room_topic( kRoomTopic );
+        sendOverLength.mutable_send_text()->set_text( std::string( kMaxMessageTextLength + 1, 'x' ) );
+        payload = sendOverLength.SerializeAsString();
+        EXPECT_EQ( gcs_publish( handle,
+                                kCommandTopic,
+                                reinterpret_cast<const uint8_t *>( payload.data() ),
+                                payload.size() ),
+                   GCS_ERROR_INVALID_ARGUMENT );
+
+        // Boundary: exactly kMaxTopicLength topic bytes join, and exactly
+        // kMaxMessageTextLength text bytes publish + echo.
+        gcs::chat::GcsCommand joinBoundary;
+        joinBoundary.mutable_join_topic()->set_room_topic( std::string( kMaxTopicLength, 'b' ) );
+        PublishCommand( handle, joinBoundary );
+
+        gcs::chat::GcsCommand sendBoundary;
+        sendBoundary.mutable_send_text()->set_room_topic( kRoomTopic );
+        sendBoundary.mutable_send_text()->set_text( std::string( kMaxMessageTextLength, 'y' ) );
+        PublishCommand( handle, sendBoundary );
+
+        bool sawTopicError   = false;
+        bool sawTextError    = false;
+        bool sawBoundaryEcho = false;
+        for ( const std::string &eventBytes : g_pushedEvents.Take() )
+        {
+            gcs::chat::GcsEvent event;
+            ASSERT_TRUE( event.ParseFromString( eventBytes ) );
+            if ( event.has_error() )
+            {
+                if ( event.error().message().find( "room_topic exceeds maximum length" )
+                     != std::string::npos )
+                {
+                    sawTopicError = true;
+                }
+                if ( event.error().message().find( "text exceeds maximum length" ) != std::string::npos )
+                {
+                    sawTextError = true;
+                }
+            }
+            if ( event.has_message() && event.message().text().size() == kMaxMessageTextLength )
+            {
+                sawBoundaryEcho = true;
+            }
+        }
+        EXPECT_TRUE( sawTopicError ) << "over-length topic rejection pushed no ErrorNotice";
+        EXPECT_TRUE( sawTextError ) << "over-length text rejection pushed no ErrorNotice";
+        EXPECT_TRUE( sawBoundaryEcho ) << "boundary-length text was not accepted and echoed";
 
         gcs_shutdown( handle );
     }

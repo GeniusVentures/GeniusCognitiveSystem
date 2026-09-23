@@ -4,13 +4,13 @@
 
 This document extends the GeniusCognitiveSystem with a formal Epistemic Arbitration Layer implemented as part of the emerging Cognitive OS.
 
-The purpose of this section is to describe how the Requestor Node, already responsible for synthesis and final arbitration, can evolve into a configurable epistemic control plane capable of selecting and executing multiple reasoning frameworks over Semantic Core outputs, ELM outputs, grounded facts, structured memory, and trust signals.
+The purpose of this section is to describe how the Requestor Node, already responsible for synthesis and final arbitration, can evolve into a configurable epistemic control plane capable of selecting and executing multiple reasoning frameworks over Semantic Core outputs, Expert Model outputs and judgments, grounded facts, structured memory, and trust signals.
 
 The central idea is simple:
 
 > Consensus alone determines which outputs are viable. Epistemic arbitration determines how viable outputs should be judged, challenged, and synthesized before final response emission.
 
-This architecture does not replace the existing Semantic Core, ELM system, GAML memory layer, grounding layer, or reputation-based consensus engine. Instead, it introduces a higher-order control layer that governs how all of those components are interpreted at the final stage of cognition.
+This architecture does not replace the existing Semantic Core, Expert Model system (including ELM and EJM contracts), GAML memory layer, grounding layer, or reputation-based consensus engine. Instead, it introduces a higher-order control layer that governs how all of those components are interpreted at the final stage of cognition.
 
 The initial motivation for this extension comes from two related observations:
 
@@ -89,7 +89,7 @@ A simplified high-level flow becomes:
 Client/API  
 -> Router and Planning Layer  
 -> Memory and Context Assembly  
--> Semantic Core and ELMs  
+-> Semantic Core and Expert Models  
 -> Reputation-Weighted Consensus  
 -> Epistemic Arbitration Layer  
 -> Final Synthesis  
@@ -222,15 +222,15 @@ Epistemic arbitration operates after candidate outputs exist.
 The arbitration layer depends on ELMs and specialists, including but not limited to:
 
 - Planner and Memory Governor
-- Primary Draft ELM
-- Verifier ELM
-- Arbiter or Synthesizer ELM
-- Refiner and Formatter ELM
+- Primary Draft Expert / ELM
+- Verifier Expert / EJM or ELM explanation path
+- Arbiter or Synthesizer Expert
+- Refiner and Formatter Expert
 - Numeric Specialist
 - Symbolic Math Specialist
 - Tool and Execution Specialist
 - Code Specialist
-- Grounding ELM
+- Grounding Expert
 - Hierarchical Critical Thinking Specialists
 
 It does not replace them.
@@ -432,6 +432,8 @@ These are all desirable properties for the arbitration layer.
 ### 21.7.5 Selective EJM/JDM judgment callbacks
 
 GQHSM states and guards may selectively invoke EJM/JDM bounded-judgment callbacks when a transition requires semantic classification, choice, ranking, scoring, or probability estimation. A machine should prefer deterministic guards when they are sufficient, invoke bounded judgment when the choice space is known, and escalate to a Planner or ELM, specialist execution, swarm execution, or human review when the decision cannot be bounded adequately or judgment confidence falls below the state's configured threshold.
+
+Independent judgment branches used during arbitration may share one authorized state/prefix for efficiency, but independent branches must not observe sibling questions, answers, or intermediate state. Sequential arbitration judgments must declare predecessor dependencies explicitly so replay and training lineage remain unambiguous.
 
 Judgment callbacks advise state transitions; they do not override deterministic authorization, privacy, capability, spending, or irreversible-side-effect policy. This lets ordinary GQHSM transitions remain model-free while using EJM/JDM only where semantic judgment adds value.
 

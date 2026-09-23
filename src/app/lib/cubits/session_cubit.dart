@@ -154,12 +154,20 @@ class SessionCubit extends Cubit<SessionState> implements GcsCommandTransport {
         messageFlowCubit: messageFlowCubit,
       );
     }
+    final String? fromEnv = Platform.environment[kFfiLibraryEnvVar];
     final String? libraryPath = _resolveLibraryPath();
     if (libraryPath == null) {
+      // Distinguish a stale configured path from an unset variable (IN-09):
+      // resolution returned null while the env value is non-empty, so the
+      // configured file does not exist (a live env file would have been
+      // returned) and no packaged candidate covered for it.
+      final bool envPathSet = fromEnv != null && fromEnv.isNotEmpty;
       return SessionCubit(
         railCubit: railCubit,
         messageFlowCubit: messageFlowCubit,
-        initialError: 'gcs_ffi library not found (set $kFfiLibraryEnvVar)',
+        initialError: envPathSet
+            ? 'gcs_ffi library not found at $fromEnv (check $kFfiLibraryEnvVar)'
+            : 'gcs_ffi library not found (set $kFfiLibraryEnvVar)',
       );
     }
     try {

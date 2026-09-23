@@ -34,7 +34,7 @@ Requirements for initial release. Each maps to roadmap phases.
 - [ ] **GCSB-01**: GCS bot joins rooms as a participant
 - [ ] **GCSB-02**: Bot auto-answers every message when `autoAnswer: GCS`
 - [ ] **GCSB-03**: Bot responds only to `@gcs` mentions when `autoAnswer: None`
-- [ ] **GCSB-04**: Bot response routes through ELM specialist selection
+- [ ] **GCSB-04**: Bot response routes through capability-first Expert Model selection (ELM/EJM/EDM contracts; rule-based MVP router per `docs/architecture/model-and-router.md` §6.2)
 
 ### Discovery
 

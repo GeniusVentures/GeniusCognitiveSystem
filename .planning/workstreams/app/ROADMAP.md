@@ -18,7 +18,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 3: Messaging** - Real-time text messaging with CRDT sync across participants
 - [ ] **Phase 4: Membership & Invites** - Roles, capability tokens, and permission model
 - [ ] **Phase 5: Moderation** - Message tombstones, kick/ban, and admin approval flows
-- [ ] **Phase 6: GCS Bot** - Bot participant with auto-answer policies and ELM routing
+- [ ] **Phase 6: GCS Bot** - Bot participant with auto-answer policies and Expert Model routing
 - [ ] **Phase 7: Discovery** - Public space lobby and private space isolation
 
 ## Phase Details
@@ -150,7 +150,7 @@ Plans:
 
 ### Phase 6: GCS Bot
 
-**Goal**: The GCS system joins rooms as a participant and responds to messages according to the room's `autoAnswer` policy, routing requests through ELM specialist selection.
+**Goal**: The GCS system joins rooms as a participant and responds to messages according to the room's `autoAnswer` policy, routing requests through capability-first Expert Model selection (ELM/EJM/EDM contracts).
 **Depends on**: Phase 3
 **Requirements**: GCSB-01, GCSB-02, GCSB-03, GCSB-04
 **Success Criteria** (what must be TRUE):
@@ -158,7 +158,7 @@ Plans:
   1. GCS bot appears in the room participant list
   2. When `autoAnswer: GCS`, the bot responds to every message automatically
   3. When `autoAnswer: None`, the bot responds only when `@gcs` is mentioned
-  4. Bot responses are routed through the correct ELM specialist for the query type
+  4. Bot responses are routed through the correct Expert Model (ELM/EJM/EDM) for the query type
   5. Bot messages appear in the same CRDT message stream as human messages
 
 **Plans**: TBD

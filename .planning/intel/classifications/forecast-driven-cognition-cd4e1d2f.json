@@ -1,25 +1,29 @@
 {
   "source_path": "/Users/Shared/SSDevelopment/Development/GeniusVentures/GeniusNetwork/GeniusCogntiveSystem/docs/architecture/forecast-driven-cognition.md",
-  "type": "DOC",
-  "confidence": "high",
-  "manifest_override": true,
+  "type": "SPEC",
+  "confidence": "medium",
+  "manifest_override": false,
   "title": "28. Forecast-Driven Cognition and Predictive Prefetching",
-  "summary": "Defines Forecast-Driven Cognition for GCS, allowing the system to anticipate future cognitive requirements during unfolding interactions and prepare resources in advance rather than reacting after a complete request.",
+  "summary": "Specifies Forecast-Driven Cognition for GCS: the Anticipatory Cognition Engine forecasts future cognitive needs, and the Cognitive Execution Scheduler prefetches memory, experts, tools, and nodes under bounded, privacy-safe policies.",
   "scope": [
-    "GeniusCognitiveSystem",
-    "Forecast-Driven Cognition",
-    "Anticipatory Cognition Engine",
-    "Cognitive Execution Scheduler",
+    "GeniusCognitiveSystem (GCS)",
+    "Forecast-Driven Cognition (FDC)",
+    "Anticipatory Cognition Engine (ACE)",
+    "Cognitive Execution Scheduler (CES)",
+    "Forecast Graph",
+    "Personal Forecast Models (PFM)",
+    "Anticipatory Distillation",
     "GAML",
     "EGGROLL",
     "ELMs",
     "GNUS nodes",
-    "Personal Forecast Models",
+    "KV-cache prefetching",
     "bidirectional voice communication",
-    "Anticipatory Distillation"
+    "speculative preparation policy",
+    "forecast observability and evaluation"
   ],
   "cross_refs": [],
   "locked": false,
   "precedence": null,
-  "notes": ""
+  "notes": "No frontmatter or filename convention; classified on content alone. DOC vs SPEC ambiguity resolved toward SPEC per precedence rule: rationale-heavy prose (DOC lean) competes with normative technical contracts. SPEC signals dominate: GAML forecast/prefetch/commit/release interface (28.16), distributed forecast request field schema with cancellation token and expiration (28.17), required observability fields and evaluation metrics (28.20), Forecast Graph schema requirements, and a 12-item numbered Implementation Requirements contract (28.22). No ADR hallmarks (no Status, no Decision/Consequences); no user-story language. Corrected in place over a prior partial run that recorded manifest_override=true with no manifest present and overstated confidence as high; filename hash cd4e1d2f retained to avoid duplicate outputs for this source. Doc contains no markdown links or .md filename mentions, so cross_refs is empty."
 }

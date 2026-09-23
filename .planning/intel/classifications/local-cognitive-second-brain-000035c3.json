@@ -1,0 +1,28 @@
+{
+  "source_path": "/Users/Shared/SSDevelopment/Development/GeniusVentures/GeniusNetwork/GeniusCogntiveSystem/docs/architecture/local-cognitive-second-brain.md",
+  "type": "DOC",
+  "confidence": "medium",
+  "manifest_override": false,
+  "title": "27. Local Cognitive Second Brain Mode",
+  "summary": "Defines Local Cognitive Second Brain Mode: a private, GAML-backed memory and reasoning architecture using local Expert Models, a Second Brain Agent, orchestration, and EGGROLL adaptation.",
+  "scope": [
+    "Local Cognitive Second Brain Mode",
+    "GeniusCognitiveSystem (GCS)",
+    "Orchestration Layer",
+    "GAML memory substrate",
+    "Local and private Expert Models (ELM/EJM)",
+    "Second Brain Agent",
+    "EGGROLL adaptation loop",
+    "structured memory objects",
+    "context packet assembly",
+    "privacy modes",
+    "human-readable memory mirror",
+    "memory lifecycle",
+    "local data source ingestion",
+    "entity resolution"
+  ],
+  "cross_refs": [],
+  "locked": false,
+  "precedence": null,
+  "notes": "Prose-heavy architecture description with no frontmatter, no ADR Status/Decision/Consequences sections, no user stories or acceptance criteria, and no schema/API contract tables. Secondary PRD signal (section 27.16 'Implementation Requirements' numbered list) and secondary SPEC signal (conceptual memory-object classes in 27.10) present but subordinate to the explanatory DOC content."
+}

@@ -38,7 +38,7 @@ It decides:
 
 * whether a request stays local, uses private enterprise resources, or escalates to the public swarm
 * which memory scope is allowed
-* which ELM, agent chain, tool, grounding source, and validation path should be used
+* which Expert Model/capability, agent chain, tool, grounding source, and validation path should be used
 * whether the task requires arbitration, consensus, secure execution, or writeback
 * whether EGGROLL adaptation signals may be emitted
 
@@ -80,9 +80,9 @@ This allows the local second brain to track state across conversations, document
 
 ---
 
-## **27.5 Local and Private ELM Role**
+## **27.5 Local and Private Expert Model Role**
 
-Local or private **Expert Language Models (ELMs)** perform reasoning over private memory.
+Local or private **Expert Models (EMs)** perform specialist cognition over private memory. ELM contracts generate or transform language; EJM contracts perform bounded private judgments such as routing, contradiction, evidence support, risk, prioritization, or escalation.
 
 They may run on:
 
@@ -93,7 +93,7 @@ They may run on:
 * an SMB AI appliance
 * an enterprise private subnet
 
-These ELMs handle tasks such as:
+These Expert Models handle tasks such as:
 
 * meeting preparation
 * daily briefs
@@ -104,7 +104,7 @@ These ELMs handle tasks such as:
 * workflow assistance
 * private decision support
 
-The local ELM receives compact, structured context packets assembled from GAML.
+The selected local Expert Model receives compact, structured context packets assembled from GAML. Judgment-capable experts may share an authorized state/prefix across independent decision branches, but sibling questions/answers remain isolated.
 
 ---
 
@@ -128,7 +128,7 @@ The Second Brain Agent is responsible for:
 * asking orchestration for allowed memory scope and execution mode
 * requesting structured retrieval from GAML
 * building a compact context packet
-* invoking local or private ELM reasoning
+* invoking local or private Expert Model execution
 * calling permitted tools
 * returning a grounded answer, draft, action, or brief
 * writing confirmed updates back into GAML
@@ -427,14 +427,15 @@ Scheduled agent:
   -> Optionally generates voice summary locally
 ```
 
-### **27.15.4 Private ELM Adaptation**
+### **27.15.4 Private Expert Adaptation**
 
 ```text
-Repeated user corrections:
-  -> Captured as preference and correction memory
+Repeated user corrections or validated decisions:
+  -> Captured as governed preference, correction, and decision records
   -> Converted into EGGROLL adaptation signals
-  -> Used to tune local adapter, routing, or memory retrieval policy
-  -> Improves future briefs and drafts
+  -> For bounded judgments, compiled through private/tenant Distillation Views and state/branch shards
+  -> Used to tune local adapters, EJM decision heads/readouts, routing, calibration, or memory retrieval policy
+  -> Improves future briefs, drafts, and private decisions without widening the source privacy boundary
 ```
 
 ---
@@ -445,7 +446,7 @@ A first implementation should include:
 
 1. Local source connectors for files, notes, email, calendar, and meeting transcripts.
 2. GAML object schemas for people, organizations, projects, decisions, commitments, deadlines, tasks, facts, claims, preferences, style signals, contradictions, and memory traces.
-3. A Second Brain Agent with retrieval, context-packet assembly, local ELM invocation, permitted tool use, and writeback.
+3. A Second Brain Agent with retrieval, context-packet assembly, local Expert Model invocation, permitted tool use, and writeback.
 4. Supporting agents for observation, ingestion, extraction, entity resolution, scoring, permission checks, verification, contradiction detection, writeback, and EGGROLL signal generation.
 5. A human-readable memory mirror.
 6. Privacy modes for local-only, private enterprise, hybrid, and explicit swarm contribution.
@@ -460,7 +461,7 @@ Local Cognitive Second Brain Mode should be private, inspectable, and operationa
 
 It stores structured state in GAML.
 
-It reasons through local and private ELMs using compact context packets.
+It reasons through local and private Expert Models using compact context packets, including ELM generation and EJM judgment capabilities where appropriate.
 
 It uses permitted tools through the Second Brain Agent.
 
@@ -479,7 +480,7 @@ The architecture can be summarized as:
 ```text
 Orchestration = control plane
 GAML = memory substrate
-Local ELM = reasoning engine
+Local Expert Models = capability-oriented reasoning/judgment engines
 Second Brain Agent = behavior layer
 EGGROLL = adaptation loop
 Human-readable mirror = inspectability layer
