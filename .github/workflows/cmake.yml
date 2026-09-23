@@ -411,10 +411,22 @@ jobs:
 
           echo "=== PRE-CLEANUP DEBUG ==="
           echo "Current working directory: $(pwd)"
-          echo "Workspace: ${{github.workspace}}"
+          # CRITICAL: use $GITHUB_WORKSPACE (the runtime env var), NOT the
+          # ${{github.workspace}} template expression. In container jobs the
+          # template expands to the RUNNER HOST path (/home/<user>/...), which
+          # does not exist inside the container — on the arm runner the whole
+          # wipe then silently skipped ("Workspace directory does not exist
+          # yet"), stale dep trees from earlier runs survived
+          # checkout+extract, and pkg_check_modules resolved libsecret to
+          # phantom Debian-style paths from the leftover artifacts
+          # (runs 35810498890..35831659342). $GITHUB_WORKSPACE is set to the
+          # CONTAINER path (/__w/...) inside the job, so the wipe actually
+          # runs where the build runs. $(pwd) equals it for run: steps.
+          WS="${GITHUB_WORKSPACE:-$(pwd)}"
+          echo "Workspace: ${WS}"
 
-          if [ -d "${{github.workspace}}" ]; then
-            cd "${{github.workspace}}"
+          if [ -d "${WS}" ]; then
+            cd "${WS}"
             echo "Changed to workspace directory: $(pwd)"
             echo "Contents:"
             ls -la
@@ -433,8 +445,8 @@ jobs:
           fi
 
           echo "=== POST-CLEANUP DEBUG ==="
-          if [ -d "${{github.workspace}}" ]; then
-            cd "${{github.workspace}}"
+          if [ -d "${WS}" ]; then
+            cd "${WS}"
             echo "Final workspace contents:"
             ls -la
           fi
@@ -531,6 +543,10 @@ jobs:
             done
           }
 
+          # Wipe any stale dir first: extracts must never layer over
+          # leftovers from earlier runs (root cause of the arm64 libsecret
+          # phantom-path failures — see the Clean workspace step note).
+          rm -rf thirdparty
           mkdir thirdparty
           cd thirdparty
 
@@ -589,6 +605,7 @@ jobs:
 
           echo "Downloading zkLLVM from release ${dep_release}"
 
+          rm -rf zkLLVM
           mkdir zkLLVM
           cd zkLLVM
 
@@ -668,6 +685,7 @@ jobs:
             done
           }
 
+          rm -rf SuperGenius
           mkdir SuperGenius
           cd SuperGenius
 
@@ -725,6 +743,7 @@ jobs:
             done
           }
 
+          rm -rf GeniusSDK
           mkdir GeniusSDK
           cd GeniusSDK
 
