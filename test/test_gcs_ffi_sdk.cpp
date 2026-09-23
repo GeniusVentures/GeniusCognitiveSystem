@@ -95,8 +95,12 @@ namespace
     constexpr const char kCommandTopic[] = "gcs/command";
     /// Event-stream topic used for the subscribe call.
     constexpr const char kEventTopic[] = "gcs/event";
-    /// C++-stamped message id prefix (mirrors gcs_core_ffi.cpp kMessageIdPrefix).
+    /// C++-stamped message id prefix (mirrors gcs_messaging.cpp kMessageIdPrefix).
     constexpr const char kMessageIdPrefix[] = "msg-";
+    /// Phase 3 message archive key prefix (mirrors gcs_messaging.cpp
+    /// kMessagesKeyPrefix) — send_text archives each message under
+    /// "gcs/messages/<room_topic>/<id>" (D-01/D-03).
+    constexpr const char kMessagesKeyPrefix[] = "gcs/messages/";
     /// Minimum '-'-separated salt fields an id must carry after the prefix
     /// ("msg-<wallclock-ms>-<random-token>-<seq>" carries two: a revert to a
     /// bare per-process counter carries none and revisits prior key space).
@@ -312,9 +316,16 @@ namespace gcs::test
             for ( const std::string &eventBytes : g_pushedEvents.Take() )
             {
                 gcs::chat::GcsEvent event;
+                // D-07: a send pushes pending + complete with the SAME id —
+                // collect each id once (unique ids, not the echo count).
                 if ( event.ParseFromString( eventBytes ) && event.has_message() )
                 {
-                    outMessageIds.push_back( event.message().id() );
+                    const std::string id = event.message().id();
+                    if ( std::find( outMessageIds.begin(), outMessageIds.end(), id )
+                         == outMessageIds.end() )
+                    {
+                        outMessageIds.push_back( id );
+                    }
                 }
             }
 
@@ -469,6 +480,11 @@ namespace gcs::test
 
         // Persistence proof: reopen the SAME db_path through an injected-pubsub
         // GcsGlobalDb (test seam — no second node) and read both cycles' records.
+        // Phase 3 (D-08): each record is archived as an encrypted envelope under
+        // gcs/messages/<room_topic>/<id>. The CR-01 proof is that BOTH id-keyed
+        // records survive without collision, so this asserts non-empty + distinct
+        // without decrypting (decrypt + text correctness is covered by
+        // test_gcs_messaging).
         auto pubsub = MakeStartedPubSub( m_tempPath + "/verify-key" );
         ASSERT_NE( pubsub, nullptr );
         auto graphsync = gcs::test::MakeGraphsyncContext( pubsub );
@@ -478,17 +494,14 @@ namespace gcs::test
         sgns::neoswarm::storage::GcsGlobalDb verifyDb( cfg );
         ASSERT_TRUE( verifyDb.Initialize( pubsub, graphsync.network ).has_value() );
 
-        const std::string recordA = WaitForRecord( verifyDb, std::string( kRoomTopic ) + "/" + idsA.front() );
-        ASSERT_FALSE( recordA.empty() );
-        gcs::chat::ChatMessageState messageA;
-        ASSERT_TRUE( messageA.ParseFromString( recordA ) );
-        EXPECT_EQ( messageA.text(), kSessionAText ) << "session A's record was overwritten (CR-01)";
+        const std::string recordA = WaitForRecord(
+            verifyDb, std::string( kMessagesKeyPrefix ) + kRoomTopic + "/" + idsA.front() );
+        ASSERT_FALSE( recordA.empty() ) << "session A's record was not persisted (CR-01)";
 
-        const std::string recordB = WaitForRecord( verifyDb, std::string( kRoomTopic ) + "/" + idsB.front() );
-        ASSERT_FALSE( recordB.empty() );
-        gcs::chat::ChatMessageState messageB;
-        ASSERT_TRUE( messageB.ParseFromString( recordB ) );
-        EXPECT_EQ( messageB.text(), kSessionBText );
+        const std::string recordB = WaitForRecord(
+            verifyDb, std::string( kMessagesKeyPrefix ) + kRoomTopic + "/" + idsB.front() );
+        ASSERT_FALSE( recordB.empty() ) << "session B's record was not persisted";
+        EXPECT_NE( recordA, recordB ) << "session A's record was overwritten (CR-01)";
 
         verifyDb.Shutdown();
         pubsub->Stop();
