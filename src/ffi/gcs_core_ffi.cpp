@@ -32,6 +32,7 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <condition_variable>
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
@@ -98,6 +99,15 @@ namespace
     // One-shot guard for the per-process Dart API_DL table state check in gcs_init
     // (the table itself is initialized via the exported Dart_InitializeApiDL).
     std::atomic<bool> g_apiDlInitialized{ false };
+    // In-flight count of operations running UNLOCKED against the session/
+    // messaging globals (send_text's SendMessage window, live subscribes,
+    // receive funnels) and the condition variable gcs_shutdown waits on for
+    // the count to return to zero before teardown destroys those objects
+    // (WR-02 — the raw-pointer unlocked windows are safe because teardown
+    // provably drains them; the "Dart serializes commands and shutdown"
+    // assumption is enforced, not assumed). Both guarded by g_mutex.
+    unsigned int g_inFlight = 0;
+    std::condition_variable g_idleCond;
 
     /**
      * \brief Counts Unicode code points in a UTF-8 string.
@@ -794,13 +804,17 @@ extern "C"
             // archive -> complete, and encrypts the envelope (production seam).
             // Called WITHOUT g_mutex: the archive Put blocks in WaitForJob and
             // the DagWorker heal lambda takes g_mutex (ABBA fix, 03-06). The
-            // Messaging pointer is stable across the call — Dart serializes
-            // commands and shutdown on one isolate, and Messaging is
-            // internally synchronized (m_seenMutex/m_archiveMutex).
+            // raw Messaging pointer is safe across the unlocked window because
+            // the call is counted in g_inFlight and gcs_shutdown drains that
+            // count to zero before tearing the globals down (WR-02); Messaging
+            // is internally synchronized (m_seenMutex/m_archiveMutex).
             gcs::Messaging* messaging = g_messaging.get();
+            g_inFlight += 1;
             lock.unlock();
             const bool sendOk = messaging->SendMessage( sendText.room_topic(), sendText.text() ).has_value();
             lock.lock();
+            g_inFlight -= 1;
+            g_idleCond.notify_all();
             if ( !sendOk )
             {
                 PostErrorNotice( "send_text failed for room '" + sendText.room_topic() + "'" );
@@ -952,10 +966,20 @@ extern "C"
 
     GCS_FFI_API void gcs_shutdown( GcsSession* session ) GCS_FFI_NOEXCEPT
     {
-        std::lock_guard<std::mutex> lock( g_mutex );
+        // unique_lock (not lock_guard): the in-flight drain below waits on
+        // g_idleCond, which releases g_mutex while waiting so the counted
+        // operations can come back under the mutex and finish (WR-02).
+        std::unique_lock<std::mutex> lock( g_mutex );
 
         if ( g_session != nullptr && reinterpret_cast<gcs::CoreSession*>( session ) == g_session.get() )
         {
+            // WR-02: wait until every operation running unlocked against the
+            // session/messaging globals (send_text, live subscribes, receive
+            // funnels) is back under the mutex BEFORE teardown destroys those
+            // objects — this makes the unlocked raw-pointer windows safe
+            // against a concurrent gcs_shutdown instead of assuming the Dart
+            // isolate serializes commands against shutdown.
+            g_idleCond.wait( lock, [] { return g_inFlight == 0; } );
             // Shared teardown body — also pairs the gcs_init boot: the
             // embedded node goes down only when this library booted it.
             TeardownSessionAndNode();
