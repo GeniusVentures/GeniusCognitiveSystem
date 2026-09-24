@@ -504,7 +504,10 @@ namespace
     /**
      * \brief Pushes the room's converged history as a MessageHistory batch.
      *
-     * Callers must hold g_mutex (the sink serializes under it). The returned
+     * Callers must hold g_mutex (the sink serializes under it). This is the
+     * sanctioned under-mutex Messaging call (IN-01): QueryHistory never
+     * pushes through the sink and its GlobalDB scan is a converged local
+     * read, so it cannot participate in the 03-06 ABBA cycle. The returned
      * MessageHistory is already decrypted and role-flipped by
      * Messaging::QueryHistory (D-08), so it is posted verbatim — no FFI-side
      * decrypt or re-mapping. A failed scan is logged only (no error notice).
@@ -798,12 +801,17 @@ extern "C"
         // Phase 3 (D-08): construct the messaging component with the REAL
         // vendored-OpenSSL crypto seam injected and encryption enabled by
         // default for all Phase 3 rooms. The EventSink self-locks g_mutex
-        // around PostToDart — Messaging methods are NEVER called under
+        // around PostToDart — the precise ABBA rule (03-06, IN-01) is that
+        // no Messaging method that PUSHES via the sink may run under
         // g_mutex (see the kSendText arm and the receive lambdas), so the
-        // sink must provide its own serialization (ABBA fix, 03-06). The FFI
-        // names the adapter functions here but never calls EVP directly —
-        // encryption/decryption happen inside Messaging, and the FFI/Dart
-        // only push/see plaintext events (D-08).
+        // sink must provide its own serialization. Messaging::QueryHistory
+        // via PushMessageHistory is the sanctioned exception: it never
+        // invokes the sink and its GlobalDB scan is a converged local read,
+        // so it runs under g_mutex on the join paths (a future scan that
+        // waits on the CRDT job pipeline would have to move out from under
+        // the mutex). The FFI names the adapter functions here but never
+        // calls EVP directly — encryption/decryption happen inside
+        // Messaging, and the FFI/Dart only push/see plaintext events (D-08).
         {
             gcs::Messaging::CryptoSeam cryptoSeam;
             cryptoSeam.encrypt = &gcs::crypto::EncryptPayload;
