@@ -34,12 +34,26 @@ const String kDefaultInstanceKey = 'default';
 /// isolated from the default instance.
 const String kInstanceFlag = '--instance=';
 
+/// Shape every instance key must fit (IN-04): the key is spliced into a
+/// filesystem path (`data/KEY/db`), so anything outside [A-Za-z0-9_-] —
+/// path separators, '..', NUL-adjacent oddities — would break the
+/// per-instance isolation contract (each key must boot its own wallet and
+/// identity under the application-support directory, never escape it).
+final RegExp kInstanceKeyPattern = RegExp(r'^[A-Za-z0-9_-]{1,64}$');
+
 /// Extracts the instance key from [args]: the value of the first
 /// [kInstanceFlag] argument, or [kDefaultInstanceKey] when absent/empty.
+/// A key that fails [kInstanceKeyPattern] falls back to
+/// [kDefaultInstanceKey] (IN-04: adversarial keys never splice into the
+/// data path).
 String instanceKeyFromArgs(List<String> args) {
   for (final String arg in args) {
     if (arg.startsWith(kInstanceFlag) && arg.length > kInstanceFlag.length) {
-      return arg.substring(kInstanceFlag.length);
+      final String key = arg.substring(kInstanceFlag.length);
+      if (kInstanceKeyPattern.hasMatch(key)) {
+        return key;
+      }
+      return kDefaultInstanceKey;
     }
   }
   return kDefaultInstanceKey;
