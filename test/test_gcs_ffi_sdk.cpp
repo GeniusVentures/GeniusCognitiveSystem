@@ -745,11 +745,13 @@ namespace gcs::test
     }
 
     /**
-     * @brief IN-08 regression: join_topic and send_text reject over-length
-     *        room_topic strings and send_text rejects over-length text (the
-     *        only pre-fix bound was the INT_MAX payload-narrowing guard),
-     *        each surfacing as GCS_ERROR_INVALID_ARGUMENT plus a pushed
-     *        ErrorNotice, while boundary-length values are accepted.
+     * @brief IN-08/WR-03 regression: join_topic and send_text reject
+     *        over-length room_topic strings, reject room topics whose shape
+     *        breaks the archive key grammar (anything but
+     *        'gcs/chat/<id>' with no additional '/'), and send_text rejects
+     *        over-length text — each surfacing as GCS_ERROR_INVALID_ARGUMENT
+     *        plus a pushed ErrorNotice, while boundary-length shape-valid
+     *        values are accepted.
      */
     TEST_F( GcsFfiSdk, OverLengthTopicAndTextRejectedInMessagingArms )
     {
@@ -776,6 +778,18 @@ namespace gcs::test
                                 payload.size() ),
                    GCS_ERROR_INVALID_ARGUMENT );
 
+        // WR-03: a topic carrying an extra '/' would make the archive key
+        // grammar ambiguous (a prefix scan for "gcs/chat/a" would also
+        // return room "gcs/chat/a/b"'s records) — rejected before any join.
+        gcs::chat::GcsCommand joinSlashShape;
+        joinSlashShape.mutable_join_topic()->set_room_topic( "gcs/chat/a/b" );
+        payload = joinSlashShape.SerializeAsString();
+        EXPECT_EQ( gcs_publish( handle,
+                                kCommandTopic,
+                                reinterpret_cast<const uint8_t *>( payload.data() ),
+                                payload.size() ),
+                   GCS_ERROR_INVALID_ARGUMENT );
+
         // Join the regression room, then push an over-length text to it.
         gcs::chat::GcsCommand joinRoom;
         joinRoom.mutable_join_topic()->set_room_topic( kRoomTopic );
@@ -791,10 +805,25 @@ namespace gcs::test
                                 payload.size() ),
                    GCS_ERROR_INVALID_ARGUMENT );
 
-        // Boundary: exactly kMaxTopicLength topic bytes join, and exactly
-        // kMaxMessageTextLength text bytes publish + echo.
+        // WR-03: same shape guard on the send arm.
+        gcs::chat::GcsCommand sendSlashShape;
+        sendSlashShape.mutable_send_text()->set_room_topic( "gcs/chat/a/b" );
+        sendSlashShape.mutable_send_text()->set_text( "shape" );
+        payload = sendSlashShape.SerializeAsString();
+        EXPECT_EQ( gcs_publish( handle,
+                                kCommandTopic,
+                                reinterpret_cast<const uint8_t *>( payload.data() ),
+                                payload.size() ),
+                   GCS_ERROR_INVALID_ARGUMENT );
+
+        // Boundary: exactly kMaxTopicLength topic bytes join (shape-valid:
+        // the "gcs/chat/" namespace plus filler to the exact byte budget),
+        // and exactly kMaxMessageTextLength text bytes publish + echo.
         gcs::chat::GcsCommand joinBoundary;
-        joinBoundary.mutable_join_topic()->set_room_topic( std::string( kMaxTopicLength, 'b' ) );
+        joinBoundary.mutable_join_topic()->set_room_topic(
+            std::string( kRoomTopicPrefix )
+            + std::string( kMaxTopicLength - std::char_traits<char>::length( kRoomTopicPrefix ),
+                           'b' ) );
         PublishCommand( handle, joinBoundary );
 
         gcs::chat::GcsCommand sendBoundary;
@@ -803,6 +832,7 @@ namespace gcs::test
         PublishCommand( handle, sendBoundary );
 
         bool sawTopicError   = false;
+        bool sawShapeError   = false;
         bool sawTextError    = false;
         bool sawBoundaryEcho = false;
         for ( const std::string &eventBytes : g_pushedEvents.Take() )
@@ -816,6 +846,10 @@ namespace gcs::test
                 {
                     sawTopicError = true;
                 }
+                if ( event.error().message().find( "no additional '/'" ) != std::string::npos )
+                {
+                    sawShapeError = true;
+                }
                 if ( event.error().message().find( "text exceeds maximum length" ) != std::string::npos )
                 {
                     sawTextError = true;
@@ -827,6 +861,7 @@ namespace gcs::test
             }
         }
         EXPECT_TRUE( sawTopicError ) << "over-length topic rejection pushed no ErrorNotice";
+        EXPECT_TRUE( sawShapeError ) << "slash-shape topic rejection pushed no ErrorNotice";
         EXPECT_TRUE( sawTextError ) << "over-length text rejection pushed no ErrorNotice";
         EXPECT_TRUE( sawBoundaryEcho ) << "boundary-length text was not accepted and echoed";
 

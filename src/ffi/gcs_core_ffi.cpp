@@ -64,6 +64,11 @@ namespace
     // "gcs/chat/room-<13-digit ms>-<random-token>-<seq>" stays under ~60
     // bytes, leaving 2x headroom.
     constexpr size_t kMaxTopicLength = 128;
+    // Room-topic namespace every GCS-minted topic lives under: smoke topics
+    // ("gcs/chat/smoke-test") and derived room topics ("gcs/chat/room-...").
+    // WR-03: join/send topics are validated against this namespace so the
+    // archive key grammar stays unambiguous (see IsValidRoomTopicShape).
+    constexpr const char kRoomTopicNamespace[] = "gcs/chat/";
     // Maximum message-text length in bytes at the FFI boundary (IN-08
     // hardening). A transport-size bound, not a character contract: no Dart
     // cap exists yet, so bytes bound the copied/serialized/persisted payload
@@ -139,6 +144,32 @@ namespace
     {
         return static_cast<size_t>( std::count_if( text.begin(), text.end(),
             []( unsigned char byte ) { return ( byte & 0xC0 ) != 0x80; } ) );
+    }
+
+    /**
+     * \brief Whether a room topic fits the unambiguous archive-key grammar (WR-03).
+     *
+     * Archive keys are "gcs/messages/<topic>/<id>" and RoomTopicFromKey
+     * recovers the topic by dropping only the LAST '/' segment (the id), so
+     * the grammar is ambiguous whenever one topic can be a slash-prefix of
+     * another: the prefix scan for room "gcs/chat/a" also returns every
+     * record of room "gcs/chat/a/b" — a cross-room data leak in plaintext
+     * mode and spurious decrypt failures in encrypted mode. Every topic
+     * this system mints is "gcs/chat/<single-segment-id>" (smoke topics,
+     * derived room topics), so accepting only that shape at the FFI
+     * boundary matches the real key space and makes no topic a
+     * slash-prefix of any other.
+     *
+     * \param[in] roomTopic  The candidate room topic.
+     * \return true when the topic is "gcs/chat/<id>" with a non-empty id and
+     *         no further '/'.
+     */
+    bool IsValidRoomTopicShape( const std::string &roomTopic )
+    {
+        const size_t namespaceLength = std::char_traits<char>::length( kRoomTopicNamespace );
+        return roomTopic.size() > namespaceLength
+               && roomTopic.compare( 0, namespaceLength, kRoomTopicNamespace ) == 0
+               && roomTopic.find( '/', namespaceLength ) == std::string::npos;
     }
 
     /**
@@ -904,6 +935,15 @@ extern "C"
                 PostErrorNotice( "join_topic rejected: room_topic exceeds maximum length" ); // D-29: raw error string on the push port
                 return GCS_ERROR_INVALID_ARGUMENT;
             }
+            if ( !IsValidRoomTopicShape( roomTopic ) )
+            {
+                // WR-03: a topic with an extra '/' (or outside the gcs/chat/
+                // namespace) makes the archive key grammar ambiguous — a
+                // prefix scan for one room would return another room's records.
+                PostErrorNotice( "join_topic rejected: room_topic must be 'gcs/chat/<id>' "
+                                 "with no additional '/'" ); // D-29: raw error string on the push port
+                return GCS_ERROR_INVALID_ARGUMENT;
+            }
             // Listen first, then broadcast — the same ordering
             // GcsGlobalDb::Initialize uses (D-07). A listen failure leaves
             // nothing registered; a broadcast failure leaves only the listen
@@ -960,6 +1000,14 @@ extern "C"
             if ( sendText.room_topic().size() > kMaxTopicLength )
             {
                 PostErrorNotice( "send_text rejected: room_topic exceeds maximum length" ); // D-29: raw error string on the push port
+                return GCS_ERROR_INVALID_ARGUMENT;
+            }
+            if ( !IsValidRoomTopicShape( sendText.room_topic() ) )
+            {
+                // WR-03: same archive-key grammar guard as join_topic — an
+                // ambiguous topic shape never reaches the key space.
+                PostErrorNotice( "send_text rejected: room_topic must be 'gcs/chat/<id>' "
+                                 "with no additional '/'" ); // D-29: raw error string on the push port
                 return GCS_ERROR_INVALID_ARGUMENT;
             }
             if ( std::find( g_roomTopics.begin(), g_roomTopics.end(), sendText.room_topic() )
