@@ -761,6 +761,18 @@ extern "C"
         auto session = std::make_unique<gcs::CoreSession>( std::move( coreConfig ) );
         if ( !session->Initialize().has_value() )
         {
+            // IN-02: pair the embedded boot this gcs_init performed — the
+            // node (wallet, threads, ports) must not keep running after a
+            // failed init leaves no session owning it. Mirrors the smoke-topic
+            // failure path below (Shutdown is an idempotent no-op for a
+            // session whose Initialize failed); resetting the pairing flag
+            // keeps a later successful boot/shutdown cycle balanced.
+            session->Shutdown();
+            if ( g_sdkBootedHere )
+            {
+                g_sdkBootedHere = false;
+                GeniusSDKShutdown();
+            }
             return nullptr;
         }
 
