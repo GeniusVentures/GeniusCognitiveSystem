@@ -70,6 +70,10 @@ namespace
     // directly — 4 KiB is generous for chat text while blocking the
     // multi-megabyte publishes the payload-narrowing guard alone permitted.
     constexpr size_t kMaxMessageTextLength = 4096;
+    // Bounded in-flight drain window on the process-exit teardown path
+    // (WR-01): the exit hook may not block forever on a wedged sender, so
+    // the drain gives up after this timeout and proceeds best-effort.
+    constexpr std::chrono::seconds kExitTeardownDrainTimeout{ 2 };
     // Dev config accepted by GeniusSDKInit's parser — offline-safe placeholder
     // token parameters (identical to the C++ test fixtures' kDevConfig). Used
     // when gcs_init boots the embedded node itself.
@@ -194,16 +198,24 @@ namespace
      * gated callbacks acquire the mutex, observe the evicted (null)
      * globals, and unwind.
      *
-     * The process-exit caller passes nullptr and runs unlocked (the exit
-     * hook runs after the Dart threads are gone; taking the mutex there
-     * could wedge forever on a thread that died mid-call — the same
-     * unlocked precedent the C++ test fixtures' TearDown sets).
+     * The process-exit caller passes nullptr and holds no lock. WR-01: it
+     * still gates receive intake first (atomically, before touching
+     * anything), then acquires g_mutex best-effort — try_lock, because a
+     * thread may have died holding it — so the eviction below is serialized
+     * against receive callbacks and a concurrent gcs_shutdown, and the
+     * in-flight count is drained under it with a BOUNDED wait (exit must not
+     * hang on a wedged sender). When the try_lock fails the hook proceeds
+     * destructively as before, with the intake gate already closed.
      *
      * \param[in] lock  gcs_shutdown's held unique_lock, or nullptr on the
      *                  process-exit path.
      */
     void TeardownSessionAndNode( std::unique_lock<std::mutex> *lock )
     {
+        // WR-01: gate receive intake on EVERY path into this body — the exit
+        // hook previously skipped this, so pubsub/DagWorker bridge callbacks
+        // kept funnelling into g_messaging while the hook destroyed it.
+        g_receivingDisabled.store( true );
         g_tearingDown.store( true );
         // Quiesce the node BEFORE tearing down the session. GcsGlobalDb
         // borrows the node's pubsub and shared graphsync Network (D-17), so
@@ -219,6 +231,29 @@ namespace
         // shared Network owns shared_ptrs to the host and scheduler.
         const bool sdkBootedHere = g_sdkBootedHere;
         g_sdkBootedHere = false;
+
+        // WR-01: the process-exit caller holds no lock. Acquire g_mutex
+        // best-effort (try_lock — a thread may have died holding it, and the
+        // hook must not wedge at exit) so the eviction below is serialized
+        // against receive callbacks and a concurrent gcs_shutdown, then
+        // drain the in-flight count under it with a bounded wait. Never
+        // attempted when the caller already holds the lock (double-locking a
+        // std::mutex on the normal path would be undefined).
+        std::unique_lock<std::mutex> exitLock( g_mutex, std::defer_lock );
+        if ( lock == nullptr )
+        {
+            exitLock.try_lock();
+            if ( exitLock.owns_lock() )
+            {
+                g_idleCond.wait_for( exitLock, kExitTeardownDrainTimeout,
+                                     [] { return g_inFlight == 0; } );
+            }
+            else
+            {
+                spdlog::warn( "gcs_ffi: exit-path teardown could not acquire the session "
+                              "mutex — proceeding without the in-flight drain" );
+            }
+        }
 
         // Evict the guarded globals while the lock is held, then destroy the
         // evicted objects with the lock RELEASED. The eviction is what makes
@@ -241,6 +276,10 @@ namespace
         if ( lock != nullptr )
         {
             lock->unlock();
+        }
+        else if ( exitLock.owns_lock() )
+        {
+            exitLock.unlock();
         }
         if ( sdkBootedHere )
         {
