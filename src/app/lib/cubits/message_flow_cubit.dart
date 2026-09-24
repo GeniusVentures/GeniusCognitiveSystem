@@ -42,13 +42,26 @@ const Map<MessageState, String> kStateVariants = <MessageState, String>{
 const int kSenderShortPrefixLength = 8;
 const int kSenderShortSuffixLength = 8;
 
+/// Characters the truncated short-form itself contributes: the '0x' marker
+/// plus the '…' separator (IN-07 — no magic number in the threshold).
+const int kSenderShortMarkerLength = 2 + 1;
+
+/// Headroom kept on top of the short-form length (IN-07): a sender is
+/// truncated only when it is MORE THAN one character longer than its short
+/// form would be, preserving the historical boundary where an address of
+/// exactly prefix + suffix + marker + headroom passes through verbatim.
+const int kSenderShortHeadroomLength = 1;
+
 /// Truncates a wallet-address sender to a display short-form (D-04): the
 /// leading '0x' plus the first [kSenderShortPrefixLength] and last
 /// [kSenderShortSuffixLength] hex characters, joined by '…'. Addresses short
 /// enough to read whole are returned unchanged.
 String _truncateSender(String address) {
   if (address.length >
-      kSenderShortPrefixLength + kSenderShortSuffixLength + 4) {
+      kSenderShortPrefixLength +
+          kSenderShortSuffixLength +
+          kSenderShortMarkerLength +
+          kSenderShortHeadroomLength) {
     return '0x${address.substring(2, 2 + kSenderShortPrefixLength)}…'
         '${address.substring(address.length - kSenderShortSuffixLength)}';
   }
