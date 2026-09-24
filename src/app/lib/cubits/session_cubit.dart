@@ -11,7 +11,12 @@
 ///   roomList -> RailCubit.setRooms            (D-21 pushed room list)
 ///   readiness -> session ready flag
 ///   message  -> MessageFlowCubit.upsert(buildChatFlowItemTextBubble(...))
-///   messageHistory -> MessageFlowCubit.replaceAll(mapped batch) (D-06)
+///                -- gated by the rail's active room (CR-01: the C++ side
+///                   live-subscribes every joined room, so ungated dispatch
+///                   would render one room's traffic in another)
+///   messageHistory -> MessageFlowCubit.replaceAll(mapped batch) (D-06, same
+///                active-room gate -- a replay for a just-joined room must
+///                not wipe the room the user is reading)
 ///   error    -> session error surface (raw string per D-29)
 ///
 /// [close] closes the ReceivePort BEFORE the native `gcs_shutdown` (pitfall
@@ -387,15 +392,23 @@ class SessionCubit extends Cubit<SessionState> implements GcsCommandTransport {
       return;
     }
     if (event.hasMessage()) {
+      // CR-01: the C++ side live-subscribes EVERY joined room, so a pushed
+      // message is rendered only when it belongs to the rail's active room --
+      // live traffic from another room must never land in the open one.
       final MessageFlowCubit? flow = _messageFlowCubit;
-      if (flow != null) {
+      if (flow != null &&
+          _railCubit?.state.activeRoom == event.message.roomTopic) {
         flow.upsert(flow.buildChatFlowItemTextBubble(event.message));
       }
       return;
     }
     if (event.hasMessageHistory()) {
+      // CR-01: same active-room gate for the D-06 replay batch -- a history
+      // replay pushed for a room the user just joined must not replaceAll-
+      // wipe the flow of the room the user is currently reading.
       final MessageFlowCubit? flow = _messageFlowCubit;
-      if (flow != null) {
+      if (flow != null &&
+          _railCubit?.state.activeRoom == event.messageHistory.roomTopic) {
         flow.replaceAll([
           for (final ChatMessageState m in event.messageHistory.message)
             flow.buildChatFlowItemTextBubble(m),

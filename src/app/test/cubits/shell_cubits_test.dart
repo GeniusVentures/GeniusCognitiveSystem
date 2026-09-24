@@ -503,6 +503,7 @@ void main() {
             .writeToBuffer(),
       );
       expect(rail.state.rooms, <String>['gcs/chat/a', 'gcs/chat/b']);
+      rail.selectRoom('gcs/chat/a');
 
       cubit.handlePushedBytes(
         (GcsEvent()..readiness = (Readiness()..ready = true)).writeToBuffer(),
@@ -513,6 +514,7 @@ void main() {
         (GcsEvent()
               ..message = (ChatMessageState()
                 ..id = 'm1'
+                ..roomTopic = 'gcs/chat/a'
                 ..role = MessageRole.MESSAGE_ROLE_USER_SELF
                 ..state = MessageState.MESSAGE_STATE_COMPLETE
                 ..text = 'hi'))
@@ -539,6 +541,9 @@ void main() {
         addTearDown(cubit.close);
         addTearDown(rail.close);
         addTearDown(flow.close);
+
+        rail.setRooms(<String>['gcs/chat/a']);
+        rail.selectRoom('gcs/chat/a');
 
         cubit.handlePushedBytes(
           (GcsEvent()
@@ -578,6 +583,9 @@ void main() {
       addTearDown(rail.close);
       addTearDown(flow.close);
 
+      rail.setRooms(<String>['gcs/chat/a']);
+      rail.selectRoom('gcs/chat/a');
+
       cubit.handlePushedBytes(
         (GcsEvent()
               ..messageHistory = (MessageHistory()
@@ -601,6 +609,67 @@ void main() {
       expect((flow.state[0] as ChatFlowItemTextBubble).role, 'user_self');
       expect((flow.state[1] as ChatFlowItemTextBubble).role, 'user_peer');
     });
+
+    test(
+      'pushed message/history events are gated by the active room (CR-01)',
+      () {
+        final RailCubit rail = RailCubit();
+        final MessageFlowCubit flow = MessageFlowCubit();
+        final SessionCubit cubit = SessionCubit(
+          railCubit: rail,
+          messageFlowCubit: flow,
+        );
+        addTearDown(cubit.close);
+        addTearDown(rail.close);
+        addTearDown(flow.close);
+
+        rail.setRooms(<String>['gcs/chat/a', 'gcs/chat/b']);
+        rail.selectRoom('gcs/chat/a');
+
+        // Live traffic from room B while room A is selected: not upserted.
+        cubit.handlePushedBytes(
+          (GcsEvent()
+                ..message = (ChatMessageState()
+                  ..id = 'peer-b'
+                  ..roomTopic = 'gcs/chat/b'
+                  ..role = MessageRole.MESSAGE_ROLE_USER_PEER
+                  ..state = MessageState.MESSAGE_STATE_COMPLETE
+                  ..text = 'from b'))
+              .writeToBuffer(),
+        );
+        expect(flow.state, isEmpty, reason: 'room B traffic must not render in room A');
+
+        // History replay for room B (join elsewhere): must not wipe A's flow.
+        cubit.handlePushedBytes(
+          (GcsEvent()
+                ..message = (ChatMessageState()
+                  ..id = 'in-a'
+                  ..roomTopic = 'gcs/chat/a'
+                  ..role = MessageRole.MESSAGE_ROLE_USER_SELF
+                  ..state = MessageState.MESSAGE_STATE_COMPLETE
+                  ..text = 'stays'))
+              .writeToBuffer(),
+        );
+        expect(flow.state, hasLength(1));
+        cubit.handlePushedBytes(
+          (GcsEvent()
+                ..messageHistory = (MessageHistory()
+                  ..roomTopic = 'gcs/chat/b'
+                  ..message.add(ChatMessageState()
+                    ..id = 'hist-b'
+                    ..role = MessageRole.MESSAGE_ROLE_USER_PEER
+                    ..state = MessageState.MESSAGE_STATE_COMPLETE
+                    ..text = 'b history')))
+              .writeToBuffer(),
+        );
+        expect(
+          flow.state,
+          hasLength(1),
+          reason: 'room B replay must not replaceAll-wipe room A',
+        );
+        expect((flow.state.single as ChatFlowItemTextBubble).instanceId, 'in-a');
+      },
+    );
 
     test(
       'pushed SpaceTree populates the rail tree with grouped rooms (D-02)',
