@@ -448,6 +448,18 @@ namespace
     }
 
     /**
+     * \brief Pushes an ErrorNotice carrying a raw error string (D-29).
+     *
+     * \param[in] message  The raw error string to push.
+     */
+    void PostErrorNotice( const std::string& message )
+    {
+        gcs::chat::GcsEvent event;
+        event.mutable_error()->set_message( message );
+        PostToDart( event );
+    }
+
+    /**
      * \brief Arms the raw GossipSub live subscribe for a room topic (D-03).
      *
      * Callers hold g_mutex via lock, but the subscribe itself runs with the
@@ -465,7 +477,8 @@ namespace
      *
      * \param[in] lock      The caller's held unique_lock of g_mutex.
      * \param[in] roomTopic The room topic to subscribe to.
-     * \return true when the live subscription armed successfully.
+     * \return true when the live subscription armed successfully; false after
+     *         a failed subscribe, which also pushes an ErrorNotice (WR-03).
      */
     bool SubscribeLive( std::unique_lock<std::mutex> &lock, const std::string &roomTopic )
     {
@@ -506,6 +519,10 @@ namespace
         if ( !liveOk )
         {
             spdlog::error( "gcs_ffi: live subscribe failed for room '{}'", roomTopic );
+            // WR-03: surface the partial failure on the push port like every
+            // other failure on the join path — the room otherwise appears
+            // joined while live delivery is dead (CRDT heal only).
+            PostErrorNotice( "live subscribe failed for room '" + roomTopic + "'" );
         }
         return liveOk;
     }
@@ -582,18 +599,6 @@ namespace
             }
         }
         g_derivedTopics = std::move( stillDerived );
-    }
-
-    /**
-     * \brief Pushes an ErrorNotice carrying a raw error string (D-29).
-     *
-     * \param[in] message  The raw error string to push.
-     */
-    void PostErrorNotice( const std::string& message )
-    {
-        gcs::chat::GcsEvent event;
-        event.mutable_error()->set_message( message );
-        PostToDart( event );
     }
 
 } // namespace
@@ -888,7 +893,14 @@ extern "C"
             // THEN arm the raw live subscribe so any live message lands after
             // the batch and is absorbed by the id-keyed dedupe (Pitfall 3).
             PushMessageHistory( roomTopic );
-            SubscribeLive( lock, roomTopic );
+            if ( !SubscribeLive( lock, roomTopic ) )
+            {
+                // WR-03: the join itself registered (the RoomList with the
+                // topic was already pushed), but live delivery is dead —
+                // mirror the arm's other partial failures: the ErrorNotice is
+                // pushed inside SubscribeLive, the error code returned here.
+                return GCS_ERROR_GENERIC;
+            }
             return GCS_OK;
         }
         case gcs::chat::GcsCommand::kSendText:
