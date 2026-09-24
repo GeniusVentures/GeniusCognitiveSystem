@@ -30,6 +30,7 @@
 #include <chrono>
 #include <cstdint>
 #include <filesystem>
+#include <fstream>
 #include <mutex>
 #include <optional>
 #include <string>
@@ -80,6 +81,16 @@ namespace
      }
     )";
 
+    /// Pinned pubsub listen port for this binary's node, written to
+    /// network_config.json under the node base path in SetUp (db paths are
+    /// <tmp>/db, so the base path is the tmp dir; the failure-classification
+    /// probe's direct GeniusSDKInit uses the tmp dir as base too). GeniusNode
+    /// derives ports as 40001 + hash%301 with no availability probe, so
+    /// parallel node processes can collide on a derived port (observed in
+    /// SuperGenius CI — child_registration.cpp); the pin sits OUTSIDE the
+    /// derived range and differs per FFI test binary so parallel ctest runs
+    /// never collide.
+    constexpr uint16_t kPinnedPubsubPort = 41502;
     /// Arbitrary non-zero fake Dart NativePort id (pushed-event capture seam).
     constexpr int64_t kFakeDartPort = 7777;
     /// Dart -> C++ ingress topic (D-27: commands are topic publishes).
@@ -253,6 +264,13 @@ namespace gcs::test
                                + std::to_string( uniqueSalt ) ) )
                              .string();
             std::filesystem::create_directories( m_tempPath );
+
+            // Pin the node's pubsub port (child_registration.cpp pattern):
+            // the node reads this file at InitNetwork.
+            std::ofstream networkConfig( m_tempPath + "/network_config.json" );
+            networkConfig << "{ \"port_seed\": " << kPinnedPubsubPort
+                          << ", \"auto_dht\": false, \"upnp_enabled\": false"
+                          << ", \"pubsub_port\": \"" << kPinnedPubsubPort << "\" }";
         }
 
         void TearDown() override

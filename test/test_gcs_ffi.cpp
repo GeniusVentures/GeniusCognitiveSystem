@@ -27,7 +27,9 @@
 #include "proto/gcs_chat.pb.h"
 
 #include <chrono>
+#include <cstdint>
 #include <filesystem>
+#include <fstream>
 #include <string>
 
 #include <gtest/gtest.h>
@@ -44,6 +46,13 @@ namespace
     constexpr int64_t kTestDartPort = 1234;
     /// Number of gcs_init calls in the repeated-init case.
     constexpr int kRepeatedInitCallCount = 3;
+    /// Pinned pubsub listen port for the embedded node, written to
+    /// network_config.json under the node base path in SetUp (the config db
+    /// path is <tmp>/db, so the base path is the tmp dir). GeniusNode derives
+    /// ports as 40001 + hash%301 with no availability probe, so parallel node
+    /// processes can collide on a derived port (observed in SuperGenius CI —
+    /// child_registration.cpp); the pin sits OUTSIDE the derived range.
+    constexpr uint16_t kPinnedPubsubPort = 41500;
 } // namespace
 
 namespace gcs::test
@@ -63,6 +72,13 @@ namespace gcs::test
                            / ( std::string{ "gcs_ffi_" } + info->name() + "_" + std::to_string( uniqueSalt ) ) )
                              .string();
             std::filesystem::create_directories( m_tempPath );
+
+            // Pin the embedded node's pubsub port (child_registration.cpp
+            // pattern): the node reads this file at InitNetwork.
+            std::ofstream networkConfig( m_tempPath + "/network_config.json" );
+            networkConfig << "{ \"port_seed\": " << kPinnedPubsubPort
+                          << ", \"auto_dht\": false, \"upnp_enabled\": false"
+                          << ", \"pubsub_port\": \"" << kPinnedPubsubPort << "\" }";
         }
 
         void TearDown() override
