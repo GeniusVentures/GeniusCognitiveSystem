@@ -241,17 +241,19 @@ class SessionCubit extends Cubit<SessionState> implements GcsCommandTransport {
   /// inert, already torn down, or already started (re-entry guard WR-02: a
   /// second call would leak the first ReceivePort and re-subscribe over it).
   ///
-  /// Requires [dbPath] (or the [openDefault] argument) to be set: the app's
-  /// `main()` derives it from the per-user application-support directory
-  /// (`data/KEY` — see main.dart); a missing path surfaces a raw error
-  /// instead of silently defaulting to a system temp directory.
+  /// Requires [dbPath] (or the [openDefault] argument) to be set to a
+  /// NON-EMPTY path: the app's `main()` derives it from the per-user
+  /// application-support directory (`data/KEY` — see main.dart); a missing
+  /// or empty path surfaces a raw error instead of silently defaulting to a
+  /// system temp directory (IN-03: an empty string reaches SessionBasePath's
+  /// temp-dir fallback, the exact default this guard exists to eliminate).
   void start() {
     final GcsBindings? bindings = _bindings;
     if (bindings == null || _nativeShutdownDone || _receivePort != null) {
       return; // inert / torn down / already started
     }
     final String? dbPath = _dbPath;
-    if (dbPath == null) {
+    if (dbPath == null || dbPath.isEmpty) {
       emit(
         state.copyWith(
           error: 'session db path not configured (main() derives it from '

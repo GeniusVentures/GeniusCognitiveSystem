@@ -468,6 +468,22 @@ void main() {
       expect(bindings.subscribeCalls, 0);
     });
 
+    test('start with an empty db path errors and never reaches gcs_init (IN-03)', () {
+      final _RecordingBindings bindings = _RecordingBindings(
+        initResult: ffi.Pointer<GcsSession>.fromAddress(64),
+      );
+      // An empty string passes a null-only guard but would reach
+      // SessionBasePath's temp-dir fallback on the C++ side — the exact
+      // silent default the required-db-path guard eliminates.
+      final SessionCubit cubit = SessionCubit(bindings: bindings, dbPath: '');
+      addTearDown(cubit.close);
+      cubit.start();
+      expect(cubit.state.isHandleOpen, isFalse);
+      expect(cubit.state.error, isNotNull);
+      expect(bindings.lastConfig, isNull);
+      expect(bindings.subscribeCalls, 0);
+    });
+
     test(
       'close tears the native session down exactly once (idempotent)',
       () async {
