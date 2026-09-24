@@ -101,32 +101,47 @@ caused by this plan's changes.
 
 ## Deferred Items
 
-1. **Production threading deadlock (blocker).** The receive-path archive write must not block the
-   pubsub strand (make it async, or move the graphsync response handling off the strand). This is
-   an architectural change to `src/lib/gcs_messaging.cpp` (and possibly `gcs_global_db.cpp`) and
-   needs a design decision before the multinode test can go green.
-2. **CRDT receive callback pattern does not match.** `RegisterNewElementCallback(kMessagesKeyPrefix
-   = "gcs/messages/", ...)` is matched via `std::regex_match` (full match) against keys like
-   `/gcs/messages/<topic>/<id>`, so the callback never fires ("No callbacks were triggered for key
-   ... no pattern matches found"). The heal path is therefore inert in both this test and the FFI
-   production wiring (mirrored faithfully). Live delivery masks it; a `.*gcs/messages/.*`-style
-   pattern would be needed for the heal path.
+1. **~~Production threading deadlock (blocker)~~ — RESOLVED.** See Resolution below: async
+   receive-path archive write (bd0ea41) + the g_mutex ABBA fix (a0f8499).
+2. **~~CRDT receive callback pattern does not match~~ — RESOLVED.** `kMessagesKeyCallbackPattern
+   = "/gcs/messages/.*"` (full-match regex per `std::regex_match` semantics) added beside
+   `kMessagesKeyPrefix` and used by the FFI registration and the multinode test (7d1a105).
 3. **`GcsGlobalDb::Initialize` graphsync scheduler on private `m_io`.** Per SuperGenius, the
    graphsync scheduler backend should share the pubsub host's io context to avoid the cross-thread
-   `WriteQueue` race. Worth applying alongside the deadlock fix.
+   `WriteQueue` race. Applied in c5f8104, reverted in e51f08e (it did not affect either deadlock —
+   the multinode test carries its own test-local scheduler fix in ee3ea16). **Deferred as
+   hardening**: the SuperGenius-documented Debug-only `WriteQueue` assertion risk remains in the
+   production `gcs_global_db.cpp` path; follow-up candidate for the next phase.
+
+## Resolution (post-checkpoint, same session)
+
+User approved the 3-part root-cause fix (AskUserQuestion dismissed mid-flow; orchestrator
+proceeded on the Recommended option per the user's automation directive). Fix sequence:
+
+| Commit | Fix |
+|--------|-----|
+| `bd0ea41` | Receive-path archive write async: dedicated archive worker thread + queue in `gcs::Messaging` (dedupe on the calling thread; single worker preserves order; joined at teardown). Kills the strand-blocking write. |
+| `7d1a105` | Heal-callback pattern `/gcs/messages/.*` (full-match) + FFI teardown ordering (session Shutdown -> messaging reset -> session destroy). The pattern fix ACTIVATED the previously-inert heal path in production. |
+| `ee3ea16` | Multinode test-local graphsync Network scheduler on the pubsub context. |
+| `5700715` | Single-node messaging tests wait (WaitForCondition) on the now-async archive. |
+| `a0f8499` | **g_mutex ABBA fix** — the pattern activation exposed a second deadlock: `gcs_publish` held `g_mutex` across `SendMessage`'s blocking Put while the DagWorker heal lambda (inside the very job `WaitForJob` waits on) needed `g_mutex`. DIAG traces proved send_text never returned (hang was at send, not teardown). New lock contract: g_mutex guards FFI globals + PostToDart; Messaging methods are NEVER called under g_mutex (kSendText releases the unique_lock across SendMessage; the EventSink self-locks; both receive lambdas copy the pointer under the lock and call outside it). |
+
+Final gate: `ctest -R "test_gcs_messaging|test_gcs_crypto|test_gcs_ffi|test_gcs_core"` —
+**8/8 green** (multinode 2.4s, ffi_sdk 43-48s twice-run with no hang, coldboot, messaging,
+crypto, ffi, core).
 
 ## Task 2 (Optional human visual smoke)
 
 **skipped-non-gating** — per the plan, recorded as skipped with the automated-coverage pointer.
 The SC4 visual chrome (pending 40% opacity -> solid, peer bubbles, sender labels, error toast,
-restart history order) is covered by the flutter suite (`flutter_test` 26/26) and the (blocked)
-Task 1 multinode suite; no human smoke was performed this session.
+restart history order) is covered by the flutter suite (`flutter_test` 26/26) and the Task 1
+multinode suite; no human smoke was performed this session.
 
 ## Threat Flags
 
 | Flag | File | Description |
 |------|------|-------------|
-| threat_flag: thread-deadlock | src/lib/gcs_messaging.cpp (ApplyMessage) | Synchronous archive write on the GossipSub strand deadlocks with the graphsync CRDT heal response (also on the strand) — DoS-by-deadlock on any two-node messaging exchange. |
+| threat_flag: thread-deadlock | src/lib/gcs_messaging.cpp (ApplyMessage) | **MITIGATED** (bd0ea41 + a0f8499): receive-path archive write is async off the strand, and no Messaging call happens under g_mutex. Multinode + ffi_sdk suites exercise both paths green. |
 
 ## Self-Check
 
@@ -134,4 +149,5 @@ Task 1 multinode suite; no human smoke was performed this session.
 - `test/CMakeLists.txt` — committed (2515af3).
 - `test_gcs_messaging_multinode` binary builds via `ninja` — PASS.
 - Existing suites `test_gcs_messaging`, `test_gcs_crypto`, `test_gcs_ffi` — PASS (no regression).
-- `test_gcs_messaging_multinode` — **RED** (documented blocker above).
+- `test_gcs_messaging_multinode` — **GREEN** (all 3 tests, 2.4s).
+- `test_gcs_ffi_sdk` — **GREEN** post-ABBA-fix (a0f8499), 43-48s, run twice.

@@ -15,7 +15,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Foundation** - C++ core scaffolding, GlobalDB CRDT integration, FFI bridge to Flutter, and cross-platform CI/CD (macOS, Linux, Windows, iOS, Android)
 - [x] **Phase 2: Spaces & Rooms** - Space and room creation with configurable inheritance (completed 2026-09-19)
-- [ ] **Phase 3: Messaging** - Real-time text messaging with CRDT sync across participants
+- [x] **Phase 3: Messaging** - Real-time text messaging with CRDT sync across participants (completed 2026-09-24)
 - [ ] **Phase 4: Membership & Invites** - Roles, capability tokens, and permission model
 - [ ] **Phase 5: Moderation** - Message tombstones, kick/ban, and admin approval flows
 - [ ] **Phase 6: GCS Bot** - Bot participant with auto-answer policies and Expert Model routing
@@ -114,7 +114,7 @@ Plans:
   3. Message history is identical across all participants after sync
   4. Messages display in chronological order with sender identification
 
-**Plans:** 5/6 plans executed
+**Plans:** 6/6 plans complete
 
 Plans:
 **Wave 1**
@@ -136,7 +136,7 @@ Plans:
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
-- [ ] 03-06-PLAN.md — Wave 5 (depends: 03-03, 03-05) — Human-verify checkpoint (live send/receive + history convergence)
+- [x] 03-06-PLAN.md — Wave 5 (depends: 03-03, 03-05) — Human-verify checkpoint (live send/receive + history convergence)
 
 **UI hint**: yes
 
@@ -211,7 +211,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 |-------|----------------|--------|-----------|
 | 1. Foundation | 11/11 | Complete | 2026-09-16 |
 | 2. Spaces & Rooms | 5/5 | Complete   | 2026-09-19 |
-| 3. Messaging | 5/6 | In Progress|  |
+| 3. Messaging | 6/6 | Complete   | 2026-09-24 |
 | 4. Membership & Invites | 0/TBD | Not started | - |
 | 5. Moderation | 0/TBD | Not started | - |
 | 6. GCS Bot | 0/TBD | Not started | - |
