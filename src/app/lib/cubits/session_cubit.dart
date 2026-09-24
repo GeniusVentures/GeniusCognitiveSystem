@@ -21,7 +21,7 @@ library;
 
 import 'dart:async';
 import 'dart:ffi' as ffi;
-import 'dart:io' show Directory, File, Platform;
+import 'dart:io' show File, Platform;
 import 'dart:isolate' show ReceivePort;
 import 'dart:typed_data' show Uint8List;
 
@@ -55,9 +55,6 @@ const List<String> kPackagedFfiLibraryFileNames = <String>[
 /// Environment flag set by the Flutter test harness; the default session
 /// never opens the real library under it.
 const String kTestHarnessEnvVar = 'FLUTTER_TEST';
-
-/// Default session directory under the system temp directory.
-const String kDefaultSessionDirectoryName = 'gcs_chat_session';
 
 /// Typed seam for outgoing commands (D-27): implementers serialize the
 /// envelope to codec-tagged bytes and publish it to [kGcsCommandTopic] via
@@ -127,7 +124,7 @@ class SessionCubit extends Cubit<SessionState> implements GcsCommandTransport {
   final GcsBindings? _bindings;
   final RailCubit? _railCubit;
   final MessageFlowCubit? _messageFlowCubit;
-  String? _dbPath;
+  final String? _dbPath;
 
   ffi.Pointer<GcsSession> _handle = ffi.Pointer<GcsSession>.fromAddress(0);
   ReceivePort? _receivePort;
@@ -238,15 +235,29 @@ class SessionCubit extends Cubit<SessionState> implements GcsCommandTransport {
   /// [kGcsEventTopic] via `gcs_subscribe`, and starts listening. No-op when
   /// inert, already torn down, or already started (re-entry guard WR-02: a
   /// second call would leak the first ReceivePort and re-subscribe over it).
+  ///
+  /// Requires [dbPath] (or the [openDefault] argument) to be set: the app's
+  /// `main()` derives it from the per-user application-support directory
+  /// (`data/KEY` — see main.dart); a missing path surfaces a raw error
+  /// instead of silently defaulting to a system temp directory.
   void start() {
     final GcsBindings? bindings = _bindings;
     if (bindings == null || _nativeShutdownDone || _receivePort != null) {
       return; // inert / torn down / already started
     }
-    _dbPath ??= '${Directory.systemTemp.path}/$kDefaultSessionDirectoryName';
+    final String? dbPath = _dbPath;
+    if (dbPath == null) {
+      emit(
+        state.copyWith(
+          error: 'session db path not configured (main() derives it from '
+              'the per-user data directory)',
+        ),
+      );
+      return;
+    }
     final Uint8List configBytes =
         (GcsConfig()
-              ..dbPath = _dbPath!
+              ..dbPath = dbPath
               ..codec = Codec.CODEC_PROTOBUF)
             .writeToBuffer();
     final ffi.Pointer<ffi.Uint8> configPtr = calloc<ffi.Uint8>(

@@ -45,11 +45,16 @@ class GCSChat extends StatefulWidget {
   /// Creates a [GCSChat].
   const GCSChat({
     super.key,
+    this.dbPath,
     this.sessionCubit,
     this.railCubit,
     this.messageFlowCubit,
     this.composerCubit,
   });
+
+  /// Session database path for the default session (per-user `data/KEY`
+  /// derived in `main.dart`); ignored when [sessionCubit] is injected.
+  final String? dbPath;
 
   /// Session cubit owning the FFI handle lifecycle (D-05/D-26); null -> the
   /// shell creates one via [SessionCubit.openDefault].
@@ -95,6 +100,7 @@ class _GCSChatState extends State<GCSChat> {
     _sessionCubit =
         widget.sessionCubit ??
         SessionCubit.openDefault(
+          dbPath: widget.dbPath,
           railCubit: _railCubit,
           messageFlowCubit: _messageFlowCubit,
         );

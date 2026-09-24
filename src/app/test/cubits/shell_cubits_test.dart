@@ -444,11 +444,27 @@ void main() {
 
     test('init failure surfaces a raw error and never subscribes', () {
       final _RecordingBindings bindings = _RecordingBindings();
+      final SessionCubit cubit = SessionCubit(
+        bindings: bindings,
+        dbPath: '${Directory.systemTemp.path}/gcs-cubit-initfail-db',
+      );
+      addTearDown(cubit.close);
+      cubit.start();
+      expect(cubit.state.isHandleOpen, isFalse);
+      expect(cubit.state.error, isNotNull);
+      expect(bindings.subscribeCalls, 0);
+    });
+
+    test('start without a db path errors and never reaches gcs_init', () {
+      final _RecordingBindings bindings = _RecordingBindings(
+        initResult: ffi.Pointer<GcsSession>.fromAddress(64),
+      );
       final SessionCubit cubit = SessionCubit(bindings: bindings);
       addTearDown(cubit.close);
       cubit.start();
       expect(cubit.state.isHandleOpen, isFalse);
       expect(cubit.state.error, isNotNull);
+      expect(bindings.lastConfig, isNull);
       expect(bindings.subscribeCalls, 0);
     });
 
@@ -458,7 +474,10 @@ void main() {
         final _RecordingBindings bindings = _RecordingBindings(
           initResult: ffi.Pointer<GcsSession>.fromAddress(64),
         );
-        final SessionCubit cubit = SessionCubit(bindings: bindings);
+        final SessionCubit cubit = SessionCubit(
+          bindings: bindings,
+          dbPath: '${Directory.systemTemp.path}/gcs-cubit-close-db',
+        );
         cubit.start();
         await cubit.close();
         await cubit.close();
@@ -710,7 +729,10 @@ void main() {
         final _RecordingBindings bindings = _RecordingBindings(
           initResult: ffi.Pointer<GcsSession>.fromAddress(64),
         );
-        final SessionCubit cubit = SessionCubit(bindings: bindings);
+        final SessionCubit cubit = SessionCubit(
+          bindings: bindings,
+          dbPath: '${Directory.systemTemp.path}/gcs-cubit-publish-db',
+        );
         addTearDown(cubit.close);
         cubit.start();
         expect(
