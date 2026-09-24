@@ -148,6 +148,21 @@ extern "C"
      */
     GCS_FFI_API void gcs_shutdown( GcsSession* session ) GCS_FFI_NOEXCEPT;
 
+    /**
+     * \brief TEST-ONLY SEAM: redirects this library's embedded GeniusSDK
+     *        node to in-memory secure storage.
+     *
+     * The embedded node boots inside THIS library's image (gcs_init boots it
+     * when no host node exists), and GeniusAccount's secure-storage factory
+     * is a per-image static — so a test executable cannot redirect it from
+     * outside. This exported wrapper sets the factory on the library's copy
+     * (SuperGenius house pattern: inject MemorySecureStorage to avoid OS
+     * keychain prompts/flakiness — see gcs_storage/common/test_env.hpp).
+     * Call before the first gcs_init. Never call from shipping binaries:
+     * secrets live only for the process lifetime.
+     */
+    GCS_FFI_API void gcs_use_test_secure_storage( void ) GCS_FFI_NOEXCEPT;
+
 #if defined( __cplusplus )
 }
 #endif

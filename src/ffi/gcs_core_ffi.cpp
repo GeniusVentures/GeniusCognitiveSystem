@@ -24,6 +24,7 @@
 #include "lib/gcs_crypto.hpp"
 #include "lib/gcs_entity_store.hpp"
 #include "gcs_storage/common/logging.hpp"
+#include "gcs_storage/common/test_env.hpp"
 
 #include "GeniusSDK.hpp"
 
@@ -1244,5 +1245,13 @@ extern "C"
             // lock is passed so the blocking teardown runs OFF g_mutex.
             TeardownSessionAndNode( &lock );
         }
+    }
+
+    GCS_FFI_API void gcs_use_test_secure_storage( void ) GCS_FFI_NOEXCEPT
+    {
+        // The embedded node boots inside THIS image, so the factory must be
+        // set on THIS image's GeniusAccount static — see the IMAGE RULE in
+        // gcs_storage/common/test_env.hpp. Test seam only (header docs).
+        gcs_storage::test::UseInMemorySecureStorage();
     }
 } // extern "C"

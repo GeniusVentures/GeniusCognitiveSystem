@@ -24,9 +24,83 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Release tag"
+        description: "GCS release tag to create/upload to (does NOT affect dep downloads - use the *_tag inputs)"
         required: false
         type: string
+      thirdparty_tag:
+        description: "Combined thirdparty release tag (empty = normal main/develop per-platform releases)"
+        required: false
+        type: string
+      supergenius_tag:
+        description: "Combined SuperGenius release tag (empty = normal main/develop per-platform releases)"
+        required: false
+        type: string
+      zkllvm_tag:
+        description: "Combined zkLLVM release tag (empty = normal main/develop per-platform releases)"
+        required: false
+        type: string
+      geniussdk_tag:
+        description: "Combined GeniusSDK release tag (empty = normal main/develop per-platform releases)"
+        required: false
+        type: string
+      # Names must be build_<target>-<abi>_<build-type>: the skip step looks
+      # them up dynamically instead of enumerating every combination.
+      build_Android-arm64-v8a_Release:
+        description: "Build Android arm64-v8a Release"
+        default: true
+        type: boolean
+      build_Android-arm64-v8a_Debug:
+        description: "Build Android arm64-v8a Debug"
+        default: true
+        type: boolean
+      build_Android-armeabi-v7a_Release:
+        description: "Build Android armeabi-v7a Release"
+        default: true
+        type: boolean
+      build_Android-armeabi-v7a_Debug:
+        description: "Build Android armeabi-v7a Debug"
+        default: true
+        type: boolean
+      build_iOS_Release:
+        description: "Build iOS Release"
+        default: true
+        type: boolean
+      build_iOS_Debug:
+        description: "Build iOS Debug"
+        default: true
+        type: boolean
+      build_OSX_Release:
+        description: "Build OSX Release"
+        default: true
+        type: boolean
+      build_OSX_Debug:
+        description: "Build OSX Debug"
+        default: true
+        type: boolean
+      build_Linux-x86_64_Release:
+        description: "Build Linux x86_64 Release"
+        default: true
+        type: boolean
+      build_Linux-x86_64_Debug:
+        description: "Build Linux x86_64 Debug"
+        default: true
+        type: boolean
+      build_Linux-aarch64_Release:
+        description: "Build Linux aarch64 Release"
+        default: true
+        type: boolean
+      build_Linux-aarch64_Debug:
+        description: "Build Linux aarch64 Debug"
+        default: true
+        type: boolean
+      build_Windows_Release:
+        description: "Build Windows Release"
+        default: true
+        type: boolean
+      build_Windows_Debug:
+        description: "Build Windows Debug"
+        default: true
+        type: boolean
 permissions:
   contents: write
   packages: read
@@ -234,6 +308,11 @@ jobs:
     runs-on: ${{ fromJson(needs.resolve-runners.outputs[matrix.runner_key]) }}
     container:
       image: ${{matrix.container}}
+      # IPC_LOCK lets gnome-keyring-daemon start inside the container
+      # (mlock for the keyring); without it the Linux ctest keyring wrapper
+      # fails with "Operation not permitted" and every node-booting test
+      # dies on "Account creation failed" (SuperGenius precedent).
+      options: --cap-add=IPC_LOCK
       credentials:
         username: ${{github.actor}}
         password: ${{secrets.GNUS_TOKEN_1}}
@@ -248,22 +327,22 @@ jobs:
             runner_key: linux_x64
             abi: "x86_64"
             build-type: "Release"
-            container: ghcr.io/geniusventures/debian-bullseye:latest
+            container: ghcr.io/geniusventures/almalinux-8:latest
           - target: Linux
             runner_key: linux_x64
             abi: "x86_64"
             build-type: "Debug"
-            container: ghcr.io/geniusventures/debian-bullseye:latest
+            container: ghcr.io/geniusventures/almalinux-8:latest
           - target: Linux
             runner_key: linux_arm
             abi: "aarch64"
             build-type: "Release"
-            container: ghcr.io/geniusventures/debian-bullseye:latest
+            container: ghcr.io/geniusventures/almalinux-8:latest
           - target: Linux
             runner_key: linux_arm
             abi: "aarch64"
             build-type: "Debug"
-            container: ghcr.io/geniusventures/debian-bullseye:latest
+            container: ghcr.io/geniusventures/almalinux-8:latest
           - target: Windows
             runner_key: windows
           - target: OSX
@@ -292,6 +371,13 @@ jobs:
           - target: Linux
             abi: ""
     steps:
+      # Shell-agnostic body so this works on both bash and pwsh runners.
+      - name: Skip build disabled by workflow_dispatch input
+        if: ${{ github.event_name == 'workflow_dispatch' && !inputs[format('build_{0}{1}_{2}', matrix.target, matrix.abi && format('-{0}', matrix.abi) || '', matrix.build-type)] }}
+        run: |
+          echo "Skipping build for ${{ matrix.target }}${{ matrix.abi && format(' {0}', matrix.abi) || '' }} ${{ matrix.build-type }}"
+          exit 78
+
       - name: Configure bash on Windows (use Git Bash, not WSL)
         if: ${{ runner.environment == 'self-hosted' && matrix.target == 'Windows' }}
         run: |
@@ -315,43 +401,35 @@ jobs:
 
       - name: Clean workspace (self-hosted runners)
         if: ${{ runner.environment == 'self-hosted' }}
+        # SuperGenius pattern: working-directory as a STEP PROPERTY is
+        # runner-translated to the CONTAINER path for container jobs, and the
+        # body uses only relative paths. (Expanding ${{github.workspace}}
+        # inside the run: body instead yields the raw RUNNER HOST path —
+        # /home/<user>/actions-runner/_work/... — which does not exist in the
+        # container on the arm runner, so the whole wipe silently skipped and
+        # stale dev_almadocker-era dep trees poisoned every later configure:
+        # the arm64 libsecret phantom-path failures, runs 35810498890-35831659342.)
+        working-directory: ${{ runner.workspace }}
         shell: bash
         run: |
-          # Use sudo on Linux to handle root-owned files left by container jobs
-          SUDO=""
-          if [ "$(uname)" = "Linux" ]; then
-            SUDO="sudo"
-          fi
-
-          echo "=== PRE-CLEANUP DEBUG ==="
-          echo "Current working directory: $(pwd)"
-          echo "Workspace: ${{github.workspace}}"
-
-          if [ -d "${{github.workspace}}" ]; then
-            cd "${{github.workspace}}"
-            echo "Changed to workspace directory: $(pwd)"
-            echo "Contents:"
-            ls -la
-
-            # Full wipe, SuperGenius-style (their clean has NO git commands):
-            # container jobs leave root-owned files not just in the downloaded
-            # dirs but inside the submodule build trees (e.g.
-            # build/Linux/Release/<abi>/CMakeFiles), which make `git clean
-            # -xfd` AND actions/checkout's own internal clean fail with
-            # permission errors on self-hosted runners. Removing everything
-            # with sudo lets checkout re-clone fresh.
-            echo "=== CLEANUP: full sudo wipe ==="
-            $SUDO rm -rf ./* ./.[!.]* || true
-          else
-            echo "Workspace directory does not exist yet, skipping cleanup"
-          fi
-
-          echo "=== POST-CLEANUP DEBUG ==="
-          if [ -d "${{github.workspace}}" ]; then
-            cd "${{github.workspace}}"
-            echo "Final workspace contents:"
-            ls -la
-          fi
+          # Container jobs leave root-owned files behind on Linux.
+          SUDO=$([ "$(uname)" = "Linux" ] && echo sudo || echo)
+          # Keep the checkout directory itself, drop its contents: root-owned
+          # files live not just in the downloaded dep dirs (thirdparty/,
+          # zkLLVM/, SuperGenius/, GeniusSDK/ — wiped again per-step in the
+          # download steps) but inside the submodule build trees (e.g.
+          # build/Linux/Release/<abi>/CMakeFiles), which make `git clean -xfd`
+          # AND actions/checkout's own internal clean fail with permission
+          # errors. The GCS checkout IS <workspace>/GeniusCognitiveSystem
+          # (no path: override), so this is the repo root.
+          [ -d GeniusCognitiveSystem ] && $SUDO rm -rf GeniusCognitiveSystem/* GeniusCognitiveSystem/.[!.]* || true
+          # Dep dirs by name at the workspace level too (SuperGenius-style):
+          # they normally extract INSIDE the checkout (covered above), but
+          # any that ever land beside it — older workflow layouts, the
+          # cmake-side GeniusSDK auto-download — must not survive to poison
+          # a later configure (the arm64 stale-artifact failure mode).
+          $SUDO rm -rf thirdparty zkLLVM SuperGenius GeniusSDK
+          ls -la
 
       - name: Checkout GCS
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
@@ -379,6 +457,7 @@ jobs:
         env:
           GITHUB_EVENT_INPUTS_TAG: ${{ github.event.inputs.tag }}
           GITHUB_EVENT_PULL_REQUEST_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          THIRDPARTY_TAG: ${{ github.event.inputs.thirdparty_tag }}
         run: |
           # Determine current branch or tag
           if [ "${{ github.event_name }}" == "workflow_dispatch" ] && [ "${GITHUB_EVENT_INPUTS_TAG}" ]; then
@@ -396,17 +475,29 @@ jobs:
           echo "CURRENT_BRANCH=${CURRENT_BRANCH}" >>$GITHUB_ENV
           echo "IS_TAG=${IS_TAG}" >>$GITHUB_ENV
 
-          # Determine thirdparty branch to use
-          if [ "$IS_TAG" == "true" ]; then
-              # For tags, use the exact tag name for thirdparty
-              thirdparty_branch="$CURRENT_BRANCH"
-          elif [ "$CURRENT_BRANCH" == "main" ]; then
-              thirdparty_branch="main"
+          # Determine the thirdparty release to download from. An explicit
+          # thirdparty_tag names a COMBINED release (all platforms under one
+          # tag); otherwise the branch flow applies (main builds pull the
+          # main releases, everything else - including tag dispatches -
+          # pulls develop), where each platform is its own
+          # <platform>[-<abi>]-<branch>-<build-type> release. The dispatch
+          # `tag` input no longer redirects dependency downloads.
+          if [ -n "${THIRDPARTY_TAG}" ]; then
+              dep_release="${THIRDPARTY_TAG}"
           else
-              thirdparty_branch="develop"
+              if [ "${CURRENT_BRANCH}" == "main" ]; then
+                  dep_release_branch="main"
+              else
+                  dep_release_branch="develop"
+              fi
+              if [ '${{matrix.abi}}' ]; then
+                  dep_release="${{matrix.target}}-${{matrix.abi}}-${dep_release_branch}-${{matrix.build-type}}"
+              else
+                  dep_release="${{matrix.target}}-${dep_release_branch}-${{matrix.build-type}}"
+              fi
           fi
 
-          echo "Using ${thirdparty_branch} for thirdparty"
+          echo "Downloading thirdparty from release ${dep_release}"
 
           if [ '${{matrix.abi}}' ]; then
               FILE_NAME=${{matrix.target}}-${{matrix.abi}}-${{matrix.build-type}}.tar.gz
@@ -415,22 +506,31 @@ jobs:
           fi
           echo "FILE_NAME=${FILE_NAME}" >> $GITHUB_ENV
 
+          # Retry: gh release download occasionally dies on transient TLS
+          # handshake timeouts (run 35810498890 Windows Debug:
+          # 'Post "https://api.github.com/graphql": net/http: TLS handshake
+          # timeout'), which fails the job before any build starts.
+          download_with_retry() {
+            local attempt=1
+            until "$@"; do
+              if [ "$attempt" -ge 3 ]; then
+                echo "::error::download failed after $attempt attempts: $*"
+                return 1
+              fi
+              echo "download attempt $attempt failed; retrying in 15s..."
+              attempt=$((attempt + 1))
+              sleep 15
+            done
+          }
+
+          # Wipe any stale dir first: extracts must never layer over
+          # leftovers from earlier runs (root cause of the arm64 libsecret
+          # phantom-path failures — see the Clean workspace step note).
+          rm -rf thirdparty
           mkdir thirdparty
           cd thirdparty
 
-          if [ "$IS_TAG" == "true" ]; then
-              # For tags, use just the tag name
-              tag_name="${thirdparty_branch}"
-          else
-              # For branches, use the platform-branch-buildtype format
-              if [ '${{matrix.abi}}' ]; then
-                  tag_name="${{matrix.target}}-${{matrix.abi}}-${thirdparty_branch}-${{matrix.build-type}}"
-              else
-                  tag_name="${{matrix.target}}-${thirdparty_branch}-${{matrix.build-type}}"
-              fi
-          fi
-
-          gh release download ${tag_name} --repo GeniusVentures/thirdparty -p "${FILE_NAME}"
+          download_with_retry gh release download "${dep_release}" --repo GeniusVentures/thirdparty -p "${FILE_NAME}"
           tar -zxf "${FILE_NAME}"
 
           # Set THIRDPARTY_BUILD_DIR to the actual location where files were extracted
@@ -444,41 +544,132 @@ jobs:
               echo "THIRDPARTY_DIR=$(pwd)" >> $GITHUB_ENV
           fi
 
-      # D-09: GCS has NO explicit zkLLVM step (deleted from the GeniusSDK
-      # template). cmaketemplate auto-downloads the headers-only zkLLVM at
-      # configure time; no assigner binaries are fetched.
-
-      - name: Download SuperGenius
+      # Replaces D-09 (cmaketemplate auto-download): an explicit zkLLVM step
+      # like GeniusSDK/SuperGenius have, so the release/tag is pinned and
+      # controllable (zkllvm_tag input) instead of always fetching develop at
+      # configure time. Only the headers/libs cmake needs are extracted — the
+      # assigner toolchain binaries are excluded to keep the workspace small.
+      - name: Download zkLLVM release
+        working-directory: ${{github.workspace}}
         shell: bash
+        env:
+          ZKLLVM_TAG: ${{ github.event.inputs.zkllvm_tag }}
         run: |
-          # Use same branch determination logic for SuperGenius
-          if [ "$IS_TAG" == "true" ]; then
-              # For tags, use the exact tag name for SuperGenius
-              sgns_branch="$CURRENT_BRANCH"
-          elif [ "$CURRENT_BRANCH" == "main" ]; then
-              sgns_branch="main"
+          # zkLLVM only publishes Release artifacts for non-Windows platforms
+          # (cmaketemplate's own fallback maps non-Windows Debug builds onto
+          # the Release zkLLVM), so ZK_TYPE is Release everywhere but Windows.
+          if [ "${{ matrix.target }}" = "Windows" ]; then
+              ZK_TYPE=${{ matrix.build-type }}
           else
-              sgns_branch="develop"
+              ZK_TYPE=Release
           fi
 
-          echo "Using ${sgns_branch} branch/tag from SuperGenius"
-
-          mkdir SuperGenius
-          cd SuperGenius
-
-          if [ "$IS_TAG" == "true" ]; then
-              # For tags, use just the tag name
-              tag_name="${sgns_branch}"
+          # Same release resolution as the other dep downloads: an explicit
+          # zkllvm_tag names a combined release; otherwise branch flow (main
+          # builds pull main, everything else - including tag dispatches -
+          # pulls develop).
+          if [ -n "${ZKLLVM_TAG}" ]; then
+              dep_release="${ZKLLVM_TAG}"
           else
-              # For branches, use the platform-branch-buildtype format
-              if [ '${{matrix.abi}}' ]; then
-                  tag_name="${{matrix.target}}-${{matrix.abi}}-${sgns_branch}-${{matrix.build-type}}"
+              if [ "${CURRENT_BRANCH}" == "main" ]; then
+                  dep_release_branch="main"
               else
-                  tag_name="${{matrix.target}}-${sgns_branch}-${{matrix.build-type}}"
+                  dep_release_branch="develop"
+              fi
+              if [ '${{matrix.abi}}' ]; then
+                  dep_release="${{matrix.target}}-${{matrix.abi}}-${dep_release_branch}-${ZK_TYPE}"
+              else
+                  dep_release="${{matrix.target}}-${dep_release_branch}-${ZK_TYPE}"
               fi
           fi
 
-          gh release download ${tag_name} --repo GeniusVentures/SuperGenius -p "${FILE_NAME}"
+          echo "Downloading zkLLVM from release ${dep_release}"
+
+          rm -rf zkLLVM
+          mkdir zkLLVM
+          cd zkLLVM
+
+          if [ '${{matrix.abi}}' ]; then
+              ZKLLVM_FILE_NAME=${{matrix.target}}-${{matrix.abi}}-${ZK_TYPE}.tar.gz
+              ZKLLVM_BUILD_DIR=build/${{matrix.target}}/${ZK_TYPE}/${{matrix.abi}}
+          else
+              ZKLLVM_FILE_NAME=${{matrix.target}}-${ZK_TYPE}.tar.gz
+              ZKLLVM_BUILD_DIR=build/${{matrix.target}}/${ZK_TYPE}
+          fi
+
+          # Retry inline in EVERY step: each run: is a separate shell, so a
+          # function defined in the thirdparty step does not exist here
+          # ('download_with_retry: command not found' broke every build).
+          download_with_retry() {
+            local attempt=1
+            until "$@"; do
+              if [ "$attempt" -ge 3 ]; then
+                echo "::error::download failed after $attempt attempts: $*"
+                return 1
+              fi
+              echo "download attempt $attempt failed; retrying in 15s..."
+              attempt=$((attempt + 1))
+              sleep 15
+            done
+          }
+
+          download_with_retry gh release download "${dep_release}" --repo GeniusVentures/zkLLVM -p "${ZKLLVM_FILE_NAME}"
+
+          tar --exclude='*bin/assigner' --exclude='*bin/clang-zkllvm' --exclude='*bin/llvm-link-zkllvm' --exclude='*bin/transpiler' -xzf "${ZKLLVM_FILE_NAME}"
+
+          if [ "${{ matrix.target }}" = "Windows" ]; then
+              # Convert Unix path to Windows path for Windows builds
+              echo "ZKLLVM_BUILD_DIR=$(pwd -W)/${ZKLLVM_BUILD_DIR}" >> $GITHUB_ENV
+          else
+              echo "ZKLLVM_BUILD_DIR=$(pwd)/${ZKLLVM_BUILD_DIR}" >> $GITHUB_ENV
+          fi
+
+      - name: Download SuperGenius
+        shell: bash
+        env:
+          SUPERGENIUS_TAG: ${{ github.event.inputs.supergenius_tag }}
+        run: |
+          # Same release resolution as the other dep downloads: an explicit
+          # supergenius_tag names a combined release; otherwise branch flow
+          # (main builds pull main, everything else - including tag
+          # dispatches - pulls develop).
+          if [ -n "${SUPERGENIUS_TAG}" ]; then
+              dep_release="${SUPERGENIUS_TAG}"
+          else
+              if [ "${CURRENT_BRANCH}" == "main" ]; then
+                  dep_release_branch="main"
+              else
+                  dep_release_branch="develop"
+              fi
+              if [ '${{matrix.abi}}' ]; then
+                  dep_release="${{matrix.target}}-${{matrix.abi}}-${dep_release_branch}-${{matrix.build-type}}"
+              else
+                  dep_release="${{matrix.target}}-${dep_release_branch}-${{matrix.build-type}}"
+              fi
+          fi
+
+          echo "Downloading SuperGenius from release ${dep_release}"
+
+          # Retry inline (self-contained per step — see the zkLLVM step note:
+          # shell functions do not survive across separate run: steps).
+          download_with_retry() {
+            local attempt=1
+            until "$@"; do
+              if [ "$attempt" -ge 3 ]; then
+                echo "::error::download failed after $attempt attempts: $*"
+                return 1
+              fi
+              echo "download attempt $attempt failed; retrying in 15s..."
+              attempt=$((attempt + 1))
+              sleep 15
+            done
+          }
+
+          rm -rf SuperGenius
+          mkdir SuperGenius
+          cd SuperGenius
+
+          download_with_retry gh release download "${dep_release}" --repo GeniusVentures/SuperGenius -p "${FILE_NAME}"
 
           tar -xzf "${FILE_NAME}"
 
@@ -493,35 +684,50 @@ jobs:
       # release (the GeniusSDK repo builds itself instead).
       - name: Download GeniusSDK
         shell: bash
+        env:
+          GENIUSSDK_TAG: ${{ github.event.inputs.geniussdk_tag }}
         run: |
-          # Use same branch determination logic for GeniusSDK
-          if [ "$IS_TAG" == "true" ]; then
-              # For tags, use the exact tag name for GeniusSDK
-              sdk_branch="$CURRENT_BRANCH"
-          elif [ "$CURRENT_BRANCH" == "main" ]; then
-              sdk_branch="main"
+          # Same release resolution as the other dep downloads: an explicit
+          # geniussdk_tag names a combined release; otherwise branch flow
+          # (main builds pull main, everything else - including tag
+          # dispatches - pulls develop).
+          if [ -n "${GENIUSSDK_TAG}" ]; then
+              dep_release="${GENIUSSDK_TAG}"
           else
-              sdk_branch="develop"
-          fi
-
-          echo "Using ${sdk_branch} branch/tag from GeniusSDK"
-
-          mkdir GeniusSDK
-          cd GeniusSDK
-
-          if [ "$IS_TAG" == "true" ]; then
-              # For tags, use just the tag name
-              tag_name="${sdk_branch}"
-          else
-              # For branches, use the platform-branch-buildtype format
-              if [ '${{matrix.abi}}' ]; then
-                  tag_name="${{matrix.target}}-${{matrix.abi}}-${sdk_branch}-${{matrix.build-type}}"
+              if [ "${CURRENT_BRANCH}" == "main" ]; then
+                  dep_release_branch="main"
               else
-                  tag_name="${{matrix.target}}-${sdk_branch}-${{matrix.build-type}}"
+                  dep_release_branch="develop"
+              fi
+              if [ '${{matrix.abi}}' ]; then
+                  dep_release="${{matrix.target}}-${{matrix.abi}}-${dep_release_branch}-${{matrix.build-type}}"
+              else
+                  dep_release="${{matrix.target}}-${dep_release_branch}-${{matrix.build-type}}"
               fi
           fi
 
-          gh release download ${tag_name} --repo GeniusVentures/GeniusSDK -p "${FILE_NAME}"
+          echo "Downloading GeniusSDK from release ${dep_release}"
+
+          # Retry inline (self-contained per step — see the zkLLVM step note:
+          # shell functions do not survive across separate run: steps).
+          download_with_retry() {
+            local attempt=1
+            until "$@"; do
+              if [ "$attempt" -ge 3 ]; then
+                echo "::error::download failed after $attempt attempts: $*"
+                return 1
+              fi
+              echo "download attempt $attempt failed; retrying in 15s..."
+              attempt=$((attempt + 1))
+              sleep 15
+            done
+          }
+
+          rm -rf GeniusSDK
+          mkdir GeniusSDK
+          cd GeniusSDK
+
+          download_with_retry gh release download "${dep_release}" --repo GeniusVentures/GeniusSDK -p "${FILE_NAME}"
 
           tar -xzf "${FILE_NAME}"
 
@@ -540,9 +746,32 @@ jobs:
           sudo update-alternatives --set cc $(which clang)
           sudo update-alternatives --set c++ $(which clang++)
 
-          # dbus + gnome-keyring: the Linux ctest step runs under
-          # dbus-run-session with an unlocked keyring (SuperGenius precedent).
-          sudo apt install ccache ninja-build libvulkan-dev libzstd-dev libsecret-1-dev dbus gnome-keyring -y
+          # Native Linux builds run in the AlmaLinux 8 CI image (glibc 2.28
+          # floor, replacing the EOL Debian Bullseye container — same
+          # migration as SuperGenius/GeniusSDK). The image ships clang, cmake,
+          # ninja, Vulkan headers, and libsecret, so the dnf branch is a
+          # guarded safety net that avoids repo traffic when the image already
+          # provides everything; the Ubuntu hosts used by the Android builds
+          # (which run without a container) still need apt. dbus +
+          # gnome-keyring stay in both branches: the Linux ctest step runs
+          # under dbus-run-session with an unlocked keyring.
+          if command -v dnf >/dev/null 2>&1; then
+            if ! rpm -q ccache ninja-build vulkan-loader-devel libsecret-devel libzstd-devel dbus gnome-keyring >/dev/null 2>&1; then
+              sudo dnf install -y ccache ninja-build vulkan-loader-devel libsecret-devel libzstd-devel dbus gnome-keyring
+            fi
+          else
+            # Refresh the package index before installing: GitHub-hosted
+            # Ubuntu runners ship an apt list baked at image-build time, and
+            # security.ubuntu.com moves noble-updates packages forward
+            # continuously — a stale index fetches .deb URLs that now 404
+            # ("Unable to fetch some archives", exit 100; observed on the
+            # Android jobs when they land on hosted ubuntu-24.04). Self-hosted
+            # boxes refresh their own lists, so only the hosted path needs
+            # this. Best-effort: a transient mirror failure should fail the
+            # install below, not the update itself.
+            sudo apt-get update || true
+            sudo apt install ccache ninja-build libvulkan-dev libzstd-dev libsecret-1-dev dbus gnome-keyring -y
+          fi
           echo "CMAKE_GENERATOR=Ninja" >> $GITHUB_ENV
 
       - name: Configure Windows host
@@ -588,7 +817,9 @@ jobs:
 
       # Configure deltas vs the GeniusSDK template:
       #   - working-directory is ${{github.workspace}} (GCS checkout IS the root)
-      #   - no -DZKLLVM_BUILD_DIR (D-09)
+      #   - -DZKLLVM_BUILD_DIR from the explicit download step (zkllvm_tag
+      #     input); Linux also uses it to pin clang (AlmaLinux /usr/bin/c++ is
+      #     a real gcc-owned file, so update-alternatives fails silently)
       #   - -DTHIRDPARTY_DIR / -DTHIRDPARTY_BUILD_DIR / -DSUPERGENIUS_DIR /
       #     -DGENIUSSDK_DIR all use $(pwd)-computed GITHUB_ENV values: in
       #     container jobs ${{github.workspace}} is the RUNNER host path, not
@@ -623,7 +854,14 @@ jobs:
       - name: Configure CMake for Linux
         if: ${{matrix.target == 'Linux'}}
         working-directory: ${{github.workspace}}
-        run: cmake -S build/${{matrix.target}} -B $BUILD_DIRECTORY -DCMAKE_BUILD_TYPE=${{matrix.build-type}} -DTHIRDPARTY_DIR=${{env.THIRDPARTY_DIR}} -DTHIRDPARTY_BUILD_DIR=${{env.THIRDPARTY_BUILD_DIR}} -DSUPERGENIUS_DIR=${{env.SUPERGENIUS_DIR}} -DGENIUSSDK_DIR=${{env.GENIUS_SDK_DIR}} -DABI_SUBFOLDER_NAME='/${{matrix.abi}}' -DBUILD_TESTS=ON
+        # Pin clang explicitly rather than relying on the /usr/bin/cc and
+        # /usr/bin/c++ update-alternatives symlinks: on AlmaLinux 8
+        # /usr/bin/c++ is a real file owned by gcc-c++ (not an alternatives
+        # symlink like Debian's), so the update-alternatives takeover fails
+        # silently and CMake falls back to g++ 8.5, which cannot compile the
+        # code built here (same failure observed in SuperGenius run
+        # 35377550250).
+        run: cmake -S build/${{matrix.target}} -B $BUILD_DIRECTORY -DCMAKE_BUILD_TYPE=${{matrix.build-type}} -DCMAKE_C_COMPILER=$(which clang) -DCMAKE_CXX_COMPILER=$(which clang++) -DTHIRDPARTY_DIR=${{env.THIRDPARTY_DIR}} -DTHIRDPARTY_BUILD_DIR=${{env.THIRDPARTY_BUILD_DIR}} -DZKLLVM_BUILD_DIR=${{env.ZKLLVM_BUILD_DIR}} -DSUPERGENIUS_DIR=${{env.SUPERGENIUS_DIR}} -DGENIUSSDK_DIR=${{env.GENIUS_SDK_DIR}} -DABI_SUBFOLDER_NAME='/${{matrix.abi}}' -DBUILD_TESTS=ON
 
       - name: Configure CMake for Windows
         if: ${{matrix.target == 'Windows'}}
@@ -697,8 +935,10 @@ jobs:
           echo "RELEASE_TAG=$RELEASE_TAG" >> $GITHUB_ENV
           echo "IS_TAG_RELEASE=$IS_TAG_RELEASE" >> $GITHUB_ENV
 
+      # Also run for manual tag dispatches (env.IS_TAG) so a release tag can
+      # be created from any branch, matching the Upload step's condition.
       - name: Create release tag
-        if: github.ref_name == 'main' || github.ref_name == 'develop'
+        if: github.ref_name == 'main' || github.ref_name == 'develop' || env.IS_TAG == 'true'
         working-directory: ${{github.workspace}}
         id: create-release-tag
         shell: bash
@@ -713,15 +953,31 @@ jobs:
             fi
           fi
 
+          # Branch releases own a per-platform tag (deleted + recreated above).
+          # A manual tag release is SHARED by every matrix job, so a release
+          # that already exists (previous run or a sibling job) must be reused.
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "Release $RELEASE_TAG already exists; uploading to it."
+            exit 0
+          fi
+
           echo "Creating release $RELEASE_TAG..."
           # gh release create --target handles both tag creation (via API) and release
           # creation in one call — avoids git push which requires workflows permission
           # when the tagged commit touches .github/workflows/ files.
-          gh release create "$RELEASE_TAG" \
-          --target "${{ github.sha }}" \
-          -t "${{ matrix.target }} ${GITHUB_REF_NAME} ${{ matrix.build-type }} build" \
-          -n "Branch: ${GITHUB_REF_NAME} | SHA: ${{ github.sha }}" \
-          $( [ "$IS_TAG_RELEASE" = "true" ] && echo "" || echo "--prerelease" )
+          create_args=(--target "${{ github.sha }}" \
+            -t "${{ matrix.target }} ${GITHUB_REF_NAME} ${{ matrix.build-type }} build" \
+            -n "Branch: ${GITHUB_REF_NAME} | SHA: ${{ github.sha }}")
+          if [ "$IS_TAG_RELEASE" != "true" ]; then
+            create_args+=(--prerelease)
+          fi
+          if ! gh release create "$RELEASE_TAG" "${create_args[@]}"; then
+            # A sibling matrix job may have won the create race for the shared
+            # tag release; that is success, not failure.
+            sleep 15
+            gh release view "$RELEASE_TAG" >/dev/null 2>&1 || exit 1
+            echo "Release $RELEASE_TAG was created by a sibling matrix job; continuing."
+          fi
 
       - name: Upload file
         if: github.ref_name == 'main' || github.ref_name == 'develop' || env.IS_TAG == 'true'

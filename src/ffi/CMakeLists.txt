@@ -17,6 +17,21 @@ target_include_directories(gcs_ffi PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
 target_link_libraries(gcs_ffi PRIVATE gcs_core gcs_proto)
+# ELF symbol isolation: gcs_ffi statically embeds MNN (gcs_core ->
+# neoswarm_core -> MNN::MNN), and executables that link BOTH this dylib and
+# the SuperGenius static chain (SGProcessors whole-archives MNN into the
+# exe) end up with two MNN runtime registries in one process. On ELF's flat
+# namespace the exe's symbols interpose into the dylib, so the second
+# registration trips MNNInsertExtraRuntimeCreator's "duplicate type" assert
+# (Debug only — MNN_ASSERT is compiled out by NDEBUG in Release; macOS never
+# saw this because dyld's two-level namespace binds each image to its own
+# symbols). -Bsymbolic binds the dylib's internal references locally, giving
+# its embedded MNN registry self-contained state, mirroring the macOS
+# behavior. -Bsymbolic-functions (not plain -Bsymbolic) so vtables/typeinfo
+# data symbols keep default binding — only the function calls matter here.
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    target_link_options(gcs_ffi PRIVATE "-Wl,-Bsymbolic-functions")
+endif()
 # GCS_FFI_EXPORTS drives the gcs_* dllexport macro (gcs_core.h).
 # DART_SHARED_LIB makes DART_EXPORT resolve to __declspec(dllexport) so
 # Dart_InitializeApiDL (declared DART_EXPORT in dart_api_dl.h, defined in
