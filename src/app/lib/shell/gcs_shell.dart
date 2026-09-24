@@ -9,6 +9,8 @@
 /// rendered arrives as pushed FFI events routed through the cubits below.
 library;
 
+import 'dart:async' show Future, unawaited;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:frontend_scaffold/components/scaffold_composer.dart';
@@ -115,18 +117,19 @@ class _GCSChatState extends State<GCSChat> {
     // Tear down only what the shell created; injected cubits (tests) outlive
     // the shell. Order: composer (uses the session transport) -> session
     // (closes the ReceivePort BEFORE the native shutdown) -> flow -> rail.
-    if (_ownsComposerCubit) {
-      _composerCubit.close();
-    }
-    if (_ownsSessionCubit) {
-      _sessionCubit.close();
-    }
-    if (_ownsMessageFlowCubit) {
-      _messageFlowCubit.close();
-    }
-    if (_ownsRailCubit) {
-      _railCubit.close();
-    }
+    // The close() calls still run synchronously in that order up to each
+    // cubit's first await (SessionCubit._closeNativeOnce runs before any
+    // await, so the native teardown ordering contract holds); their returned
+    // futures are collected into ONE bounded future and explicitly not
+    // awaited — dispose itself must stay synchronous (IN-08).
+    unawaited(
+      Future.wait(<Future<void>>[
+        if (_ownsComposerCubit) _composerCubit.close(),
+        if (_ownsSessionCubit) _sessionCubit.close(),
+        if (_ownsMessageFlowCubit) _messageFlowCubit.close(),
+        if (_ownsRailCubit) _railCubit.close(),
+      ]),
+    );
     super.dispose();
   }
 
