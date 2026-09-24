@@ -33,6 +33,34 @@ find_package(GTest CONFIG REQUIRED)
 include_directories(${GTest_INCLUDE_DIR})
 
 # --------------------------------------------------------
+# zlib (vendored, static) — MUST precede Protobuf and Libssh2: both of their
+# package configs call find_package(ZLIB) without CONFIG (protobuf-config
+# guards it with "if(NOT ZLIB_FOUND)", libssh2-config's find_dependency is
+# unguarded), which otherwise resolves to CMake's FindZLIB module and
+# searches system paths — run 35807447520 linked the container's system
+# libz on Linux and died "missing: ZLIB_LIBRARY" on Windows (the vendored
+# static lib is zs.lib there, a name FindZLIB never searches). Same layout
+# as SuperGenius build/CommonBuildParameters.cmake: resolve the vendored
+# CONFIG package first (it exports ZLIB::ZLIBSTATIC and knows zs.lib /
+# zsd.lib / libz.a itself), and set CMAKE_FIND_PACKAGE_PREFER_CONFIG below
+# so every later module-mode-shaped call re-finds THIS config instead of
+# the system. A re-find is harmless: the config's target creation is
+# guarded by NOT TARGET and ZLIB::ZLIB stays an alias of ZLIB::ZLIBSTATIC.
+set(ZLIB_ROOT "${THIRDPARTY_BUILD_DIR}/zlib")
+set(ZLIB_DIR "${THIRDPARTY_BUILD_DIR}/zlib/lib/cmake/zlib")
+find_package(ZLIB CONFIG REQUIRED)
+# Applied from here on (not before GTest): a global PREFER_CONFIG would
+# also redirect other packages' module-mode finds (OpenSSL below is
+# deliberately module-mode against the vendored OPENSSL_DIR tree), so keep
+# the window as narrow as SuperGenius does around their own libssh2 call.
+# (Stays ON through the Protobuf find below; restored right after it.)
+set(_GCS_FIND_PREFER_CONFIG_PREV "")
+if(DEFINED CMAKE_FIND_PACKAGE_PREFER_CONFIG)
+    set(_GCS_FIND_PREFER_CONFIG_PREV "${CMAKE_FIND_PACKAGE_PREFER_CONFIG}")
+endif()
+set(CMAKE_FIND_PACKAGE_PREFER_CONFIG ON)
+
+# --------------------------------------------------------
 # protobuf (+ absl / utf8_range) — needed by NEO-SWARM src/proto add_proto_library
 if(NOT DEFINED absl_DIR)
     set(absl_DIR "${THIRDPARTY_BUILD_DIR}/protobuf/lib/cmake/absl")
@@ -60,6 +88,16 @@ if(EXISTS "${Protobuf_PROTOC_EXECUTABLE}")
     set_target_properties(protobuf::protoc PROPERTIES
         IMPORTED_LOCATION ${Protobuf_PROTOC_EXECUTABLE})
 endif()
+
+# Restore the find mode right after the ZLIB-sensitive window (the protobuf
+# config find above): OpenSSL below is deliberately module-mode against the
+# vendored OPENSSL_DIR tree and Boost discovery must keep its usual mode.
+if(NOT "${_GCS_FIND_PREFER_CONFIG_PREV}" STREQUAL "")
+    set(CMAKE_FIND_PACKAGE_PREFER_CONFIG "${_GCS_FIND_PREFER_CONFIG_PREV}")
+else()
+    unset(CMAKE_FIND_PACKAGE_PREFER_CONFIG)
+endif()
+unset(_GCS_FIND_PREFER_CONFIG_PREV)
 
 # --------------------------------------------------------
 # Set config of OpenSSL
@@ -127,10 +165,7 @@ endif()
 find_package(Boost REQUIRED COMPONENTS container date_time filesystem random regex system thread log log_setup program_options json unit_test_framework coroutine)
 include_directories(${Boost_INCLUDE_DIRS})
 
-# zlib
-set(ZLIB_ROOT "${THIRDPARTY_BUILD_DIR}/zlib")
-set(ZLIB_DIR "${THIRDPARTY_BUILD_DIR}/zlib/lib/cmake/zlib")
-find_package(ZLIB CONFIG REQUIRED)
+# zlib: vendored discovery lives ABOVE, before Protobuf — see that block.
 
 # fmt
 set(fmt_DIR "${THIRDPARTY_BUILD_DIR}/fmt/lib/cmake/fmt")
@@ -159,6 +194,110 @@ find_package(nlohmann_json CONFIG REQUIRED)
 # does for its own build. Ported verbatim from that file; only entries GCS
 # already had (GTest, protobuf, OpenSSL, Microsoft.GSL, zlib, fmt, spdlog,
 # libsecp256k1, nlohmann_json) are skipped here to avoid duplication.
+
+# MNN
+set(MNN_INCLUDE_DIR "${THIRDPARTY_BUILD_DIR}/MNN/include")
+set(MNN_DIR "${THIRDPARTY_BUILD_DIR}/MNN/lib/cmake/MNN")
+find_package(MNN CONFIG REQUIRED)
+include_directories(${MNN_INCLUDE_DIR})
+
+# --------------------------------------------------------
+# Vulkan / VulkanHeaders (GPU acceleration — needed by MNN/SGProcessingManager
+# via GNUS-NEO-SWARM). MUST be established before find_package(vk-bootstrap)
+# below: the rebuilt vk-bootstrap package config does
+# find_package(VulkanHeaders CONFIG) with a find_package(Vulkan) fallback and
+# fatals when neither resolves, and this machine has no system Vulkan SDK.
+# Ported from the updated discovery in
+# GeniusNetwork/SuperGenius/build/CommonBuildParameters.cmake.
+# The Vulkan::Vulkan target created here is still visible to both
+# add_subdirectory() subtrees at the bottom of this file (sibling
+# add_subdirectory scopes don't share targets with each other, only with
+# their common parent — which is this scope).
+if(APPLE)
+    if(IOS)
+        # Settings specifically for iOS
+        set(Vulkan_INCLUDE_DIR "${THIRDPARTY_BUILD_DIR}/moltenvk/build/include")
+        set(Vulkan_LIBRARY "${THIRDPARTY_BUILD_DIR}/moltenvk/build/lib/MoltenVK.xcframework")
+    else()
+        # Settings for macOS
+        set(Vulkan_INCLUDE_DIR "${THIRDPARTY_BUILD_DIR}/moltenvk/build/include")
+        set(Vulkan_LIBRARY "${THIRDPARTY_BUILD_DIR}/moltenvk/build/lib/MoltenVK.xcframework")
+    endif()
+endif()
+
+set(VulkanHeaders_DIR "${THIRDPARTY_BUILD_DIR}/Vulkan-Headers/share/cmake/VulkanHeaders" CACHE PATH "Path to Vulkan-Headers install folder")
+find_package(VulkanHeaders CONFIG REQUIRED)
+find_package(Vulkan)
+
+if(NOT TARGET Vulkan::Vulkan)
+    set(Vulkan_INCLUDE_DIR "${THIRDPARTY_BUILD_DIR}/Vulkan-Headers/include")
+    if(NOT DEFINED ENV{VULKAN_SDK})
+        set(ENV{VULKAN_SDK} "${THIRDPARTY_BUILD_DIR}/Vulkan-Loader")
+    endif()
+
+    find_package(Vulkan REQUIRED)
+endif()
+
+# Override Vulkan::Vulkan to use our vendored Vulkan-Headers on all platforms.
+# vk-bootstrap was built against our headers (v1.4); mixing with system/NDK
+# headers (v1.3 or other versions) causes unknown-type errors in
+# VkBootstrapDispatch.h and VkBootstrapFeatureChain.h.
+set_target_properties(Vulkan::Vulkan PROPERTIES
+    INTERFACE_INCLUDE_DIRECTORIES "${THIRDPARTY_BUILD_DIR}/Vulkan-Headers/include"
+)
+
+# On macOS, libMoltenVK.a contains Objective-C code that calls Metal.
+# The ObjC runtime (-lobjc) and Metal frameworks must be linked by
+# every consumer of Vulkan::Vulkan or the linker fails with undefined
+# _objc_msgSend / _objc_retain / _objc_release etc.
+# AppKit does not exist on iOS (ld: framework 'AppKit' not found); MoltenVK
+# uses UIKit there, mirroring the gating in SGProcessors.
+if(APPLE)
+    target_link_libraries(Vulkan::Vulkan INTERFACE
+        "-framework Metal"
+        "-framework IOSurface"
+        "-framework QuartzCore"
+        "-framework Foundation"
+        "-framework CoreFoundation"
+        "-framework CoreGraphics"
+        "-framework IOKit"
+    )
+    if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+        target_link_libraries(Vulkan::Vulkan INTERFACE "-framework AppKit")
+    else()
+        target_link_libraries(Vulkan::Vulkan INTERFACE "-framework UIKit")
+    endif()
+endif()
+
+# Resolve the Vulkan runtime DLL that matches the loader we just linked.
+# The thirdparty Vulkan-Loader installs vulkan-1.dll (runtime) alongside
+# vulkan-1.lib (import lib, found above). Every exe that links it — directly
+# or via SGProcessors' MNN::MNN + Vulkan::Vulkan PUBLIC deps — needs the DLL
+# next to the exe or the Windows loader kills the process with 0xc0000135
+# before main() runs. CI runners have no system Vulkan runtime, so the
+# vendored one must be deployed next to test/app executables.
+if(WIN32)
+    find_file(VULKAN_RUNTIME_DLL NAMES vulkan-1.dll
+        PATHS "${THIRDPARTY_BUILD_DIR}/Vulkan-Loader/bin"
+              "${THIRDPARTY_BUILD_DIR}/Vulkan-Loader/lib"
+        NO_DEFAULT_PATH)
+
+    if(NOT VULKAN_RUNTIME_DLL)
+        # Only fatal when we actually link the thirdparty loader; a system
+        # Vulkan SDK brings its own runtime on PATH.
+        string(FIND "${Vulkan_LIBRARY}" "${THIRDPARTY_BUILD_DIR}" _GCS_VK_LOADER_IS_VENDORED)
+        if(_GCS_VK_LOADER_IS_VENDORED EQUAL 0)
+            message(FATAL_ERROR "vulkan-1.dll not found in "
+                "${THIRDPARTY_BUILD_DIR}/Vulkan-Loader (searched bin/ and lib/). "
+                "Executables link ${Vulkan_LIBRARY} and will fail to start with "
+                "0xc0000135 without the matching runtime DLL.")
+        endif()
+    endif()
+endif()
+
+# vk-bootstrap
+set(vk-bootstrap_DIR "${THIRDPARTY_BUILD_DIR}/vk-bootstrap/lib/cmake/vk-bootstrap")
+find_package(vk-bootstrap CONFIG REQUIRED)
 
 # soralog
 set(soralog_DIR "${THIRDPARTY_BUILD_DIR}/soralog/lib/cmake/soralog")
@@ -258,8 +397,27 @@ set(xxHash_DIR "${THIRDPARTY_BUILD_DIR}/xxhash/lib/cmake/xxHash")
 find_package(xxHash CONFIG REQUIRED)
 
 # libssh2
+# PREFER_CONFIG (same mechanism as SuperGenius build/CommonBuildParameters.cmake
+# "Prefer package config files while loading Libssh2's dependencies"): its
+# config calls find_dependency(ZLIB) without CONFIG, which would otherwise
+# run FindZLIB in module mode and pick up a system libz — or die on
+# Windows where the vendored static lib (zs.lib) is not a name FindZLIB
+# searches. Re-enable the flag around this call (it was restored to its
+# pre-zlib value above); with it, the dependency re-finds the vendored
+# ZLIBConfig and links ZLIB::ZLIBSTATIC.
+set(_GCS_FIND_PREFER_CONFIG_PREV_2 "")
+if(DEFINED CMAKE_FIND_PACKAGE_PREFER_CONFIG)
+    set(_GCS_FIND_PREFER_CONFIG_PREV_2 "${CMAKE_FIND_PACKAGE_PREFER_CONFIG}")
+endif()
+set(CMAKE_FIND_PACKAGE_PREFER_CONFIG ON)
 set(Libssh2_DIR "${THIRDPARTY_BUILD_DIR}/libssh2/lib/cmake/libssh2")
 find_package(Libssh2 CONFIG REQUIRED)
+if(NOT "${_GCS_FIND_PREFER_CONFIG_PREV_2}" STREQUAL "")
+    set(CMAKE_FIND_PACKAGE_PREFER_CONFIG "${_GCS_FIND_PREFER_CONFIG_PREV_2}")
+else()
+    unset(CMAKE_FIND_PACKAGE_PREFER_CONFIG)
+endif()
+unset(_GCS_FIND_PREFER_CONFIG_PREV_2)
 
 # AsyncIOManager
 set(AsyncIOManager_INCLUDE_DIR "${THIRDPARTY_BUILD_DIR}/AsyncIOManager/include")
@@ -325,32 +483,30 @@ set(zkLLVM_INCLUDE_DIR "${ZKLLVM_BUILD_DIR}/zkLLVM/include")
 set(LLVM_DIR "${ZKLLVM_BUILD_DIR}/zkLLVM/lib/cmake/llvm")
 find_package(LLVM CONFIG REQUIRED)
 
-find_package(Vulkan)
-
-set(vk-bootstrap_DIR "${THIRDPARTY_BUILD_DIR}/vk-bootstrap/lib/cmake/vk-bootstrap")
-find_package(vk-bootstrap CONFIG REQUIRED)
-
-add_library(shaderc::shaderc STATIC IMPORTED GLOBAL)
-set_target_properties(shaderc::shaderc PROPERTIES
-        IMPORTED_LOCATION "${THIRDPARTY_BUILD_DIR}/shaderc/lib/${CMAKE_STATIC_LIBRARY_PREFIX}shaderc_combined${CMAKE_STATIC_LIBRARY_SUFFIX}"
-        INTERFACE_INCLUDE_DIRECTORIES "${THIRDPARTY_BUILD_DIR}/shaderc/include"
-)
-
-# MNN
-set(MNN_DIR "${_THIRDPARTY_BUILD_DIR}/MNN/lib/cmake/MNN")
-find_package(MNN CONFIG REQUIRED)
-set(MNN_INCLUDE_DIR "${_THIRDPARTY_BUILD_DIR}/MNN/include")
-message(STATUS "INCLUDE DIR ${MNN_INCLUDE_DIR}")
-include_directories(${MNN_INCLUDE_DIR})
-if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-    get_target_property(MNN_LIB_PATH MNN::MNN IMPORTED_LOCATION_DEBUG)
-elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
-    get_target_property(MNN_LIB_PATH MNN::MNN IMPORTED_LOCATION_RELEASE)
-elseif(CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
-    get_target_property(MNN_LIB_PATH MNN::MNN IMPORTED_LOCATION_RELWITHDEBINFO)
-endif()
+# --------------------------------------------------------
+# NOTE: Vulkan discovery (VulkanHeaders + Vulkan::Vulkan + runtime DLL
+# resolution) now lives above, before find_package(vk-bootstrap) — the
+# rebuilt vk-bootstrap config requires Vulkan::Headers at its own
+# find_package() time and fatals when it is only configured here. The
+# Vulkan::Vulkan target is still created before either add_subdirectory()
+# call below, so it remains visible to both the GNUS-NEO-SWARM subtree and
+# the GCS-level src/ subtree.
 
 set(SUPERGENIUS_BUILD_DIR "${PROJECT_SUPER_ROOT}/SuperGenius/build/${BUILD_PLATFORM_NAME}/${CMAKE_BUILD_TYPE}${ABI_SUBFOLDER_NAME}" CACHE STRING "Default SuperGenius Build Directory")
+
+# libsecret — same two lines SuperGenius/GeniusSDK use. The arm64 CI
+# phantom-path drama (aarch64-linux-gnu paths that exist nowhere) was
+# never an image or .pc problem: stale dep trees from earlier runs
+# survived in the workspace because the cleanup step tested the RUNNER
+# HOST path inside the container (see the workflow's Clean workspace
+# step) and silently skipped; pkg_check_modules then resolved against
+# leftover artifacts. With the workspace actually wiped, this plain
+# discovery is sufficient — SuperGenius's exported config re-runs the
+# same two lines itself, which is harmless (guarded target creation).
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    find_package(PkgConfig)
+    pkg_check_modules(LIBSECRET REQUIRED IMPORTED_TARGET libsecret-1>=0.18.4)
+endif()
 
 # SuperGenius project
 set(evmrelay_DIR "${SUPERGENIUS_BUILD_DIR}/SuperGenius/lib/cmake/evmrelay/")
@@ -359,6 +515,19 @@ set(ProofSystem_DIR "${SUPERGENIUS_BUILD_DIR}/SuperGenius/lib/cmake/ProofSystem/
 set(SGProcessingManager_DIR "${SUPERGENIUS_BUILD_DIR}/SuperGenius/lib/cmake/SGProcessingManager/")
 
 print("SuperGenius_DIR: ${SuperGenius_DIR}")
+
+# shaderc installs no CMake package config, so SuperGenius hand-rolls this
+# IMPORTED target rather than exporting one; SGProcessingManagerTargets.cmake's
+# SGShaderCompiler link interface references shaderc::shaderc directly, so
+# consumers of that export (like this file) must define the same target
+# themselves before find_package(SGProcessingManager) resolves it below.
+if(NOT TARGET shaderc::shaderc)
+    add_library(shaderc::shaderc STATIC IMPORTED GLOBAL)
+    set_target_properties(shaderc::shaderc PROPERTIES
+        IMPORTED_LOCATION "${THIRDPARTY_BUILD_DIR}/shaderc/lib/${CMAKE_STATIC_LIBRARY_PREFIX}shaderc_combined${CMAKE_STATIC_LIBRARY_SUFFIX}"
+        INTERFACE_INCLUDE_DIRECTORIES "${THIRDPARTY_BUILD_DIR}/shaderc/include"
+    )
+endif()
 
 find_package(evmrelay CONFIG REQUIRED)
 find_package(ProofSystem CONFIG REQUIRED)
@@ -458,4 +627,5 @@ if(BUILD_TESTS)
         add_subdirectory(${PROJECT_ROOT}/test ${CMAKE_BINARY_DIR}/gcs_test)
     endif()
 endif()
+
 

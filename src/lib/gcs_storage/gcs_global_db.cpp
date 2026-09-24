@@ -16,6 +16,7 @@
 #include <utility>
 
 #include <libp2p/basic/scheduler.hpp>
+#include <libp2p/basic/scheduler/asio_scheduler_backend.hpp>
 #include <libp2p/basic/scheduler/scheduler_impl.hpp>
 
 #include "GeniusSDK.hpp"

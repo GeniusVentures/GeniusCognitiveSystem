@@ -27,6 +27,11 @@
 #include "proto/gcs_chat.pb.h"
 #include "gcs_storage/common/logging.hpp"
 
+// Own main() (std::_Exit after RUN_ALL_TESTS): the node's detached retry
+// threads must never observe static destruction — see gcs_exit_main.hpp for
+// the exit-time aborts this prevents (CI 35904291986 aarch64 segfaults).
+#include "gcs_exit_main.hpp"
+
 #include <chrono>
 #include <cstdint>
 #include <filesystem>
@@ -246,6 +251,15 @@ namespace gcs::test
 
         void SetUp() override
         {
+            // The cold-boot path boots the node INSIDE gcs_ffi's image (the
+            // test itself boots nothing — that IS the test), so the
+            // secure-storage factory must be set on the DLL's copy via the
+            // exported seam (IMAGE RULE, gcs_storage/common/test_env.hpp).
+            // Avoids the flaky OS keychain on CI runners (35904291986 /
+            // 35918456744: "Failed to generate Genius address from private
+            // key" → skip instead of exercising the cold-boot path).
+            gcs_use_test_secure_storage();
+
             const auto *info       = ::testing::UnitTest::GetInstance()->current_test_info();
             const auto  uniqueSalt = std::chrono::steady_clock::now().time_since_epoch().count();
             m_tempPath = ( std::filesystem::temp_directory_path()
