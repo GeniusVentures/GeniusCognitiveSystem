@@ -241,13 +241,17 @@ namespace
         }
         if ( session != nullptr )
         {
-            session->Shutdown();
-            // Destroy the messaging component (which drains + joins its
-            // archive worker) and the entity catalog BEFORE the session —
-            // both borrow the session reference. The receive-intake gate
+            // Destroy the messaging component FIRST (WR-01): its destructor
+            // drains + joins the archive worker, and the drain's Puts must
+            // land on a STILL-RUNNING store — shutting the session down
+            // first makes GcsGlobalDb::Put's m_running gate drop every
+            // queued write (local message loss). The receive-intake gate
             // plus the in-flight drain in gcs_shutdown guarantee nothing
-            // calls into Messaging past this point.
+            // re-enqueues or calls into Messaging past this point. The
+            // entity catalog is destroyed after the drain but still before
+            // the session it borrows.
             messaging.reset();
+            session->Shutdown();
             entities.reset();
             session.reset();
         }
