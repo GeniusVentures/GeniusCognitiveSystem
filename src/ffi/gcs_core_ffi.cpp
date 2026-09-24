@@ -450,48 +450,64 @@ namespace
     /**
      * \brief Arms the raw GossipSub live subscribe for a room topic (D-03).
      *
-     * Callers must hold g_mutex. The callback fires on the GossipPubSub
-     * strand thread (not the FFI command thread), so the lambda takes
-     * g_mutex ONLY to copy the Messaging pointer and calls OnLiveMessage
-     * outside the lock — holding g_mutex across a Messaging call can
-     * deadlock against a command thread blocked in SendMessage's WaitForJob
-     * (ABBA fix, 03-06; T-03-14).
+     * Callers hold g_mutex via lock, but the subscribe itself runs with the
+     * lock RELEASED (CR-01): GcsGlobalDb::Subscribe blocks on the future
+     * only the GossipSub strand fulfills, and a strand already delivering
+     * into the receive funnel needs g_mutex — holding g_mutex across the
+     * .get() is the join-path twin of the 03-06 send-path ABBA deadlock.
+     * The session pointer is safe across the unlocked window because the
+     * call is counted in g_inFlight and gcs_shutdown drains that count
+     * before evicting the globals (WR-02). The callback fires on the
+     * GossipPubSub strand thread (not the FFI command thread), so the
+     * lambda checks the teardown intake gate atomically and takes g_mutex
+     * ONLY to copy the Messaging pointer, calling OnLiveMessage outside the
+     * lock (ABBA fix, 03-06; T-03-14).
      *
+     * \param[in] lock      The caller's held unique_lock of g_mutex.
      * \param[in] roomTopic The room topic to subscribe to.
+     * \return true when the live subscription armed successfully.
      */
-    void SubscribeLive( const std::string &roomTopic )
+    bool SubscribeLive( std::unique_lock<std::mutex> &lock, const std::string &roomTopic )
     {
-        if ( !g_session->Subscribe( roomTopic,
-                                    []( const std::string &topic, const std::string &data )
-                                    {
-                                        if ( g_receivingDisabled.load() )
-                                        {
-                                            return; // teardown intake gate (CR-02)
-                                        }
-                                        gcs::Messaging* messaging = nullptr;
-                                        {
-                                            std::lock_guard<std::mutex> lock( g_mutex );
-                                            messaging = g_messaging.get();
-                                            if ( messaging != nullptr )
-                                            {
-                                                g_inFlight += 1; // counted until the funnel returns (WR-02)
-                                            }
-                                        }
-                                        if ( messaging == nullptr )
-                                        {
-                                            return;
-                                        }
-                                        messaging->OnLiveMessage( topic, data );
-                                        {
-                                            std::lock_guard<std::mutex> lock( g_mutex );
-                                            g_inFlight -= 1;
-                                        }
-                                        g_idleCond.notify_all();
-                                    } )
-                  .has_value() )
+        gcs::CoreSession* session = g_session.get();
+        g_inFlight += 1;
+        lock.unlock();
+        const bool liveOk = session->Subscribe( roomTopic,
+                                                []( const std::string &topic, const std::string &data )
+                                                {
+                                                    if ( g_receivingDisabled.load() )
+                                                    {
+                                                        return; // teardown intake gate (CR-02)
+                                                    }
+                                                    gcs::Messaging* messaging = nullptr;
+                                                    {
+                                                        std::lock_guard<std::mutex> lock( g_mutex );
+                                                        messaging = g_messaging.get();
+                                                        if ( messaging != nullptr )
+                                                        {
+                                                            g_inFlight += 1; // counted until the funnel returns (WR-02)
+                                                        }
+                                                    }
+                                                    if ( messaging == nullptr )
+                                                    {
+                                                        return;
+                                                    }
+                                                    messaging->OnLiveMessage( topic, data );
+                                                    {
+                                                        std::lock_guard<std::mutex> lock( g_mutex );
+                                                        g_inFlight -= 1;
+                                                    }
+                                                    g_idleCond.notify_all();
+                                                } )
+                                .has_value();
+        lock.lock();
+        g_inFlight -= 1;
+        g_idleCond.notify_all();
+        if ( !liveOk )
         {
             spdlog::error( "gcs_ffi: live subscribe failed for room '{}'", roomTopic );
         }
+        return liveOk;
     }
 
     /**
@@ -508,11 +524,14 @@ namespace
      * Pitfall 4) — UNLESS the client also joined it explicitly via
      * join_topic: explicit membership outranks derivation and is never
      * revoked by derived eviction (WR-03). Smoke topics are never in
-     * g_derivedTopics and are never touched here. Callers must hold g_mutex
-     * (mutates g_entities' registrations via g_session, g_derivedTopics,
-     * g_roomTopics, g_explicitTopics).
+     * g_derivedTopics and are never touched here. Callers hold g_mutex via
+     * lock (mutates g_entities' registrations via g_session, g_derivedTopics,
+     * g_roomTopics, g_explicitTopics); the lock is released only around the
+     * blocking live subscribes (CR-01 — see SubscribeLive).
+     *
+     * \param[in] lock The caller's held unique_lock of g_mutex.
      */
-    void RefreshDerivedJoins()
+    void RefreshDerivedJoins( std::unique_lock<std::mutex> &lock )
     {
         const std::vector<std::string> derived = g_entities->DerivedJoinedTopics();
 
@@ -542,7 +561,7 @@ namespace
             // D-06: a newly derived (auto-joined) room replays its history and
             // arms the live subscribe so it receives live messages (derived joins).
             PushMessageHistory( topic );
-            SubscribeLive( topic );
+            SubscribeLive( lock, topic );
         }
 
         // Topics no longer derived leave the projection only (Pitfall 4) —
@@ -583,7 +602,10 @@ extern "C"
 {
     GCS_FFI_API GcsSession* gcs_init( const uint8_t* configBytes, size_t configLength ) GCS_FFI_NOEXCEPT
     {
-        std::lock_guard<std::mutex> lock( g_mutex );
+        // unique_lock (not lock_guard): RefreshDerivedJoins releases the
+        // lock around each blocking live subscribe (CR-01 — see
+        // SubscribeLive) and needs to re-acquire it afterwards.
+        std::unique_lock<std::mutex> lock( g_mutex );
 
         if ( g_tearingDown.load() )
         {
@@ -769,7 +791,7 @@ extern "C"
         {
             spdlog::error( "gcs_ffi: entity catalog load failed — continuing with an empty catalog" );
         }
-        RefreshDerivedJoins();
+        RefreshDerivedJoins( lock );
 
         return reinterpret_cast<GcsSession*>( g_session.get() );
     }
@@ -866,7 +888,7 @@ extern "C"
             // THEN arm the raw live subscribe so any live message lands after
             // the batch and is absorbed by the id-keyed dedupe (Pitfall 3).
             PushMessageHistory( roomTopic );
-            SubscribeLive( roomTopic );
+            SubscribeLive( lock, roomTopic );
             return GCS_OK;
         }
         case gcs::chat::GcsCommand::kSendText:
@@ -978,7 +1000,7 @@ extern "C"
             // The new room may be auto-joined (parent autoJoinRooms) — recompute
             // the derived set so RoomList reflects it (D-04, retroactive by
             // construction).
-            RefreshDerivedJoins();
+            RefreshDerivedJoins( lock );
             PostToDart( BuildSpaceTreeEvent() );
             PostToDart( BuildRoomListEvent() );
             return GCS_OK;
@@ -1013,7 +1035,7 @@ extern "C"
             }
             // An autoJoinRooms toggle changes the derived set (D-04) — recompute
             // so RoomList gains/loses the space's rooms.
-            RefreshDerivedJoins();
+            RefreshDerivedJoins( lock );
             PostToDart( BuildSpaceTreeEvent() );
             PostToDart( BuildRoomListEvent() );
             return GCS_OK;
