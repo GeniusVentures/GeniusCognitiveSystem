@@ -982,7 +982,15 @@ extern "C"
             }
             // Idempotent room list: a repeated join of an already-joined topic
             // (Dart-side retry, double-tap) must not append a duplicate room.
-            if ( std::find( g_roomTopics.begin(), g_roomTopics.end(), roomTopic ) == g_roomTopics.end() )
+            // IN-05: a re-join must also skip the live subscribe below — each
+            // additional SubscribeLive registers another gossipsub callback
+            // firing per message (correctness survives only via the id-keyed
+            // dedupe), so the subscription and the join-time replay arm
+            // exactly once per topic.
+            const bool alreadyJoined =
+                std::find( g_roomTopics.begin(), g_roomTopics.end(), roomTopic )
+                != g_roomTopics.end();
+            if ( !alreadyJoined )
             {
                 g_roomTopics.push_back( roomTopic );
             }
@@ -995,6 +1003,10 @@ extern "C"
                 g_explicitTopics.push_back( roomTopic );
             }
             PostToDart( BuildRoomListEvent() );
+            if ( alreadyJoined )
+            {
+                return GCS_OK; // IN-05: a re-join only refreshes the pushed room list
+            }
             // D-06: replay the room's history as a pushed MessageHistory batch,
             // THEN arm the raw live subscribe so any live message lands after
             // the batch and is absorbed by the id-keyed dedupe (Pitfall 3).
