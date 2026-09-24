@@ -108,6 +108,15 @@ namespace
     // assumption is enforced, not assumed). Both guarded by g_mutex.
     unsigned int g_inFlight = 0;
     std::condition_variable g_idleCond;
+    // Teardown intake gate (CR-02): receive callbacks (the pubsub live bridge
+    // and the CRDT DagWorker bridge) check this ATOMICALLY before taking
+    // g_mutex, so a shutdown flips it and no callback funnels into a session
+    // mid-teardown. Re-armed (cleared) by the next gcs_init.
+    std::atomic<bool> g_receivingDisabled{ false };
+    // Teardown's unlocked destruction phase is in progress (CR-02): gcs_init
+    // refuses to build a session while the old one is destroyed with g_mutex
+    // released — the mutex no longer excludes init across the teardown joins.
+    std::atomic<bool> g_tearingDown{ false };
 
     /**
      * \brief Counts Unicode code points in a UTF-8 string.
@@ -156,22 +165,39 @@ namespace
     }
 
     /**
-     * \brief Tears the global session and the embedded node down (no lock).
+     * \brief Tears the global session and the embedded node down.
      *
-     * Single teardown body shared by gcs_shutdown (under g_mutex) and the
-     * exit-time pairing hook (unlocked — see EnsureSdkBooted). Port first so
-     * nothing posts into a dying Dart VM, then the session, then the node —
-     * but only the node this library booted: an externally booted node (host
-     * harness) outlives the session and is not ours to tear down. Safe to
-     * call repeatedly: every arm checks its own guard.
+     * Single teardown body shared by gcs_shutdown (passing its held
+     * unique_lock) and the exit-time pairing hook (passing nullptr — see
+     * EnsureSdkBooted). Port first so nothing posts into a dying Dart VM,
+     * then the session, then the node — but only the node this library
+     * booted: an externally booted node (host harness) outlives the session
+     * and is not ours to tear down. Safe to call repeatedly: every arm
+     * checks its own guard.
      *
-     * Callers must hold g_mutex OR be the process-exit path (the exit hook
-     * runs after the Dart threads are gone; taking the mutex there could
-     * wedge forever on a thread that died mid-call — the same unlocked
-     * precedent the C++ test fixtures' TearDown sets).
+     * When lock is non-null it must be HELD on entry: the guarded globals
+     * are evicted under it, then it is RELEASED across the blocking
+     * teardown calls and re-acquired before returning (CR-02). Every join
+     * below can wait on a thread whose callback funnels through g_mutex —
+     * GeniusSDKShutdown's node/pubsub threads (the EventSink takes
+     * g_mutex), Messaging's archive worker (its Puts can trigger DagWorker
+     * bridges that take g_mutex), and ShutdownNow's WaitForWorkersToExit
+     * (the CRDT new-element bridge takes g_mutex). Holding g_mutex across
+     * those joins is the CR-02 shutdown deadlock; releasing it lets the
+     * gated callbacks acquire the mutex, observe the evicted (null)
+     * globals, and unwind.
+     *
+     * The process-exit caller passes nullptr and runs unlocked (the exit
+     * hook runs after the Dart threads are gone; taking the mutex there
+     * could wedge forever on a thread that died mid-call — the same
+     * unlocked precedent the C++ test fixtures' TearDown sets).
+     *
+     * \param[in] lock  gcs_shutdown's held unique_lock, or nullptr on the
+     *                  process-exit path.
      */
-    void TeardownSessionAndNode()
+    void TeardownSessionAndNode( std::unique_lock<std::mutex> *lock )
     {
+        g_tearingDown.store( true );
         // Quiesce the node BEFORE tearing down the session. GcsGlobalDb
         // borrows the node's pubsub and shared graphsync Network (D-17), so
         // the session's ShutdownNow() destructor chain unsubscribes from the
@@ -184,25 +210,51 @@ namespace
         // GeniusSDKShutdown() runs ~GeniusNode's coordinated stop first; the
         // borrowed objects stay alive for the session teardown because the
         // shared Network owns shared_ptrs to the host and scheduler.
-        if ( g_sdkBootedHere )
-        {
-            g_sdkBootedHere = false;
-            GeniusSDKShutdown();
-        }
+        const bool sdkBootedHere = g_sdkBootedHere;
+        g_sdkBootedHere = false;
+
+        // Evict the guarded globals while the lock is held, then destroy the
+        // evicted objects with the lock RELEASED. The eviction is what makes
+        // the unlocked phase safe: any late callback or command that
+        // acquires g_mutex afterwards sees null globals and no-ops instead
+        // of touching half-destroyed state.
+        std::unique_ptr<gcs::CoreSession> session;
+        std::unique_ptr<gcs::EntityStore> entities;
+        std::unique_ptr<gcs::Messaging> messaging;
         if ( g_session != nullptr )
         {
             g_dartPort = 0; // unregister the port BEFORE teardown
-            g_session->Shutdown();
-            // Destroy the messaging component (which drains + joins its archive
-            // worker) and the entity catalog BEFORE the session — both borrow the
-            // session reference, and the archive worker must not touch a dead
-            // session while draining.
-            g_messaging.reset();
-            g_entities.reset();
-            g_session.reset();
+            session   = std::move( g_session );
+            entities  = std::move( g_entities );
+            messaging = std::move( g_messaging );
             g_roomTopics.clear();
             g_derivedTopics.clear();
             g_explicitTopics.clear();
+        }
+        if ( lock != nullptr )
+        {
+            lock->unlock();
+        }
+        if ( sdkBootedHere )
+        {
+            GeniusSDKShutdown();
+        }
+        if ( session != nullptr )
+        {
+            session->Shutdown();
+            // Destroy the messaging component (which drains + joins its
+            // archive worker) and the entity catalog BEFORE the session —
+            // both borrow the session reference. The receive-intake gate
+            // plus the in-flight drain in gcs_shutdown guarantee nothing
+            // calls into Messaging past this point.
+            messaging.reset();
+            entities.reset();
+            session.reset();
+        }
+        if ( lock != nullptr )
+        {
+            lock->lock();
+            g_tearingDown.store( false );
         }
     }
 
@@ -268,7 +320,7 @@ namespace
         // pairing flag when it actually fires.
         if ( !g_exitHookRegistered )
         {
-            g_exitHookRegistered = ( std::atexit( &TeardownSessionAndNode ) == 0 );
+            g_exitHookRegistered = ( std::atexit( [] { TeardownSessionAndNode( nullptr ); } ) == 0 );
             if ( !g_exitHookRegistered )
             {
                 spdlog::error( "gcs_ffi: std::atexit registration failed — quitting the host app will crash at exit" );
@@ -408,15 +460,29 @@ namespace
         if ( !g_session->Subscribe( roomTopic,
                                     []( const std::string &topic, const std::string &data )
                                     {
+                                        if ( g_receivingDisabled.load() )
+                                        {
+                                            return; // teardown intake gate (CR-02)
+                                        }
                                         gcs::Messaging* messaging = nullptr;
                                         {
                                             std::lock_guard<std::mutex> lock( g_mutex );
                                             messaging = g_messaging.get();
+                                            if ( messaging != nullptr )
+                                            {
+                                                g_inFlight += 1; // counted until the funnel returns (WR-02)
+                                            }
                                         }
-                                        if ( messaging != nullptr )
+                                        if ( messaging == nullptr )
                                         {
-                                            messaging->OnLiveMessage( topic, data );
+                                            return;
                                         }
+                                        messaging->OnLiveMessage( topic, data );
+                                        {
+                                            std::lock_guard<std::mutex> lock( g_mutex );
+                                            g_inFlight -= 1;
+                                        }
+                                        g_idleCond.notify_all();
                                     } )
                   .has_value() )
         {
@@ -515,6 +581,11 @@ extern "C"
     {
         std::lock_guard<std::mutex> lock( g_mutex );
 
+        if ( g_tearingDown.load() )
+        {
+            return nullptr; // a teardown's unlocked destruction phase is mid-flight (CR-02)
+        }
+
         // One-time Dart API_DL state check (per-process init contract of
         // dart_api_dl.h). DEVIATION from plan text (Rule 1): the plan calls for
         // Dart_InitializeApiDL(nullptr) here, but the vendored SDK source
@@ -612,6 +683,10 @@ extern "C"
 
         g_session = std::move( session );
 
+        // Re-arm receive intake: a prior gcs_shutdown latched the teardown
+        // gate closed (CR-02) — the fresh session's receive callbacks funnel.
+        g_receivingDisabled.store( false );
+
         // Phase 3 (D-08): construct the messaging component with the REAL
         // vendored-OpenSSL crypto seam injected and encryption enabled by
         // default for all Phase 3 rooms. The EventSink self-locks g_mutex
@@ -638,24 +713,39 @@ extern "C"
 
         // Bridge CRDT-synced message arrivals into the Messaging receive funnel
         // (D-03 heal path). The callback fires on the io/DagWorker thread, so
-        // it takes g_mutex ONLY to copy the Messaging pointer and calls
-        // OnMessageArrived outside the lock — holding g_mutex across a
-        // Messaging call can deadlock against a command thread blocked in
-        // SendMessage's WaitForJob (ABBA fix, 03-06; T-03-14). Decryption
-        // happens inside the Messaging funnel (D-08).
+        // it checks the teardown intake gate ATOMICALLY (CR-02) and takes
+        // g_mutex ONLY to copy the Messaging pointer, calling OnMessageArrived
+        // outside the lock — holding g_mutex across a Messaging call can
+        // deadlock against a command thread blocked in SendMessage's
+        // WaitForJob (ABBA fix, 03-06; T-03-14). Decryption happens inside
+        // the Messaging funnel (D-08).
         if ( !g_session->RegisterNewElementCallback(
                    gcs::Messaging::kMessagesKeyCallbackPattern,
                    []( const std::string &key, const std::string &value )
                    {
+                       if ( g_receivingDisabled.load() )
+                       {
+                           return; // teardown intake gate (CR-02)
+                       }
                        gcs::Messaging* messaging = nullptr;
                        {
                            std::lock_guard<std::mutex> lock( g_mutex );
                            messaging = g_messaging.get();
+                           if ( messaging != nullptr )
+                           {
+                               g_inFlight += 1; // counted until the funnel returns (WR-02)
+                           }
                        }
-                       if ( messaging != nullptr )
+                       if ( messaging == nullptr )
                        {
-                           messaging->OnMessageArrived( key, value );
+                           return;
                        }
+                       messaging->OnMessageArrived( key, value );
+                       {
+                           std::lock_guard<std::mutex> lock( g_mutex );
+                           g_inFlight -= 1;
+                       }
+                       g_idleCond.notify_all();
                    } )
                   .has_value() )
         {
@@ -973,6 +1063,11 @@ extern "C"
 
         if ( g_session != nullptr && reinterpret_cast<gcs::CoreSession*>( session ) == g_session.get() )
         {
+            // CR-02: stop receive intake BEFORE draining and tearing down —
+            // the gate is atomic so the pubsub and DagWorker bridge callbacks
+            // observe it without ever parking on g_mutex, and nothing
+            // re-funnels (or re-enqueues archive work) mid-teardown.
+            g_receivingDisabled.store( true );
             // WR-02: wait until every operation running unlocked against the
             // session/messaging globals (send_text, live subscribes, receive
             // funnels) is back under the mutex BEFORE teardown destroys those
@@ -981,8 +1076,9 @@ extern "C"
             // isolate serializes commands against shutdown.
             g_idleCond.wait( lock, [] { return g_inFlight == 0; } );
             // Shared teardown body — also pairs the gcs_init boot: the
-            // embedded node goes down only when this library booted it.
-            TeardownSessionAndNode();
+            // embedded node goes down only when this library booted it. The
+            // lock is passed so the blocking teardown runs OFF g_mutex.
+            TeardownSessionAndNode( &lock );
         }
     }
 } // extern "C"
