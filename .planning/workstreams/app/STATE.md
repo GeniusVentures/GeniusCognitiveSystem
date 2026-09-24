@@ -100,7 +100,8 @@ Recent decisions affecting current work:
 - [Phase 03]: RoomTopicFromKey strips raw datastore framing (/crdt/k/.../v) and the leading '/' HierarchicalKey adds to callback keys; QueryHistory ignores the raw QueryKeyValues key (the value carries room/id)
 - [Phase 03]: CryptoSeam built by member assignment, not brace-init — CryptoSeam{...} is not a C++17 aggregate (user-provided default ctor from 03-04), so the plan's brace-init form does not compile
 - [Phase 03]: Deleted NextMessageId()/kMessageIdPrefix/g_messageSeq from the FFI — id minting now lives entirely in gcs_messaging; the FFI is a thin validate-and-delegate dispatcher
-- [Phase ?]: Phase 03 P06 two-node deadlock root cause
+- [Phase 03]: P06 two-node deadlock root cause FIXED — three faces of one class: (1) ApplyMessage's synchronous archive Put blocked the GossipSub strand (fixed bd0ea41: async archive worker in gcs::Messaging); (2) heal-callback pattern was regex_match-inert — kMessagesKeyCallbackPattern "/gcs/messages/.*" now full-matches (7d1a105); (3) activating the heal path exposed a g_mutex ABBA — gcs_publish held g_mutex across SendMessage's WaitForJob-put while the DagWorker heal lambda needed g_mutex (fixed a0f8499: lock contract is "g_mutex guards FFI globals + PostToDart; Messaging is never called under g_mutex")
+- [Phase 03]: Deferred hardening — GcsGlobalDb graphsync scheduler runs on private m_io; SuperGenius mandates the pubsub host's asio context (cross-thread WriteQueue Debug-assertion risk). c5f8104 tried, e51f08e reverted (no deadlock effect); follow-up candidate
 
 ### Pending Todos
 
@@ -109,7 +110,6 @@ None yet.
 ### Blockers/Concerns
 
 - Phase 1 depends on GlobalDB CRDT integration from GNUS-NEO-SWARM Phase 3 — verify availability before planning.
-- 03-06 two-node messaging test RED: production threading deadlock (ApplyMessage archive write blocks pubsub strand, deadlocking graphsync CRDT heal response)
 
 ### Quick Tasks Completed
 
@@ -128,5 +128,5 @@ Items acknowledged and carried forward from previous milestone close:
 ## Session Continuity
 
 Last session: 2026-09-23T23:42:09.227Z
-Stopped at: Completed 03-05-PLAN.md
+Stopped at: Completed 03-06-PLAN.md
 Resume file: None
