@@ -40,6 +40,9 @@ dependencies:
   # --fatal-infos analyze gate).
   fixnum: ^1.1.0
   flutter_bloc: ^9.0.0
+  # Per-user application-support directory for the session database
+  # (getApplicationSupportDirectory in main.dart).
+  path_provider: ^2.1.5
   protobuf: ^4.0.0
   frontend_scaffold:
     path: scaffold
