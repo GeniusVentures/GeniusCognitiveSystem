@@ -65,13 +65,16 @@ Users can create a space, invite others, and have a group conversation where an 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
 | Single unified room model with `autoAnswer` policy | Simplifies state; Solo/Multi/Q&A are just config | — Pending |
-| App-layer encryption (not libp2p PSK) | Per-room keys, easier rotation, existence visible | — Pending |
+| App-layer encryption (not libp2p PSK) | Per-room keys, easier rotation, existence visible | — Validated (Phase 3 D-08, 2026-09-24) |
 | Spaces as containers with `autoJoinRooms` config | Flexible: boundary or loose grouping | — Validated (Phase 2, 2026-09-22) |
 | Multiple Admins, no single Owner | Avoids "who owns this" problem, enables succession | — Pending |
 | Super Admin = creator, cannot be demoted | Prevents rogue admin lockout | — Pending |
 | Destructive actions need Super Admin approval when 2+ admins | Balance between agility and safety | — Pending |
 | Embeddable SDK boundary per ADR-01: RuntimeCoordinator interface, backend-neutral Flutter contracts, per-module CMake ownership | Existing NeoSwarm bridges migrate rather than duplicate; heavy deps never leak through the SDK | — Locked (ADR `docs/architecture/decisions/adr-embeddable-sdk-and-modular-build.md`, 2026-07-28) |
 | Runtime component ownership per ADR-02: MNN is the only native SGFP4/generation runtime; SGProcessingManager never owns the GCS request lifecycle | Prevents duplicate generation loops and SGFP4-as-input misuse | — Locked (ADR `docs/architecture/decisions/adr-runtime-component-ownership.md`, 2026-07-28) |
+| D-08 encrypted messaging: AES-256-GCM full-record envelope (nonce(12)‖ct‖tag(16)) on both live Publish and at-rest archive Put; HKDF-SHA256 room-topic-derived key; injected CryptoSeam so Messaging never touches OpenSSL | Encrypted by default, provable at-rest opacity (binary db scan), crypto swappable in tests | — Validated (Phase 3, 2026-09-24) |
+| Dual-path receive (D-03): GossipSub live fast path + CRDT archive heal path into one Messaging funnel, id-keyed dedupe absorbs the race | Live latency without sacrificing convergence; either route alone delivers the message | — Validated (Phase 3, 2026-09-24) |
+| FFI threading contract: g_mutex guards FFI globals + PostToDart only — no Messaging call and no strand/DagWorker-blocking operation under it; teardown uses an atomic receive-intake gate + in-flight drain, and drains the archive queue before session shutdown | Closes the ABBA deadlock class (send, join-subscribe, teardown) found by the 03-06 multinode test and the phase code review | — Validated (Phase 3, 2026-09-24) |
 
 ## Evolution
 
@@ -91,4 +94,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-09-22 after Phase 2 (Spaces & Rooms)*
+*Last updated: 2026-09-24 after Phase 3 (Messaging)*
