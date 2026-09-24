@@ -362,9 +362,14 @@ namespace gcs::test
         ASSERT_EQ( events.size(), 1U );
         EXPECT_EQ( events[ 0 ].message().id(), "m-1" );
 
-        auto scan = session.QueryKeyValues( kPrefixA );
-        ASSERT_TRUE( scan.has_value() );
-        ASSERT_EQ( scan.value().size(), 1U );
+        // The receive-path archive write is async (dedicated worker) — wait for
+        // the converged archive to contain exactly the one deduped entry.
+        EXPECT_TRUE( WaitForCondition(
+            [ &session ]() {
+                auto scan = session.QueryKeyValues( kPrefixA );
+                return scan.has_value() && scan.value().size() == 1U;
+            },
+            kWaitTimeout ) );
 
         session.Shutdown();
         pubsub->Stop();
@@ -749,7 +754,15 @@ namespace gcs::test
             MakeMessage( kRoomA, "m-1", "live-plain", kPeerSender, 1000 );
         messaging.OnLiveMessage( kRoomA, peerMsg.SerializeAsString() );
 
-        // History scan.
+        // History scan — the live peer message's archive write is async, so
+        // wait for both records to converge before asserting.
+        EXPECT_TRUE( WaitForCondition(
+            [ &messaging ]() {
+                auto history = messaging.QueryHistory( kRoomA );
+                return history.has_value() && history.value().message_size() == 2;
+            },
+            kWaitTimeout ) );
+
         auto history = messaging.QueryHistory( kRoomA );
         ASSERT_TRUE( history.has_value() );
         ASSERT_EQ( history.value().message_size(), 2 );
