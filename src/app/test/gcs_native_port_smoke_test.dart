@@ -46,6 +46,14 @@ const String kRoomName = 'general';
 const int kGcsOk = 0;
 const Duration kWaitLimit = Duration(seconds: 5);
 
+/// Pinned pubsub listen port for this test's embedded node (continues the C++
+/// FFI binaries' 41500-41502 pins): written to network_config.json under the
+/// temp dir before gcs_init. GeniusNode derives ports as 40001 + hash%301
+/// with no availability probe, so parallel node processes can collide on a
+/// derived port; the pin sits OUTSIDE the derived range and matches no other
+/// test binary's pin.
+const int kPinnedPubsubPort = 41503;
+
 /// Event-driven queue over the ReceivePort — waits are bounded futures, never
 /// polling loops (D-05: push, don't poll). Waiters are queued FIFO: a second
 /// [next] before an event arrives no longer replaces (and orphans) the first.
@@ -126,6 +134,14 @@ void main()
     // D-29: codec-tagged config bytes; buffer freed right after the call.
     final Directory tempDir = await Directory.systemTemp.createTemp('gcs_dart_smoke');
     addTearDown(() => tempDir.delete(recursive: true));
+    // Pin the embedded node's pubsub port (child_registration.cpp pattern):
+    // the node reads this file at InitNetwork; the temp dir is the node base
+    // path (the db sits at <tmp>/db).
+    File('${tempDir.path}/network_config.json').writeAsStringSync(
+      '{ "port_seed": $kPinnedPubsubPort, "auto_dht": false'
+      ', "upnp_enabled": false'
+      ', "pubsub_port": "$kPinnedPubsubPort" }',
+    );
     final GcsConfig config = GcsConfig()
       ..dbPath = '${tempDir.path}/db'
       ..codec = Codec.CODEC_PROTOBUF;
