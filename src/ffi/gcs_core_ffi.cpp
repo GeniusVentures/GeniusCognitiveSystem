@@ -146,6 +146,13 @@ namespace
      * use the CWD. An empty db_path (store default) still needs a home for
      * the node and logs — the system temp dir keeps it out of the CWD.
      *
+     * Per-instance contract: the base path IS the node's identity scope —
+     * the wallet persists under it (own peer id and sender address per
+     * base), and InitNetwork derives the libp2p port from the wallet
+     * address (GenerateRandomPort(port_seed, address)). Host apps running
+     * multiple instances must therefore give each one its own base path
+     * (the Flutter app: data/KEY/db, so data/KEY is the base).
+     *
      * \param[in] config The parsed GcsConfig carrying db_path.
      * \return The base directory for node data, wallet, and logs.
      */

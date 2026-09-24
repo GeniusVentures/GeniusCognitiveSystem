@@ -5,11 +5,13 @@
 /// chat-kit imports, no seed color scheme, no direct SLM/FFI calls here:
 /// the shell's [SessionCubit] owns the GCS session lifecycle.
 ///
-/// The session database lives under the per-user application-support
-/// directory at `data/KEY` — [kDefaultInstanceKey] for a normal launch, or
-/// the key passed via `--instance=KEY` so a second app instance gets its
-/// own database (multi-instance testing/support) without touching the
-/// first.
+/// The per-instance directory lives under the per-user
+/// application-support directory at `data/KEY` — [kDefaultInstanceKey] for
+/// a normal launch, or the key passed via `--instance=KEY` so a second app
+/// instance gets its own node without touching the first. The instance
+/// directory is the embedded node's base path (wallet/identity, network
+/// config, logs — SuperGenius derives the libp2p port from the wallet
+/// address), and the session database sits in its `db` subdirectory.
 library;
 
 import 'dart:io';
@@ -44,11 +46,15 @@ String instanceKeyFromArgs(List<String> args) {
 }
 
 /// Resolves the session database path for [instanceKey]:
-/// `<application-support>/data/KEY`, created if missing.
+/// `<application-support>/data/KEY/db`, created if missing. The parent
+/// `data/KEY` directory doubles as the embedded node's base path — each
+/// instance key therefore boots with its own wallet (own peer identity and
+/// sender address) and its own address-derived libp2p port, so multiple
+/// instances coexist as genuine separate nodes.
 Future<String> resolveDbPath(String instanceKey) async {
   final Directory support = await getApplicationSupportDirectory();
   final String dbPath =
-      '${support.path}/$kDataSubdirectory/$instanceKey';
+      '${support.path}/$kDataSubdirectory/$instanceKey/db';
   Directory(dbPath).createSync(recursive: true);
   return dbPath;
 }
