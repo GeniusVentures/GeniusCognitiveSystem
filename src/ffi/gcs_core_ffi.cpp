@@ -385,8 +385,11 @@ namespace
      * \brief Arms the raw GossipSub live subscribe for a room topic (D-03).
      *
      * Callers must hold g_mutex. The callback fires on the GossipPubSub
-     * strand thread (not the FFI command thread), so the lambda re-acquires
-     * g_mutex before touching g_messaging (T-03-14).
+     * strand thread (not the FFI command thread), so the lambda takes
+     * g_mutex ONLY to copy the Messaging pointer and calls OnLiveMessage
+     * outside the lock — holding g_mutex across a Messaging call can
+     * deadlock against a command thread blocked in SendMessage's WaitForJob
+     * (ABBA fix, 03-06; T-03-14).
      *
      * \param[in] roomTopic The room topic to subscribe to.
      */
@@ -395,10 +398,14 @@ namespace
         if ( !g_session->Subscribe( roomTopic,
                                     []( const std::string &topic, const std::string &data )
                                     {
-                                        std::lock_guard<std::mutex> lock( g_mutex );
-                                        if ( g_messaging )
+                                        gcs::Messaging* messaging = nullptr;
                                         {
-                                            g_messaging->OnLiveMessage( topic, data );
+                                            std::lock_guard<std::mutex> lock( g_mutex );
+                                            messaging = g_messaging.get();
+                                        }
+                                        if ( messaging != nullptr )
+                                        {
+                                            messaging->OnLiveMessage( topic, data );
                                         }
                                     } )
                   .has_value() )
@@ -597,10 +604,13 @@ extern "C"
 
         // Phase 3 (D-08): construct the messaging component with the REAL
         // vendored-OpenSSL crypto seam injected and encryption enabled by
-        // default for all Phase 3 rooms. The EventSink is PostToDart (callers
-        // already hold g_mutex). The FFI names the adapter functions here but
-        // never calls EVP directly — encryption/decryption happen inside
-        // Messaging, and the FFI/Dart only push/see plaintext events (D-08).
+        // default for all Phase 3 rooms. The EventSink self-locks g_mutex
+        // around PostToDart — Messaging methods are NEVER called under
+        // g_mutex (see the kSendText arm and the receive lambdas), so the
+        // sink must provide its own serialization (ABBA fix, 03-06). The FFI
+        // names the adapter functions here but never calls EVP directly —
+        // encryption/decryption happen inside Messaging, and the FFI/Dart
+        // only push/see plaintext events (D-08).
         {
             gcs::Messaging::CryptoSeam cryptoSeam;
             cryptoSeam.encrypt = &gcs::crypto::EncryptPayload;
@@ -608,22 +618,33 @@ extern "C"
             cryptoSeam.enabled = true;
             g_messaging = std::make_unique<gcs::Messaging>(
                 *g_session, std::string( GeniusSDKGetAddress().address ),
-                []( const gcs::chat::GcsEvent &event ) { PostToDart( event ); },
+                []( const gcs::chat::GcsEvent &event )
+                {
+                    std::lock_guard<std::mutex> lock( g_mutex );
+                    PostToDart( event );
+                },
                 cryptoSeam );
         }
 
         // Bridge CRDT-synced message arrivals into the Messaging receive funnel
         // (D-03 heal path). The callback fires on the io/DagWorker thread, so
-        // it re-acquires g_mutex before touching g_messaging/PostToDart
-        // (T-03-14). Decryption happens inside the Messaging funnel (D-08).
+        // it takes g_mutex ONLY to copy the Messaging pointer and calls
+        // OnMessageArrived outside the lock — holding g_mutex across a
+        // Messaging call can deadlock against a command thread blocked in
+        // SendMessage's WaitForJob (ABBA fix, 03-06; T-03-14). Decryption
+        // happens inside the Messaging funnel (D-08).
         if ( !g_session->RegisterNewElementCallback(
                    gcs::Messaging::kMessagesKeyCallbackPattern,
                    []( const std::string &key, const std::string &value )
                    {
-                       std::lock_guard<std::mutex> lock( g_mutex );
-                       if ( g_messaging )
+                       gcs::Messaging* messaging = nullptr;
                        {
-                           g_messaging->OnMessageArrived( key, value );
+                           std::lock_guard<std::mutex> lock( g_mutex );
+                           messaging = g_messaging.get();
+                       }
+                       if ( messaging != nullptr )
+                       {
+                           messaging->OnMessageArrived( key, value );
                        }
                    } )
                   .has_value() )
@@ -652,7 +673,12 @@ extern "C"
     GCS_FFI_API int gcs_publish( GcsSession* session, const char* topic,
                                  const uint8_t* payloadBytes, size_t payloadLength ) GCS_FFI_NOEXCEPT
     {
-        std::lock_guard<std::mutex> lock( g_mutex );
+        // unique_lock (not lock_guard): the kSendText arm releases g_mutex
+        // across Messaging::SendMessage — its topics-aware archive Put blocks
+        // in WaitForJob, and the job pipeline fires the CRDT heal callback on
+        // the DagWorker thread, whose lambda takes g_mutex. Holding g_mutex
+        // across the blocking Put is an ABBA deadlock (03-06 multinode test).
+        std::unique_lock<std::mutex> lock( g_mutex );
 
         if ( g_session == nullptr || reinterpret_cast<gcs::CoreSession*>( session ) != g_session.get()
              || topic == nullptr || payloadBytes == nullptr || payloadLength == 0 )
@@ -766,7 +792,16 @@ extern "C"
             // D-03/D-04/D-07/D-08: delegate to the Messaging component, which
             // mints the id, stamps the sender, pushes pending -> live publish +
             // archive -> complete, and encrypts the envelope (production seam).
-            if ( !g_messaging->SendMessage( sendText.room_topic(), sendText.text() ).has_value() )
+            // Called WITHOUT g_mutex: the archive Put blocks in WaitForJob and
+            // the DagWorker heal lambda takes g_mutex (ABBA fix, 03-06). The
+            // Messaging pointer is stable across the call — Dart serializes
+            // commands and shutdown on one isolate, and Messaging is
+            // internally synchronized (m_seenMutex/m_archiveMutex).
+            gcs::Messaging* messaging = g_messaging.get();
+            lock.unlock();
+            const bool sendOk = messaging->SendMessage( sendText.room_topic(), sendText.text() ).has_value();
+            lock.lock();
+            if ( !sendOk )
             {
                 PostErrorNotice( "send_text failed for room '" + sendText.room_topic() + "'" );
                 return GCS_ERROR_GENERIC;
