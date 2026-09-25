@@ -85,11 +85,15 @@ class MessageFlowCubit extends Cubit<List<ChatFlowItem>> {
   /// must replace, never duplicate. Non-matching entries keep their order;
   /// the result is capped by the generated invariant.
   void upsert(ChatFlowItem item) {
-    final List<ChatFlowItem> next = <ChatFlowItem>[
-      for (final ChatFlowItem existing in state)
-        if (existing.instanceId != item.instanceId) existing,
-      item,
-    ];
+    final int index = state.indexWhere(
+      (ChatFlowItem existing) => existing.instanceId == item.instanceId,
+    );
+    final List<ChatFlowItem> next = <ChatFlowItem>[...state];
+    if (index == -1) {
+      next.add(item);
+    } else {
+      next[index] = item;
+    }
     emit(ChatMessageFlowCubit.cappedItems(next));
   }
 
@@ -111,7 +115,9 @@ class MessageFlowCubit extends Cubit<List<ChatFlowItem>> {
       role: kRoleVariants[message.role] ?? 'system',
       state: kStateVariants[message.state] ?? 'complete',
       text: message.text,
-      senderName: message.sender.isEmpty ? null : _truncateSender(message.sender),
+      senderName: message.sender.isEmpty
+          ? null
+          : _truncateSender(message.sender),
     );
   }
 }
