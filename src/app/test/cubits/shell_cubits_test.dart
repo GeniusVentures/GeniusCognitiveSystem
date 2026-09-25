@@ -249,10 +249,38 @@ void main() {
         state: 'complete',
         text: 'hello',
       );
+      const ChatFlowItemTextBubble later = ChatFlowItemTextBubble(
+        instanceId: 'm2',
+        role: 'user_peer',
+        state: 'complete',
+        text: 'reply',
+      );
       cubit.append(pending);
+      cubit.append(later);
       cubit.upsert(complete);
+      expect(cubit.state, hasLength(2));
+      // Replace happens in place: the updated item keeps its position rather
+      // than jumping to the end of the flow.
+      expect((cubit.state[0] as ChatFlowItemTextBubble).instanceId, 'm1');
+      expect((cubit.state[0] as ChatFlowItemTextBubble).state, 'complete');
+      expect((cubit.state[1] as ChatFlowItemTextBubble).instanceId, 'm2');
+    });
+
+    test('upsert appends an item with an unseen instanceId (D-07)', () {
+      final MessageFlowCubit cubit = MessageFlowCubit();
+      addTearDown(cubit.close);
+      const ChatFlowItemTextBubble fresh = ChatFlowItemTextBubble(
+        instanceId: 'm-new',
+        role: 'user_peer',
+        state: 'complete',
+        text: 'first seen via upsert',
+      );
+      cubit.upsert(fresh);
       expect(cubit.state, hasLength(1));
-      expect((cubit.state.single as ChatFlowItemTextBubble).state, 'complete');
+      expect(
+        (cubit.state.single as ChatFlowItemTextBubble).instanceId,
+        'm-new',
+      );
     });
 
     test('replaceAll replaces the whole list with each snapshot (D-06)', () {
@@ -280,32 +308,36 @@ void main() {
       expect((cubit.state.single as ChatFlowItemTextBubble).instanceId, 'c');
     });
 
-    test('buildChatFlowItemTextBubble truncates a long sender label (D-04)',
-        () {
-      final MessageFlowCubit cubit = MessageFlowCubit();
-      addTearDown(cubit.close);
-      final String longSender = '0x${List<String>.filled(128, 'a').join()}';
-      final ChatFlowItemTextBubble truncated = cubit.buildChatFlowItemTextBubble(
-        ChatMessageState()
-          ..id = 'id-sender'
-          ..role = MessageRole.MESSAGE_ROLE_USER_PEER
-          ..state = MessageState.MESSAGE_STATE_COMPLETE
-          ..text = 'hi'
-          ..sender = longSender,
-      );
-      expect(truncated.senderName, isNotNull);
-      expect(truncated.senderName, startsWith('0x'));
-      expect(truncated.senderName, contains('…'));
+    test(
+      'buildChatFlowItemTextBubble truncates a long sender label (D-04)',
+      () {
+        final MessageFlowCubit cubit = MessageFlowCubit();
+        addTearDown(cubit.close);
+        final String longSender = '0x${List<String>.filled(128, 'a').join()}';
+        final ChatFlowItemTextBubble truncated = cubit
+            .buildChatFlowItemTextBubble(
+              ChatMessageState()
+                ..id = 'id-sender'
+                ..role = MessageRole.MESSAGE_ROLE_USER_PEER
+                ..state = MessageState.MESSAGE_STATE_COMPLETE
+                ..text = 'hi'
+                ..sender = longSender,
+            );
+        expect(truncated.senderName, isNotNull);
+        expect(truncated.senderName, startsWith('0x'));
+        expect(truncated.senderName, contains('…'));
 
-      final ChatFlowItemTextBubble unnamed = cubit.buildChatFlowItemTextBubble(
-        ChatMessageState()
-          ..id = 'id-none'
-          ..role = MessageRole.MESSAGE_ROLE_USER_PEER
-          ..state = MessageState.MESSAGE_STATE_COMPLETE
-          ..text = 'hi',
-      );
-      expect(unnamed.senderName, isNull);
-    });
+        final ChatFlowItemTextBubble unnamed = cubit
+            .buildChatFlowItemTextBubble(
+              ChatMessageState()
+                ..id = 'id-none'
+                ..role = MessageRole.MESSAGE_ROLE_USER_PEER
+                ..state = MessageState.MESSAGE_STATE_COMPLETE
+                ..text = 'hi',
+            );
+        expect(unnamed.senderName, isNull);
+      },
+    );
   });
 
   group('ComposerCubit', () {
@@ -371,26 +403,23 @@ void main() {
       },
     );
 
-    test(
-      'send returns true and clears the draft on publish success',
-      () async {
-        final _FixedResultTransport transport = _FixedResultTransport(true);
-        final RailCubit rail = RailCubit();
-        final ComposerCubit cubit = ComposerCubit(
-          transport: transport,
-          railCubit: rail,
-        );
-        addTearDown(cubit.close);
-        addTearDown(rail.close);
-        rail.setRooms(<String>['gcs/chat/room-one']);
-        rail.selectRoom('gcs/chat/room-one');
-        await pumpEventQueue();
-        cubit.updateDraft('hello world');
-        expect(cubit.send(), isTrue);
-        expect(transport.commands, hasLength(1));
-        expect(cubit.state.draft, isEmpty);
-      },
-    );
+    test('send returns true and clears the draft on publish success', () async {
+      final _FixedResultTransport transport = _FixedResultTransport(true);
+      final RailCubit rail = RailCubit();
+      final ComposerCubit cubit = ComposerCubit(
+        transport: transport,
+        railCubit: rail,
+      );
+      addTearDown(cubit.close);
+      addTearDown(rail.close);
+      rail.setRooms(<String>['gcs/chat/room-one']);
+      rail.selectRoom('gcs/chat/room-one');
+      await pumpEventQueue();
+      cubit.updateDraft('hello world');
+      expect(cubit.send(), isTrue);
+      expect(transport.commands, hasLength(1));
+      expect(cubit.state.draft, isEmpty);
+    });
   });
 
   group('SessionCubit', () {
@@ -423,8 +452,7 @@ void main() {
         );
         // Platform-neutral temp dir (IN-07) -- same pattern SessionCubit's
         // own default uses; a hardcoded /tmp would fail on Windows runners.
-        final String dbPath =
-            '${Directory.systemTemp.path}/gcs-cubit-test-db';
+        final String dbPath = '${Directory.systemTemp.path}/gcs-cubit-test-db';
         final SessionCubit cubit = SessionCubit(
           bindings: bindings,
           dbPath: dbPath,
@@ -468,21 +496,24 @@ void main() {
       expect(bindings.subscribeCalls, 0);
     });
 
-    test('start with an empty db path errors and never reaches gcs_init (IN-03)', () {
-      final _RecordingBindings bindings = _RecordingBindings(
-        initResult: ffi.Pointer<GcsSession>.fromAddress(64),
-      );
-      // An empty string passes a null-only guard but would reach
-      // SessionBasePath's temp-dir fallback on the C++ side — the exact
-      // silent default the required-db-path guard eliminates.
-      final SessionCubit cubit = SessionCubit(bindings: bindings, dbPath: '');
-      addTearDown(cubit.close);
-      cubit.start();
-      expect(cubit.state.isHandleOpen, isFalse);
-      expect(cubit.state.error, isNotNull);
-      expect(bindings.lastConfig, isNull);
-      expect(bindings.subscribeCalls, 0);
-    });
+    test(
+      'start with an empty db path errors and never reaches gcs_init (IN-03)',
+      () {
+        final _RecordingBindings bindings = _RecordingBindings(
+          initResult: ffi.Pointer<GcsSession>.fromAddress(64),
+        );
+        // An empty string passes a null-only guard but would reach
+        // SessionBasePath's temp-dir fallback on the C++ side — the exact
+        // silent default the required-db-path guard eliminates.
+        final SessionCubit cubit = SessionCubit(bindings: bindings, dbPath: '');
+        addTearDown(cubit.close);
+        cubit.start();
+        expect(cubit.state.isHandleOpen, isFalse);
+        expect(cubit.state.error, isNotNull);
+        expect(bindings.lastConfig, isNull);
+        expect(bindings.subscribeCalls, 0);
+      },
+    );
 
     test(
       'close tears the native session down exactly once (idempotent)',
@@ -653,7 +684,11 @@ void main() {
                   ..text = 'from b'))
               .writeToBuffer(),
         );
-        expect(flow.state, isEmpty, reason: 'room B traffic must not render in room A');
+        expect(
+          flow.state,
+          isEmpty,
+          reason: 'room B traffic must not render in room A',
+        );
 
         // History replay for room B (join elsewhere): must not wipe A's flow.
         cubit.handlePushedBytes(
@@ -671,11 +706,13 @@ void main() {
           (GcsEvent()
                 ..messageHistory = (MessageHistory()
                   ..roomTopic = 'gcs/chat/b'
-                  ..message.add(ChatMessageState()
-                    ..id = 'hist-b'
-                    ..role = MessageRole.MESSAGE_ROLE_USER_PEER
-                    ..state = MessageState.MESSAGE_STATE_COMPLETE
-                    ..text = 'b history')))
+                  ..message.add(
+                    ChatMessageState()
+                      ..id = 'hist-b'
+                      ..role = MessageRole.MESSAGE_ROLE_USER_PEER
+                      ..state = MessageState.MESSAGE_STATE_COMPLETE
+                      ..text = 'b history',
+                  )))
               .writeToBuffer(),
         );
         expect(
@@ -683,7 +720,10 @@ void main() {
           hasLength(1),
           reason: 'room B replay must not replaceAll-wipe room A',
         );
-        expect((flow.state.single as ChatFlowItemTextBubble).instanceId, 'in-a');
+        expect(
+          (flow.state.single as ChatFlowItemTextBubble).instanceId,
+          'in-a',
+        );
       },
     );
 
@@ -721,44 +761,38 @@ void main() {
         expect(rail.state.spaces.single.rooms, hasLength(1));
         expect(rail.state.spaces.single.rooms.single.id, 'room-1');
         expect(rail.state.spaces.single.rooms.single.name, 'general');
-        expect(
-          rail.state.spaces.single.rooms.single.topic,
-          'gcs/chat/room-1',
-        );
+        expect(rail.state.spaces.single.rooms.single.topic, 'gcs/chat/room-1');
         expect(rail.state.standaloneRooms, isEmpty);
       },
     );
 
-    test(
-      'pushed SpaceTree: empty parentSpaceId room is standalone (D-01)',
-      () {
-        final RailCubit rail = RailCubit();
-        final SessionCubit cubit = SessionCubit(railCubit: rail);
-        addTearDown(cubit.close);
-        addTearDown(rail.close);
+    test('pushed SpaceTree: empty parentSpaceId room is standalone (D-01)', () {
+      final RailCubit rail = RailCubit();
+      final SessionCubit cubit = SessionCubit(railCubit: rail);
+      addTearDown(cubit.close);
+      addTearDown(rail.close);
 
-        cubit.handlePushedBytes(
-          (GcsEvent()
-                ..spaceTree = (SpaceTree()
-                  ..space.add(
-                    SpaceRecord()
-                      ..id = 'space-1'
-                      ..name = 'ops',
-                  )
-                  ..room.add(
-                    RoomRecord()
-                      ..id = 'room-2'
-                      ..name = 'lounge',
-                  )))
-              .writeToBuffer(),
-        );
-        expect(rail.state.treeReceived, isTrue);
-        expect(rail.state.standaloneRooms, hasLength(1));
-        expect(rail.state.standaloneRooms.single.id, 'room-2');
-        expect(rail.state.standaloneRooms.single.name, 'lounge');
-        expect(rail.state.spaces.single.rooms, isEmpty);
-      },
-    );
+      cubit.handlePushedBytes(
+        (GcsEvent()
+              ..spaceTree = (SpaceTree()
+                ..space.add(
+                  SpaceRecord()
+                    ..id = 'space-1'
+                    ..name = 'ops',
+                )
+                ..room.add(
+                  RoomRecord()
+                    ..id = 'room-2'
+                    ..name = 'lounge',
+                )))
+            .writeToBuffer(),
+      );
+      expect(rail.state.treeReceived, isTrue);
+      expect(rail.state.standaloneRooms, hasLength(1));
+      expect(rail.state.standaloneRooms.single.id, 'room-2');
+      expect(rail.state.standaloneRooms.single.name, 'lounge');
+      expect(rail.state.spaces.single.rooms, isEmpty);
+    });
 
     test(
       'RoomList after SpaceTree replaces the joined view, tree fields intact',
