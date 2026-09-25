@@ -328,6 +328,16 @@ namespace
             // re-enqueues or calls into Messaging past this point. The
             // entity catalog is destroyed after the drain but still before
             // the session it borrows.
+            //
+            // IN-06: the drain deliberately runs AFTER GeniusSDKShutdown()
+            // (node destroyed, pubsub down) — verified against the SDK that
+            // GlobalDB::Put does not fail wholesale on a stopped pubsub: its
+            // synchronous path (DagWorker merge -> RocksDB, dagSyncer addNode,
+            // heads update) is session-owned and still alive here, while the
+            // pubsub carries only the decoupled outbound broadcast, whose
+            // failures are logged and never propagate to the Put result.
+            // Queued records therefore land locally; the skipped announcement
+            // is healed by the sender's own replication.
             messaging.reset();
             session->Shutdown();
             entities.reset();
