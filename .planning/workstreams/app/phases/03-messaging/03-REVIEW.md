@@ -80,6 +80,11 @@ findings.
 
 ### CR-01: Pushed message events are not gated by room — live traffic from one room renders in another
 
+**Status (fix pass 2):** FIXED — commit `17e750a`. Both pushed arms in `_dispatchEvent`
+now gate on `_railCubit?.state.activeRoom == event.message.roomTopic` (and the
+`messageHistory.roomTopic` equivalent) before `upsert`/`replaceAll`, per the review's
+minimal sketch; regression coverage in `shell_cubits_test.dart`.
+
 **File:** `src/app/lib/cubits/session_cubit.dart:389-405`
 **Issue:** `_dispatchEvent` routes every pushed `ChatMessageState` into the one
 `MessageFlowCubit` (`flow.upsert(...)`) and every `MessageHistory` batch into
@@ -132,6 +137,12 @@ flow from that room's history rather than leaving the previous room's items on s
 
 ### WR-01: The `std::atexit` teardown hook bypasses the CR-02/WR-02 safety machinery — racy destruction at process exit
 
+**Status (fix pass 2):** FIXED — commit `114e662`. `TeardownSessionAndNode` now latches
+`g_receivingDisabled`/`g_tearingDown` first on EVERY path; the null-lock exit path
+`try_lock`s `g_mutex` and drains `g_inFlight` via `g_idleCond.wait_for` under a bounded
+`kExitTeardownDrainTimeout` (never wedging exit), and the eviction of the guarded
+globals happens under whichever lock was acquired.
+
 **File:** `src/ffi/gcs_core_ffi.cpp:205-270` (hook registered at `:332-339`)
 **Issue:** `TeardownSessionAndNode(nullptr)` — the process-exit path added for the
 macOS quit crash — skips every guard that makes the normal path safe:
@@ -178,6 +189,12 @@ At minimum, `g_receivingDisabled.store( true )` must move to the top of
 
 ### WR-02: Room encryption key is derived solely from the public room topic — no confidentiality against any gossipsub peer
 
+**Status (fix pass 2):** DEFERRED by owner (Phase 4 territory, no code change this
+phase) — the finding's own fix routes it to the Phase 4 membership layer; durably
+tracked in `deferred-items.md`. The interim user-facing-copy half is vacuous today:
+no UI copy claims encryption (grep for "encrypt"/"obscure" over `src/app/lib` is
+empty), so there is no padlock to soften.
+
 **File:** `src/lib/gcs_crypto.cpp:46-49` (documented at `gcs_crypto.hpp:21-27`)
 **Issue:** `DeriveRoomKey` uses `ikm = roomTopic` — a string that is simultaneously the
 gossipsub topic name and the CRDT key prefix, i.e. known to every peer on the network
@@ -194,6 +211,11 @@ change). Until then, surface the limitation in user-facing copy ("obscured", not
 breaking the archive framing.
 
 ### WR-03: Archive key grammar is ambiguous when a room topic contains '/' — prefix scans and key parsing mis-attribute rooms
+
+**Status (fix pass 2):** FIXED — commit `63a9748`. Took the review's minimal boundary
+fix: `join_topic` and `send_text` now reject room topics containing '/' with
+`GCS_ERROR_INVALID_ARGUMENT` + `PostErrorNotice` (topics are ASCII `gcs/chat/<id>` by
+construction); regression coverage in `test_gcs_ffi_sdk.cpp`.
 
 **File:** `src/lib/gcs_messaging.cpp:143-171` (`RoomTopicFromKey`), `:311` (`QueryHistory` prefix)
 **Issue:** The archive key is `gcs/messages/<topic>/<id>` where `<topic>` may itself
@@ -228,6 +250,10 @@ topics must be supported later).
 
 ### WR-04: `test_gcs_global_db_sdk` still boots its node on the collision-prone derived port — commit aa6f565's "every node-booting test binary" claim is incomplete
 
+**Status (fix pass 2):** FIXED — commit `4edc257`. The binary's `SetUp` now writes the
+`network_config.json` pin with `kPinnedPubsubPort = 41504` (next free value after
+41500-41503), matching the `test_gcs_ffi.cpp:76-82` pattern.
+
 **File:** `test/CMakeLists.txt:69` (`test_gcs_global_db_sdk` registered), `test/test_gcs_global_db_sdk.cpp:114`
 **Issue:** aa6f565 pinned ports 41500-41503 for `test_gcs_ffi`, `test_gcs_ffi_sdk`,
 `test_gcs_ffi_coldboot`, and the Dart smoke test, with the rationale that
@@ -246,6 +272,11 @@ kPinnedPubsubPort = 41504;` with the `network_config.json` write) to
 
 ### IN-01: `Messaging::QueryHistory` is invoked under `g_mutex`, violating the file's own "Messaging methods are NEVER called under g_mutex" invariant
 
+**Status (fix pass 2):** FIXED (comment precision, the review's first option) — commit
+`bb5cad5`. The invariant now states the precise rule: no Messaging method that pushes
+via the sink may run under `g_mutex`; `QueryHistory`'s converged local scan stays
+under the lock deliberately.
+
 **File:** `src/ffi/gcs_core_ffi.cpp:444-455` (`PushMessageHistory`), callers at `:587` and `:902`; invariant stated at `:730-736`
 **Issue:** The kJoinTopic arm and `RefreshDerivedJoins` both call `PushMessageHistory`
 (→ `g_messaging->QueryHistory`) while holding `g_mutex`. Today this is benign —
@@ -260,6 +291,10 @@ via the sink may run under `g_mutex`") or route `PushMessageHistory` through the
 
 ### IN-02: `gcs_init` failure after `EnsureSdkBooted` leaves the embedded node running with no session
 
+**Status (fix pass 2):** FIXED — commit `fcdc1fa`. The `Initialize()` failure return
+now calls `GeniusSDKShutdown()` and clears `g_sdkBootedHere` when this library booted
+the node, mirroring the smoke-topic failure path.
+
 **File:** `src/ffi/gcs_core_ffi.cpp:680-692`
 **Issue:** If `session->Initialize()` fails (or the smoke-topic join fails) after
 `EnsureSdkBooted` booted the embedded node, the node is never shut down on the error
@@ -272,6 +307,10 @@ path's `session->Shutdown()`).
 
 ### IN-03: The required-db-path guard checks only `null` — an empty-string `dbPath` still silently falls back to the system temp dir
 
+**Status (fix pass 2):** FIXED — commit `292cbaf`. The guard is now
+`if (dbPath == null || dbPath.isEmpty)` and emits the error state; regression coverage
+in `shell_cubits_test.dart`.
+
 **File:** `src/app/lib/cubits/session_cubit.dart:248-257`
 **Issue:** The guard introduced with the per-instance base-path work rejects a missing
 db path, but `GcsConfig.db_path == ""` passes it and reaches
@@ -282,6 +321,10 @@ programmatic misuse of `SessionCubit`/`GCSChat(dbPath: '')`.
 **Fix:** `if (dbPath == null || dbPath.isEmpty) { ... emit error ... return; }`.
 
 ### IN-04: `--instance=KEY` value is not sanitized — path traversal within (and beyond) the application-support directory
+
+**Status (fix pass 2):** FIXED — commit `778792f`. `instanceKeyFromArgs` now validates
+against `kInstanceKeyPattern = RegExp(r'^[A-Za-z0-9_-]{1,64}$')` and falls back to
+`kDefaultInstanceKey`, so adversarial keys never splice into the per-instance path.
 
 **File:** `src/app/lib/main.dart:39-46` and `:54-60`
 **Issue:** `instanceKeyFromArgs` accepts any non-empty suffix, including `../`, `/`,
@@ -294,6 +337,10 @@ check in `instanceKeyFromArgs`, falling back to `kDefaultInstanceKey`).
 
 ### IN-05: Repeated `join_topic` for an already-joined room arms a duplicate live subscription each time
 
+**Status (fix pass 2):** FIXED — commit `901e1e8`. When the topic was already present
+in `g_roomTopics` before the command, the kJoinTopic arm now skips both `SubscribeLive`
+and the history replay (idempotent re-join returns success without re-arming).
+
 **File:** `src/ffi/gcs_core_ffi.cpp:884-911`
 **Issue:** The idempotence guard covers `g_roomTopics`/`g_explicitTopics` only;
 `SubscribeLive` runs unconditionally on every join command, so each re-join of the same
@@ -304,6 +351,16 @@ the duplicates — the re-join burns subscription slots and multiplies strand wo
 already present in `g_roomTopics` before the command.
 
 ### IN-06: Archive-drain Puts execute after `GeniusSDKShutdown()` — queued receive-path archives may lose their CRDT replication at shutdown
+
+**Status (fix pass 2):** RESOLVED BY VERIFICATION — commit `1a1764f` (comment-only; the
+ordering stays). Verified against the SDK sources: `GlobalDB::Put`'s synchronous path
+(`GcsGlobalDb::Put` → `CrdtDatastore::PutKey` → `Publish` → DagWorker job → merge →
+`addNode` → heads update) is session-owned machinery that never touches the pubsub, and
+`WaitForJob` unblocks in `HandleJobProcessingSuccess` independent of any broadcast; the
+pubsub carries only the decoupled outbound announcement, whose failures are logged and
+never propagate to the Put result. Per the finding's own decision rule ("if it can fail
+wholesale, move the drain"), the drain does not move; the verified contract is now
+documented at the drain site.
 
 **File:** `src/ffi/gcs_core_ffi.cpp:245-264`
 **Issue:** WR-01's fix orders `messaging.reset()` (drain + join) before
@@ -321,6 +378,9 @@ not before the drain's local Puts).
 
 ### IN-07: Magic number `+ 4` in the sender-truncation threshold
 
+**Status (fix pass 2):** FIXED — commit `5c12ceb`. Named `kSenderShortMarkerLength =
+2 + 1` (`'0x'` + `'…'`) and `kSenderShortHeadroomLength`, replacing the bare `+ 4`.
+
 **File:** `src/app/lib/cubits/message_flow_cubit.dart:50-53`
 **Issue:** `kSenderShortPrefixLength + kSenderShortSuffixLength + 4` — the `4` is the
 `'0x'` marker + ellipsis allowance (and is actually one larger than needed:
@@ -330,6 +390,11 @@ truncation boundary harder to reason about.
 `kSenderShortPrefixLength + kSenderShortSuffixLength + kSenderShortMarkerLength`.
 
 ### IN-08: Cubit `close()` futures are not awaited in shell `dispose`
+
+**Status (fix pass 2):** FIXED — commit `c24c4f7`. The close futures are now observed
+via a bounded unawaited `Future.wait` in `dispose` — explicit under the
+`unawaited_futures` lint gate while keeping `_closeNativeOnce()` synchronous first,
+preserving the native teardown ordering contract.
 
 **File:** `src/app/lib/shell/gcs_shell.dart:114-131`
 **Issue:** `_composerCubit.close()`, `_sessionCubit.close()`, etc. return futures

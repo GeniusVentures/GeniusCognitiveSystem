@@ -140,3 +140,177 @@ The lock-drain-gate reasoning above is the actual fix and deserves a read.
 _Fixed: 2026-09-24T01:15:06Z_
 _Fixer: Claude (gsd-code-fixer)_
 _Iteration: 1_
+
+# Phase 03: Code Review Fix Report — Iteration 2
+
+**Fixed at:** 2026-09-25T00:03:01Z
+**Source review:** .planning/workstreams/app/phases/03-messaging/03-REVIEW.md
+(deep re-run commit `1b88690`: 1 Critical / 4 Warnings / 8 Info)
+**Iteration:** 2 (--all scope)
+
+**Summary:**
+- Findings in scope: 13 (CR-01, WR-01..04, IN-01..08)
+- Fixed: 11 (one atomic commit each, `fix(03): <ID> <description>`)
+- Resolved by verification (no ordering change): 1 (IN-06)
+- Deferred by owner: 1 (WR-02 — recorded in deferred-items.md)
+
+Fixes were applied directly on `feature/03-messaging` (shared incremental build dir,
+per iteration 1's process note). Commits (application order):
+`17e750a` (CR-01), `114e662` (WR-01), `63a9748` (WR-03), `4edc257` (WR-04),
+`bb5cad5` (IN-01), `fcdc1fa` (IN-02), `292cbaf` (IN-03), `778792f` (IN-04),
+`901e1e8` (IN-05), `5c12ceb` (IN-07), `c24c4f7` (IN-08), then `1a1764f` (IN-06).
+
+## Fixed Issues (iteration 2)
+
+### CR-01: Pushed message events are not gated by room
+
+**Files modified:** `src/app/lib/cubits/session_cubit.dart`, `src/app/test/cubits/shell_cubits_test.dart`
+**Commit:** 17e750a
+**Applied fix:** Both `_dispatchEvent` arms (live `message`, `messageHistory`) gate on
+`_railCubit?.state.activeRoom == event.<payload>.roomTopic` before
+`upsert`/`replaceAll`, per the review's minimal sketch. Live traffic and history
+replays from non-active rooms no longer render into the active room's flow.
+
+### WR-01: The `std::atexit` teardown hook bypasses the CR-02/WR-02 safety machinery
+
+**Files modified:** `src/ffi/gcs_core_ffi.cpp`
+**Commit:** 114e662
+**Applied fix:** `TeardownSessionAndNode` latches `g_receivingDisabled`/`g_tearingDown`
+first on every path (the review's "at minimum"). The null-lock exit path `try_lock`s
+`g_mutex` (never wedging exit if a thread died holding it), drains `g_inFlight` via
+`g_idleCond.wait_for` under the bounded `kExitTeardownDrainTimeout`, and the eviction
+of the guarded globals runs under whichever lock was acquired — no unlocked
+`std::move` of the globals, no double-destroy against a concurrent `gcs_shutdown`.
+
+### WR-03: Archive key grammar ambiguous for room topics containing '/'
+
+**Files modified:** `src/ffi/gcs_core_ffi.cpp`, `test/test_gcs_ffi_sdk.cpp`
+**Commit:** 63a9748
+**Applied fix:** The review's minimal boundary fix: the `join_topic` and `send_text`
+arms reject room topics containing '/' with `GCS_ERROR_INVALID_ARGUMENT` +
+`PostErrorNotice` (topics are ASCII `gcs/chat/<id>` by construction), closing the
+cross-room prefix-scan leak. Regression coverage in `test_gcs_ffi_sdk.cpp`.
+
+### WR-04: `test_gcs_global_db_sdk` on the collision-prone derived port
+
+**Files modified:** `test/test_gcs_global_db_sdk.cpp`
+**Commit:** 4edc257
+**Applied fix:** The binary's `SetUp` writes the `network_config.json` pin with
+`kPinnedPubsubPort = 41504` (next free value after aa6f565's 41500-41503), matching
+the `test_gcs_ffi.cpp:76-82` pattern — completing the "every node-booting test
+binary" claim.
+
+### IN-01: Under-`g_mutex` `QueryHistory` vs the file's stated invariant
+
+**Files modified:** `src/ffi/gcs_core_ffi.cpp`
+**Commit:** bb5cad5
+**Applied fix:** The review's first option: the invariant comment now states the
+precise rule — no Messaging method that pushes via the sink may run under `g_mutex`;
+`QueryHistory`'s converged local scan stays under the lock deliberately.
+
+### IN-02: `gcs_init` failure after `EnsureSdkBooted` leaks the embedded node
+
+**Files modified:** `src/ffi/gcs_core_ffi.cpp`
+**Commit:** fcdc1fa
+**Applied fix:** The `Initialize()` failure return calls `GeniusSDKShutdown()` and
+clears `g_sdkBootedHere` when this library booted the node, mirroring the smoke-topic
+failure path's session shutdown.
+
+### IN-03: Empty-string `dbPath` silently falls back to the system temp dir
+
+**Files modified:** `src/app/lib/cubits/session_cubit.dart`, `src/app/test/cubits/shell_cubits_test.dart`
+**Commit:** 292cbaf
+**Applied fix:** The required-db-path guard is now `dbPath == null || dbPath.isEmpty`
+and emits the error state instead of reaching `SessionBasePath`'s temp-dir fallback.
+
+### IN-04: `--instance=KEY` not sanitized — path traversal
+
+**Files modified:** `src/app/lib/main.dart`
+**Commit:** 778792f
+**Applied fix:** `instanceKeyFromArgs` validates against
+`kInstanceKeyPattern = RegExp(r'^[A-Za-z0-9_-]{1,64}$')`, falling back to
+`kDefaultInstanceKey` — adversarial keys never splice into the per-instance base path.
+
+### IN-05: Duplicate live subscription on repeated `join_topic`
+
+**Files modified:** `src/ffi/gcs_core_ffi.cpp`
+**Commit:** 901e1e8
+**Applied fix:** When the topic was already present in `g_roomTopics` before the
+command, the kJoinTopic arm skips `SubscribeLive` and the history replay — an
+idempotent re-join no longer burns subscription slots or multiplies strand work.
+
+### IN-07: Magic number `+ 4` in the sender-truncation threshold
+
+**Files modified:** `src/app/lib/cubits/message_flow_cubit.dart`
+**Commit:** 5c12ceb
+**Applied fix:** Named constants `kSenderShortMarkerLength` (`'0x'` + `'…'`) and
+`kSenderShortHeadroomLength` replace the bare `+ 4`.
+
+### IN-08: Cubit `close()` futures not awaited in shell `dispose`
+
+**Files modified:** `src/app/lib/shell/gcs_shell.dart`
+**Commit:** c24c4f7
+**Applied fix:** The close futures are observed via a bounded unawaited `Future.wait` —
+explicit under the `unawaited_futures` lint gate — with `_closeNativeOnce()` still
+running synchronously before the first await, preserving the native teardown ordering
+contract.
+
+## Resolved by Verification (iteration 2)
+
+### IN-06: Archive-drain Puts execute after `GeniusSDKShutdown()`
+
+**Files modified:** `src/ffi/gcs_core_ffi.cpp` (comment-only)
+**Commit:** 1a1764f
+**Verification:** The finding's decision rule — "verify `GlobalDB::Put`'s contract
+against a stopped pubsub; if it can fail wholesale, move the messaging drain before
+`GeniusSDKShutdown()`" — was traced end to end through the actual SDK sources
+(SuperGenius `crdt_datastore.cpp`, `globaldb.cpp`; GCS `gcs_global_db.cpp`):
+
+- `GcsGlobalDb::Put` gates only on its own `m_running` (cleared in its `Shutdown()`,
+  which runs later in session teardown — still true at drain time).
+- The synchronous path (`PutKey` → `Publish` → `AddDAGNode` DagWorker job →
+  `MergeDataFromDelta` RocksDB merge → `dagSyncer_->addNode` → `UpdateCRDTHeads`) is
+  session-owned machinery that never touches the pubsub, and is still alive at drain
+  time (`session->Shutdown()` comes after `messaging.reset()`).
+- `WaitForJob` unblocks in `HandleJobProcessingSuccess`, independent of any broadcast.
+- The pubsub participates only in the decoupled outbound announcement
+  (`pendingBroadcastTopics_` → `HandleCIDBroadcast`/rebroadcast threads →
+  `Broadcaster`), whose failures are logged and never propagate to the Put result.
+
+**Ruling:** `Put` does not fail wholesale against a stopped pubsub — the local write
+lands; only the announcement is skipped, and the CRDT heal recovers replication from
+the sender's copy (the finding's own impact note). The drain does not move; the
+verified contract is documented at the drain site above `messaging.reset()`.
+
+## Deferred Issues (iteration 2)
+
+### WR-02: Room encryption key derived solely from the public room topic
+
+**Deferred by owner** — Phase 4 territory (per-room key material via the membership
+layer). Durably tracked in `deferred-items.md`. The interim user-facing-copy half of
+the fix is vacuous: no UI copy claims encryption today, so there is nothing to soften.
+
+## Verification
+
+Per the IN-06 fix (the only iteration-2 commit touching compilable code after
+`c24c4f7`): `ninja` in `build/OSX/Debug` clean; `ctest -R
+"test_gcs_messaging|test_gcs_crypto|test_gcs_core" --output-on-failure` — 4/4 passed;
+`ctest -R "test_gcs_ffi" --output-on-failure` — 4/4 passed (test_gcs_ffi 9.1s,
+test_gcs_ffi_sdk 42.6s, test_gcs_ffi_coldboot 17.9s), no shutdown hangs.
+
+The eleven code fixes preceding it were committed during the earlier fix pass with
+the same C++ suites green at each step (matching iteration 1's discipline).
+
+## Process notes
+
+- Fixes applied directly on `feature/03-messaging`, per iteration 1's process note
+  (shared incremental build dir with configured submodule/thirdparty trees).
+- Dart-side fixes (CR-01, IN-03, IN-04, IN-07, IN-08) verified on the final state:
+  `cd src/app && flutter test` — 57 passed, 1 skipped (unchanged baseline). IN-06
+  added no Dart surface.
+
+---
+
+_Fixed: 2026-09-25T00:03:01Z_
+_Fixer: Claude (interactive fix pass)_
+_Iteration: 2_
