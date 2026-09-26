@@ -43,6 +43,7 @@
 #include <random>
 #include <string>
 #include <system_error>
+#include <thread>
 #include <vector>
 
 namespace
@@ -80,6 +81,10 @@ namespace
     // (WR-01): the exit hook may not block forever on a wedged sender, so
     // the drain gives up after this timeout and proceeds best-effort.
     constexpr std::chrono::seconds kExitTeardownDrainTimeout{ 2 };
+    // Retry interval between bounded try_lock attempts on the process-exit
+    // teardown path (P1): short enough that a live mutex holder releasing it
+    // is picked up promptly, long enough that the retry loop never spins.
+    constexpr std::chrono::milliseconds kExitLockRetryInterval{ 10 };
     // Dev config accepted by GeniusSDKInit's parser — offline-safe placeholder
     // token parameters (identical to the C++ test fixtures' kDevConfig). Used
     // when gcs_init boots the embedded node itself.
@@ -208,6 +213,35 @@ namespace
     }
 
     /**
+     * \brief Bounded best-effort acquisition of g_mutex for the exit hook (P1).
+     *
+     * A single try_lock fails whenever any callback or FFI call holds g_mutex
+     * at the instant the hook fires, but at atexit those holders are live
+     * threads that release it in bounded time — so retry try_lock until the
+     * same budget the in-flight drain uses elapses. Sleeping between attempts
+     * (never blocking on the mutex itself) keeps the hook safe against a
+     * thread that died holding g_mutex: the loop gives up at the deadline
+     * instead of wedging exit forever.
+     *
+     * \param[in,out] exitLock  The deferred unique_lock to acquire.
+     * \return true when the lock is held on return; false when the budget
+     *         elapsed — the caller must then NOT touch the guarded globals.
+     */
+    bool TryAcquireExitLockBounded( std::unique_lock<std::mutex> *exitLock )
+    {
+        const auto deadline = std::chrono::steady_clock::now() + kExitTeardownDrainTimeout;
+        while ( !exitLock->try_lock() )
+        {
+            if ( std::chrono::steady_clock::now() >= deadline )
+            {
+                return false;
+            }
+            std::this_thread::sleep_for( kExitLockRetryInterval );
+        }
+        return true;
+    }
+
+    /**
      * \brief Tears the global session and the embedded node down.
      *
      * Single teardown body shared by gcs_shutdown (passing its held
@@ -232,12 +266,16 @@ namespace
      *
      * The process-exit caller passes nullptr and holds no lock. WR-01: it
      * still gates receive intake first (atomically, before touching
-     * anything), then acquires g_mutex best-effort — try_lock, because a
-     * thread may have died holding it — so the eviction below is serialized
-     * against receive callbacks and a concurrent gcs_shutdown, and the
-     * in-flight count is drained under it with a BOUNDED wait (exit must not
-     * hang on a wedged sender). When the try_lock fails the hook proceeds
-     * destructively as before, with the intake gate already closed.
+     * anything), then acquires g_mutex with a BOUNDED try_lock retry loop
+     * (a single shot failed whenever a live callback held g_mutex at that
+     * instant; a blocking lock would wedge exit on a dead holder) so the
+     * eviction below is serialized against receive callbacks and a
+     * concurrent gcs_shutdown, and the in-flight count is drained under it
+     * with a BOUNDED wait (exit must not hang on a wedged sender). When the
+     * budget elapses without acquiring the mutex the hook ABANDONS teardown
+     * (P1): proceeding to evict the guarded globals without the lock raced
+     * every live thread's guarded reads, so the objects are left for process
+     * reclamation instead.
      *
      * \param[in] lock  gcs_shutdown's held unique_lock, or nullptr on the
      *                  process-exit path.
@@ -261,31 +299,34 @@ namespace
         // GeniusSDKShutdown() runs ~GeniusNode's coordinated stop first; the
         // borrowed objects stay alive for the session teardown because the
         // shared Network owns shared_ptrs to the host and scheduler.
-        const bool sdkBootedHere = g_sdkBootedHere;
-        g_sdkBootedHere = false;
 
-        // WR-01: the process-exit caller holds no lock. Acquire g_mutex
-        // best-effort (try_lock — a thread may have died holding it, and the
-        // hook must not wedge at exit) so the eviction below is serialized
-        // against receive callbacks and a concurrent gcs_shutdown, then
-        // drain the in-flight count under it with a bounded wait. Never
-        // attempted when the caller already holds the lock (double-locking a
-        // std::mutex on the normal path would be undefined).
+        // WR-01: the process-exit caller holds no lock. Acquire g_mutex with
+        // a BOUNDED try_lock retry (never a blocking lock — a thread may
+        // have died holding it, and the hook must not wedge at exit) so the
+        // eviction below is serialized against receive callbacks and a
+        // concurrent gcs_shutdown, then drain the in-flight count under it
+        // with a bounded wait. Never attempted when the caller already holds
+        // the lock (double-locking a std::mutex on the normal path would be
+        // undefined). P1: when the budget elapses the hook ABANDONS teardown
+        // — moving the guarded globals without the lock raced every live
+        // thread's guarded reads (use-after-free at exit), which is strictly
+        // worse than leaving the objects for process reclamation. The SDK
+        // pairing flag is consumed only AFTER acquisition so an abandoned
+        // hook leaves the boot/shutdown pairing intact for whoever runs next.
         std::unique_lock<std::mutex> exitLock( g_mutex, std::defer_lock );
         if ( lock == nullptr )
         {
-            exitLock.try_lock();
-            if ( exitLock.owns_lock() )
+            if ( !TryAcquireExitLockBounded( &exitLock ) )
             {
-                g_idleCond.wait_for( exitLock, kExitTeardownDrainTimeout,
-                                     [] { return g_inFlight == 0; } );
+                spdlog::error( "gcs_ffi: exit-path teardown could not acquire the session "
+                               "mutex within the bounded budget — abandoning teardown" );
+                return;
             }
-            else
-            {
-                spdlog::warn( "gcs_ffi: exit-path teardown could not acquire the session "
-                              "mutex — proceeding without the in-flight drain" );
-            }
+            g_idleCond.wait_for( exitLock, kExitTeardownDrainTimeout,
+                                 [] { return g_inFlight == 0; } );
         }
+        const bool sdkBootedHere = g_sdkBootedHere;
+        g_sdkBootedHere = false;
 
         // Evict the guarded globals while the lock is held, then destroy the
         // evicted objects with the lock RELEASED. The eviction is what makes
