@@ -314,3 +314,94 @@ the same C++ suites green at each step (matching iteration 1's discipline).
 _Fixed: 2026-09-25T00:03:01Z_
 _Fixer: Claude (interactive fix pass)_
 _Iteration: 2_
+
+# Phase 03: Code Review Fix Report — Iteration 3
+
+**Fixed at:** 2026-09-25T18:15:00Z
+**Source review:** Codex PR review on PR #15 (commit `30afa24`: 2 P1 / 2 P2)
+**Iteration:** 3 (gsd-inbox PR triage)
+
+**Summary:**
+- Findings in scope: 4 (P1 x2, P2 x2)
+- Fixed: 4 (one atomic commit each, `fix(03): <description>`)
+- One finding (P2 upsert ordering) was already fixed by `8333676` before the
+  triage — its thread resolved as outdated with a pointer to that commit.
+
+Fixes were applied directly on `feature/03-messaging`. Commits (application
+order): `c05b2c1` (P1 history refill), `ea85bf1` (P1 exit-path teardown),
+`4eb5197` (P2 double toast).
+
+## Fixed Issues (iteration 3)
+
+### P1: Room history never becomes visible when the room is selected later
+
+**Files modified:** `src/ffi/gcs_core_ffi.cpp`, `src/app/lib/cubits/session_cubit.dart`,
+`src/app/lib/cubits/message_flow_cubit.dart`, `src/app/test/cubits/shell_cubits_test.dart`,
+`test/test_gcs_ffi_sdk.cpp`
+**Commit:** c05b2c1
+**Applied fix:** The join-time MessageHistory push is discarded by CR-01's
+active-room gate until the room is selected, and nothing replayed on selection.
+join_topic now pushes `PushMessageHistory` on re-join too (IN-05's hazard was
+the live subscribe, which stays skipped), and `SessionCubit` watches the rail
+stream (the same seam `ComposerCubit` uses): on an active-room CHANGE it clears
+the flow (`MessageFlowCubit.clear()`) and re-publishes the idempotent
+join_topic; the replay then passes the gate and refills the flow. Live messages
+that arrived while the room was inactive are already archived on arrival, so
+the replay picks them up too — the reason a Dart-side per-room cache was
+rejected. Verified: new `GcsFfiSdk.RejoinPushesMessageHistoryReplay` (C++) and
+two new SessionCubit tests (selection publishes + clears; redundant rail
+emissions do not re-publish).
+
+### P1: atexit teardown proceeds unguarded when try_lock fails
+
+**Files modified:** `src/ffi/gcs_core_ffi.cpp`
+**Commit:** ea85bf1
+**Applied fix:** The exit-path fallback moved `g_session`/`g_entities`/
+`g_messaging` without holding g_mutex, racing every live thread's guarded
+reads (use-after-free at exit). `TryAcquireExitLockBounded` retries try_lock
+(`kExitLockRetryInterval` = 10 ms) under the same budget the in-flight drain
+uses; on budget expiry the hook logs and ABANDONS teardown — the globals are
+left for process reclamation instead of being raced. The `g_sdkBootedHere`
+pairing flag is consumed only after acquisition so an abandoned hook leaves
+the boot/shutdown pairing intact. Not directly unit-testable (g_mutex lives
+in an anonymous namespace; test mains `std::_Exit` past atexit) — verified by
+the full suite staying green.
+
+### P2: Two toasts for one native send failure
+
+**Files modified:** `src/app/lib/shell/gcs_shell.dart`
+**Commit:** 4eb5197
+**Applied fix:** The ERROR-state bubble minted by `Messaging::SendMessage`'s
+terminal-failure path and `gcs_publish`'s `GCS_ERROR_GENERIC` →
+`send() == false` are two surfaces of ONE synchronous failure, so the
+immediate toast and the flow-listener toast (`_onFlowChanged` /
+`_maybeToastSendFailure` / `_toastedErrorIds`) duplicated. The flow-listener
+toast is removed: every failure — including no-session and boundary rejects
+that never mint a bubble — toasts exactly once from the send path, and the
+error bubble keeps its error chrome in the flow. The rejected alternative
+(C++ returning OK after a surfaced failure) would clear the draft on a failed
+send and change the ABI contract.
+
+### P2: upsert replaces at the end, breaking flow order
+
+**Already fixed** by `8333676` ("upsert replaces in place preserving flow
+order", in the PR before triage); the Codex review ran against `30afa24`.
+Thread resolved as outdated with a pointer to that commit.
+
+## Verification
+
+Full regression on the final state: `ninja` in `build/OSX/Debug` clean;
+`ctest` — 11/11 passed (storage, global_db_sdk, core_smoke, entities, crypto,
+messaging, messaging_multinode, ffi, ffi_sdk, ffi_coldboot, ffi_dart);
+`cd src/app && flutter test` — 60 passed, 1 skipped.
+
+## Process notes
+
+- Findings addressed via `/gsd-inbox --prs #15` + `gh-address-comments`; each
+  thread on the PR gets an explanatory reply and is resolved.
+
+---
+
+_Fixed: 2026-09-25T18:15:00Z_
+_Fixer: Claude (gsd-inbox PR triage)_
+_Iteration: 3_
