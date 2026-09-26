@@ -139,6 +139,23 @@ class _FixedResultTransport implements GcsCommandTransport {
   }
 }
 
+/// SessionCubit double recording outgoing publishes (review P1 seam): the
+/// room-activation join_topic re-publish is observable only through the
+/// transport [SessionCubit] itself implements.
+class _RecordingSessionCubit extends SessionCubit {
+  /// Creates a recording session over the optional dispatch targets.
+  _RecordingSessionCubit({super.railCubit, super.messageFlowCubit});
+
+  /// Command envelopes handed to the transport (D-27 seam).
+  final List<GcsCommand> publishedCommands = <GcsCommand>[];
+
+  @override
+  bool publishCommand(GcsCommand command) {
+    publishedCommands.add(command);
+    return true;
+  }
+}
+
 void main() {
   group('RailCubit', () {
     test('starts empty with no selection and no hardcoded rooms', () {
@@ -724,6 +741,106 @@ void main() {
           (flow.state.single as ChatFlowItemTextBubble).instanceId,
           'in-a',
         );
+      },
+    );
+
+    test(
+      'selecting a room clears the flow and re-publishes join_topic (P1)',
+      () async {
+        final RailCubit rail = RailCubit();
+        final MessageFlowCubit flow = MessageFlowCubit();
+        final _RecordingSessionCubit cubit = _RecordingSessionCubit(
+          railCubit: rail,
+          messageFlowCubit: flow,
+        );
+        addTearDown(cubit.close);
+        addTearDown(rail.close);
+        addTearDown(flow.close);
+
+        rail.setRooms(<String>['gcs/chat/a', 'gcs/chat/b']);
+        rail.selectRoom('gcs/chat/a');
+        // Bloc stream events deliver asynchronously — flush before asserting
+        // on what the session listener did.
+        await pumpEventQueue();
+        // Seed the flow with room A content; switching to room B must not
+        // leave it lingering while B's replay is in flight.
+        flow.append(
+          flow.buildChatFlowItemTextBubble(
+            ChatMessageState()
+              ..id = 'in-a'
+              ..role = MessageRole.MESSAGE_ROLE_USER_SELF
+              ..state = MessageState.MESSAGE_STATE_COMPLETE
+              ..text = 'stays',
+          ),
+        );
+        expect(cubit.publishedCommands, hasLength(1));
+
+        rail.selectRoom('gcs/chat/b');
+        await pumpEventQueue();
+
+        expect(flow.state, isEmpty, reason: 'switching rooms clears the flow');
+        expect(cubit.publishedCommands, hasLength(2));
+        expect(cubit.publishedCommands.last.hasJoinTopic(), isTrue);
+        expect(
+          cubit.publishedCommands.last.joinTopic.roomTopic,
+          'gcs/chat/b',
+        );
+
+        // The selection-driven replay for the now-active room passes the
+        // gate and refills the cleared flow.
+        cubit.handlePushedBytes(
+          (GcsEvent()
+                ..messageHistory = (MessageHistory()
+                  ..roomTopic = 'gcs/chat/b'
+                  ..message.add(
+                    ChatMessageState()
+                      ..id = 'hist-b'
+                      ..role = MessageRole.MESSAGE_ROLE_USER_PEER
+                      ..state = MessageState.MESSAGE_STATE_COMPLETE
+                      ..text = 'b history',
+                  )))
+              .writeToBuffer(),
+        );
+        expect(flow.state, hasLength(1));
+        expect((flow.state.single as ChatFlowItemTextBubble).instanceId,
+            'hist-b');
+      },
+    );
+
+    test(
+      'redundant rail emissions do not re-publish the activation join',
+      () async {
+        final RailCubit rail = RailCubit();
+        final _RecordingSessionCubit cubit = _RecordingSessionCubit(
+          railCubit: rail,
+        );
+        addTearDown(cubit.close);
+        addTearDown(rail.close);
+
+        rail.setRooms(<String>['gcs/chat/a', 'gcs/chat/b']);
+        rail.selectRoom('gcs/chat/a');
+        await pumpEventQueue();
+        expect(cubit.publishedCommands, hasLength(1));
+
+        // Same active room pushed again (RoomList refresh): no re-publish.
+        rail.setRooms(<String>['gcs/chat/a', 'gcs/chat/b']);
+        await pumpEventQueue();
+        expect(cubit.publishedCommands, hasLength(1));
+
+        // Redundant re-selection is already ignored by RailCubit.
+        rail.selectRoom('gcs/chat/a');
+        await pumpEventQueue();
+        expect(cubit.publishedCommands, hasLength(1));
+
+        // A cleared selection (room dropped from the list) publishes
+        // nothing; selecting another room afterwards publishes for it.
+        rail.setRooms(<String>['gcs/chat/b']);
+        await pumpEventQueue();
+        expect(cubit.publishedCommands, hasLength(1));
+        rail.selectRoom('gcs/chat/b');
+        await pumpEventQueue();
+        expect(cubit.publishedCommands, hasLength(2));
+        expect(cubit.publishedCommands.last.joinTopic.roomTopic, 'gcs/chat/b');
       },
     );
 
