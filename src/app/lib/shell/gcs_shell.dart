@@ -86,10 +86,6 @@ class _GCSChatState extends State<GCSChat> {
   late final bool _ownsMessageFlowCubit;
   late final bool _ownsComposerCubit;
 
-  /// instanceIds of pushed error items already toasted (D-07): the terminal
-  /// transport-failure signal toasts once per message id, never per emission.
-  final Set<String> _toastedErrorIds = <String>{};
-
   @override
   void initState() {
     super.initState();
@@ -156,14 +152,11 @@ class _GCSChatState extends State<GCSChat> {
               child: Column(
                 children: <Widget>[
                   Expanded(
-                    child: BlocListener<MessageFlowCubit, List<ChatFlowItem>>(
-                      listener: _onFlowChanged,
-                      child: BlocBuilder<MessageFlowCubit, List<ChatFlowItem>>(
-                        builder:
-                            (BuildContext context, List<ChatFlowItem> items) {
-                              return ChatMessageFlow(items: items);
-                            },
-                      ),
+                    child: BlocBuilder<MessageFlowCubit, List<ChatFlowItem>>(
+                      builder:
+                          (BuildContext context, List<ChatFlowItem> items) {
+                            return ChatMessageFlow(items: items);
+                          },
                     ),
                   ),
                   const _ComposerBar(),
@@ -176,39 +169,15 @@ class _GCSChatState extends State<GCSChat> {
     );
   }
 
-  /// Toasts once per newly-arrived error item (D-07): the C++ side pushes an
-  /// ERROR-state text bubble when a topic publish throws (03-04). Only text
-  /// bubbles carry the transport-failure signal; code/media items never toast.
-  /// Deduped by instanceId so a pending -> error upsert toasts exactly once.
-  void _onFlowChanged(BuildContext context, List<ChatFlowItem> items) {
-    for (final ChatFlowItem item in items) {
-      switch (item) {
-        case ChatFlowItemTextBubble():
-          _maybeToastSendFailure(context, item.instanceId, item.state);
-        case ChatFlowItemCodeBlock():
-        case ChatFlowItemMedia():
-          break;
-      }
-    }
-  }
-
-  /// Surfaces the D-07 "Send failed" toast for a terminal error state, once
-  /// per message id.
-  void _maybeToastSendFailure(
-    BuildContext context,
-    String instanceId,
-    String state,
-  ) {
-    if (state != 'error' || !_toastedErrorIds.add(instanceId)) {
-      return;
-    }
-    showToast(
-      context,
-      kSendFailedToastMessage,
-      title: kSendFailedToastTitle,
-      type: ToastType.error,
-    );
-  }
+  /// The send-failure toast surfaces EXACTLY ONCE per failed send, from the
+  /// synchronous `ComposerCubit.send()` false return in the composer bar /
+  /// send button below (D-07). The pushed ERROR-state bubble minted by
+  /// `Messaging::SendMessage`'s terminal-failure path and that false return
+  /// are two surfaces of the SAME synchronous failure, so toasting from the
+  /// flow listener as well produced a duplicate toast (review P2); the error
+  /// bubble still renders its error chrome in the flow, and failures that
+  /// never mint a bubble (no open session, boundary rejects) keep their
+  /// toast through the same send() path.
 }
 
 /// The bottom composer row of the center column: the scaffold composer
