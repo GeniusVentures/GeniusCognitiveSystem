@@ -1014,14 +1014,20 @@ extern "C"
                 g_explicitTopics.push_back( roomTopic );
             }
             PostToDart( BuildRoomListEvent() );
+            // D-06: replay the room's history as a pushed MessageHistory
+            // batch on EVERY join, re-join included (P1 review): the Dart
+            // side drops a batch while the room is not the active one, so a
+            // selection-driven re-join is what refills the flow when a room
+            // becomes active. IN-05's re-join hazard was the live subscribe
+            // below — each re-arm registers another gossipsub callback —
+            // which the early return still skips.
+            PushMessageHistory( roomTopic );
             if ( alreadyJoined )
             {
-                return GCS_OK; // IN-05: a re-join only refreshes the pushed room list
+                return GCS_OK; // IN-05: a re-join refreshes the room list + history only
             }
-            // D-06: replay the room's history as a pushed MessageHistory batch,
-            // THEN arm the raw live subscribe so any live message lands after
-            // the batch and is absorbed by the id-keyed dedupe (Pitfall 3).
-            PushMessageHistory( roomTopic );
+            // Arm the raw live subscribe AFTER the batch so any live message
+            // lands after it and is absorbed by the id-keyed dedupe (Pitfall 3).
             if ( !SubscribeLive( lock, roomTopic ) )
             {
                 // WR-03: the join itself registered (the RoomList with the

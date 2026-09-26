@@ -104,6 +104,14 @@ class MessageFlowCubit extends Cubit<List<ChatFlowItem>> {
     emit(ChatMessageFlowCubit.cappedItems(items));
   }
 
+  /// Clears the retained flow to empty. Room-switch seam (review P1): the
+  /// session clears the flow when the rail's active room changes so the
+  /// previously active room's items never linger while the new room's
+  /// history replay is in flight.
+  void clear() {
+    emit(ChatMessageFlowCubit.cappedItems(const <ChatFlowItem>[]));
+  }
+
   /// Builds a [ChatFlowItemTextBubble] from a decoded [ChatMessageState]:
   /// maps MessageRole -> user_self/user_peer/assistant/system, MessageState
   /// -> state chrome, and carries the C++-stamped id, text, and truncated

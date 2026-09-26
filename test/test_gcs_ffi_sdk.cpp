@@ -129,6 +129,9 @@ namespace
     constexpr const char kSpaceName[] = "ops";
     /// Room name created inside kSpaceName.
     constexpr const char kRoomName[] = "general";
+    /// Text sent before the re-join in the replay test (must appear in the
+    /// re-join's pushed MessageHistory batch).
+    constexpr const char kRejoinReplayText[] = "p1-rejoin-replay-text";
     /// GossipPubSub bind address for the verification store.
     constexpr const char kListenIp[] = "0.0.0.0";
     /// Maximum entity name length accepted by the FFI command arms (mirror
@@ -964,6 +967,71 @@ namespace gcs::test
         EXPECT_TRUE( roomListKeepsExplicit )
             << "explicitly-joined topic '" << derivedTopic
             << "' was revoked from the RoomList when autoJoinRooms toggled off";
+
+        gcs_shutdown( handle );
+    }
+
+    /**
+     * @brief P1 review regression: a re-join (join_topic for an already-joined
+     *        room) must push a MessageHistory replay, not only a RoomList.
+     *
+     * The Dart active-room gate discards the join-time replay until the room
+     * is selected, and selection drives an idempotent re-join to refill the
+     * flow — so the replay must fire on the re-join path too (the live
+     * subscribe stays skipped, IN-05). Sends one message, drains everything,
+     * re-joins, and asserts the re-join's pushes include a MessageHistory
+     * batch for the room containing the sent text.
+     */
+    TEST_F( GcsFfiSdk, RejoinPushesMessageHistoryReplay )
+    {
+        ASSERT_TRUE( InstallFakeApiDlTable() ) << "gcs_ffi rejected the fake Dart API_DL table";
+
+        const char *initPath = GeniusSDKInit( m_tempPath.c_str(), kDevConfig );
+        if ( initPath == nullptr )
+        {
+            GTEST_SKIP() << "GeniusSDKInit could not boot a node in this environment (option C)";
+        }
+        m_sdkStarted = true;
+
+        GcsSession *handle = InitSession( m_tempPath + "/db" );
+        ASSERT_NE( handle, nullptr ) << "SDK is up but gcs_init failed";
+        ASSERT_EQ( gcs_subscribe( handle, kEventTopic, kFakeDartPort ), GCS_OK );
+
+        gcs::chat::GcsCommand joinTopic;
+        joinTopic.mutable_join_topic()->set_room_topic( kRoomTopic );
+        PublishCommand( handle, joinTopic );
+
+        gcs::chat::GcsCommand sendText;
+        sendText.mutable_send_text()->set_room_topic( kRoomTopic );
+        sendText.mutable_send_text()->set_text( kRejoinReplayText );
+        PublishCommand( handle, sendText );
+        (void)g_pushedEvents.Take(); // drain the join + send pushes
+
+        // Re-join the already-joined room: the drain must carry the history
+        // replay (what refills the flow on the Dart side after a room switch).
+        PublishCommand( handle, joinTopic );
+
+        bool        sawReplay   = false;
+        std::string replayedText;
+        for ( const std::string &eventBytes : g_pushedEvents.Take() )
+        {
+            gcs::chat::GcsEvent event;
+            ASSERT_TRUE( event.ParseFromString( eventBytes ) );
+            if ( event.has_message_history() && event.message_history().room_topic() == kRoomTopic )
+            {
+                sawReplay = true;
+                for ( const auto &message : event.message_history().message() )
+                {
+                    if ( message.text() == kRejoinReplayText )
+                    {
+                        replayedText = message.text();
+                    }
+                }
+            }
+        }
+        EXPECT_TRUE( sawReplay ) << "re-join pushed no MessageHistory replay";
+        EXPECT_EQ( replayedText, kRejoinReplayText )
+            << "re-join replay batch does not include the sent message";
 
         gcs_shutdown( handle );
     }

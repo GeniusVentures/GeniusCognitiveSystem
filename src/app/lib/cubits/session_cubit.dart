@@ -19,9 +19,15 @@
 ///                not wipe the room the user is reading)
 ///   error    -> session error surface (raw string per D-29)
 ///
-/// [close] closes the ReceivePort BEFORE the native `gcs_shutdown` (pitfall
-/// ordering) exactly once; a null handle is a no-op (T-01-11-04: the handle
-/// never leaks to widgets).
+/// Rail selection is watched too (review P1): the active-room gate above
+/// discards a replay pushed while the room is not selected, so when the rail
+/// selection CHANGES the session clears the flow and re-publishes an
+/// idempotent join_topic for the newly active room -- the C++ side replays
+/// that room's MessageHistory on re-join, and the batch then passes the gate.
+///
+/// [close] cancels the rail subscription, then closes the ReceivePort BEFORE
+/// the native `gcs_shutdown` (pitfall ordering) exactly once; a null handle
+/// is a no-op (T-01-11-04: the handle never leaks to widgets).
 library;
 
 import 'dart:async';
@@ -124,7 +130,12 @@ class SessionCubit extends Cubit<SessionState> implements GcsCommandTransport {
        _dbPath = dbPath,
        _railCubit = railCubit,
        _messageFlowCubit = messageFlowCubit,
-       super(SessionState(error: initialError));
+       super(SessionState(error: initialError)) {
+    if (railCubit != null) {
+      _lastSeenActiveRoom = railCubit.state.activeRoom;
+      _railSubscription = railCubit.stream.listen(_onRailStateChanged);
+    }
+  }
 
   final GcsBindings? _bindings;
   final RailCubit? _railCubit;
@@ -134,6 +145,8 @@ class SessionCubit extends Cubit<SessionState> implements GcsCommandTransport {
   ffi.Pointer<GcsSession> _handle = ffi.Pointer<GcsSession>.fromAddress(0);
   ReceivePort? _receivePort;
   bool _nativeShutdownDone = false;
+  StreamSubscription<RailState>? _railSubscription;
+  String? _lastSeenActiveRoom;
 
   /// Creates the production session, resolving the gcs_ffi shared library
   /// from [kFfiLibraryEnvVar], falling back to the packaged location next to
@@ -256,7 +269,8 @@ class SessionCubit extends Cubit<SessionState> implements GcsCommandTransport {
     if (dbPath == null || dbPath.isEmpty) {
       emit(
         state.copyWith(
-          error: 'session db path not configured (main() derives it from '
+          error:
+              'session db path not configured (main() derives it from '
               'the per-user data directory)',
         ),
       );
@@ -352,11 +366,40 @@ class SessionCubit extends Cubit<SessionState> implements GcsCommandTransport {
     return status == GcsStatus.GCS_OK;
   }
 
-  /// Closes the ReceivePort BEFORE the native `gcs_shutdown`, exactly once
-  /// (idempotent guard; null handle no-op) -- pitfall ordering so the native
-  /// side can never post into a disposed port.
+  /// Requests the newly active room's history when the rail selection
+  /// changes (review P1): a MessageHistory batch pushed at join time is
+  /// discarded by the active-room gate while the room is not selected, so
+  /// the flow would otherwise keep showing the previously active room with
+  /// no way to refill. The join_topic publish is idempotent on the C++ side
+  /// (RoomList refresh + MessageHistory replay; the live subscribe is not
+  /// re-armed), and the replayed batch then passes the gate. The flow is
+  /// cleared first so the previous room's items never linger while the
+  /// replay is in flight. Redundant rail emissions (same active room) and
+  /// null selections publish nothing.
+  void _onRailStateChanged(RailState railState) {
+    final String? activeRoom = railState.activeRoom;
+    if (activeRoom == null) {
+      _lastSeenActiveRoom = null;
+      return;
+    }
+    if (activeRoom == _lastSeenActiveRoom) {
+      return;
+    }
+    _lastSeenActiveRoom = activeRoom;
+    _messageFlowCubit?.clear();
+    publishCommand(
+      GcsCommand()..joinTopic = (JoinTopicCommand()..roomTopic = activeRoom),
+    );
+  }
+
+  /// Cancels the rail subscription, then closes the ReceivePort BEFORE the
+  /// native `gcs_shutdown`, exactly once (idempotent guard; null handle
+  /// no-op) -- pitfall ordering so the native side can never post into a
+  /// disposed port and no selection-driven publish races the teardown.
   @override
   Future<void> close() async {
+    await _railSubscription?.cancel();
+    _railSubscription = null;
     _closeNativeOnce();
     await super.close();
   }
