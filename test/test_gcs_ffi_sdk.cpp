@@ -35,6 +35,7 @@
 #include <cstdint>
 #include <cstring>
 #include <filesystem>
+#include <fstream>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -88,6 +89,15 @@ namespace
      }
     )";
 
+    /// Pinned pubsub listen port for this binary's node, written to
+    /// network_config.json under the node base path in SetUp (db paths are
+    /// <tmp>/db, so the base path is the tmp dir; direct GeniusSDKInit calls
+    /// use the tmp dir as base too). GeniusNode derives ports as
+    /// 40001 + hash%301 with no availability probe, so parallel node
+    /// processes can collide on a derived port (observed in SuperGenius CI —
+    /// child_registration.cpp); the pin sits OUTSIDE the derived range and
+    /// differs per FFI test binary so parallel ctest runs never collide.
+    constexpr uint16_t kPinnedPubsubPort = 41501;
     /// Arbitrary non-zero fake Dart NativePort id (pushed-event capture seam).
     constexpr int64_t kFakeDartPort = 7777;
     /// Room joined and sent to in both session cycles.
@@ -100,8 +110,12 @@ namespace
     constexpr const char kCommandTopic[] = "gcs/command";
     /// Event-stream topic used for the subscribe call.
     constexpr const char kEventTopic[] = "gcs/event";
-    /// C++-stamped message id prefix (mirrors gcs_core_ffi.cpp kMessageIdPrefix).
+    /// C++-stamped message id prefix (mirrors gcs_messaging.cpp kMessageIdPrefix).
     constexpr const char kMessageIdPrefix[] = "msg-";
+    /// Phase 3 message archive key prefix (mirrors gcs_messaging.cpp
+    /// kMessagesKeyPrefix) — send_text archives each message under
+    /// "gcs/messages/<room_topic>/<id>" (D-01/D-03).
+    constexpr const char kMessagesKeyPrefix[] = "gcs/messages/";
     /// Minimum '-'-separated salt fields an id must carry after the prefix
     /// ("msg-<wallclock-ms>-<random-token>-<seq>" carries two: a revert to a
     /// bare per-process counter carries none and revisits prior key space).
@@ -115,6 +129,9 @@ namespace
     constexpr const char kSpaceName[] = "ops";
     /// Room name created inside kSpaceName.
     constexpr const char kRoomName[] = "general";
+    /// Text sent before the re-join in the replay test (must appear in the
+    /// re-join's pushed MessageHistory batch).
+    constexpr const char kRejoinReplayText[] = "p1-rejoin-replay-text";
     /// GossipPubSub bind address for the verification store.
     constexpr const char kListenIp[] = "0.0.0.0";
     /// Maximum entity name length accepted by the FFI command arms (mirror
@@ -257,6 +274,13 @@ namespace gcs::test
                                + std::to_string( uniqueSalt ) ) )
                              .string();
             std::filesystem::create_directories( m_tempPath );
+
+            // Pin the node's pubsub port (child_registration.cpp pattern):
+            // the node reads this file at InitNetwork.
+            std::ofstream networkConfig( m_tempPath + "/network_config.json" );
+            networkConfig << "{ \"port_seed\": " << kPinnedPubsubPort
+                          << ", \"auto_dht\": false, \"upnp_enabled\": false"
+                          << ", \"pubsub_port\": \"" << kPinnedPubsubPort << "\" }";
         }
 
         void TearDown() override
@@ -325,9 +349,16 @@ namespace gcs::test
             for ( const std::string &eventBytes : g_pushedEvents.Take() )
             {
                 gcs::chat::GcsEvent event;
+                // D-07: a send pushes pending + complete with the SAME id —
+                // collect each id once (unique ids, not the echo count).
                 if ( event.ParseFromString( eventBytes ) && event.has_message() )
                 {
-                    outMessageIds.push_back( event.message().id() );
+                    const std::string id = event.message().id();
+                    if ( std::find( outMessageIds.begin(), outMessageIds.end(), id )
+                         == outMessageIds.end() )
+                    {
+                        outMessageIds.push_back( id );
+                    }
                 }
             }
 
@@ -482,6 +513,11 @@ namespace gcs::test
 
         // Persistence proof: reopen the SAME db_path through an injected-pubsub
         // GcsGlobalDb (test seam — no second node) and read both cycles' records.
+        // Phase 3 (D-08): each record is archived as an encrypted envelope under
+        // gcs/messages/<room_topic>/<id>. The CR-01 proof is that BOTH id-keyed
+        // records survive without collision, so this asserts non-empty + distinct
+        // without decrypting (decrypt + text correctness is covered by
+        // test_gcs_messaging).
         auto pubsub = MakeStartedPubSub( m_tempPath + "/verify-key" );
         ASSERT_NE( pubsub, nullptr );
         auto graphsync = gcs::test::MakeGraphsyncContext( pubsub );
@@ -491,17 +527,14 @@ namespace gcs::test
         sgns::neoswarm::storage::GcsGlobalDb verifyDb( cfg );
         ASSERT_TRUE( verifyDb.Initialize( pubsub, graphsync.network ).has_value() );
 
-        const std::string recordA = WaitForRecord( verifyDb, std::string( kRoomTopic ) + "/" + idsA.front() );
-        ASSERT_FALSE( recordA.empty() );
-        gcs::chat::ChatMessageState messageA;
-        ASSERT_TRUE( messageA.ParseFromString( recordA ) );
-        EXPECT_EQ( messageA.text(), kSessionAText ) << "session A's record was overwritten (CR-01)";
+        const std::string recordA = WaitForRecord(
+            verifyDb, std::string( kMessagesKeyPrefix ) + kRoomTopic + "/" + idsA.front() );
+        ASSERT_FALSE( recordA.empty() ) << "session A's record was not persisted (CR-01)";
 
-        const std::string recordB = WaitForRecord( verifyDb, std::string( kRoomTopic ) + "/" + idsB.front() );
-        ASSERT_FALSE( recordB.empty() );
-        gcs::chat::ChatMessageState messageB;
-        ASSERT_TRUE( messageB.ParseFromString( recordB ) );
-        EXPECT_EQ( messageB.text(), kSessionBText );
+        const std::string recordB = WaitForRecord(
+            verifyDb, std::string( kMessagesKeyPrefix ) + kRoomTopic + "/" + idsB.front() );
+        ASSERT_FALSE( recordB.empty() ) << "session B's record was not persisted";
+        EXPECT_NE( recordA, recordB ) << "session A's record was overwritten (CR-01)";
 
         verifyDb.Shutdown();
         pubsub->Stop();
@@ -728,11 +761,13 @@ namespace gcs::test
     }
 
     /**
-     * @brief IN-08 regression: join_topic and send_text reject over-length
-     *        room_topic strings and send_text rejects over-length text (the
-     *        only pre-fix bound was the INT_MAX payload-narrowing guard),
-     *        each surfacing as GCS_ERROR_INVALID_ARGUMENT plus a pushed
-     *        ErrorNotice, while boundary-length values are accepted.
+     * @brief IN-08/WR-03 regression: join_topic and send_text reject
+     *        over-length room_topic strings, reject room topics whose shape
+     *        breaks the archive key grammar (anything but
+     *        'gcs/chat/<id>' with no additional '/'), and send_text rejects
+     *        over-length text — each surfacing as GCS_ERROR_INVALID_ARGUMENT
+     *        plus a pushed ErrorNotice, while boundary-length shape-valid
+     *        values are accepted.
      */
     TEST_F( GcsFfiSdk, OverLengthTopicAndTextRejectedInMessagingArms )
     {
@@ -759,6 +794,18 @@ namespace gcs::test
                                 payload.size() ),
                    GCS_ERROR_INVALID_ARGUMENT );
 
+        // WR-03: a topic carrying an extra '/' would make the archive key
+        // grammar ambiguous (a prefix scan for "gcs/chat/a" would also
+        // return room "gcs/chat/a/b"'s records) — rejected before any join.
+        gcs::chat::GcsCommand joinSlashShape;
+        joinSlashShape.mutable_join_topic()->set_room_topic( "gcs/chat/a/b" );
+        payload = joinSlashShape.SerializeAsString();
+        EXPECT_EQ( gcs_publish( handle,
+                                kCommandTopic,
+                                reinterpret_cast<const uint8_t *>( payload.data() ),
+                                payload.size() ),
+                   GCS_ERROR_INVALID_ARGUMENT );
+
         // Join the regression room, then push an over-length text to it.
         gcs::chat::GcsCommand joinRoom;
         joinRoom.mutable_join_topic()->set_room_topic( kRoomTopic );
@@ -774,10 +821,25 @@ namespace gcs::test
                                 payload.size() ),
                    GCS_ERROR_INVALID_ARGUMENT );
 
-        // Boundary: exactly kMaxTopicLength topic bytes join, and exactly
-        // kMaxMessageTextLength text bytes publish + echo.
+        // WR-03: same shape guard on the send arm.
+        gcs::chat::GcsCommand sendSlashShape;
+        sendSlashShape.mutable_send_text()->set_room_topic( "gcs/chat/a/b" );
+        sendSlashShape.mutable_send_text()->set_text( "shape" );
+        payload = sendSlashShape.SerializeAsString();
+        EXPECT_EQ( gcs_publish( handle,
+                                kCommandTopic,
+                                reinterpret_cast<const uint8_t *>( payload.data() ),
+                                payload.size() ),
+                   GCS_ERROR_INVALID_ARGUMENT );
+
+        // Boundary: exactly kMaxTopicLength topic bytes join (shape-valid:
+        // the "gcs/chat/" namespace plus filler to the exact byte budget),
+        // and exactly kMaxMessageTextLength text bytes publish + echo.
         gcs::chat::GcsCommand joinBoundary;
-        joinBoundary.mutable_join_topic()->set_room_topic( std::string( kMaxTopicLength, 'b' ) );
+        joinBoundary.mutable_join_topic()->set_room_topic(
+            std::string( kRoomTopicPrefix )
+            + std::string( kMaxTopicLength - std::char_traits<char>::length( kRoomTopicPrefix ),
+                           'b' ) );
         PublishCommand( handle, joinBoundary );
 
         gcs::chat::GcsCommand sendBoundary;
@@ -786,6 +848,7 @@ namespace gcs::test
         PublishCommand( handle, sendBoundary );
 
         bool sawTopicError   = false;
+        bool sawShapeError   = false;
         bool sawTextError    = false;
         bool sawBoundaryEcho = false;
         for ( const std::string &eventBytes : g_pushedEvents.Take() )
@@ -799,6 +862,10 @@ namespace gcs::test
                 {
                     sawTopicError = true;
                 }
+                if ( event.error().message().find( "no additional '/'" ) != std::string::npos )
+                {
+                    sawShapeError = true;
+                }
                 if ( event.error().message().find( "text exceeds maximum length" ) != std::string::npos )
                 {
                     sawTextError = true;
@@ -810,6 +877,7 @@ namespace gcs::test
             }
         }
         EXPECT_TRUE( sawTopicError ) << "over-length topic rejection pushed no ErrorNotice";
+        EXPECT_TRUE( sawShapeError ) << "slash-shape topic rejection pushed no ErrorNotice";
         EXPECT_TRUE( sawTextError ) << "over-length text rejection pushed no ErrorNotice";
         EXPECT_TRUE( sawBoundaryEcho ) << "boundary-length text was not accepted and echoed";
 
@@ -899,6 +967,71 @@ namespace gcs::test
         EXPECT_TRUE( roomListKeepsExplicit )
             << "explicitly-joined topic '" << derivedTopic
             << "' was revoked from the RoomList when autoJoinRooms toggled off";
+
+        gcs_shutdown( handle );
+    }
+
+    /**
+     * @brief P1 review regression: a re-join (join_topic for an already-joined
+     *        room) must push a MessageHistory replay, not only a RoomList.
+     *
+     * The Dart active-room gate discards the join-time replay until the room
+     * is selected, and selection drives an idempotent re-join to refill the
+     * flow — so the replay must fire on the re-join path too (the live
+     * subscribe stays skipped, IN-05). Sends one message, drains everything,
+     * re-joins, and asserts the re-join's pushes include a MessageHistory
+     * batch for the room containing the sent text.
+     */
+    TEST_F( GcsFfiSdk, RejoinPushesMessageHistoryReplay )
+    {
+        ASSERT_TRUE( InstallFakeApiDlTable() ) << "gcs_ffi rejected the fake Dart API_DL table";
+
+        const char *initPath = GeniusSDKInit( m_tempPath.c_str(), kDevConfig );
+        if ( initPath == nullptr )
+        {
+            GTEST_SKIP() << "GeniusSDKInit could not boot a node in this environment (option C)";
+        }
+        m_sdkStarted = true;
+
+        GcsSession *handle = InitSession( m_tempPath + "/db" );
+        ASSERT_NE( handle, nullptr ) << "SDK is up but gcs_init failed";
+        ASSERT_EQ( gcs_subscribe( handle, kEventTopic, kFakeDartPort ), GCS_OK );
+
+        gcs::chat::GcsCommand joinTopic;
+        joinTopic.mutable_join_topic()->set_room_topic( kRoomTopic );
+        PublishCommand( handle, joinTopic );
+
+        gcs::chat::GcsCommand sendText;
+        sendText.mutable_send_text()->set_room_topic( kRoomTopic );
+        sendText.mutable_send_text()->set_text( kRejoinReplayText );
+        PublishCommand( handle, sendText );
+        (void)g_pushedEvents.Take(); // drain the join + send pushes
+
+        // Re-join the already-joined room: the drain must carry the history
+        // replay (what refills the flow on the Dart side after a room switch).
+        PublishCommand( handle, joinTopic );
+
+        bool        sawReplay   = false;
+        std::string replayedText;
+        for ( const std::string &eventBytes : g_pushedEvents.Take() )
+        {
+            gcs::chat::GcsEvent event;
+            ASSERT_TRUE( event.ParseFromString( eventBytes ) );
+            if ( event.has_message_history() && event.message_history().room_topic() == kRoomTopic )
+            {
+                sawReplay = true;
+                for ( const auto &message : event.message_history().message() )
+                {
+                    if ( message.text() == kRejoinReplayText )
+                    {
+                        replayedText = message.text();
+                    }
+                }
+            }
+        }
+        EXPECT_TRUE( sawReplay ) << "re-join pushed no MessageHistory replay";
+        EXPECT_EQ( replayedText, kRejoinReplayText )
+            << "re-join replay batch does not include the sent message";
 
         gcs_shutdown( handle );
     }

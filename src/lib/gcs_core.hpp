@@ -12,8 +12,12 @@
 #ifndef GCS_CORE_HPP
 #define GCS_CORE_HPP
 
+#include <functional>
 #include <memory>
 #include <string>
+#include <unordered_set>
+#include <utility>
+#include <vector>
 
 #include "gcs_storage/gcs_global_db.hpp" // via gcs_storage PUBLIC include dir (src/lib/)
 
@@ -134,6 +138,76 @@ public:
    * otherwise.
    */
   outcome::result<std::string> Get(const std::string &key);
+
+  /**
+   * @brief Put a key/value pair into the CRDT store, replicating on the given
+   *        broadcast topics.
+   *
+   * @param[in] key    Hierarchical key path.
+   * @param[in] value  UTF-8 payload bytes.
+   * @param[in] topics Broadcast topics the write replicates on.
+   * @return outcome::success on success; propagated Error otherwise.
+   */
+  outcome::result<void> Put(const std::string &key, const std::string &value,
+                            const std::unordered_set<std::string> &topics);
+
+  /**
+   * @brief Put a key/value pair into local storage, bypassing DAG broadcast.
+   *
+   * @param[in] key   Hierarchical key path.
+   * @param[in] value UTF-8 payload bytes.
+   * @param[in] id    Provenance/tie-break identifier for the local write.
+   * @return outcome::success on success; propagated Error otherwise.
+   */
+  outcome::result<void> PutLocal(const std::string &key,
+                                 const std::string &value,
+                                 const std::string &id);
+
+  /**
+   * @brief Enumerate key/value pairs under a key prefix (converged scan).
+   *
+   * @param[in] keyPrefix Prefix to scan.
+   * @return outcome::success with the matching (key, value) pairs on success;
+   * propagated Error otherwise.
+   */
+  outcome::result<std::vector<std::pair<std::string, std::string>>>
+  QueryKeyValues(const std::string &keyPrefix);
+
+  /**
+   * @brief Register a callback fired when a new element matching the pattern
+   *        converges into the CRDT store.
+   *
+   * @param[in] pattern  Regex matched against the key string.
+   * @param[in] callback (key, value) callback invoked on the CRDT worker thread.
+   * @return outcome::success on success; propagated Error otherwise.
+   */
+  outcome::result<void> RegisterNewElementCallback(
+      const std::string &pattern,
+      std::function<void(const std::string &key, const std::string &value)>
+          callback);
+
+  /**
+   * @brief Publish a full-value payload on a raw GossipSub topic.
+   *
+   * @param[in] topic Topic to publish on.
+   * @param[in] data  Payload bytes.
+   * @return outcome::success on success; propagated Error otherwise.
+   */
+  outcome::result<void> Publish(const std::string &topic,
+                                const std::string &data);
+
+  /**
+   * @brief Subscribe a raw handler on a GossipSub topic.
+   *
+   * @param[in] topic    Topic to subscribe to.
+   * @param[in] callback (topic, data) callback invoked on the GossipSub strand.
+   * @return outcome::success once the subscription is active; propagated Error
+   * otherwise.
+   */
+  outcome::result<void> Subscribe(
+      const std::string &topic,
+      std::function<void(const std::string &topic, const std::string &data)>
+          callback);
 
 private:
   Config m_config; ///< Session configuration

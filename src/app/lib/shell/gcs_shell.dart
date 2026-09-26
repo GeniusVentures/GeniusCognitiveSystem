@@ -9,11 +9,14 @@
 /// rendered arrives as pushed FFI events routed through the cubits below.
 library;
 
+import 'dart:async' show Future, unawaited;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:frontend_scaffold/components/scaffold_composer.dart';
 import 'package:frontend_scaffold/components/scaffold_pressable.dart';
 import 'package:frontend_scaffold/components/scaffold_surface.dart';
+import 'package:frontend_scaffold/components/toast/toast_manager.dart';
 import 'package:frontend_scaffold/theme/scaffold_colors.dart';
 import 'package:frontend_scaffold/theme/scaffold_dimens.dart';
 import 'package:frontend_scaffold/theme/scaffold_theme.dart';
@@ -24,6 +27,13 @@ import '../cubits/rail_cubit.dart';
 import '../cubits/session_cubit.dart';
 import '../generated/chat/chat_message_flow.dart';
 import 'room_rail.dart';
+
+/// Error-toast title for a failed message send (D-07 transport-error surface,
+/// UI-SPEC copy verbatim).
+const String kSendFailedToastTitle = 'Send failed';
+
+/// Error-toast body for a failed message send (D-07, UI-SPEC copy verbatim).
+const String kSendFailedToastMessage = 'Message not sent. Try again.';
 
 /// The app root shell (D-23): rail + flow + composer, themed by the host
 /// `MaterialApp` (D-12/D-22 -- see `lib/theme/gcs_theme.dart`).
@@ -37,11 +47,16 @@ class GCSChat extends StatefulWidget {
   /// Creates a [GCSChat].
   const GCSChat({
     super.key,
+    this.dbPath,
     this.sessionCubit,
     this.railCubit,
     this.messageFlowCubit,
     this.composerCubit,
   });
+
+  /// Session database path for the default session (per-user `data/KEY`
+  /// derived in `main.dart`); ignored when [sessionCubit] is injected.
+  final String? dbPath;
 
   /// Session cubit owning the FFI handle lifecycle (D-05/D-26); null -> the
   /// shell creates one via [SessionCubit.openDefault].
@@ -83,6 +98,7 @@ class _GCSChatState extends State<GCSChat> {
     _sessionCubit =
         widget.sessionCubit ??
         SessionCubit.openDefault(
+          dbPath: widget.dbPath,
           railCubit: _railCubit,
           messageFlowCubit: _messageFlowCubit,
         );
@@ -97,18 +113,19 @@ class _GCSChatState extends State<GCSChat> {
     // Tear down only what the shell created; injected cubits (tests) outlive
     // the shell. Order: composer (uses the session transport) -> session
     // (closes the ReceivePort BEFORE the native shutdown) -> flow -> rail.
-    if (_ownsComposerCubit) {
-      _composerCubit.close();
-    }
-    if (_ownsSessionCubit) {
-      _sessionCubit.close();
-    }
-    if (_ownsMessageFlowCubit) {
-      _messageFlowCubit.close();
-    }
-    if (_ownsRailCubit) {
-      _railCubit.close();
-    }
+    // The close() calls still run synchronously in that order up to each
+    // cubit's first await (SessionCubit._closeNativeOnce runs before any
+    // await, so the native teardown ordering contract holds); their returned
+    // futures are collected into ONE bounded future and explicitly not
+    // awaited — dispose itself must stay synchronous (IN-08).
+    unawaited(
+      Future.wait(<Future<void>>[
+        if (_ownsComposerCubit) _composerCubit.close(),
+        if (_ownsSessionCubit) _sessionCubit.close(),
+        if (_ownsMessageFlowCubit) _messageFlowCubit.close(),
+        if (_ownsRailCubit) _railCubit.close(),
+      ]),
+    );
     super.dispose();
   }
 
@@ -151,6 +168,16 @@ class _GCSChatState extends State<GCSChat> {
       ),
     );
   }
+
+  /// The send-failure toast surfaces EXACTLY ONCE per failed send, from the
+  /// synchronous `ComposerCubit.send()` false return in the composer bar /
+  /// send button below (D-07). The pushed ERROR-state bubble minted by
+  /// `Messaging::SendMessage`'s terminal-failure path and that false return
+  /// are two surfaces of the SAME synchronous failure, so toasting from the
+  /// flow listener as well produced a duplicate toast (review P2); the error
+  /// bubble still renders its error chrome in the flow, and failures that
+  /// never mint a bubble (no open session, boundary rejects) keep their
+  /// toast through the same send() path.
 }
 
 /// The bottom composer row of the center column: the scaffold composer
@@ -191,7 +218,14 @@ class _ComposerBar extends StatelessWidget {
                 onSubmit: (String value) {
                   final ComposerCubit cubit = context.read<ComposerCubit>();
                   cubit.updateDraft(value);
-                  cubit.send();
+                  if (!cubit.send()) {
+                    showToast(
+                      context,
+                      kSendFailedToastMessage,
+                      title: kSendFailedToastTitle,
+                      type: ToastType.error,
+                    );
+                  }
                 },
                 actionRow: <Widget>[_SendButton(disabled: !session.isReady)],
               ),
@@ -241,7 +275,14 @@ class _SendButton extends StatelessWidget {
           editable.performAction(TextInputAction.send);
           return;
         }
-        context.read<ComposerCubit>().send();
+        if (!context.read<ComposerCubit>().send()) {
+          showToast(
+            context,
+            kSendFailedToastMessage,
+            title: kSendFailedToastTitle,
+            type: ToastType.error,
+          );
+        }
       },
       child: ScaffoldSurface(
         shape: BoxShape.circle,

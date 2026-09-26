@@ -4,6 +4,8 @@
 add_library(gcs_core
         lib/gcs_core.cpp
         lib/gcs_entity_store.cpp
+        lib/gcs_crypto.cpp
+        lib/gcs_messaging.cpp
 )
 
 target_include_directories(gcs_core PUBLIC
@@ -13,6 +15,7 @@ target_include_directories(gcs_core PUBLIC
 target_link_libraries(gcs_core PUBLIC
     spdlog::spdlog
     fmt::fmt
+    OpenSSL::Crypto
 )
 
 # gcs_proto — protobuf wire contract (D-26/D-29); leaf target, must precede ffi.

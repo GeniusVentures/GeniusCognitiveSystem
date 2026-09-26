@@ -20,6 +20,8 @@
 #include "proto/gcs_chat.pb.h"
 
 #include "lib/gcs_core.hpp"
+#include "lib/gcs_messaging.hpp"
+#include "lib/gcs_crypto.hpp"
 #include "lib/gcs_entity_store.hpp"
 #include "gcs_storage/common/logging.hpp"
 #include "gcs_storage/common/test_env.hpp"
@@ -31,6 +33,7 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <condition_variable>
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
@@ -40,6 +43,7 @@
 #include <random>
 #include <string>
 #include <system_error>
+#include <thread>
 #include <vector>
 
 namespace
@@ -49,8 +53,6 @@ namespace
     // Pre-joined smoke topics (D-26 requires >= 2) so the pushed RoomList is non-empty.
     constexpr const char* kSmokeTopicA = "gcs/chat/smoke-test";
     constexpr const char* kSmokeTopicB = "gcs/chat/smoke-test-2";
-    // Prefix for C++-stamped message ids (D-04: authority fields never come from Dart).
-    constexpr const char* kMessageIdPrefix = "msg-";
     // Maximum entity display-name length in Unicode code points (T-02-09 —
     // matches the Dart dialog's kMaxNameLength, which counts characters, not
     // bytes; the FFI re-validates so any client, not just the dialog, is
@@ -64,12 +66,25 @@ namespace
     // "gcs/chat/room-<13-digit ms>-<random-token>-<seq>" stays under ~60
     // bytes, leaving 2x headroom.
     constexpr size_t kMaxTopicLength = 128;
+    // Room-topic namespace every GCS-minted topic lives under: smoke topics
+    // ("gcs/chat/smoke-test") and derived room topics ("gcs/chat/room-...").
+    // WR-03: join/send topics are validated against this namespace so the
+    // archive key grammar stays unambiguous (see IsValidRoomTopicShape).
+    constexpr const char kRoomTopicNamespace[] = "gcs/chat/";
     // Maximum message-text length in bytes at the FFI boundary (IN-08
     // hardening). A transport-size bound, not a character contract: no Dart
     // cap exists yet, so bytes bound the copied/serialized/persisted payload
     // directly — 4 KiB is generous for chat text while blocking the
     // multi-megabyte publishes the payload-narrowing guard alone permitted.
     constexpr size_t kMaxMessageTextLength = 4096;
+    // Bounded in-flight drain window on the process-exit teardown path
+    // (WR-01): the exit hook may not block forever on a wedged sender, so
+    // the drain gives up after this timeout and proceeds best-effort.
+    constexpr std::chrono::seconds kExitTeardownDrainTimeout{ 2 };
+    // Retry interval between bounded try_lock attempts on the process-exit
+    // teardown path (P1): short enough that a live mutex holder releasing it
+    // is picked up promptly, long enough that the retry loop never spins.
+    constexpr std::chrono::milliseconds kExitLockRetryInterval{ 10 };
     // Dev config accepted by GeniusSDKInit's parser — offline-safe placeholder
     // token parameters (identical to the C++ test fixtures' kDevConfig). Used
     // when gcs_init boots the embedded node itself.
@@ -82,9 +97,10 @@ namespace
      }
     )";
 
-    std::mutex g_mutex;                            // guards g_session + g_entities + topic sets
+    std::mutex g_mutex;                            // guards g_session + g_entities + g_messaging + topic sets
     std::unique_ptr<gcs::CoreSession> g_session;   // Phase 1: single global session
     std::unique_ptr<gcs::EntityStore> g_entities;  // Phase 2: entity catalog over g_session
+    std::unique_ptr<gcs::Messaging> g_messaging;   // Phase 3: messaging over g_session (D-03/D-08)
     std::vector<std::string> g_roomTopics;         // joined topic set (guarded by g_mutex)
     std::vector<std::string> g_derivedTopics;      // autoJoin-derived subset of g_roomTopics (D-04)
     std::vector<std::string> g_explicitTopics;     // join_topic-joined subset (WR-03: survives derived
@@ -95,10 +111,27 @@ namespace
     bool g_exitHookRegistered = false;             // std::atexit pairing hook registered once per
                                                    // process (written only under g_mutex)
     std::atomic<int64_t> g_dartPort{ 0 };          // registered Dart port (0 = unregistered)
-    std::atomic<uint64_t> g_messageSeq{ 0 };       // in-process component of the message id (CR-01)
     // One-shot guard for the per-process Dart API_DL table state check in gcs_init
     // (the table itself is initialized via the exported Dart_InitializeApiDL).
     std::atomic<bool> g_apiDlInitialized{ false };
+    // In-flight count of operations running UNLOCKED against the session/
+    // messaging globals (send_text's SendMessage window, live subscribes,
+    // receive funnels) and the condition variable gcs_shutdown waits on for
+    // the count to return to zero before teardown destroys those objects
+    // (WR-02 — the raw-pointer unlocked windows are safe because teardown
+    // provably drains them; the "Dart serializes commands and shutdown"
+    // assumption is enforced, not assumed). Both guarded by g_mutex.
+    unsigned int g_inFlight = 0;
+    std::condition_variable g_idleCond;
+    // Teardown intake gate (CR-02): receive callbacks (the pubsub live bridge
+    // and the CRDT DagWorker bridge) check this ATOMICALLY before taking
+    // g_mutex, so a shutdown flips it and no callback funnels into a session
+    // mid-teardown. Re-armed (cleared) by the next gcs_init.
+    std::atomic<bool> g_receivingDisabled{ false };
+    // Teardown's unlocked destruction phase is in progress (CR-02): gcs_init
+    // refuses to build a session while the old one is destroyed with g_mutex
+    // released — the mutex no longer excludes init across the teardown joins.
+    std::atomic<bool> g_tearingDown{ false };
 
     /**
      * \brief Counts Unicode code points in a UTF-8 string.
@@ -120,6 +153,32 @@ namespace
     }
 
     /**
+     * \brief Whether a room topic fits the unambiguous archive-key grammar (WR-03).
+     *
+     * Archive keys are "gcs/messages/<topic>/<id>" and RoomTopicFromKey
+     * recovers the topic by dropping only the LAST '/' segment (the id), so
+     * the grammar is ambiguous whenever one topic can be a slash-prefix of
+     * another: the prefix scan for room "gcs/chat/a" also returns every
+     * record of room "gcs/chat/a/b" — a cross-room data leak in plaintext
+     * mode and spurious decrypt failures in encrypted mode. Every topic
+     * this system mints is "gcs/chat/<single-segment-id>" (smoke topics,
+     * derived room topics), so accepting only that shape at the FFI
+     * boundary matches the real key space and makes no topic a
+     * slash-prefix of any other.
+     *
+     * \param[in] roomTopic  The candidate room topic.
+     * \return true when the topic is "gcs/chat/<id>" with a non-empty id and
+     *         no further '/'.
+     */
+    bool IsValidRoomTopicShape( const std::string &roomTopic )
+    {
+        const size_t namespaceLength = std::char_traits<char>::length( kRoomTopicNamespace );
+        return roomTopic.size() > namespaceLength
+               && roomTopic.compare( 0, namespaceLength, kRoomTopicNamespace ) == 0
+               && roomTopic.find( '/', namespaceLength ) == std::string::npos;
+    }
+
+    /**
      * \brief Derives the session base path everything GCS writes calls home.
      *
      * The node, the wallet, and the GCS log file all live beside the store:
@@ -127,6 +186,13 @@ namespace
      * fixtures' temp-root + "/db" layout). A bare filename has no parent —
      * use the CWD. An empty db_path (store default) still needs a home for
      * the node and logs — the system temp dir keeps it out of the CWD.
+     *
+     * Per-instance contract: the base path IS the node's identity scope —
+     * the wallet persists under it (own peer id and sender address per
+     * base), and InitNetwork derives the libp2p port from the wallet
+     * address (GenerateRandomPort(port_seed, address)). Host apps running
+     * multiple instances must therefore give each one its own base path
+     * (the Flutter app: data/KEY/db, so data/KEY is the base).
      *
      * \param[in] config The parsed GcsConfig carrying db_path.
      * \return The base directory for node data, wallet, and logs.
@@ -147,22 +213,80 @@ namespace
     }
 
     /**
-     * \brief Tears the global session and the embedded node down (no lock).
+     * \brief Bounded best-effort acquisition of g_mutex for the exit hook (P1).
      *
-     * Single teardown body shared by gcs_shutdown (under g_mutex) and the
-     * exit-time pairing hook (unlocked — see EnsureSdkBooted). Port first so
-     * nothing posts into a dying Dart VM, then the session, then the node —
-     * but only the node this library booted: an externally booted node (host
-     * harness) outlives the session and is not ours to tear down. Safe to
-     * call repeatedly: every arm checks its own guard.
+     * A single try_lock fails whenever any callback or FFI call holds g_mutex
+     * at the instant the hook fires, but at atexit those holders are live
+     * threads that release it in bounded time — so retry try_lock until the
+     * same budget the in-flight drain uses elapses. Sleeping between attempts
+     * (never blocking on the mutex itself) keeps the hook safe against a
+     * thread that died holding g_mutex: the loop gives up at the deadline
+     * instead of wedging exit forever.
      *
-     * Callers must hold g_mutex OR be the process-exit path (the exit hook
-     * runs after the Dart threads are gone; taking the mutex there could
-     * wedge forever on a thread that died mid-call — the same unlocked
-     * precedent the C++ test fixtures' TearDown sets).
+     * \param[in,out] exitLock  The deferred unique_lock to acquire.
+     * \return true when the lock is held on return; false when the budget
+     *         elapsed — the caller must then NOT touch the guarded globals.
      */
-    void TeardownSessionAndNode()
+    bool TryAcquireExitLockBounded( std::unique_lock<std::mutex> *exitLock )
     {
+        const auto deadline = std::chrono::steady_clock::now() + kExitTeardownDrainTimeout;
+        while ( !exitLock->try_lock() )
+        {
+            if ( std::chrono::steady_clock::now() >= deadline )
+            {
+                return false;
+            }
+            std::this_thread::sleep_for( kExitLockRetryInterval );
+        }
+        return true;
+    }
+
+    /**
+     * \brief Tears the global session and the embedded node down.
+     *
+     * Single teardown body shared by gcs_shutdown (passing its held
+     * unique_lock) and the exit-time pairing hook (passing nullptr — see
+     * EnsureSdkBooted). Port first so nothing posts into a dying Dart VM,
+     * then the session, then the node — but only the node this library
+     * booted: an externally booted node (host harness) outlives the session
+     * and is not ours to tear down. Safe to call repeatedly: every arm
+     * checks its own guard.
+     *
+     * When lock is non-null it must be HELD on entry: the guarded globals
+     * are evicted under it, then it is RELEASED across the blocking
+     * teardown calls and re-acquired before returning (CR-02). Every join
+     * below can wait on a thread whose callback funnels through g_mutex —
+     * GeniusSDKShutdown's node/pubsub threads (the EventSink takes
+     * g_mutex), Messaging's archive worker (its Puts can trigger DagWorker
+     * bridges that take g_mutex), and ShutdownNow's WaitForWorkersToExit
+     * (the CRDT new-element bridge takes g_mutex). Holding g_mutex across
+     * those joins is the CR-02 shutdown deadlock; releasing it lets the
+     * gated callbacks acquire the mutex, observe the evicted (null)
+     * globals, and unwind.
+     *
+     * The process-exit caller passes nullptr and holds no lock. WR-01: it
+     * still gates receive intake first (atomically, before touching
+     * anything), then acquires g_mutex with a BOUNDED try_lock retry loop
+     * (a single shot failed whenever a live callback held g_mutex at that
+     * instant; a blocking lock would wedge exit on a dead holder) so the
+     * eviction below is serialized against receive callbacks and a
+     * concurrent gcs_shutdown, and the in-flight count is drained under it
+     * with a BOUNDED wait (exit must not hang on a wedged sender). When the
+     * budget elapses without acquiring the mutex the hook ABANDONS teardown
+     * (P1): proceeding to evict the guarded globals without the lock raced
+     * every live thread's guarded reads, so the objects are left for process
+     * reclamation instead.
+     *
+     * \param[in] lock  gcs_shutdown's held unique_lock, or nullptr on the
+     *                  process-exit path.
+     */
+    void TeardownSessionAndNode( std::unique_lock<std::mutex> *lock )
+    {
+        // WR-01: gate receive intake on EVERY path into this body — the exit
+        // hook previously skipped this, so pubsub/DagWorker bridge callbacks
+        // kept funnelling into g_messaging while the hook destroyed it.
+        g_receivingDisabled.store( true );
+        g_tearingDown.store( true );
         // Quiesce the node BEFORE tearing down the session. GcsGlobalDb
         // borrows the node's pubsub and shared graphsync Network (D-17), so
         // the session's ShutdownNow() destructor chain unsubscribes from the
@@ -175,20 +299,95 @@ namespace
         // GeniusSDKShutdown() runs ~GeniusNode's coordinated stop first; the
         // borrowed objects stay alive for the session teardown because the
         // shared Network owns shared_ptrs to the host and scheduler.
-        if ( g_sdkBootedHere )
+
+        // WR-01: the process-exit caller holds no lock. Acquire g_mutex with
+        // a BOUNDED try_lock retry (never a blocking lock — a thread may
+        // have died holding it, and the hook must not wedge at exit) so the
+        // eviction below is serialized against receive callbacks and a
+        // concurrent gcs_shutdown, then drain the in-flight count under it
+        // with a bounded wait. Never attempted when the caller already holds
+        // the lock (double-locking a std::mutex on the normal path would be
+        // undefined). P1: when the budget elapses the hook ABANDONS teardown
+        // — moving the guarded globals without the lock raced every live
+        // thread's guarded reads (use-after-free at exit), which is strictly
+        // worse than leaving the objects for process reclamation. The SDK
+        // pairing flag is consumed only AFTER acquisition so an abandoned
+        // hook leaves the boot/shutdown pairing intact for whoever runs next.
+        std::unique_lock<std::mutex> exitLock( g_mutex, std::defer_lock );
+        if ( lock == nullptr )
         {
-            g_sdkBootedHere = false;
-            GeniusSDKShutdown();
+            if ( !TryAcquireExitLockBounded( &exitLock ) )
+            {
+                spdlog::error( "gcs_ffi: exit-path teardown could not acquire the session "
+                               "mutex within the bounded budget — abandoning teardown" );
+                return;
+            }
+            g_idleCond.wait_for( exitLock, kExitTeardownDrainTimeout,
+                                 [] { return g_inFlight == 0; } );
         }
+        const bool sdkBootedHere = g_sdkBootedHere;
+        g_sdkBootedHere = false;
+
+        // Evict the guarded globals while the lock is held, then destroy the
+        // evicted objects with the lock RELEASED. The eviction is what makes
+        // the unlocked phase safe: any late callback or command that
+        // acquires g_mutex afterwards sees null globals and no-ops instead
+        // of touching half-destroyed state.
+        std::unique_ptr<gcs::CoreSession> session;
+        std::unique_ptr<gcs::EntityStore> entities;
+        std::unique_ptr<gcs::Messaging> messaging;
         if ( g_session != nullptr )
         {
             g_dartPort = 0; // unregister the port BEFORE teardown
-            g_session->Shutdown();
-            g_session.reset();
+            session   = std::move( g_session );
+            entities  = std::move( g_entities );
+            messaging = std::move( g_messaging );
             g_roomTopics.clear();
             g_derivedTopics.clear();
             g_explicitTopics.clear();
-            g_entities.reset();
+        }
+        if ( lock != nullptr )
+        {
+            lock->unlock();
+        }
+        else if ( exitLock.owns_lock() )
+        {
+            exitLock.unlock();
+        }
+        if ( sdkBootedHere )
+        {
+            GeniusSDKShutdown();
+        }
+        if ( session != nullptr )
+        {
+            // Destroy the messaging component FIRST (WR-01): its destructor
+            // drains + joins the archive worker, and the drain's Puts must
+            // land on a STILL-RUNNING store — shutting the session down
+            // first makes GcsGlobalDb::Put's m_running gate drop every
+            // queued write (local message loss). The receive-intake gate
+            // plus the in-flight drain in gcs_shutdown guarantee nothing
+            // re-enqueues or calls into Messaging past this point. The
+            // entity catalog is destroyed after the drain but still before
+            // the session it borrows.
+            //
+            // IN-06: the drain deliberately runs AFTER GeniusSDKShutdown()
+            // (node destroyed, pubsub down) — verified against the SDK that
+            // GlobalDB::Put does not fail wholesale on a stopped pubsub: its
+            // synchronous path (DagWorker merge -> RocksDB, dagSyncer addNode,
+            // heads update) is session-owned and still alive here, while the
+            // pubsub carries only the decoupled outbound broadcast, whose
+            // failures are logged and never propagate to the Put result.
+            // Queued records therefore land locally; the skipped announcement
+            // is healed by the sender's own replication.
+            messaging.reset();
+            session->Shutdown();
+            entities.reset();
+            session.reset();
+        }
+        if ( lock != nullptr )
+        {
+            lock->lock();
+            g_tearingDown.store( false );
         }
     }
 
@@ -254,7 +453,7 @@ namespace
         // pairing flag when it actually fires.
         if ( !g_exitHookRegistered )
         {
-            g_exitHookRegistered = ( std::atexit( &TeardownSessionAndNode ) == 0 );
+            g_exitHookRegistered = ( std::atexit( [] { TeardownSessionAndNode( nullptr ); } ) == 0 );
             if ( !g_exitHookRegistered )
             {
                 spdlog::error( "gcs_ffi: std::atexit registration failed — quitting the host app will crash at exit" );
@@ -355,6 +554,112 @@ namespace
     }
 
     /**
+     * \brief Pushes the room's converged history as a MessageHistory batch.
+     *
+     * Callers must hold g_mutex (the sink serializes under it). This is the
+     * sanctioned under-mutex Messaging call (IN-01): QueryHistory never
+     * pushes through the sink and its GlobalDB scan is a converged local
+     * read, so it cannot participate in the 03-06 ABBA cycle. The returned
+     * MessageHistory is already decrypted and role-flipped by
+     * Messaging::QueryHistory (D-08), so it is posted verbatim — no FFI-side
+     * decrypt or re-mapping. A failed scan is logged only (no error notice).
+     *
+     * \param[in] roomTopic The room topic to replay.
+     */
+    void PushMessageHistory( const std::string &roomTopic )
+    {
+        auto history = g_messaging->QueryHistory( roomTopic );
+        if ( !history.has_value() )
+        {
+            spdlog::error( "gcs_ffi: history scan failed for room '{}'", roomTopic );
+            return;
+        }
+        gcs::chat::GcsEvent event;
+        *event.mutable_message_history() = history.value();
+        PostToDart( event );
+    }
+
+    /**
+     * \brief Pushes an ErrorNotice carrying a raw error string (D-29).
+     *
+     * \param[in] message  The raw error string to push.
+     */
+    void PostErrorNotice( const std::string& message )
+    {
+        gcs::chat::GcsEvent event;
+        event.mutable_error()->set_message( message );
+        PostToDart( event );
+    }
+
+    /**
+     * \brief Arms the raw GossipSub live subscribe for a room topic (D-03).
+     *
+     * Callers hold g_mutex via lock, but the subscribe itself runs with the
+     * lock RELEASED (CR-01): GcsGlobalDb::Subscribe blocks on the future
+     * only the GossipSub strand fulfills, and a strand already delivering
+     * into the receive funnel needs g_mutex — holding g_mutex across the
+     * .get() is the join-path twin of the 03-06 send-path ABBA deadlock.
+     * The session pointer is safe across the unlocked window because the
+     * call is counted in g_inFlight and gcs_shutdown drains that count
+     * before evicting the globals (WR-02). The callback fires on the
+     * GossipPubSub strand thread (not the FFI command thread), so the
+     * lambda checks the teardown intake gate atomically and takes g_mutex
+     * ONLY to copy the Messaging pointer, calling OnLiveMessage outside the
+     * lock (ABBA fix, 03-06; T-03-14).
+     *
+     * \param[in] lock      The caller's held unique_lock of g_mutex.
+     * \param[in] roomTopic The room topic to subscribe to.
+     * \return true when the live subscription armed successfully; false after
+     *         a failed subscribe, which also pushes an ErrorNotice (WR-03).
+     */
+    bool SubscribeLive( std::unique_lock<std::mutex> &lock, const std::string &roomTopic )
+    {
+        gcs::CoreSession* session = g_session.get();
+        g_inFlight += 1;
+        lock.unlock();
+        const bool liveOk = session->Subscribe( roomTopic,
+                                                []( const std::string &topic, const std::string &data )
+                                                {
+                                                    if ( g_receivingDisabled.load() )
+                                                    {
+                                                        return; // teardown intake gate (CR-02)
+                                                    }
+                                                    gcs::Messaging* messaging = nullptr;
+                                                    {
+                                                        std::lock_guard<std::mutex> lock( g_mutex );
+                                                        messaging = g_messaging.get();
+                                                        if ( messaging != nullptr )
+                                                        {
+                                                            g_inFlight += 1; // counted until the funnel returns (WR-02)
+                                                        }
+                                                    }
+                                                    if ( messaging == nullptr )
+                                                    {
+                                                        return;
+                                                    }
+                                                    messaging->OnLiveMessage( topic, data );
+                                                    {
+                                                        std::lock_guard<std::mutex> lock( g_mutex );
+                                                        g_inFlight -= 1;
+                                                    }
+                                                    g_idleCond.notify_all();
+                                                } )
+                                .has_value();
+        lock.lock();
+        g_inFlight -= 1;
+        g_idleCond.notify_all();
+        if ( !liveOk )
+        {
+            spdlog::error( "gcs_ffi: live subscribe failed for room '{}'", roomTopic );
+            // WR-03: surface the partial failure on the push port like every
+            // other failure on the join path — the room otherwise appears
+            // joined while live delivery is dead (CRDT heal only).
+            PostErrorNotice( "live subscribe failed for room '" + roomTopic + "'" );
+        }
+        return liveOk;
+    }
+
+    /**
      * \brief Recomputes the derived-join topic set (D-04) and syncs it into the
      *        session registrations and the joined-topic projection.
      *
@@ -368,11 +673,14 @@ namespace
      * Pitfall 4) — UNLESS the client also joined it explicitly via
      * join_topic: explicit membership outranks derivation and is never
      * revoked by derived eviction (WR-03). Smoke topics are never in
-     * g_derivedTopics and are never touched here. Callers must hold g_mutex
-     * (mutates g_entities' registrations via g_session, g_derivedTopics,
-     * g_roomTopics, g_explicitTopics).
+     * g_derivedTopics and are never touched here. Callers hold g_mutex via
+     * lock (mutates g_entities' registrations via g_session, g_derivedTopics,
+     * g_roomTopics, g_explicitTopics); the lock is released only around the
+     * blocking live subscribes (CR-01 — see SubscribeLive).
+     *
+     * \param[in] lock The caller's held unique_lock of g_mutex.
      */
-    void RefreshDerivedJoins()
+    void RefreshDerivedJoins( std::unique_lock<std::mutex> &lock )
     {
         const std::vector<std::string> derived = g_entities->DerivedJoinedTopics();
 
@@ -399,6 +707,10 @@ namespace
             {
                 g_roomTopics.push_back( topic );
             }
+            // D-06: a newly derived (auto-joined) room replays its history and
+            // arms the live subscribe so it receives live messages (derived joins).
+            PushMessageHistory( topic );
+            SubscribeLive( lock, topic );
         }
 
         // Topics no longer derived leave the projection only (Pitfall 4) —
@@ -421,49 +733,21 @@ namespace
         g_derivedTopics = std::move( stillDerived );
     }
 
-    /**
-     * \brief Pushes an ErrorNotice carrying a raw error string (D-29).
-     *
-     * \param[in] message  The raw error string to push.
-     */
-    void PostErrorNotice( const std::string& message )
-    {
-        gcs::chat::GcsEvent event;
-        event.mutable_error()->set_message( message );
-        PostToDart( event );
-    }
-
-    /**
-     * \brief Builds the next process-unique message id (D-04 authority stamp).
-     *
-     * The CRDT store persists across process launches while a bare per-process
-     * counter restarts at zero every launch — ids stamped as prefix + counter
-     * alone revisit a prior session's key space and silently overwrite its
-     * records under identical HierarchicalKeys (CR-01). The id therefore
-     * carries a per-process seed — wall-clock milliseconds plus a
-     * std::random_device token (two processes launched within the same
-     * millisecond still diverge) — followed by the in-process counter.
-     * Portable C++17 only; no platform headers.
-     *
-     * \return The next unique message id.
-     */
-    std::string NextMessageId()
-    {
-        static const std::string seed = [] {
-            const int64_t nowMs = std::chrono::duration_cast<std::chrono::milliseconds>(
-                std::chrono::system_clock::now().time_since_epoch() ).count();
-            std::random_device randomDevice;
-            return std::to_string( nowMs ) + "-" + std::to_string( randomDevice() );
-        }();
-        return kMessageIdPrefix + seed + "-" + std::to_string( g_messageSeq.fetch_add( 1 ) );
-    }
 } // namespace
 
 extern "C"
 {
     GCS_FFI_API GcsSession* gcs_init( const uint8_t* configBytes, size_t configLength ) GCS_FFI_NOEXCEPT
     {
-        std::lock_guard<std::mutex> lock( g_mutex );
+        // unique_lock (not lock_guard): RefreshDerivedJoins releases the
+        // lock around each blocking live subscribe (CR-01 — see
+        // SubscribeLive) and needs to re-acquire it afterwards.
+        std::unique_lock<std::mutex> lock( g_mutex );
+
+        if ( g_tearingDown.load() )
+        {
+            return nullptr; // a teardown's unlocked destruction phase is mid-flight (CR-02)
+        }
 
         // One-time Dart API_DL state check (per-process init contract of
         // dart_api_dl.h). DEVIATION from plan text (Rule 1): the plan calls for
@@ -529,6 +813,18 @@ extern "C"
         auto session = std::make_unique<gcs::CoreSession>( std::move( coreConfig ) );
         if ( !session->Initialize().has_value() )
         {
+            // IN-02: pair the embedded boot this gcs_init performed — the
+            // node (wallet, threads, ports) must not keep running after a
+            // failed init leaves no session owning it. Mirrors the smoke-topic
+            // failure path below (Shutdown is an idempotent no-op for a
+            // session whose Initialize failed); resetting the pairing flag
+            // keeps a later successful boot/shutdown cycle balanced.
+            session->Shutdown();
+            if ( g_sdkBootedHere )
+            {
+                g_sdkBootedHere = false;
+                GeniusSDKShutdown();
+            }
             return nullptr;
         }
 
@@ -562,6 +858,80 @@ extern "C"
 
         g_session = std::move( session );
 
+        // Re-arm receive intake: a prior gcs_shutdown latched the teardown
+        // gate closed (CR-02) — the fresh session's receive callbacks funnel.
+        g_receivingDisabled.store( false );
+
+        // Phase 3 (D-08): construct the messaging component with the REAL
+        // vendored-OpenSSL crypto seam injected and encryption enabled by
+        // default for all Phase 3 rooms. The EventSink self-locks g_mutex
+        // around PostToDart — the precise ABBA rule (03-06, IN-01) is that
+        // no Messaging method that PUSHES via the sink may run under
+        // g_mutex (see the kSendText arm and the receive lambdas), so the
+        // sink must provide its own serialization. Messaging::QueryHistory
+        // via PushMessageHistory is the sanctioned exception: it never
+        // invokes the sink and its GlobalDB scan is a converged local read,
+        // so it runs under g_mutex on the join paths (a future scan that
+        // waits on the CRDT job pipeline would have to move out from under
+        // the mutex). The FFI names the adapter functions here but never
+        // calls EVP directly — encryption/decryption happen inside
+        // Messaging, and the FFI/Dart only push/see plaintext events (D-08).
+        {
+            gcs::Messaging::CryptoSeam cryptoSeam;
+            cryptoSeam.encrypt = &gcs::crypto::EncryptPayload;
+            cryptoSeam.decrypt = &gcs::crypto::DecryptPayload;
+            cryptoSeam.enabled = true;
+            g_messaging = std::make_unique<gcs::Messaging>(
+                *g_session, std::string( GeniusSDKGetAddress().address ),
+                []( const gcs::chat::GcsEvent &event )
+                {
+                    std::lock_guard<std::mutex> lock( g_mutex );
+                    PostToDart( event );
+                },
+                cryptoSeam );
+        }
+
+        // Bridge CRDT-synced message arrivals into the Messaging receive funnel
+        // (D-03 heal path). The callback fires on the io/DagWorker thread, so
+        // it checks the teardown intake gate ATOMICALLY (CR-02) and takes
+        // g_mutex ONLY to copy the Messaging pointer, calling OnMessageArrived
+        // outside the lock — holding g_mutex across a Messaging call can
+        // deadlock against a command thread blocked in SendMessage's
+        // WaitForJob (ABBA fix, 03-06; T-03-14). Decryption happens inside
+        // the Messaging funnel (D-08).
+        if ( !g_session->RegisterNewElementCallback(
+                   gcs::Messaging::kMessagesKeyCallbackPattern,
+                   []( const std::string &key, const std::string &value )
+                   {
+                       if ( g_receivingDisabled.load() )
+                       {
+                           return; // teardown intake gate (CR-02)
+                       }
+                       gcs::Messaging* messaging = nullptr;
+                       {
+                           std::lock_guard<std::mutex> lock( g_mutex );
+                           messaging = g_messaging.get();
+                           if ( messaging != nullptr )
+                           {
+                               g_inFlight += 1; // counted until the funnel returns (WR-02)
+                           }
+                       }
+                       if ( messaging == nullptr )
+                       {
+                           return;
+                       }
+                       messaging->OnMessageArrived( key, value );
+                       {
+                           std::lock_guard<std::mutex> lock( g_mutex );
+                           g_inFlight -= 1;
+                       }
+                       g_idleCond.notify_all();
+                   } )
+                  .has_value() )
+        {
+            spdlog::error( "gcs_ffi: message receive-callback registration failed" );
+        }
+
         // Phase 2: replay the persisted entity catalog (D-02). Construct the
         // store ONLY after the g_session move — RefreshDerivedJoins uses the
         // g_session global. A load failure is logged and never fails init:
@@ -575,7 +945,7 @@ extern "C"
         {
             spdlog::error( "gcs_ffi: entity catalog load failed — continuing with an empty catalog" );
         }
-        RefreshDerivedJoins();
+        RefreshDerivedJoins( lock );
 
         return reinterpret_cast<GcsSession*>( g_session.get() );
     }
@@ -583,7 +953,12 @@ extern "C"
     GCS_FFI_API int gcs_publish( GcsSession* session, const char* topic,
                                  const uint8_t* payloadBytes, size_t payloadLength ) GCS_FFI_NOEXCEPT
     {
-        std::lock_guard<std::mutex> lock( g_mutex );
+        // unique_lock (not lock_guard): the kSendText arm releases g_mutex
+        // across Messaging::SendMessage — its topics-aware archive Put blocks
+        // in WaitForJob, and the job pipeline fires the CRDT heal callback on
+        // the DagWorker thread, whose lambda takes g_mutex. Holding g_mutex
+        // across the blocking Put is an ABBA deadlock (03-06 multinode test).
+        std::unique_lock<std::mutex> lock( g_mutex );
 
         if ( g_session == nullptr || reinterpret_cast<gcs::CoreSession*>( session ) != g_session.get()
              || topic == nullptr || payloadBytes == nullptr || payloadLength == 0 )
@@ -632,6 +1007,15 @@ extern "C"
                 PostErrorNotice( "join_topic rejected: room_topic exceeds maximum length" ); // D-29: raw error string on the push port
                 return GCS_ERROR_INVALID_ARGUMENT;
             }
+            if ( !IsValidRoomTopicShape( roomTopic ) )
+            {
+                // WR-03: a topic with an extra '/' (or outside the gcs/chat/
+                // namespace) makes the archive key grammar ambiguous — a
+                // prefix scan for one room would return another room's records.
+                PostErrorNotice( "join_topic rejected: room_topic must be 'gcs/chat/<id>' "
+                                 "with no additional '/'" ); // D-29: raw error string on the push port
+                return GCS_ERROR_INVALID_ARGUMENT;
+            }
             // Listen first, then broadcast — the same ordering
             // GcsGlobalDb::Initialize uses (D-07). A listen failure leaves
             // nothing registered; a broadcast failure leaves only the listen
@@ -650,7 +1034,15 @@ extern "C"
             }
             // Idempotent room list: a repeated join of an already-joined topic
             // (Dart-side retry, double-tap) must not append a duplicate room.
-            if ( std::find( g_roomTopics.begin(), g_roomTopics.end(), roomTopic ) == g_roomTopics.end() )
+            // IN-05: a re-join must also skip the live subscribe below — each
+            // additional SubscribeLive registers another gossipsub callback
+            // firing per message (correctness survives only via the id-keyed
+            // dedupe), so the subscription and the join-time replay arm
+            // exactly once per topic.
+            const bool alreadyJoined =
+                std::find( g_roomTopics.begin(), g_roomTopics.end(), roomTopic )
+                != g_roomTopics.end();
+            if ( !alreadyJoined )
             {
                 g_roomTopics.push_back( roomTopic );
             }
@@ -663,6 +1055,28 @@ extern "C"
                 g_explicitTopics.push_back( roomTopic );
             }
             PostToDart( BuildRoomListEvent() );
+            // D-06: replay the room's history as a pushed MessageHistory
+            // batch on EVERY join, re-join included (P1 review): the Dart
+            // side drops a batch while the room is not the active one, so a
+            // selection-driven re-join is what refills the flow when a room
+            // becomes active. IN-05's re-join hazard was the live subscribe
+            // below — each re-arm registers another gossipsub callback —
+            // which the early return still skips.
+            PushMessageHistory( roomTopic );
+            if ( alreadyJoined )
+            {
+                return GCS_OK; // IN-05: a re-join refreshes the room list + history only
+            }
+            // Arm the raw live subscribe AFTER the batch so any live message
+            // lands after it and is absorbed by the id-keyed dedupe (Pitfall 3).
+            if ( !SubscribeLive( lock, roomTopic ) )
+            {
+                // WR-03: the join itself registered (the RoomList with the
+                // topic was already pushed), but live delivery is dead —
+                // mirror the arm's other partial failures: the ErrorNotice is
+                // pushed inside SubscribeLive, the error code returned here.
+                return GCS_ERROR_GENERIC;
+            }
             return GCS_OK;
         }
         case gcs::chat::GcsCommand::kSendText:
@@ -678,6 +1092,14 @@ extern "C"
                 PostErrorNotice( "send_text rejected: room_topic exceeds maximum length" ); // D-29: raw error string on the push port
                 return GCS_ERROR_INVALID_ARGUMENT;
             }
+            if ( !IsValidRoomTopicShape( sendText.room_topic() ) )
+            {
+                // WR-03: same archive-key grammar guard as join_topic — an
+                // ambiguous topic shape never reaches the key space.
+                PostErrorNotice( "send_text rejected: room_topic must be 'gcs/chat/<id>' "
+                                 "with no additional '/'" ); // D-29: raw error string on the push port
+                return GCS_ERROR_INVALID_ARGUMENT;
+            }
             if ( std::find( g_roomTopics.begin(), g_roomTopics.end(), sendText.room_topic() )
                  == g_roomTopics.end() )
             {
@@ -689,34 +1111,27 @@ extern "C"
                 PostErrorNotice( "send_text rejected: text exceeds maximum length" ); // D-29: raw error string on the push port
                 return GCS_ERROR_INVALID_ARGUMENT;
             }
-            gcs::chat::GcsEvent event;
-            gcs::chat::ChatMessageState* message = event.mutable_message();
-            // D-04: C++ stamps every authority field; Dart's SendTextCommand is data-only.
-            // The id is process-unique (CR-01) — see NextMessageId.
-            message->set_id( NextMessageId() );
-            message->set_room_topic( sendText.room_topic() );
-            message->set_role( gcs::chat::MESSAGE_ROLE_USER_SELF );
-            message->set_state( gcs::chat::MESSAGE_STATE_COMPLETE );
-            message->set_text( sendText.text() );
-            message->set_timestamp( std::chrono::duration_cast<std::chrono::milliseconds>(
-                                        std::chrono::system_clock::now().time_since_epoch() )
-                                        .count() );
-
-            // Phase 1 echo: store the authoritative record, then push it to the port
-            // (the real pub/sub flow lands in Phase 3). Key by the C++-stamped
-            // authority id (D-04) so per-room history survives — a room-topic-only
-            // key made each new message overwrite the previous one; store the
-            // payload message, not the push envelope.
-            if ( !g_session->Put( sendText.room_topic() + "/" + message->id(),
-                                  message->SerializeAsString() ).has_value() )
+            // D-03/D-04/D-07/D-08: delegate to the Messaging component, which
+            // mints the id, stamps the sender, pushes pending -> live publish +
+            // archive -> complete, and encrypts the envelope (production seam).
+            // Called WITHOUT g_mutex: the archive Put blocks in WaitForJob and
+            // the DagWorker heal lambda takes g_mutex (ABBA fix, 03-06). The
+            // raw Messaging pointer is safe across the unlocked window because
+            // the call is counted in g_inFlight and gcs_shutdown drains that
+            // count to zero before tearing the globals down (WR-02); Messaging
+            // is internally synchronized (m_seenMutex/m_archiveMutex).
+            gcs::Messaging* messaging = g_messaging.get();
+            g_inFlight += 1;
+            lock.unlock();
+            const bool sendOk = messaging->SendMessage( sendText.room_topic(), sendText.text() ).has_value();
+            lock.lock();
+            g_inFlight -= 1;
+            g_idleCond.notify_all();
+            if ( !sendOk )
             {
-                spdlog::error( "gcs_ffi: send_text store write failed for room '{}'",
-                               sendText.room_topic() );
-                PostErrorNotice( "send_text store write failed for room '" + sendText.room_topic()
-                                 + "'" ); // D-29: raw error string on the push port
+                PostErrorNotice( "send_text failed for room '" + sendText.room_topic() + "'" );
                 return GCS_ERROR_GENERIC;
             }
-            PostToDart( event );
             return GCS_OK;
         }
         case gcs::chat::GcsCommand::kCreateSpace:
@@ -781,7 +1196,7 @@ extern "C"
             // The new room may be auto-joined (parent autoJoinRooms) — recompute
             // the derived set so RoomList reflects it (D-04, retroactive by
             // construction).
-            RefreshDerivedJoins();
+            RefreshDerivedJoins( lock );
             PostToDart( BuildSpaceTreeEvent() );
             PostToDart( BuildRoomListEvent() );
             return GCS_OK;
@@ -816,7 +1231,7 @@ extern "C"
             }
             // An autoJoinRooms toggle changes the derived set (D-04) — recompute
             // so RoomList gains/loses the space's rooms.
-            RefreshDerivedJoins();
+            RefreshDerivedJoins( lock );
             PostToDart( BuildSpaceTreeEvent() );
             PostToDart( BuildRoomListEvent() );
             return GCS_OK;
@@ -863,13 +1278,29 @@ extern "C"
 
     GCS_FFI_API void gcs_shutdown( GcsSession* session ) GCS_FFI_NOEXCEPT
     {
-        std::lock_guard<std::mutex> lock( g_mutex );
+        // unique_lock (not lock_guard): the in-flight drain below waits on
+        // g_idleCond, which releases g_mutex while waiting so the counted
+        // operations can come back under the mutex and finish (WR-02).
+        std::unique_lock<std::mutex> lock( g_mutex );
 
         if ( g_session != nullptr && reinterpret_cast<gcs::CoreSession*>( session ) == g_session.get() )
         {
+            // CR-02: stop receive intake BEFORE draining and tearing down —
+            // the gate is atomic so the pubsub and DagWorker bridge callbacks
+            // observe it without ever parking on g_mutex, and nothing
+            // re-funnels (or re-enqueues archive work) mid-teardown.
+            g_receivingDisabled.store( true );
+            // WR-02: wait until every operation running unlocked against the
+            // session/messaging globals (send_text, live subscribes, receive
+            // funnels) is back under the mutex BEFORE teardown destroys those
+            // objects — this makes the unlocked raw-pointer windows safe
+            // against a concurrent gcs_shutdown instead of assuming the Dart
+            // isolate serializes commands against shutdown.
+            g_idleCond.wait( lock, [] { return g_inFlight == 0; } );
             // Shared teardown body — also pairs the gcs_init boot: the
-            // embedded node goes down only when this library booted it.
-            TeardownSessionAndNode();
+            // embedded node goes down only when this library booted it. The
+            // lock is passed so the blocking teardown runs OFF g_mutex.
+            TeardownSessionAndNode( &lock );
         }
     }
 

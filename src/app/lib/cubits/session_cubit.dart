@@ -10,17 +10,29 @@
 ///   spaceTree -> RailCubit.setTree            (D-02 pushed catalog tree)
 ///   roomList -> RailCubit.setRooms            (D-21 pushed room list)
 ///   readiness -> session ready flag
-///   message  -> MessageFlowCubit.append(buildChatFlowItemTextBubble(...))
+///   message  -> MessageFlowCubit.upsert(buildChatFlowItemTextBubble(...))
+///                -- gated by the rail's active room (CR-01: the C++ side
+///                   live-subscribes every joined room, so ungated dispatch
+///                   would render one room's traffic in another)
+///   messageHistory -> MessageFlowCubit.replaceAll(mapped batch) (D-06, same
+///                active-room gate -- a replay for a just-joined room must
+///                not wipe the room the user is reading)
 ///   error    -> session error surface (raw string per D-29)
 ///
-/// [close] closes the ReceivePort BEFORE the native `gcs_shutdown` (pitfall
-/// ordering) exactly once; a null handle is a no-op (T-01-11-04: the handle
-/// never leaks to widgets).
+/// Rail selection is watched too (review P1): the active-room gate above
+/// discards a replay pushed while the room is not selected, so when the rail
+/// selection CHANGES the session clears the flow and re-publishes an
+/// idempotent join_topic for the newly active room -- the C++ side replays
+/// that room's MessageHistory on re-join, and the batch then passes the gate.
+///
+/// [close] cancels the rail subscription, then closes the ReceivePort BEFORE
+/// the native `gcs_shutdown` (pitfall ordering) exactly once; a null handle
+/// is a no-op (T-01-11-04: the handle never leaks to widgets).
 library;
 
 import 'dart:async';
 import 'dart:ffi' as ffi;
-import 'dart:io' show Directory, File, Platform;
+import 'dart:io' show File, Platform;
 import 'dart:isolate' show ReceivePort;
 import 'dart:typed_data' show Uint8List;
 
@@ -54,9 +66,6 @@ const List<String> kPackagedFfiLibraryFileNames = <String>[
 /// Environment flag set by the Flutter test harness; the default session
 /// never opens the real library under it.
 const String kTestHarnessEnvVar = 'FLUTTER_TEST';
-
-/// Default session directory under the system temp directory.
-const String kDefaultSessionDirectoryName = 'gcs_chat_session';
 
 /// Typed seam for outgoing commands (D-27): implementers serialize the
 /// envelope to codec-tagged bytes and publish it to [kGcsCommandTopic] via
@@ -121,16 +130,23 @@ class SessionCubit extends Cubit<SessionState> implements GcsCommandTransport {
        _dbPath = dbPath,
        _railCubit = railCubit,
        _messageFlowCubit = messageFlowCubit,
-       super(SessionState(error: initialError));
+       super(SessionState(error: initialError)) {
+    if (railCubit != null) {
+      _lastSeenActiveRoom = railCubit.state.activeRoom;
+      _railSubscription = railCubit.stream.listen(_onRailStateChanged);
+    }
+  }
 
   final GcsBindings? _bindings;
   final RailCubit? _railCubit;
   final MessageFlowCubit? _messageFlowCubit;
-  String? _dbPath;
+  final String? _dbPath;
 
   ffi.Pointer<GcsSession> _handle = ffi.Pointer<GcsSession>.fromAddress(0);
   ReceivePort? _receivePort;
   bool _nativeShutdownDone = false;
+  StreamSubscription<RailState>? _railSubscription;
+  String? _lastSeenActiveRoom;
 
   /// Creates the production session, resolving the gcs_ffi shared library
   /// from [kFfiLibraryEnvVar], falling back to the packaged location next to
@@ -237,15 +253,32 @@ class SessionCubit extends Cubit<SessionState> implements GcsCommandTransport {
   /// [kGcsEventTopic] via `gcs_subscribe`, and starts listening. No-op when
   /// inert, already torn down, or already started (re-entry guard WR-02: a
   /// second call would leak the first ReceivePort and re-subscribe over it).
+  ///
+  /// Requires [dbPath] (or the [openDefault] argument) to be set to a
+  /// NON-EMPTY path: the app's `main()` derives it from the per-user
+  /// application-support directory (`data/KEY` — see main.dart); a missing
+  /// or empty path surfaces a raw error instead of silently defaulting to a
+  /// system temp directory (IN-03: an empty string reaches SessionBasePath's
+  /// temp-dir fallback, the exact default this guard exists to eliminate).
   void start() {
     final GcsBindings? bindings = _bindings;
     if (bindings == null || _nativeShutdownDone || _receivePort != null) {
       return; // inert / torn down / already started
     }
-    _dbPath ??= '${Directory.systemTemp.path}/$kDefaultSessionDirectoryName';
+    final String? dbPath = _dbPath;
+    if (dbPath == null || dbPath.isEmpty) {
+      emit(
+        state.copyWith(
+          error:
+              'session db path not configured (main() derives it from '
+              'the per-user data directory)',
+        ),
+      );
+      return;
+    }
     final Uint8List configBytes =
         (GcsConfig()
-              ..dbPath = _dbPath!
+              ..dbPath = dbPath
               ..codec = Codec.CODEC_PROTOBUF)
             .writeToBuffer();
     final ffi.Pointer<ffi.Uint8> configPtr = calloc<ffi.Uint8>(
@@ -333,11 +366,40 @@ class SessionCubit extends Cubit<SessionState> implements GcsCommandTransport {
     return status == GcsStatus.GCS_OK;
   }
 
-  /// Closes the ReceivePort BEFORE the native `gcs_shutdown`, exactly once
-  /// (idempotent guard; null handle no-op) -- pitfall ordering so the native
-  /// side can never post into a disposed port.
+  /// Requests the newly active room's history when the rail selection
+  /// changes (review P1): a MessageHistory batch pushed at join time is
+  /// discarded by the active-room gate while the room is not selected, so
+  /// the flow would otherwise keep showing the previously active room with
+  /// no way to refill. The join_topic publish is idempotent on the C++ side
+  /// (RoomList refresh + MessageHistory replay; the live subscribe is not
+  /// re-armed), and the replayed batch then passes the gate. The flow is
+  /// cleared first so the previous room's items never linger while the
+  /// replay is in flight. Redundant rail emissions (same active room) and
+  /// null selections publish nothing.
+  void _onRailStateChanged(RailState railState) {
+    final String? activeRoom = railState.activeRoom;
+    if (activeRoom == null) {
+      _lastSeenActiveRoom = null;
+      return;
+    }
+    if (activeRoom == _lastSeenActiveRoom) {
+      return;
+    }
+    _lastSeenActiveRoom = activeRoom;
+    _messageFlowCubit?.clear();
+    publishCommand(
+      GcsCommand()..joinTopic = (JoinTopicCommand()..roomTopic = activeRoom),
+    );
+  }
+
+  /// Cancels the rail subscription, then closes the ReceivePort BEFORE the
+  /// native `gcs_shutdown`, exactly once (idempotent guard; null handle
+  /// no-op) -- pitfall ordering so the native side can never post into a
+  /// disposed port and no selection-driven publish races the teardown.
   @override
   Future<void> close() async {
+    await _railSubscription?.cancel();
+    _railSubscription = null;
     _closeNativeOnce();
     await super.close();
   }
@@ -375,9 +437,27 @@ class SessionCubit extends Cubit<SessionState> implements GcsCommandTransport {
       return;
     }
     if (event.hasMessage()) {
+      // CR-01: the C++ side live-subscribes EVERY joined room, so a pushed
+      // message is rendered only when it belongs to the rail's active room --
+      // live traffic from another room must never land in the open one.
       final MessageFlowCubit? flow = _messageFlowCubit;
-      if (flow != null) {
-        flow.append(flow.buildChatFlowItemTextBubble(event.message));
+      if (flow != null &&
+          _railCubit?.state.activeRoom == event.message.roomTopic) {
+        flow.upsert(flow.buildChatFlowItemTextBubble(event.message));
+      }
+      return;
+    }
+    if (event.hasMessageHistory()) {
+      // CR-01: same active-room gate for the D-06 replay batch -- a history
+      // replay pushed for a room the user just joined must not replaceAll-
+      // wipe the flow of the room the user is currently reading.
+      final MessageFlowCubit? flow = _messageFlowCubit;
+      if (flow != null &&
+          _railCubit?.state.activeRoom == event.messageHistory.roomTopic) {
+        flow.replaceAll([
+          for (final ChatMessageState m in event.messageHistory.message)
+            flow.buildChatFlowItemTextBubble(m),
+        ]);
       }
       return;
     }

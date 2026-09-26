@@ -15,8 +15,10 @@
  */
 
 #include <chrono>
+#include <cstdint>
 #include <cstdlib>
 #include <filesystem>
+#include <fstream>
 #include <string>
 
 #include <gtest/gtest.h>
@@ -70,6 +72,14 @@ namespace
        "TokenID": "0x0000000000000000000000000000000000000000000000000000000000000001"
      }
     )";
+    /// Pinned pubsub listen port for this test's embedded node (continues
+    /// the FFI binaries' 41500-41503 pins — WR-04): written to
+    /// network_config.json under the node base path in SetUp (GeniusSDKInit
+    /// uses the temp dir itself as the base path). GeniusNode derives ports
+    /// as 40001 + hash%301 with no availability probe, so parallel node
+    /// processes can collide on a derived port; the pin sits OUTSIDE the
+    /// derived range and matches no other test binary's pin.
+    constexpr uint16_t kPinnedPubsubPort = 41504;
 } // namespace
 
 namespace sgns::neoswarm::storage::test
@@ -106,6 +116,13 @@ namespace sgns::neoswarm::storage::test
                                std::to_string( uniqueSalt ) ) )
                              .string();
             std::filesystem::create_directories( m_tempPath );
+
+            // Pin the embedded node's pubsub port (WR-04, child_registration.cpp
+            // pattern): the node reads this file at InitNetwork.
+            std::ofstream networkConfig( m_tempPath + "/network_config.json" );
+            networkConfig << "{ \"port_seed\": " << kPinnedPubsubPort
+                          << ", \"auto_dht\": false, \"upnp_enabled\": false"
+                          << ", \"pubsub_port\": \"" << kPinnedPubsubPort << "\" }";
         }
 
         void TearDown() override

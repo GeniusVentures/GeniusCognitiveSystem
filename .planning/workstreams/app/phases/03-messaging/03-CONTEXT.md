@@ -1,12 +1,13 @@
 # Phase 3: Messaging - Context
 
 **Gathered:** 2026-09-22
-**Status:** Ready for planning
+**Updated:** 2026-09-23 — D-08 (encrypted history) added; replan of affected plans pending
+**Status:** Ready for replanning
 
 <domain>
 ## Phase Boundary
 
-Users can send and receive text messages in real-time within joined rooms; all participants converge on the same CRDT-backed message history, loaded on room join and rendered chronologically with sender identification (CORE-04, roadmap success criteria 1-4). Messages persist in GlobalDB under per-message keys, replicate via the room's CRDT broadcast topic, and survive restart. No @mentions or GCS bot responses (Phase 5+), no message deletion/moderation UI (Phase 5 — but the tombstone fields land on the record now per Phase 2 D-03), no membership/invites (Phase 4), no reply threading (bot phase), no editing (out of scope — append-only per PROJECT.md), no encryption (v1.1; schema accommodates opaque payloads since text is a bytes-ish field either way).
+Users can send and receive text messages in real-time within joined rooms; all participants converge on the same CRDT-backed message history, loaded on room join and rendered chronologically with sender identification (CORE-04, roadmap success criteria 1-4). Messages persist in GlobalDB under per-message keys, replicate via the room's CRDT broadcast topic, and survive restart. No @mentions or GCS bot responses (Phase 5+), no message deletion/moderation UI (Phase 5 — but the tombstone fields land on the record now per Phase 2 D-03), no membership/invites (Phase 4), no reply threading (bot phase), no editing (out of scope — append-only per PROJECT.md). Message payloads are stored and transported as full-record ciphertext per D-08 (key rotation and per-room opt-in UI deferred — see D-08).
 
 </domain>
 
@@ -19,7 +20,7 @@ Users can send and receive text messages in real-time within joined rooms; all p
 
 ### Delivery & Sender Identity
 - **D-03:** **GossipSub fast path for live delivery; CRDT as the archive.** Send (C++ side): mint id (`NextMessageId()` idiom) → stamp sender + timestamp → push local `pending` echo (D-06) → **publish the serialized `ChatMessageState` on the room's pub/sub topic** (live path, reuses Phase 1's topic infra) **and `Put` it with `{room_topic}`** (archive replication per D-02) → push `complete`. Receive: a pub/sub message arrives → decode → **apply-once keyed by message id** (dedupe — the same message will also arrive via CRDT sync) → render + `PutLocal` into the archive with no re-broadcast (no echo loops; graphsync heals any pub/sub delivery that was missed). Rejected: CRDT write-through as the only delivery path — render latency ties to graphsync convergence rather than the live topic. *(User choice, 2026-09-22: "GossipSub fast-path seems better as then the CRDT is just the archive of that message.")*
-- **D-04:** **Sender identity = wallet address, stamped by C++, unsigned MVP.** The sender field is the local node's `GeniusNode::GetAddress()` (the embedded child wallet from `gcs_init`), set in the FFI send path — Dart never supplies or trusts a sender. Not cryptographically signed in this phase (any syncing node could forge a sender string); signing is v1.1 with encryption. `ChatMessageState` gains a `sender` field (append-only, next free tag); UI renders it truncated/short-form.
+- **D-04:** **Sender identity = wallet address, stamped by C++, unsigned MVP.** The sender field is the local node's `GeniusNode::GetAddress()` (the embedded child wallet from `gcs_init`), set in the FFI send path — Dart never supplies or trusts a sender. Not cryptographically signed in this phase (any syncing node could forge a sender string); signing is v1.1 — payload encryption is in-phase per D-08 (encryption ≠ signing: the sender field stays unsigned and display-only). `ChatMessageState` gains a `sender` field (append-only, next free tag); UI renders it truncated/short-form.
 
 ### Message Record Shape
 - **D-05:** **Append-only field additions to `ChatMessageState`:** `sender` (D-04) and tombstone fields (`deleted` + `deleted_at_ms`) present from creation — greenfield now per Phase 2 D-03; Phase 5 moderation flips flags rather than migrating. Ordering fields (timestamp, id) already exist.
@@ -30,6 +31,9 @@ Users can send and receive text messages in real-time within joined rooms; all p
 ### Send Lifecycle UX
 - **D-07:** **Pending echo + by-id upsert.** C++ pushes the sender's own message twice — once as `pending` (optimistic echo at send-accept) and once as `complete` with the same id; failures push `error` for that id. `MessageFlowCubit` upserts by message id (~10-line change to the current append-only mapping) so pending → complete/error replaces in place rather than duplicating. Error is a **terminal** tint; re-send is a **manual user action** (re-submit via the composer path with a new id) — no auto-retry loop. Transport-level failures (topic publish throws) additionally surface a `showToast`; send-path validation failures stay inline per the Phase 2 dialog pattern. The composer itself is unchanged — Enter and the button already converge on one submit path in `composer_cubit.dart`.
 
+### At-Rest Encryption
+- **D-08:** **Full-record encrypted storage & transport, Matrix-shaped envelope, phased key distribution.** The serialized `ChatMessageState` is encrypted as a whole before BOTH the live `Publish` (D-03) and the archive `Put`/`PutLocal` — nonce-prefixed AES-256-GCM via the vendored OpenSSL (EVP; exact signatures + gcs_core linkability pinned in 03-01). Decryption happens only in the local `Messaging` layer (`ApplyMessage` funnel and `QueryHistory` scan) before parse/dedupe/sort — the storage layer stays opaque-bytes, `gcs_chat.proto` stays unchanged (bytes are bytes), and Dart is unchanged (C++ decrypts before push). One group session per room; interim Phase 3 key = HKDF(room_topic), because no member roster exists until Phase 4 membership — Phase 4 swaps in Matrix/Megolm-style member-key distribution (session keys encrypted to member identity keys) with **no record-format change**. All Phase 3 rooms are encrypted by default (Element's current default for private rooms). Encryption is encapsulated behind **injected crypto functions** (an encrypt/decrypt seam on the `Messaging` component — it never calls OpenSSL directly): when the room/messaging does not have encryption enabled, the injected functions are simply not called and payloads flow as plaintext — one component, two paths. The disabled path exists now so both encrypted and plaintext behavior are testable in this phase, and the v1.1 per-room opt-out flag needs no architectural change. Records that fail decryption (wrong/missing key) skip-and-log — the same posture as unparseable records; disk and wire carry ciphertext + nonce only. *(User choice, 2026-09-23: follow what Element Matrix does for E2E-encrypted topics/channels — full record, both paths, envelope now / key swap at Phase 4.)*
+
 ### Claude's Discretion
 - Proto field names/numbering within the append-only discipline (`sender`, tombstone fields, `MessageHistory` event shape).
 - Dedupe-set implementation in C++ (fixed-size LRU per room vs global keyed map) and its retention policy.
@@ -37,6 +41,9 @@ Users can send and receive text messages in real-time within joined rooms; all p
 - Whether `QueryKeyValues` is exposed on `GcsGlobalDb` as a raw passthrough returning key/value byte pairs or as a decoded-message helper.
 - Pending/complete/error state representation in the pushed `ChatMessageState` (reuse `MessageState` enum values vs new values — append-only either way).
 - Dart-side history `replaceAll` wiring details and any client-side render cap constant.
+- Exact HKDF parameters, nonce size, and the OpenSSL EVP call pattern for D-08 (pinned in the 03-01 signature record before implementation).
+- The injection shape of the D-08 crypto seam (pair of `std::function` encrypt/decrypt vs a small interface) — as long as `Messaging` itself never calls OpenSSL directly and the seam is injectable per room/messaging instance.
+- Whether decryption failure logs at `spdlog::warn` or debug level.
 
 </decisions>
 
@@ -69,7 +76,8 @@ Users can send and receive text messages in real-time within joined rooms; all p
 - `src/app/scaffold/lib/components/` — `showToast` (`toast_manager.dart`) for transport errors; existing message-list atoms for pending/error tints.
 
 ### Resolved planning input
-- `.planning/todos/pending/design-message-crdt-schema.md` — its four open questions are answered by this context (fields → D-04/D-05; ordering → D-01 `(timestamp, id)` sort, wall-clock + id tiebreak, no vector clocks/Lamport; delete → tombstone fields now, moderation UI Phase 5, no edit; encrypted payloads → v1.1, schema unchanged since content is an opaque text field).
+- `.planning/todos/pending/design-message-crdt-schema.md` — its four open questions are answered by this context (fields → D-04/D-05; ordering → D-01 `(timestamp, id)` sort, wall-clock + id tiebreak, no vector clocks/Lamport; delete → tombstone fields now, moderation UI Phase 5, no edit; encrypted payloads → D-08 in-phase, schema unchanged since encryption wraps the serialized record).
+- `../thirdparty/openssl/` — vendored OpenSSL (D-08): EVP AES-256-GCM + HKDF; include paths already resolve into the build via libp2p/SuperGenius (34 hits in `compile_commands.json`); direct gcs_core linkage gets pinned in 03-01/03-02.
 
 </canonical_refs>
 
@@ -101,7 +109,10 @@ Users can send and receive text messages in real-time within joined rooms; all p
 <specifics>
 ## Specific Ideas
 
-- "GossipSub fast-path seems better as then the CRDT is just the archive of that message" (2026-09-22) — D-03: publish on the room topic for live delivery, Put-with-topics for archive replication; receivers apply-once and `PutLocal` without re-broadcast.
+- "GossipSub fast-path seems better as then the CRDT is just the archive of that message" (2026-09-22) — D-03: publish on the room topic for live delivery, Put-with-topics for archive replication; receivers apply-once and `PutLocal` without re-broadcast. Reaffirmed 2026-09-23 ("the pub/sub fast path is the way to go").
+- "Storing the chat history encrypted ... is necessary" (2026-09-23) — supersedes D-04's original encryption deferral; realized as D-08.
+- "This should follow what Element Matrix and others do with end-to-end encryption if enabled for the topic/channel" (2026-09-23) — D-08: Matrix-shaped envelope (full-record ciphertext, both paths, per-room group session); key distribution phases in at Phase 4 membership since no roster exists yet.
+- "Keep the messaging encapsulated, so that if the room/messaging doesn't have encryption enabled, it just doesn't call the injected crypto functions — that way we can test both paths in this phase" (2026-09-23) — D-08 crypto seam: injected encrypt/decrypt, not called when disabled (plaintext path), both paths covered by tests.
 - Advisor research (4 parallel gsd-advisor-researcher runs, 2026-09-22) verified in-repo: `QueryKeyValues` prefix scan exists in SuperGenius GlobalDB (supersedes an earlier per-room index-manifest sketch — that design's LWW lost-update convergence failure is why it was dropped); `GcsGlobalDb::Put` hardcoding `kNoTopics` confirmed at `gcs_global_db.cpp` ~264-266; `RegisterNewElementCallback` confirmed as the receive-side push hook.
 
 </specifics>
@@ -109,7 +120,11 @@ Users can send and receive text messages in real-time within joined rooms; all p
 <deferred>
 ## Deferred Ideas
 
-- Cryptographic message signing + sender verification — v1.1 with encryption (D-04 keeps the field unsigned).
+- Cryptographic message signing + sender verification — v1.1 (D-04 keeps the field unsigned; payload encryption moved into Phase 3 per D-08).
+- Megolm-style member-key distribution + key rotation when members leave (ENCR-02) — Phase 4 membership; the D-08 envelope is designed so only the distribution swaps, not the record format.
+- Per-room encryption opt-in/opt-out flag + room settings UI — v1.1+ (all Phase 3 rooms are encrypted by default per D-08).
+- DM auto-encryption (ENCR-03) — DMs don't exist yet.
+- Element-style device verification (emoji/key verification) — v1.1+.
 - Reply threading / `reply_to_id` causal ordering (Lamport/HLC stamps, vector clocks) — bot phase; revisit only if bot turns need causal ordering. Simple `(timestamp, id)` sort is locked for Phase 3.
 - Message deletion UI + moderator flows — Phase 5 Moderation; tombstone fields land now (D-05).
 - Pagination / scroll-windowed history loading — post-MVP; batch `replaceAll` is locked for Phase 3.

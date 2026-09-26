@@ -3,71 +3,98 @@
 > **Audit trail only.** Do not use as input to planning, research, or execution agents.
 > Decisions are captured in CONTEXT.md — this log preserves the alternatives considered.
 
-**Date:** 2026-09-22
-**Phase:** 3-Messaging
-**Areas discussed:** CRDT schema & ordering, Delivery & sender identity, History loading, Send lifecycle UX
+**Date:** 2026-09-23 (update session on the 2026-09-22 context)
+**Phase:** 03-messaging
+**Areas discussed:** encrypted chat-history storage (D-04 amendment + new D-08), crypto encapsulation seam
 
 ---
 
-## CRDT Schema & Ordering
+## Session Context
+
+Original decisions D-01..D-07 were locked 2026-09-22 (logged in 03-CONTEXT.md).
+This session re-opened the context on one topic: the user stated storing chat history
+encrypted is necessary, backed by REQUIREMENTS.md ENCR-01 (app-layer symmetric key
+encryption — classified v2, moved into Phase 3 by this session), while reaffirming the
+D-03 pub/sub fast path. Six committed plans exist and will be replanned for D-08.
+
+---
+
+## Encryption Approach (shared room key derivation)
 
 | Option | Description | Selected |
 |--------|-------------|----------|
-| Prefix scan (via `QueryKeyValues`) | Per-message keys `room_topic + "/" + message-id`; GlobalDB's converged prefix scan enumerates; sort by `(timestamp, id)` | ✓ |
-| Per-room index manifest | Phase 2's entity-manifest pattern applied to message ids under one key | |
-| Space-blob / embedded history | Messages embedded in a room record | |
+| Topic-derived key | HKDF over room topic name → AES-256-GCM; zero UX, no distribution; topic-name knowers can decrypt | |
+| Follow Element/Matrix E2E model | Matrix/Megolm-shaped: full-record ciphertext, per-room group session, member-key distribution | ✓ (direction) |
+| User passphrase | Creator-set passphrase entered on join; real shared secret, new UX + wrong-key handling | |
+| Keep v2 deferral | No encryption this phase; ENCR-01 stays v2 per REQUIREMENTS.md | |
 
-**User's choice:** Prefix scan (Recommended)
-**Notes:** Advisor research verified `QueryKeyValues` exists in SuperGenius `globaldb.hpp` (~line 144). The manifest alternative has a read-union-write LWW lost-update convergence failure under concurrent sends (per-key LWW, no union semantics) — dropped. `GcsGlobalDb`/`CoreSession` must expose the scan. Record shape: append `sender` + tombstone fields to `ChatMessageState`; tombstones present from creation per Phase 2 D-03.
+**User's choice:** "This should follow what Element Matrix and others do with end-to-end encryption if enabled for the topic/channel"
+**Notes:** Structural constraint surfaced: Matrix session-key distribution requires a member roster; Phase 3 has none (membership & invites is Phase 4). Resolved in the phasing question below.
 
-## Delivery & Sender Identity
+---
 
-| Option | Description | Selected |
-|--------|-------------|----------|
-| GossipSub fast-path + CRDT archive | Publish serialized message on room topic for live delivery AND Put with `{room_topic}` for archive replication; receivers apply-once by id (dedupe), render, `PutLocal` without re-broadcast | ✓ |
-| CRDT write-through only | Messages render only after CRDT/graphsync convergence | |
-
-**User's choice:** GossipSub fast-path + CRDT archive
-**Notes:** User's verbatim rationale: "GossipSub fast-path seems better as then the CRDT is just the archive of that message." Enables the `kNoTopics` → `{room_topic}` fix in `GcsGlobalDb::Put` (`gcs_global_db.cpp` ~264-266). Sender identity = wallet address via `GeniusNode::GetAddress()`, stamped by C++, unsigned MVP (signing deferred to v1.1 with encryption). Dedupe set absorbs the double-arrival (pub/sub + CRDT sync) of the same message id.
-
-## History Loading
+## Encryption Coverage
 
 | Option | Description | Selected |
 |--------|-------------|----------|
-| Join-time replay | Prefix scan at join → one `MessageHistory` batch event → Dart `replaceAll` | ✓ |
-| Lazy on-scroll | Load windowed pages as the user scrolls up | |
-| Startup full load | Load all rooms' history at app start | |
+| Full record | Whole serialized ChatMessageState encrypted; disk/wire reveal nothing (stronger than Matrix, which leaves sender/timestamps visible to the server); decrypt-before-dedupe/sort | ✓ |
+| Text field only | Only message text encrypted; metadata stays plaintext at rest | |
 
-**User's choice:** Join-time replay (Recommended)
-**Notes:** Scan runs under the session mutex on `join_topic` and Phase 2 derived joins. Live messages append after the batch; apply-once dedupe absorbs scan/subscribe races. No pagination API for MVP.
+**User's choice:** Full record (Recommended)
 
-## Send Lifecycle UX
+---
+
+## Live Path Treatment
 
 | Option | Description | Selected |
 |--------|-------------|----------|
-| Pending echo + upsert | C++ pushes pending at send-accept then complete/error with the same id; Cubit upserts by id; error is terminal tint + manual re-send | ✓ |
-| Optimistic Dart insert | Dart inserts locally before C++ acknowledges | |
-| Send-then-render | No local echo; message appears only after round-trip | |
+| Encrypt both | One encrypt call before Publish and Put; ciphertext on every wire and disk | ✓ |
+| Archive only | Live GossipSub keeps plaintext protobuf (libp2p transport already encrypts in transit); archive carries ciphertext | |
 
-**User's choice:** Pending echo + upsert (Recommended)
-**Notes:** Preserves C++-owns-state (no Dart optimism). ~10-line `MessageFlowCubit` change from append-only to by-id upsert. Transport errors additionally `showToast`; no auto-retry. Composer unchanged — Enter/button already converge on one submit path.
+**User's choice:** Encrypt both (Recommended)
+
+---
+
+## Key Distribution Phasing
+
+| Option | Description | Selected |
+|--------|-------------|----------|
+| Envelope now, key swap later | Durable E2E envelope in Phase 3 (full-record AES-256-GCM, per-room group session); interim key = HKDF(room_topic); Phase 4 swaps in Megolm-style member-key distribution with no record-format change; all rooms encrypted by default (Element's default) | ✓ |
+| Full distribution in Phase 3 | Pull member discovery + 1:1 session-key distribution forward (effectively Phase 4 membership merged in) | |
+| Room passphrase now | KDF(passphrase) shared secret without roster; not the Matrix model; adds join UX | |
+
+**User's choice:** Envelope now, key swap later (Recommended)
+
+---
+
+## Crypto Encapsulation (injection seam)
+
+| Option | Description | Selected |
+|--------|-------------|----------|
+| Injected crypto seam | Messaging takes injected encrypt/decrypt functions; they are simply not called when encryption is disabled — plaintext flows; both paths testable in this phase | ✓ |
+| Inline OpenSSL calls | Messaging calls EVP directly behind an enabled flag; no injection seam | |
+
+**User's choice:** "keep the messaging encapsulated, so that if the room/messaging doesn't have encryption enabled, it just doesn't call the injected crypto functions. That way we can test both paths in this phase"
+**Notes:** Default remains encryption-enabled for all Phase 3 rooms; the disabled path is exercised by tests now and becomes the v1.1 per-room opt-out with no architectural change. Messaging never calls OpenSSL directly.
 
 ---
 
 ## Claude's Discretion
 
-- Proto field names/numbering (`sender`, tombstone fields, `MessageHistory` shape).
-- Dedupe-set implementation and retention policy.
-- Exact prefix string layout details beyond one stable per-room prefix.
-- `QueryKeyValues` exposure shape on `GcsGlobalDb` (raw passthrough vs decoded helper).
-- Pending/complete/error representation in `ChatMessageState`.
-- Dart `replaceAll` wiring and client-side render cap constant.
+- Exact HKDF parameters, nonce size, OpenSSL EVP call pattern (pinned in 03-01 signature record).
+- Injection shape of the crypto seam (pair of `std::function` encrypt/decrypt vs a small interface), as long as Messaging never calls OpenSSL directly and the seam is injectable per room/messaging instance.
+- Decryption-failure log level (warn vs debug).
+- Crypto helper placement inside the Messaging component.
 
 ## Deferred Ideas
 
-- Message signing + sender verification (v1.1, with encryption).
-- Reply threading / Lamport-HLC / vector-clock causal ordering (bot phase).
-- Message deletion UI + moderation flows (Phase 5; tombstone fields land now).
-- Pagination / windowed history (post-MVP).
-- Auto-retry with backoff (rejected for MVP; manual re-send only).
-- @mentions / GCS bot auto-answer (Phase 5+).
+- Cryptographic signing + sender verification — v1.1 (D-04 unsigned stays).
+- Megolm-style member-key distribution + key rotation on leave (ENCR-02) — Phase 4.
+- Per-room encryption opt-in/opt-out flag + room settings UI — v1.1+.
+- DM auto-encryption (ENCR-03) — DMs don't exist yet.
+- Element-style device verification — v1.1+.
+
+---
+
+*Phase: 03-messaging*
+*Discussion log generated: 2026-09-23*

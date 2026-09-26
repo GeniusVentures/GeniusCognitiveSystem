@@ -46,6 +46,14 @@ const String kRoomName = 'general';
 const int kGcsOk = 0;
 const Duration kWaitLimit = Duration(seconds: 5);
 
+/// Pinned pubsub listen port for this test's embedded node (continues the C++
+/// FFI binaries' 41500-41502 pins): written to network_config.json under the
+/// temp dir before gcs_init. GeniusNode derives ports as 40001 + hash%301
+/// with no availability probe, so parallel node processes can collide on a
+/// derived port; the pin sits OUTSIDE the derived range and matches no other
+/// test binary's pin.
+const int kPinnedPubsubPort = 41503;
+
 /// Event-driven queue over the ReceivePort — waits are bounded futures, never
 /// polling loops (D-05: push, don't poll). Waiters are queued FIFO: a second
 /// [next] before an event arrives no longer replaces (and orphans) the first.
@@ -126,6 +134,14 @@ void main()
     // D-29: codec-tagged config bytes; buffer freed right after the call.
     final Directory tempDir = await Directory.systemTemp.createTemp('gcs_dart_smoke');
     addTearDown(() => tempDir.delete(recursive: true));
+    // Pin the embedded node's pubsub port (child_registration.cpp pattern):
+    // the node reads this file at InitNetwork; the temp dir is the node base
+    // path (the db sits at <tmp>/db).
+    File('${tempDir.path}/network_config.json').writeAsStringSync(
+      '{ "port_seed": $kPinnedPubsubPort, "auto_dht": false'
+      ', "upnp_enabled": false'
+      ', "pubsub_port": "$kPinnedPubsubPort" }',
+    );
     final GcsConfig config = GcsConfig()
       ..dbPath = '${tempDir.path}/db'
       ..codec = Codec.CODEC_PROTOBUF;
@@ -168,27 +184,42 @@ void main()
     expect(readyEvent.hasReadiness(), isTrue);
     expect(readyEvent.readiness.ready, isTrue);
 
-    // 4) join_topic command publish -> updated RoomList (oneof dispatch #1).
+    // 4) join_topic command publish -> updated RoomList, then a MessageHistory
+    //    replay batch (D-06 — empty for a freshly joined room).
     final GcsCommand joinCommand = GcsCommand()
       ..joinTopic = (JoinTopicCommand()..roomTopic = kJoinedTopic);
     expect(_publishCommand(bindings, handle, joinCommand), kGcsOk);
     final GcsEvent joinedEvent = await events.next().timeout(kWaitLimit);
     expect(joinedEvent.hasRoomList(), isTrue);
     expect(joinedEvent.roomList.roomTopic, contains(kJoinedTopic));
+    final GcsEvent joinHistory = await events.next().timeout(kWaitLimit);
+    expect(joinHistory.hasMessageHistory(), isTrue,
+        reason: 'join_topic replays the room history (D-06)');
+    expect(joinHistory.messageHistory.roomTopic, kJoinedTopic);
+    expect(joinHistory.messageHistory.message, isEmpty,
+        reason: 'freshly joined room has no history yet');
 
-    // 5) send_text command publish -> ChatMessageState echo with C++-stamped
-    //    authority fields (D-04: Dart sent room_topic + text only).
+    // 5) send_text command publish -> pending echo then complete echo, both
+    //    carrying the C++-stamped id (D-07) and role USER_SELF (D-04 — Dart
+    //    sent room_topic + text only).
     final GcsCommand sendCommand = GcsCommand()
       ..sendText = (SendTextCommand()
         ..roomTopic = kSmokeTopicA
         ..text = kSendText);
     expect(_publishCommand(bindings, handle, sendCommand), kGcsOk);
-    final GcsEvent echo = await events.next().timeout(kWaitLimit);
-    expect(echo.hasMessage(), isTrue);
-    expect(echo.message.role, MessageRole.MESSAGE_ROLE_USER_SELF);
-    expect(echo.message.state, MessageState.MESSAGE_STATE_COMPLETE);
-    expect(echo.message.text, kSendText);
-    expect(echo.message.id, isNotEmpty, reason: 'C++ stamps the message id');
+    final GcsEvent pendingEcho = await events.next().timeout(kWaitLimit);
+    expect(pendingEcho.hasMessage(), isTrue);
+    expect(pendingEcho.message.role, MessageRole.MESSAGE_ROLE_USER_SELF);
+    expect(pendingEcho.message.state, MessageState.MESSAGE_STATE_PENDING);
+    expect(pendingEcho.message.text, kSendText);
+    expect(pendingEcho.message.id, isNotEmpty, reason: 'C++ stamps the message id');
+    final GcsEvent completeEcho = await events.next().timeout(kWaitLimit);
+    expect(completeEcho.hasMessage(), isTrue);
+    expect(completeEcho.message.role, MessageRole.MESSAGE_ROLE_USER_SELF);
+    expect(completeEcho.message.state, MessageState.MESSAGE_STATE_COMPLETE);
+    expect(completeEcho.message.text, kSendText);
+    expect(completeEcho.message.id, pendingEcho.message.id,
+        reason: 'pending -> complete upsert shares one id (D-07)');
 
     // 6) create_space command publish -> SpaceTree with the C++-minted space
     //    (D-27: data-only command; the id never comes from Dart).
@@ -205,13 +236,20 @@ void main()
     final String spaceId = spaceEvent.spaceTree.space.first.id;
     expect(spaceId, isNotEmpty, reason: 'C++ stamps the space id');
 
-    // 7) create_room command publish -> SpaceTree carrying the room nested
-    //    under the space, then a RoomList that derives the join (autoJoin).
+    // 7) create_room command publish -> MessageHistory replay for the derived
+    //    join, then SpaceTree carrying the room nested under the space, then a
+    //    RoomList that derives the join (autoJoin).
     final GcsCommand createRoom = GcsCommand()
       ..createRoom = (CreateRoomCommand()
         ..name = kRoomName
         ..parentSpaceId = spaceId);
     expect(_publishCommand(bindings, handle, createRoom), kGcsOk);
+    final GcsEvent derivedHistory = await events.next().timeout(kWaitLimit);
+    expect(derivedHistory.hasMessageHistory(), isTrue,
+        reason: 'derived join replays the room history (D-06)');
+    expect(derivedHistory.messageHistory.roomTopic, isNotEmpty);
+    expect(derivedHistory.messageHistory.message, isEmpty,
+        reason: 'freshly derived room has no history yet');
     final GcsEvent roomTreeEvent = await events.next().timeout(kWaitLimit);
     expect(roomTreeEvent.hasSpaceTree(), isTrue);
     expect(roomTreeEvent.spaceTree.space, hasLength(1));

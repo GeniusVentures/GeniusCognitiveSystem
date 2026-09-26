@@ -119,6 +119,43 @@ class _RecordingTransport implements GcsCommandTransport {
   }
 }
 
+/// Transport double returning a fixed publish result (D-07 seam): false to
+/// model a refused publish, true to model an accepted one. Records commands
+/// the same way [_RecordingTransport] does.
+class _FixedResultTransport implements GcsCommandTransport {
+  /// Creates a fake returning [result] from every publish.
+  _FixedResultTransport(this.result);
+
+  /// The fixed publish result this fake returns.
+  final bool result;
+
+  /// Published command envelopes (D-27 seam).
+  final List<GcsCommand> commands = <GcsCommand>[];
+
+  @override
+  bool publishCommand(GcsCommand command) {
+    commands.add(command);
+    return result;
+  }
+}
+
+/// SessionCubit double recording outgoing publishes (review P1 seam): the
+/// room-activation join_topic re-publish is observable only through the
+/// transport [SessionCubit] itself implements.
+class _RecordingSessionCubit extends SessionCubit {
+  /// Creates a recording session over the optional dispatch targets.
+  _RecordingSessionCubit({super.railCubit, super.messageFlowCubit});
+
+  /// Command envelopes handed to the transport (D-27 seam).
+  final List<GcsCommand> publishedCommands = <GcsCommand>[];
+
+  @override
+  bool publishCommand(GcsCommand command) {
+    publishedCommands.add(command);
+    return true;
+  }
+}
+
 void main() {
   group('RailCubit', () {
     test('starts empty with no selection and no hardcoded rooms', () {
@@ -213,6 +250,111 @@ void main() {
       expect(item.state, 'pending');
       expect(item.text, 'hello');
     });
+
+    test('upsert replaces an existing item by instanceId (D-07)', () {
+      final MessageFlowCubit cubit = MessageFlowCubit();
+      addTearDown(cubit.close);
+      const ChatFlowItemTextBubble pending = ChatFlowItemTextBubble(
+        instanceId: 'm1',
+        role: 'user_self',
+        state: 'pending',
+        text: 'hello',
+      );
+      const ChatFlowItemTextBubble complete = ChatFlowItemTextBubble(
+        instanceId: 'm1',
+        role: 'user_self',
+        state: 'complete',
+        text: 'hello',
+      );
+      const ChatFlowItemTextBubble later = ChatFlowItemTextBubble(
+        instanceId: 'm2',
+        role: 'user_peer',
+        state: 'complete',
+        text: 'reply',
+      );
+      cubit.append(pending);
+      cubit.append(later);
+      cubit.upsert(complete);
+      expect(cubit.state, hasLength(2));
+      // Replace happens in place: the updated item keeps its position rather
+      // than jumping to the end of the flow.
+      expect((cubit.state[0] as ChatFlowItemTextBubble).instanceId, 'm1');
+      expect((cubit.state[0] as ChatFlowItemTextBubble).state, 'complete');
+      expect((cubit.state[1] as ChatFlowItemTextBubble).instanceId, 'm2');
+    });
+
+    test('upsert appends an item with an unseen instanceId (D-07)', () {
+      final MessageFlowCubit cubit = MessageFlowCubit();
+      addTearDown(cubit.close);
+      const ChatFlowItemTextBubble fresh = ChatFlowItemTextBubble(
+        instanceId: 'm-new',
+        role: 'user_peer',
+        state: 'complete',
+        text: 'first seen via upsert',
+      );
+      cubit.upsert(fresh);
+      expect(cubit.state, hasLength(1));
+      expect(
+        (cubit.state.single as ChatFlowItemTextBubble).instanceId,
+        'm-new',
+      );
+    });
+
+    test('replaceAll replaces the whole list with each snapshot (D-06)', () {
+      final MessageFlowCubit cubit = MessageFlowCubit();
+      addTearDown(cubit.close);
+      const ChatFlowItemTextBubble a = ChatFlowItemTextBubble(
+        instanceId: 'a',
+        role: 'user_self',
+        text: 'one',
+      );
+      const ChatFlowItemTextBubble b = ChatFlowItemTextBubble(
+        instanceId: 'b',
+        role: 'user_peer',
+        text: 'two',
+      );
+      const ChatFlowItemTextBubble c = ChatFlowItemTextBubble(
+        instanceId: 'c',
+        role: 'system',
+        text: 'three',
+      );
+      cubit.replaceAll(<ChatFlowItem>[a, b]);
+      expect(cubit.state, hasLength(2));
+      cubit.replaceAll(<ChatFlowItem>[c]);
+      expect(cubit.state, hasLength(1));
+      expect((cubit.state.single as ChatFlowItemTextBubble).instanceId, 'c');
+    });
+
+    test(
+      'buildChatFlowItemTextBubble truncates a long sender label (D-04)',
+      () {
+        final MessageFlowCubit cubit = MessageFlowCubit();
+        addTearDown(cubit.close);
+        final String longSender = '0x${List<String>.filled(128, 'a').join()}';
+        final ChatFlowItemTextBubble truncated = cubit
+            .buildChatFlowItemTextBubble(
+              ChatMessageState()
+                ..id = 'id-sender'
+                ..role = MessageRole.MESSAGE_ROLE_USER_PEER
+                ..state = MessageState.MESSAGE_STATE_COMPLETE
+                ..text = 'hi'
+                ..sender = longSender,
+            );
+        expect(truncated.senderName, isNotNull);
+        expect(truncated.senderName, startsWith('0x'));
+        expect(truncated.senderName, contains('…'));
+
+        final ChatFlowItemTextBubble unnamed = cubit
+            .buildChatFlowItemTextBubble(
+              ChatMessageState()
+                ..id = 'id-none'
+                ..role = MessageRole.MESSAGE_ROLE_USER_PEER
+                ..state = MessageState.MESSAGE_STATE_COMPLETE
+                ..text = 'hi',
+            );
+        expect(unnamed.senderName, isNull);
+      },
+    );
   });
 
   group('ComposerCubit', () {
@@ -256,6 +398,45 @@ void main() {
       expect(transport.commands, isEmpty);
       expect(cubit.state.draft, '   ');
     });
+
+    test(
+      'send returns false and keeps the draft when the transport refuses',
+      () async {
+        final _FixedResultTransport transport = _FixedResultTransport(false);
+        final RailCubit rail = RailCubit();
+        final ComposerCubit cubit = ComposerCubit(
+          transport: transport,
+          railCubit: rail,
+        );
+        addTearDown(cubit.close);
+        addTearDown(rail.close);
+        rail.setRooms(<String>['gcs/chat/room-one']);
+        rail.selectRoom('gcs/chat/room-one');
+        await pumpEventQueue();
+        cubit.updateDraft('hello world');
+        expect(cubit.send(), isFalse);
+        expect(transport.commands, hasLength(1));
+        expect(cubit.state.draft, 'hello world');
+      },
+    );
+
+    test('send returns true and clears the draft on publish success', () async {
+      final _FixedResultTransport transport = _FixedResultTransport(true);
+      final RailCubit rail = RailCubit();
+      final ComposerCubit cubit = ComposerCubit(
+        transport: transport,
+        railCubit: rail,
+      );
+      addTearDown(cubit.close);
+      addTearDown(rail.close);
+      rail.setRooms(<String>['gcs/chat/room-one']);
+      rail.selectRoom('gcs/chat/room-one');
+      await pumpEventQueue();
+      cubit.updateDraft('hello world');
+      expect(cubit.send(), isTrue);
+      expect(transport.commands, hasLength(1));
+      expect(cubit.state.draft, isEmpty);
+    });
   });
 
   group('SessionCubit', () {
@@ -288,8 +469,7 @@ void main() {
         );
         // Platform-neutral temp dir (IN-07) -- same pattern SessionCubit's
         // own default uses; a hardcoded /tmp would fail on Windows runners.
-        final String dbPath =
-            '${Directory.systemTemp.path}/gcs-cubit-test-db';
+        final String dbPath = '${Directory.systemTemp.path}/gcs-cubit-test-db';
         final SessionCubit cubit = SessionCubit(
           bindings: bindings,
           dbPath: dbPath,
@@ -309,7 +489,10 @@ void main() {
 
     test('init failure surfaces a raw error and never subscribes', () {
       final _RecordingBindings bindings = _RecordingBindings();
-      final SessionCubit cubit = SessionCubit(bindings: bindings);
+      final SessionCubit cubit = SessionCubit(
+        bindings: bindings,
+        dbPath: '${Directory.systemTemp.path}/gcs-cubit-initfail-db',
+      );
       addTearDown(cubit.close);
       cubit.start();
       expect(cubit.state.isHandleOpen, isFalse);
@@ -317,13 +500,48 @@ void main() {
       expect(bindings.subscribeCalls, 0);
     });
 
+    test('start without a db path errors and never reaches gcs_init', () {
+      final _RecordingBindings bindings = _RecordingBindings(
+        initResult: ffi.Pointer<GcsSession>.fromAddress(64),
+      );
+      final SessionCubit cubit = SessionCubit(bindings: bindings);
+      addTearDown(cubit.close);
+      cubit.start();
+      expect(cubit.state.isHandleOpen, isFalse);
+      expect(cubit.state.error, isNotNull);
+      expect(bindings.lastConfig, isNull);
+      expect(bindings.subscribeCalls, 0);
+    });
+
+    test(
+      'start with an empty db path errors and never reaches gcs_init (IN-03)',
+      () {
+        final _RecordingBindings bindings = _RecordingBindings(
+          initResult: ffi.Pointer<GcsSession>.fromAddress(64),
+        );
+        // An empty string passes a null-only guard but would reach
+        // SessionBasePath's temp-dir fallback on the C++ side — the exact
+        // silent default the required-db-path guard eliminates.
+        final SessionCubit cubit = SessionCubit(bindings: bindings, dbPath: '');
+        addTearDown(cubit.close);
+        cubit.start();
+        expect(cubit.state.isHandleOpen, isFalse);
+        expect(cubit.state.error, isNotNull);
+        expect(bindings.lastConfig, isNull);
+        expect(bindings.subscribeCalls, 0);
+      },
+    );
+
     test(
       'close tears the native session down exactly once (idempotent)',
       () async {
         final _RecordingBindings bindings = _RecordingBindings(
           initResult: ffi.Pointer<GcsSession>.fromAddress(64),
         );
-        final SessionCubit cubit = SessionCubit(bindings: bindings);
+        final SessionCubit cubit = SessionCubit(
+          bindings: bindings,
+          dbPath: '${Directory.systemTemp.path}/gcs-cubit-close-db',
+        );
         cubit.start();
         await cubit.close();
         await cubit.close();
@@ -349,6 +567,7 @@ void main() {
             .writeToBuffer(),
       );
       expect(rail.state.rooms, <String>['gcs/chat/a', 'gcs/chat/b']);
+      rail.selectRoom('gcs/chat/a');
 
       cubit.handlePushedBytes(
         (GcsEvent()..readiness = (Readiness()..ready = true)).writeToBuffer(),
@@ -359,6 +578,7 @@ void main() {
         (GcsEvent()
               ..message = (ChatMessageState()
                 ..id = 'm1'
+                ..roomTopic = 'gcs/chat/a'
                 ..role = MessageRole.MESSAGE_ROLE_USER_SELF
                 ..state = MessageState.MESSAGE_STATE_COMPLETE
                 ..text = 'hi'))
@@ -372,6 +592,257 @@ void main() {
       );
       expect(cubit.state.error, 'boom');
     });
+
+    test(
+      'pushed messageHistory replaces the flow with the full batch (D-06)',
+      () {
+        final RailCubit rail = RailCubit();
+        final MessageFlowCubit flow = MessageFlowCubit();
+        final SessionCubit cubit = SessionCubit(
+          railCubit: rail,
+          messageFlowCubit: flow,
+        );
+        addTearDown(cubit.close);
+        addTearDown(rail.close);
+        addTearDown(flow.close);
+
+        rail.setRooms(<String>['gcs/chat/a']);
+        rail.selectRoom('gcs/chat/a');
+
+        cubit.handlePushedBytes(
+          (GcsEvent()
+                ..messageHistory = (MessageHistory()
+                  ..roomTopic = 'gcs/chat/a'
+                  ..message.addAll(<ChatMessageState>[
+                    ChatMessageState()
+                      ..id = 'h1'
+                      ..role = MessageRole.MESSAGE_ROLE_USER_SELF
+                      ..state = MessageState.MESSAGE_STATE_COMPLETE
+                      ..text = 'first',
+                    ChatMessageState()
+                      ..id = 'h2'
+                      ..role = MessageRole.MESSAGE_ROLE_USER_PEER
+                      ..state = MessageState.MESSAGE_STATE_COMPLETE
+                      ..text = 'second',
+                  ])))
+              .writeToBuffer(),
+        );
+
+        expect(flow.state, hasLength(2));
+        expect((flow.state[0] as ChatFlowItemTextBubble).instanceId, 'h1');
+        expect((flow.state[0] as ChatFlowItemTextBubble).text, 'first');
+        expect((flow.state[1] as ChatFlowItemTextBubble).instanceId, 'h2');
+        expect((flow.state[1] as ChatFlowItemTextBubble).text, 'second');
+      },
+    );
+
+    test('pushed messageHistory preserves pushed roles (D-04/D-06)', () {
+      final RailCubit rail = RailCubit();
+      final MessageFlowCubit flow = MessageFlowCubit();
+      final SessionCubit cubit = SessionCubit(
+        railCubit: rail,
+        messageFlowCubit: flow,
+      );
+      addTearDown(cubit.close);
+      addTearDown(rail.close);
+      addTearDown(flow.close);
+
+      rail.setRooms(<String>['gcs/chat/a']);
+      rail.selectRoom('gcs/chat/a');
+
+      cubit.handlePushedBytes(
+        (GcsEvent()
+              ..messageHistory = (MessageHistory()
+                ..roomTopic = 'gcs/chat/a'
+                ..message.addAll(<ChatMessageState>[
+                  ChatMessageState()
+                    ..id = 'self'
+                    ..role = MessageRole.MESSAGE_ROLE_USER_SELF
+                    ..state = MessageState.MESSAGE_STATE_COMPLETE
+                    ..text = 'me',
+                  ChatMessageState()
+                    ..id = 'peer'
+                    ..role = MessageRole.MESSAGE_ROLE_USER_PEER
+                    ..state = MessageState.MESSAGE_STATE_COMPLETE
+                    ..text = 'them',
+                ])))
+            .writeToBuffer(),
+      );
+
+      expect(flow.state, hasLength(2));
+      expect((flow.state[0] as ChatFlowItemTextBubble).role, 'user_self');
+      expect((flow.state[1] as ChatFlowItemTextBubble).role, 'user_peer');
+    });
+
+    test(
+      'pushed message/history events are gated by the active room (CR-01)',
+      () {
+        final RailCubit rail = RailCubit();
+        final MessageFlowCubit flow = MessageFlowCubit();
+        final SessionCubit cubit = SessionCubit(
+          railCubit: rail,
+          messageFlowCubit: flow,
+        );
+        addTearDown(cubit.close);
+        addTearDown(rail.close);
+        addTearDown(flow.close);
+
+        rail.setRooms(<String>['gcs/chat/a', 'gcs/chat/b']);
+        rail.selectRoom('gcs/chat/a');
+
+        // Live traffic from room B while room A is selected: not upserted.
+        cubit.handlePushedBytes(
+          (GcsEvent()
+                ..message = (ChatMessageState()
+                  ..id = 'peer-b'
+                  ..roomTopic = 'gcs/chat/b'
+                  ..role = MessageRole.MESSAGE_ROLE_USER_PEER
+                  ..state = MessageState.MESSAGE_STATE_COMPLETE
+                  ..text = 'from b'))
+              .writeToBuffer(),
+        );
+        expect(
+          flow.state,
+          isEmpty,
+          reason: 'room B traffic must not render in room A',
+        );
+
+        // History replay for room B (join elsewhere): must not wipe A's flow.
+        cubit.handlePushedBytes(
+          (GcsEvent()
+                ..message = (ChatMessageState()
+                  ..id = 'in-a'
+                  ..roomTopic = 'gcs/chat/a'
+                  ..role = MessageRole.MESSAGE_ROLE_USER_SELF
+                  ..state = MessageState.MESSAGE_STATE_COMPLETE
+                  ..text = 'stays'))
+              .writeToBuffer(),
+        );
+        expect(flow.state, hasLength(1));
+        cubit.handlePushedBytes(
+          (GcsEvent()
+                ..messageHistory = (MessageHistory()
+                  ..roomTopic = 'gcs/chat/b'
+                  ..message.add(
+                    ChatMessageState()
+                      ..id = 'hist-b'
+                      ..role = MessageRole.MESSAGE_ROLE_USER_PEER
+                      ..state = MessageState.MESSAGE_STATE_COMPLETE
+                      ..text = 'b history',
+                  )))
+              .writeToBuffer(),
+        );
+        expect(
+          flow.state,
+          hasLength(1),
+          reason: 'room B replay must not replaceAll-wipe room A',
+        );
+        expect(
+          (flow.state.single as ChatFlowItemTextBubble).instanceId,
+          'in-a',
+        );
+      },
+    );
+
+    test(
+      'selecting a room clears the flow and re-publishes join_topic (P1)',
+      () async {
+        final RailCubit rail = RailCubit();
+        final MessageFlowCubit flow = MessageFlowCubit();
+        final _RecordingSessionCubit cubit = _RecordingSessionCubit(
+          railCubit: rail,
+          messageFlowCubit: flow,
+        );
+        addTearDown(cubit.close);
+        addTearDown(rail.close);
+        addTearDown(flow.close);
+
+        rail.setRooms(<String>['gcs/chat/a', 'gcs/chat/b']);
+        rail.selectRoom('gcs/chat/a');
+        // Bloc stream events deliver asynchronously — flush before asserting
+        // on what the session listener did.
+        await pumpEventQueue();
+        // Seed the flow with room A content; switching to room B must not
+        // leave it lingering while B's replay is in flight.
+        flow.append(
+          flow.buildChatFlowItemTextBubble(
+            ChatMessageState()
+              ..id = 'in-a'
+              ..role = MessageRole.MESSAGE_ROLE_USER_SELF
+              ..state = MessageState.MESSAGE_STATE_COMPLETE
+              ..text = 'stays',
+          ),
+        );
+        expect(cubit.publishedCommands, hasLength(1));
+
+        rail.selectRoom('gcs/chat/b');
+        await pumpEventQueue();
+
+        expect(flow.state, isEmpty, reason: 'switching rooms clears the flow');
+        expect(cubit.publishedCommands, hasLength(2));
+        expect(cubit.publishedCommands.last.hasJoinTopic(), isTrue);
+        expect(
+          cubit.publishedCommands.last.joinTopic.roomTopic,
+          'gcs/chat/b',
+        );
+
+        // The selection-driven replay for the now-active room passes the
+        // gate and refills the cleared flow.
+        cubit.handlePushedBytes(
+          (GcsEvent()
+                ..messageHistory = (MessageHistory()
+                  ..roomTopic = 'gcs/chat/b'
+                  ..message.add(
+                    ChatMessageState()
+                      ..id = 'hist-b'
+                      ..role = MessageRole.MESSAGE_ROLE_USER_PEER
+                      ..state = MessageState.MESSAGE_STATE_COMPLETE
+                      ..text = 'b history',
+                  )))
+              .writeToBuffer(),
+        );
+        expect(flow.state, hasLength(1));
+        expect((flow.state.single as ChatFlowItemTextBubble).instanceId,
+            'hist-b');
+      },
+    );
+
+    test(
+      'redundant rail emissions do not re-publish the activation join',
+      () async {
+        final RailCubit rail = RailCubit();
+        final _RecordingSessionCubit cubit = _RecordingSessionCubit(
+          railCubit: rail,
+        );
+        addTearDown(cubit.close);
+        addTearDown(rail.close);
+
+        rail.setRooms(<String>['gcs/chat/a', 'gcs/chat/b']);
+        rail.selectRoom('gcs/chat/a');
+        await pumpEventQueue();
+        expect(cubit.publishedCommands, hasLength(1));
+
+        // Same active room pushed again (RoomList refresh): no re-publish.
+        rail.setRooms(<String>['gcs/chat/a', 'gcs/chat/b']);
+        await pumpEventQueue();
+        expect(cubit.publishedCommands, hasLength(1));
+
+        // Redundant re-selection is already ignored by RailCubit.
+        rail.selectRoom('gcs/chat/a');
+        await pumpEventQueue();
+        expect(cubit.publishedCommands, hasLength(1));
+
+        // A cleared selection (room dropped from the list) publishes
+        // nothing; selecting another room afterwards publishes for it.
+        rail.setRooms(<String>['gcs/chat/b']);
+        await pumpEventQueue();
+        expect(cubit.publishedCommands, hasLength(1));
+        rail.selectRoom('gcs/chat/b');
+        await pumpEventQueue();
+        expect(cubit.publishedCommands, hasLength(2));
+        expect(cubit.publishedCommands.last.joinTopic.roomTopic, 'gcs/chat/b');
+      },
+    );
 
     test(
       'pushed SpaceTree populates the rail tree with grouped rooms (D-02)',
@@ -407,44 +878,38 @@ void main() {
         expect(rail.state.spaces.single.rooms, hasLength(1));
         expect(rail.state.spaces.single.rooms.single.id, 'room-1');
         expect(rail.state.spaces.single.rooms.single.name, 'general');
-        expect(
-          rail.state.spaces.single.rooms.single.topic,
-          'gcs/chat/room-1',
-        );
+        expect(rail.state.spaces.single.rooms.single.topic, 'gcs/chat/room-1');
         expect(rail.state.standaloneRooms, isEmpty);
       },
     );
 
-    test(
-      'pushed SpaceTree: empty parentSpaceId room is standalone (D-01)',
-      () {
-        final RailCubit rail = RailCubit();
-        final SessionCubit cubit = SessionCubit(railCubit: rail);
-        addTearDown(cubit.close);
-        addTearDown(rail.close);
+    test('pushed SpaceTree: empty parentSpaceId room is standalone (D-01)', () {
+      final RailCubit rail = RailCubit();
+      final SessionCubit cubit = SessionCubit(railCubit: rail);
+      addTearDown(cubit.close);
+      addTearDown(rail.close);
 
-        cubit.handlePushedBytes(
-          (GcsEvent()
-                ..spaceTree = (SpaceTree()
-                  ..space.add(
-                    SpaceRecord()
-                      ..id = 'space-1'
-                      ..name = 'ops',
-                  )
-                  ..room.add(
-                    RoomRecord()
-                      ..id = 'room-2'
-                      ..name = 'lounge',
-                  )))
-              .writeToBuffer(),
-        );
-        expect(rail.state.treeReceived, isTrue);
-        expect(rail.state.standaloneRooms, hasLength(1));
-        expect(rail.state.standaloneRooms.single.id, 'room-2');
-        expect(rail.state.standaloneRooms.single.name, 'lounge');
-        expect(rail.state.spaces.single.rooms, isEmpty);
-      },
-    );
+      cubit.handlePushedBytes(
+        (GcsEvent()
+              ..spaceTree = (SpaceTree()
+                ..space.add(
+                  SpaceRecord()
+                    ..id = 'space-1'
+                    ..name = 'ops',
+                )
+                ..room.add(
+                  RoomRecord()
+                    ..id = 'room-2'
+                    ..name = 'lounge',
+                )))
+            .writeToBuffer(),
+      );
+      expect(rail.state.treeReceived, isTrue);
+      expect(rail.state.standaloneRooms, hasLength(1));
+      expect(rail.state.standaloneRooms.single.id, 'room-2');
+      expect(rail.state.standaloneRooms.single.name, 'lounge');
+      expect(rail.state.spaces.single.rooms, isEmpty);
+    });
 
     test(
       'RoomList after SpaceTree replaces the joined view, tree fields intact',
@@ -500,7 +965,10 @@ void main() {
         final _RecordingBindings bindings = _RecordingBindings(
           initResult: ffi.Pointer<GcsSession>.fromAddress(64),
         );
-        final SessionCubit cubit = SessionCubit(bindings: bindings);
+        final SessionCubit cubit = SessionCubit(
+          bindings: bindings,
+          dbPath: '${Directory.systemTemp.path}/gcs-cubit-publish-db',
+        );
         addTearDown(cubit.close);
         cubit.start();
         expect(

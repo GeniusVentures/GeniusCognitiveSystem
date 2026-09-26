@@ -15,7 +15,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Foundation** - C++ core scaffolding, GlobalDB CRDT integration, FFI bridge to Flutter, and cross-platform CI/CD (macOS, Linux, Windows, iOS, Android)
 - [x] **Phase 2: Spaces & Rooms** - Space and room creation with configurable inheritance (completed 2026-09-19)
-- [ ] **Phase 3: Messaging** - Real-time text messaging with CRDT sync across participants
+- [x] **Phase 3: Messaging** - Real-time text messaging with CRDT sync across participants (completed 2026-09-24)
 - [ ] **Phase 4: Membership & Invites** - Roles, capability tokens, and permission model
 - [ ] **Phase 5: Moderation** - Message tombstones, kick/ban, and admin approval flows
 - [ ] **Phase 6: GCS Bot** - Bot participant with auto-answer policies and Expert Model routing
@@ -114,7 +114,30 @@ Plans:
   3. Message history is identical across all participants after sync
   4. Messages display in chronological order with sender identification
 
-**Plans**: TBD
+**Plans:** 6/6 plans complete
+
+Plans:
+**Wave 1**
+
+- [x] 03-01-PLAN.md — Wave 1 — SuperGenius/GeniusSDK signature verification (QueryKeyValues/PutLocal/RegisterNewElementCallback/GetAddress/Publish/Subscribe) + append-only proto additions (sender/deleted/deleted_at_ms + MessageHistory)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [x] 03-02-PLAN.md — Wave 2 (depends: 03-01) — Storage widening (topics-aware Put, PutLocal, QueryKeyValues, RegisterNewElementCallback, raw full-value Publish/Subscribe + CoreSession pass-throughs) + storage tests
+- [x] 03-03-PLAN.md — Wave 2 (depends: 03-01) — Dart pb regen + MessageFlowCubit upsert/replaceAll + SessionCubit messageHistory dispatch + cubit tests
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [x] 03-04-PLAN.md — Wave 3 (depends: 03-01, 03-02) — gcs::Messaging component (live full-value publish + archive send, two-route dedupe, history) + test_gcs_messaging (TDD)
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [x] 03-05-PLAN.md — Wave 4 (depends: 03-04) — FFI wiring (send_text delegate, join-time history replay, live subscribe + CRDT receive bridge)
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
+- [x] 03-06-PLAN.md — Wave 5 (depends: 03-03, 03-05) — Human-verify checkpoint (live send/receive + history convergence)
+
 **UI hint**: yes
 
 ### Phase 4: Membership & Invites
@@ -188,7 +211,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 |-------|----------------|--------|-----------|
 | 1. Foundation | 11/11 | Complete | 2026-09-16 |
 | 2. Spaces & Rooms | 5/5 | Complete   | 2026-09-19 |
-| 3. Messaging | 0/TBD | Not started | - |
+| 3. Messaging | 6/6 | Complete   | 2026-09-24 |
 | 4. Membership & Invites | 0/TBD | Not started | - |
 | 5. Moderation | 0/TBD | Not started | - |
 | 6. GCS Bot | 0/TBD | Not started | - |
