@@ -153,7 +153,27 @@ Plans:
   4. Super Admin cannot be demoted by other admins
   5. When 2+ admins exist, destructive actions require Super Admin approval
 
-**Plans**: TBD
+**Plans:** 7 plans
+
+Plans:
+**Wave 1**
+
+- [ ] 04-01-PLAN.md — Wave 1 — Append-only proto contract (Role/MemberRecord/MemberList/InviteLink + creator/members_can_invite/approved_by + 7 command/2 event arms)
+- [ ] 04-02-PLAN.md — Wave 1 — Crypto key-wrap + per-room key store + WR-02 HKDF-ikm swap (D-06)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 04-04-PLAN.md — Wave 2 (depends: 04-01) — EntityStore creator + members_can_invite stamping (P1/P2/P3) + UpdateSpace preservation
+- [ ] 04-06-PLAN.md — Wave 2 (depends: 04-01) — Dart pb regen + MembersCubit + SessionCubit dispatch arms
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 04-03-PLAN.md — Wave 3 (depends: 04-01, 04-02, 04-04) — gcs::Membership component (mint/redeem/role/remove/leave/delete/approve + D-03/D-07/D-08 guards) + unit/multinode tests
+- [ ] 04-07-PLAN.md — Wave 3 (depends: 04-06) — Membership UI (members dialog, join dialog, rail affordances, MembersCubit wiring)
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 04-05-PLAN.md — Wave 4 (depends: 04-03, 04-04) — FFI wiring (membership arms + /gcs/members/ heal callback + P5 retroactive guards + D-02 explicit_leave)
 **UI hint**: yes
 
 ### Phase 5: Moderation
@@ -212,7 +232,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 1. Foundation | 11/11 | Complete | 2026-09-16 |
 | 2. Spaces & Rooms | 5/5 | Complete   | 2026-09-19 |
 | 3. Messaging | 6/6 | Complete   | 2026-09-24 |
-| 4. Membership & Invites | 0/TBD | Not started | - |
+| 4. Membership & Invites | 0/7 | Not started | - |
 | 5. Moderation | 0/TBD | Not started | - |
 | 6. GCS Bot | 0/TBD | Not started | - |
 | 7. Discovery | 0/TBD | Not started | - |

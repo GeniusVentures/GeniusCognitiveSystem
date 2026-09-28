@@ -3,7 +3,7 @@ phase: 4
 slug: membership-invites
 status: draft
 nyquist_compliant: false
-wave_0_complete: false
+wave_0_complete: true
 created: 2026-09-27
 ---
 
@@ -27,7 +27,7 @@ created: 2026-09-27
 
 ## Sampling Rate
 
-- **After every task commit:** Run `ctest -R "test_gcs_membership|test_gcs_crypto"` (fast, deterministic)
+- **After every task commit:** Run the task's mapped automated command (fast, deterministic)
 - **After every plan wave:** Run `ctest` (full C++) + `flutter test` for cubits/widgets
 - **Before `/gsd:verify-work`:** Full suite must be green (C++ + Flutter)
 - **Max feedback latency:** ~60 seconds
@@ -38,26 +38,33 @@ created: 2026-09-27
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| TBD (assigned at plan time) | — | — | MEMB-01 | — | Mint returns `gcs://invite/...` URL; redeem joins + unwraps room key | unit | `ctest -R test_gcs_membership` | ❌ W0 | ⬜ pending |
-| TBD (assigned at plan time) | — | — | MEMB-02 | — | Five-tier role enum + member record CRUD + role assignment | unit | `ctest -R test_gcs_membership` | ❌ W0 | ⬜ pending |
-| TBD (assigned at plan time) | — | — | MEMB-03 | — | Demotion targeting creator rejected by C++ write guard | unit | `ctest -R test_gcs_membership` | ❌ W0 | ⬜ pending |
-| TBD (assigned at plan time) | — | — | MEMB-04 | — | Destructive op dormant when 2+ admins; Super Admin approve activates | unit | `ctest -R test_gcs_membership` | ❌ W0 | ⬜ pending |
-| TBD (assigned at plan time) | — | — | MEMB-05 | — | Member invite gated by `members_can_invite` | unit | `ctest -R test_gcs_membership` | ❌ W0 | ⬜ pending |
-| TBD (assigned at plan time) | — | — | (crypto) | — | Wrap/unwrap round-trip; wrong key fails; key store thread-safety | unit | `ctest -R test_gcs_crypto` | ✅ extend | ⬜ pending |
-| TBD (assigned at plan time) | — | — | (FFI) | — | invite/redeem/role arms validate + push `MemberList`/`InviteLink` | unit | `ctest -R test_gcs_ffi` | ✅ extend | ⬜ pending |
-| TBD (assigned at plan time) | — | — | (multinode) | — | Remote redeem converges member list on peer | integration | `ctest -R test_gcs_membership_multinode` | ❌ W0 | ⬜ pending |
+| 04-01 T1 | 04-01 | 1 | MEMB-01, MEMB-02 | T-04-01-EoP | Role/PendingAction enums + MemberRecord/InviteRecord + creator/members_can_invite/approved_by fields | build | `cmake --build build --target gcs_proto` | extends | ⬜ pending |
+| 04-01 T2 | 04-01 | 1 | MEMB-01, MEMB-05 | T-04-02-T | 7 command + 2 event oneof arms + members_can_invite on create/update commands | build | `cmake --build build --target gcs_proto` | extends | ⬜ pending |
+| 04-02 T1 | 04-02 | 1 | MEMB-01, MEMB-02 | T-04-02-DoS | Per-room key store + MintRoomKey + DeriveRoomKey ikm swap (topic fallback) | unit | `ctest -R test_gcs_crypto` | extends | ⬜ pending |
+| 04-02 T2 | 04-02 | 1 | MEMB-01 | T-04-02-T | WrapRoomKey/UnwrapRoomKey round-trip / wrong-key / tamper / truncation | unit | `ctest -R test_gcs_crypto` | extends | ⬜ pending |
+| 04-04 T1 | 04-04 | 2 | MEMB-03, MEMB-05 | T-04-04-T | Two-arg EntityStore stamps creator + members_can_invite on create | unit | `ctest -R test_gcs_entities` | extends | ⬜ pending |
+| 04-04 T2 | 04-04 | 2 | MEMB-03 | T-04-04-T | UpdateSpace preserves stored creator | unit | `ctest -R test_gcs_entities` | extends | ⬜ pending |
+| 04-06 T1 | 04-06 | 2 | MEMB-02 | T-04-06-EoP | Dart pb regen (selfAddress/InviteRecord/approvedBy/pendingAction) + MembersCubit | analyze | `cd src/app && dart analyze --fatal-infos lib test` | extends | ⬜ pending |
+| 04-06 T2 | 04-06 | 2 | MEMB-02, MEMB-04 | T-04-06-EoP | SessionCubit hasMemberList/hasInviteLink dispatch + pushed selfAddress ("You" marker) + RailSpace/RailRoom surface approvedBy/pendingAction | widget | `cd src/app && flutter test test/cubits/shell_cubits_test.dart` | extends | ⬜ pending |
+| 04-03 T1 | 04-03 | 3 | MEMB-01..05 | T-04-03-EoP-1 | Membership interface contract declaration | static/grep | `cmake --build build --target gcs_proto` (compile proven in T2) | new | ⬜ pending |
+| 04-03 T2 | 04-03 | 3 | MEMB-01..05 | T-04-03-EoP-1/2/3, T-04-03-T-1/2, T-04-03-DoS | Member CRUD + guards + invite record + dormant/approve (9 cases) | unit | `ctest -R test_gcs_membership` | new | ⬜ pending |
+| 04-03 T3 | 04-03 | 3 | MEMB-01, MEMB-02 | T-04-03-DoS | Two-node redeem/role-change convergence | integration | `ctest -R test_gcs_membership_multinode` | new | ⬜ pending |
+| 04-07 T1 | 04-07 | 3 | MEMB-01, MEMB-02, MEMB-04 | T-04-07-EoP | Members dialog roster/invite/role/confirm surfaces + approve publishes ApproveCommand | analyze | `cd src/app && dart analyze --fatal-infos lib test` | new | ⬜ pending |
+| 04-07 T2 | 04-07 | 3 | MEMB-01, MEMB-04 | T-04-07-I, T-04-07-EoP | Join dialog inline invite-link validation + rail Join/Members/Delete affordances + Pending deletion badge/approve | analyze | `cd src/app && dart analyze --fatal-infos lib test` | new | ⬜ pending |
+| 04-07 T3 | 04-07 | 3 | MEMB-01, MEMB-02 | T-04-07-EoP | MembersCubit wiring + dialog/rail widget tests (incl. approve publish) | widget | `cd src/app && flutter test test/shell/members_dialog_test.dart test/shell/join_dialog_test.dart test/chat_shell_test.dart` | new + extends | ⬜ pending |
+| 04-05 T1 | 04-05 | 4 | MEMB-02 | T-04-05-DoS | g_membership construction + members heal callback + MemberList/InviteLink builders | unit | `ctest -R test_gcs_ffi` | extends | ⬜ pending |
+| 04-05 T2 | 04-05 | 4 | MEMB-01..05 | T-04-05-EoP-1/2, T-04-05-I | Seven dispatch arms + P5 retroactive guards + creator/members_can_invite stamping | unit | `ctest -R test_gcs_ffi` | extends | ⬜ pending |
+| 04-05 T3 | 04-05 | 4 | MEMB-02 (D-02) | T-04-05-EoP-2 | RefreshDerivedJoins explicit_leave term | unit | `ctest -R "test_gcs_ffi|test_gcs_messaging"` | extends | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
+*File Exists: `extends` = an existing test file is extended this task; `new` = the test file is created this task (alongside the implementation).*
+
 ---
 
-## Wave 0 Requirements
+## Wave 0 (Scaffolding)
 
-- [ ] `test/test_gcs_membership.cpp` — covers MEMB-01..05 (member CRUD, guards, approval, key-wrap round-trip)
-- [ ] `test/test_gcs_membership_multinode.cpp` (or extend the existing multinode fixture) — remote convergence
-- [ ] `test/test_gcs_crypto.cpp` extension — `WrapRoomKey`/`UnwrapRoomKey` + per-room key store
-- [ ] `test/test_gcs_ffi.cpp` extension — invite/redeem/role/leave/delete/approve arms
-- [ ] Dart cubit test — `MembersCubit.setMembers` full-replacement + `_dispatchEvent` arms
+No separate Wave 0 scaffolding phase — every implementation task writes its own test file alongside the code (each plan's `<action>` lists the test file in `<files>` before the `<verify>` runs). There are no MISSING test references to pre-create, so the Wave 0 gap list is cleared.
 
 ---
 
@@ -71,11 +78,10 @@ created: 2026-09-27
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
+- [ ] All tasks carry an `<automated>` verify (tests accompany implementation — no Wave 0 dependencies)
 - [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
 - [ ] No watch-mode flags
 - [ ] Feedback latency < 60s
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [ ] `nyquist_compliant: true` set in frontmatter (set at sign-off during execution)
 
 **Approval:** pending
