@@ -782,6 +782,14 @@ jobs:
           fi
 
           echo "CMAKE_GENERATOR=Ninja" >> $GITHUB_ENV
+          # Persist tar ownership behavior for all subsequent Linux steps
+          # (GeniusWallet build.yml): flutter's first-run artifact bootstrap
+          # (Dart SDK, gradle-wrapper) extracts with tar inside the
+          # container, where chown to the toolcache uid fails ("Cannot
+          # change ownership ... Invalid argument", run 36908194216
+          # Linux x86_64 Debug dart leg). --no-same-owner makes every
+          # extraction skip ownership.
+          echo "TAR_OPTIONS=--no-same-owner" >> $GITHUB_ENV
 
       - name: Configure Windows host
         if: ${{ runner.os == 'Windows'}}
