@@ -18,4 +18,18 @@ if(BUILD_TESTS AND FRONTEND_TESTS_ENABLED AND TARGET gcs_ffi)
             "GCS_FFI_LIBRARY=$<TARGET_FILE:gcs_ffi>"
             ${FLUTTER_EXECUTABLE} test test/gcs_native_port_smoke_test.dart
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+
+    # The Dart leg loads gcs_ffi.dll from its build-output dir
+    # (gcs_src/ffi/<Config>), which has no vulkan-1.dll — the vendored
+    # Vulkan loader the DLL links. Without it the load fails with an
+    # opaque "unknown error" before any test runs (CI run 36904228994,
+    # Windows legs). Same rationale as the per-test POST_BUILD in
+    # test/CMakeLists.txt; VULKAN_RUNTIME_DLL is resolved in
+    # cmake/CommonBuildParameters.cmake and stays empty on system-SDK
+    # hosts (which have the runtime on PATH).
+    if(VULKAN_RUNTIME_DLL)
+        add_custom_command(TARGET gcs_ffi POST_BUILD
+            COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+                "${VULKAN_RUNTIME_DLL}" "$<TARGET_FILE_DIR:gcs_ffi>/vulkan-1.dll")
+    endif()
 endif()

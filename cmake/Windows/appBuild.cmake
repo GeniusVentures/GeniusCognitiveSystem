@@ -13,11 +13,20 @@
 set(GCS_FLUTTER_APP_DIR
     "${CMAKE_CURRENT_SOURCE_DIR}/build/windows/x64/runner/${GCS_FLUTTER_CONFIG_DIR}")
 
+# gcs_ffi.dll links the vendored Vulkan loader — vulkan-1.dll must ship in
+# the runner dir too, or hosts without a system Vulkan runtime die with
+# 0xc0000135 before main() (see cmake/CommonBuildParameters.cmake
+# VULKAN_RUNTIME_DLL; empty when a system SDK provides the loader).
+set(_gcs_windows_bundled_dlls "$<TARGET_FILE:gcs_ffi>")
+if(VULKAN_RUNTIME_DLL)
+    list(APPEND _gcs_windows_bundled_dlls "${VULKAN_RUNTIME_DLL}")
+endif()
+
 add_custom_target(app_build_windows
     COMMAND ${FLUTTER_EXECUTABLE} build windows ${GCS_FLUTTER_BUILD_MODE}
     COMMAND ${CMAKE_COMMAND} -E make_directory "${GCS_FLUTTER_APP_DIR}"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "$<TARGET_FILE:gcs_ffi>" "${GCS_FLUTTER_APP_DIR}"
+        ${_gcs_windows_bundled_dlls} "${GCS_FLUTTER_APP_DIR}"
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
     DEPENDS ${_app_extra_deps}
     COMMENT "Building bare Flutter app for Windows (${GCS_FLUTTER_BUILD_MODE})"

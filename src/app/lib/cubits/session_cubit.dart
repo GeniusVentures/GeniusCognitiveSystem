@@ -231,7 +231,12 @@ class SessionCubit extends Cubit<SessionState> implements GcsCommandTransport {
     final String exeDir = File(Platform.resolvedExecutable).parent.path;
     final List<String> candidates = <String>[
       for (final String fileName in kPackagedFfiLibraryFileNames) ...<String>[
+        // macOS .app: exe at Contents/MacOS, dylib in Contents/Frameworks.
         '$exeDir/../Frameworks/$fileName',
+        // iOS .app: exe directly in Runner.app, dylib in Runner.app/Frameworks.
+        '$exeDir/Frameworks/$fileName',
+        // Linux bundle: exe directly in bundle/, .so in bundle/lib/.
+        '$exeDir/lib/$fileName',
         '$exeDir/$fileName',
       ],
     ];
