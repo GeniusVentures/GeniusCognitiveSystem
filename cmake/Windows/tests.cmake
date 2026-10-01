@@ -27,9 +27,17 @@ if(BUILD_TESTS AND FRONTEND_TESTS_ENABLED AND TARGET gcs_ffi)
     # test/CMakeLists.txt; VULKAN_RUNTIME_DLL is resolved in
     # cmake/CommonBuildParameters.cmake and stays empty on system-SDK
     # hosts (which have the runtime on PATH).
+    # ALL + DEPENDS (not POST_BUILD): add_custom_command(TARGET) requires
+    # the target to be created in the SAME directory — gcs_ffi is created
+    # in src/ffi, so a POST_BUILD here is a configure error (CI run
+    # 36905881581, "TARGET 'gcs_ffi' was not created in this directory").
+    # The ALL target runs during every cmake --build, after gcs_ffi links;
+    # copy_if_different makes repeat builds no-ops.
     if(VULKAN_RUNTIME_DLL)
-        add_custom_command(TARGET gcs_ffi POST_BUILD
+        add_custom_target(gcs_ffi_windows_runtime ALL
             COMMAND "${CMAKE_COMMAND}" -E copy_if_different
-                "${VULKAN_RUNTIME_DLL}" "$<TARGET_FILE_DIR:gcs_ffi>/vulkan-1.dll")
+                "${VULKAN_RUNTIME_DLL}" "$<TARGET_FILE_DIR:gcs_ffi>/vulkan-1.dll"
+            DEPENDS gcs_ffi
+            COMMENT "Deploying vulkan-1.dll beside gcs_ffi.dll")
     endif()
 endif()
