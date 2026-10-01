@@ -44,6 +44,6 @@ endif()
 # (gcs_ffi links gcs_proto) and gcs_core.
 add_subdirectory(ffi)
 
-# Flutter/Dart app — gated behind FRONTEND_BUILD_ENABLED (default OFF) so
-# non-frontend CI paths and platforms without dart/flutter configure cleanly.
+# Flutter/Dart app — always configured; skips itself with a warning only
+# when dart/flutter are absent from PATH (e.g. C++-only CI runners).
 add_subdirectory(app)

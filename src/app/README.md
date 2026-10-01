@@ -10,7 +10,7 @@ The app builds through CMake, not bare `flutter build`, so codegen and the
 native dylib are produced in the right order:
 
 ```sh
-cmake -B build/OSX/Debug -DFRONTEND_BUILD_ENABLED=ON <platform args>
+cmake -B build/OSX/Debug <platform args>
 ninja -C build/OSX/Debug app_build_macos
 ```
 

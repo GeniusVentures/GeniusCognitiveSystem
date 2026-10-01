@@ -772,6 +772,15 @@ jobs:
             sudo apt-get update || true
             sudo apt install ccache ninja-build libvulkan-dev libzstd-dev libsecret-1-dev dbus gnome-keyring -y
           fi
+          # Self-hosted non-container Linux hosts (Android legs): pre-own
+          # the flutter toolcache dir so flutter-action can install into it
+          # (GeniusWallet build.yml pattern; the container legs are handled
+          # by the dedicated clean step below).
+          if [ "${{ runner.environment }}" = "self-hosted" ] && [ -z "${{ matrix.container }}" ] && [ -n "${RUNNER_TOOL_CACHE:-}" ]; then
+            sudo mkdir -p "$RUNNER_TOOL_CACHE/flutter"
+            sudo chown -R "$(id -u):$(id -g)" "$RUNNER_TOOL_CACHE/flutter"
+          fi
+
           echo "CMAKE_GENERATOR=Ninja" >> $GITHUB_ENV
 
       - name: Configure Windows host
@@ -814,6 +823,34 @@ jobs:
             echo "Android NDK already exists at $NDK_DIR, skipping download"
           fi
           echo "ANDROID_NDK_HOME=$NDK_DIR" >> $GITHUB_ENV
+
+      # GeniusWallet build.yml pattern verbatim: shared self-hosted Linux
+      # runners accumulate a stale/root-owned flutter toolcache that breaks
+      # flutter-action — clear and re-own it before setup.
+      - name: Clean stale Flutter toolcache (self-hosted Linux)
+        if: ${{ runner.os == 'Linux' && runner.environment == 'self-hosted' }}
+        run: |
+          TOOLCACHE_ROOT="${RUNNER_TOOL_CACHE:-${ACTIONS_RUNNER_TOOL_CACHE:-/__w/_tool}}/flutter"
+          echo "Checking Flutter toolcache at: $TOOLCACHE_ROOT"
+
+          if [ -d "$TOOLCACHE_ROOT" ]; then
+            # Clear Flutter toolcache so flutter-action can do a clean install.
+            rm -rf "$TOOLCACHE_ROOT" || sudo rm -rf "$TOOLCACHE_ROOT"
+          fi
+
+          mkdir -p "$TOOLCACHE_ROOT" || sudo mkdir -p "$TOOLCACHE_ROOT"
+          sudo chown -R "$(id -u):$(id -g)" "$TOOLCACHE_ROOT" || true
+
+      # Same pinned flutter-action as GeniusWallet build.yml so both repos
+      # build against the identical Flutter toolchain. src/app always
+      # configures now; without dart/flutter on PATH its per-platform
+      # fragments (cmake/<platform>/appBuild.cmake) never load, which is
+      # what this PR exists to exercise.
+      - name: Setup Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
+        with:
+          channel: master
+          flutter-version: 3.41.9
 
       # Configure deltas vs the GeniusSDK template:
       #   - working-directory is ${{github.workspace}} (GCS checkout IS the root)
