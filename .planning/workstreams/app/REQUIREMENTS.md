@@ -18,9 +18,9 @@ Requirements for initial release. Each maps to roadmap phases.
 ### Membership
 
 - [ ] **MEMB-01**: User can invite others via capability token (`gcs://invite/...`)
-- [ ] **MEMB-02**: Space/room has roles: Super Admin, Admin, Moderator, Member, Guest
+- [x] **MEMB-02**: Space/room has roles: Super Admin, Admin, Moderator, Member, Guest
 - [ ] **MEMB-03**: Super Admin (creator) cannot be demoted by other admins
-- [ ] **MEMB-04**: Destructive actions require Super Admin approval when 2+ admins exist
+- [x] **MEMB-04**: Destructive actions require Super Admin approval when 2+ admins exist
 - [ ] **MEMB-05**: Members can invite others if `membersCanInvite` is enabled
 
 ### Moderation
@@ -89,9 +89,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CORE-04 | Phase 3 | Complete |
 | CORE-05 | Phase 1 | Complete |
 | MEMB-01 | Phase 4 | Pending |
-| MEMB-02 | Phase 4 | Pending |
+| MEMB-02 | Phase 4 | Complete |
 | MEMB-03 | Phase 4 | Pending |
-| MEMB-04 | Phase 4 | Pending |
+| MEMB-04 | Phase 4 | Complete |
 | MEMB-05 | Phase 4 | Pending |
 | MODR-01 | Phase 5 | Pending |
 | MODR-02 | Phase 5 | Pending |
