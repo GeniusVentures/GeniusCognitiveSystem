@@ -251,4 +251,112 @@ outcome::result<std::string> DecryptPayload( const std::string &roomTopic,
     return plaintext;
 }
 
+outcome::result<std::string> WrapRoomKey( const std::vector<unsigned char> &memberKey,
+                                          const std::vector<unsigned char> &roomKey )
+{
+    if ( memberKey.size() != kRoomKeyLengthBytes || roomKey.size() != kRoomKeyLengthBytes )
+    {
+        return outcome::failure( sgns::gcs::Error::GcsDbError );
+    }
+
+    unsigned char nonce[ kGcmNonceLength ] = { 0 };
+    if ( RAND_bytes( nonce, static_cast<int>( kGcmNonceLength ) ) != 1 )
+    {
+        return outcome::failure( sgns::gcs::Error::GcsDbError );
+    }
+
+    std::string envelope;
+    envelope.reserve( kGcmNonceLength + roomKey.size() + kGcmTagLength );
+    envelope.append( reinterpret_cast<const char *>( nonce ), kGcmNonceLength );
+
+    EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
+    if ( ctx == nullptr )
+    {
+        return outcome::failure( sgns::gcs::Error::GcsDbError );
+    }
+
+    int           outLen = 0;
+    int           ok     = 0;
+    std::string   ciphertext( roomKey.size(), '\0' );
+    unsigned char tag[ kGcmTagLength ] = { 0 };
+
+    if ( EVP_EncryptInit_ex( ctx, EVP_aes_256_gcm(), nullptr, memberKey.data(), nonce ) == 1
+         && EVP_EncryptUpdate( ctx,
+                               reinterpret_cast<unsigned char *>( ciphertext.data() ),
+                               &outLen,
+                               roomKey.data(),
+                               static_cast<int>( roomKey.size() ) )
+                == 1
+         && EVP_EncryptFinal_ex( ctx, nullptr, &outLen ) == 1 )
+    {
+        ok = EVP_CIPHER_CTX_ctrl( ctx, EVP_CTRL_GCM_GET_TAG,
+                                  static_cast<int>( kGcmTagLength ), tag );
+    }
+
+    EVP_CIPHER_CTX_free( ctx ); // always
+
+    if ( ok != 1 )
+    {
+        return outcome::failure( sgns::gcs::Error::GcsDbError );
+    }
+
+    envelope.append( ciphertext );
+    envelope.append( reinterpret_cast<const char *>( tag ), kGcmTagLength );
+    return envelope;
+}
+
+outcome::result<std::vector<unsigned char>> UnwrapRoomKey(
+    const std::vector<unsigned char> &memberKey, const std::string &envelope )
+{
+    if ( memberKey.size() != kRoomKeyLengthBytes
+         || envelope.size() < kGcmNonceLength + kGcmTagLength )
+    {
+        return outcome::failure( sgns::gcs::Error::GcsDbError );
+    }
+
+    const unsigned char *nonce      = reinterpret_cast<const unsigned char *>( envelope.data() );
+    const size_t         cipherLen  = envelope.size() - kGcmNonceLength - kGcmTagLength;
+    const unsigned char *ciphertext = nonce + kGcmNonceLength;
+    const unsigned char *tag        = ciphertext + cipherLen;
+
+    if ( cipherLen != kRoomKeyLengthBytes )
+    {
+        return outcome::failure( sgns::gcs::Error::GcsDbError );
+    }
+
+    EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
+    if ( ctx == nullptr )
+    {
+        return outcome::failure( sgns::gcs::Error::GcsDbError );
+    }
+
+    int                        outLen = 0;
+    int                        ok     = 0;
+    std::vector<unsigned char> plaintext( cipherLen, 0 );
+
+    if ( EVP_DecryptInit_ex( ctx, EVP_aes_256_gcm(), nullptr, memberKey.data(), nonce ) == 1
+         && EVP_DecryptUpdate( ctx,
+                               plaintext.data(),
+                               &outLen,
+                               ciphertext,
+                               static_cast<int>( cipherLen ) )
+                == 1
+         && EVP_CIPHER_CTX_ctrl( ctx, EVP_CTRL_GCM_SET_TAG,
+                                 static_cast<int>( kGcmTagLength ),
+                                 const_cast<unsigned char *>( tag ) )
+                == 1 )
+    {
+        int finalLen = 0;
+        ok = EVP_DecryptFinal_ex( ctx, nullptr, &finalLen );
+    }
+
+    EVP_CIPHER_CTX_free( ctx ); // always
+
+    if ( ok != 1 )
+    {
+        return outcome::failure( sgns::gcs::Error::GcsDbError );
+    }
+    return plaintext;
+}
+
 } // namespace gcs::crypto

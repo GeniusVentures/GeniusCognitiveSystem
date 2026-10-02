@@ -162,6 +162,45 @@ outcome::result<std::string> EncryptPayload(const std::string &roomTopic,
 outcome::result<std::string> DecryptPayload(const std::string &roomTopic,
                                             const std::string &envelope);
 
+/**
+ * @brief Wrap a 32-byte room key under a member (invite) key, reusing the D-08
+ *        AES-256-GCM envelope (D-06).
+ *
+ * envelope = nonce(kGcmNonceLength, RAND_bytes) || ciphertext (== room key
+ *            length) || tag(kGcmTagLength). The returned std::string is
+ *            binary-safe (arbitrary bytes — never assume NUL termination).
+ *
+ * Unlike EncryptPayload, the AES-256 key is the caller-supplied memberKey — NOT
+ * HKDF(roomTopic); no DeriveRoomKey call is made. Both keys must be
+ * kRoomKeyLengthBytes long; any other size is rejected up front with
+ * outcome::failure (never passed to EVP).
+ *
+ * @param[in] memberKey The 32-byte member/invite key (the AES-256 key).
+ * @param[in] roomKey   The 32-byte room key to wrap.
+ * @return outcome::success with the binary envelope; outcome::failure on a
+ *         wrong key size or any EVP/RAND failure.
+ */
+outcome::result<std::string> WrapRoomKey(const std::vector<unsigned char> &memberKey,
+                                         const std::vector<unsigned char> &roomKey);
+
+/**
+ * @brief Unwrap (decrypt + authenticate) a wrapped room key with a member key
+ *        (D-06).
+ *
+ * Splits the envelope at fixed offsets (first kGcmNonceLength = nonce, last
+ * kGcmTagLength = tag, middle = the wrapped room key), verifies the GCM tag,
+ * and returns the 32-byte room key. The ciphertext length must equal
+ * kRoomKeyLengthBytes; the memberKey must be kRoomKeyLengthBytes long. A wrong
+ * member key, tampered byte, or truncated envelope fails as outcome::failure.
+ *
+ * @param[in] memberKey The 32-byte member/invite key (the AES-256 key).
+ * @param[in] envelope  The nonce || ciphertext || tag envelope bytes.
+ * @return outcome::success with the 32-byte room key; outcome::failure on a
+ *         wrong key size, truncation, wrong key, tampering, or corruption.
+ */
+outcome::result<std::vector<unsigned char>> UnwrapRoomKey(
+    const std::vector<unsigned char> &memberKey, const std::string &envelope);
+
 } // namespace gcs::crypto
 
 #endif // GCS_CRYPTO_HPP
