@@ -19,9 +19,11 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:flutter_app/cubits/composer_cubit.dart';
+import 'package:flutter_app/cubits/members_cubit.dart';
 import 'package:flutter_app/cubits/message_flow_cubit.dart';
 import 'package:flutter_app/cubits/rail_cubit.dart';
 import 'package:flutter_app/cubits/session_cubit.dart';
@@ -646,4 +648,52 @@ void main() {
       expect(rail.state.activeRoom, 'gcs/chat/room-1');
     },
   );
+
+  testWidgets('rail exposes Join/Members affordances and a MembersCubit', (
+    WidgetTester tester,
+  ) async {
+    final RailCubit rail = RailCubit();
+    final MembersCubit members = MembersCubit();
+    final MessageFlowCubit flow = MessageFlowCubit();
+    final _ReadyableSessionCubit session = _ReadyableSessionCubit(
+      railCubit: rail,
+      messageFlowCubit: flow,
+    );
+    final ComposerCubit composer = ComposerCubit(
+      transport: _RecordingTransport(),
+      railCubit: rail,
+    );
+    addTearDown(composer.close);
+    addTearDown(session.close);
+    addTearDown(flow.close);
+    addTearDown(members.close);
+    addTearDown(rail.close);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: GcsTheme.light,
+        home: GCSChat(
+          sessionCubit: session,
+          railCubit: rail,
+          membersCubit: members,
+          messageFlowCubit: flow,
+          composerCubit: composer,
+        ),
+      ),
+    );
+
+    _seedJoinedRooms(rail, <String>['smoke-test']);
+    await tester.pump();
+
+    // The toolbar "Join" entry point persists in every rail state and the
+    // space node carries its per-scope "Members" affordance (04-UI-SPEC rail
+    // entry points).
+    expect(find.bySemanticsLabel('Join via invite link'), findsOneWidget);
+    expect(find.bySemanticsLabel('View members of ops'), findsOneWidget);
+
+    // GCSChat provides the injected MembersCubit to the rail subtree (the
+    // viewer-role gate would otherwise throw on the missing provider).
+    final BuildContext railContext = tester.element(find.byType(RoomRail));
+    expect(railContext.read<MembersCubit>(), same(members));
+  });
 }
