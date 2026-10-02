@@ -16,6 +16,10 @@
 
 #include "gcs_crypto.hpp"
 
+#include <mutex>
+#include <optional>
+#include <unordered_map>
+
 #include <openssl/evp.h>
 #include <openssl/kdf.h>
 #include <openssl/rand.h>
@@ -24,6 +28,70 @@
 
 namespace gcs::crypto
 {
+namespace
+{
+    /**
+     * @brief Returns the per-room key store's guarding mutex (D-06).
+     *
+     * Function-local static so construction is thread-safe and order-independent;
+     * guards EVERY read and write of the key map.
+     *
+     * @return The mutex guarding the per-room key store.
+     */
+    std::mutex &RoomKeyStoreMutex()
+    {
+        static std::mutex mutex;
+        return mutex;
+    }
+
+    /**
+     * @brief Returns the process-wide per-room key store (D-06).
+     *
+     * Maps a room topic to its 32-byte room-key BYTES. Only bytes are shared —
+     * never an EVP context (P7) — and every access goes through
+     * RoomKeyStoreMutex().
+     *
+     * @return The per-room key store.
+     */
+    std::unordered_map<std::string, std::vector<unsigned char>> &RoomKeyStore()
+    {
+        static std::unordered_map<std::string, std::vector<unsigned char>> store;
+        return store;
+    }
+} // namespace
+
+std::vector<unsigned char> MintRoomKey()
+{
+    std::vector<unsigned char> key( kRoomKeyLengthBytes, 0 );
+    if ( RAND_bytes( key.data(), static_cast<int>( kRoomKeyLengthBytes ) ) != 1 )
+    {
+        return {}; // documented empty-on-failure contract (header)
+    }
+    return key;
+}
+
+void StoreRoomKey( const std::string &roomTopic, const std::vector<unsigned char> &roomKey )
+{
+    std::lock_guard<std::mutex> lock( RoomKeyStoreMutex() );
+    RoomKeyStore()[ roomTopic ] = roomKey;
+}
+
+std::optional<std::vector<unsigned char>> RoomKeyFor( const std::string &roomTopic )
+{
+    std::lock_guard<std::mutex> lock( RoomKeyStoreMutex() );
+    const auto                  it = RoomKeyStore().find( roomTopic );
+    if ( it == RoomKeyStore().end() )
+    {
+        return std::nullopt;
+    }
+    return it->second;
+}
+
+void ClearRoomKey( const std::string &roomTopic )
+{
+    std::lock_guard<std::mutex> lock( RoomKeyStoreMutex() );
+    RoomKeyStore().erase( roomTopic );
+}
 
 outcome::result<std::vector<unsigned char>> DeriveRoomKey( const std::string &roomTopic )
 {
@@ -31,6 +99,17 @@ outcome::result<std::vector<unsigned char>> DeriveRoomKey( const std::string &ro
     if ( pctx == nullptr )
     {
         return outcome::failure( sgns::gcs::Error::GcsDbError );
+    }
+
+    // WR-02/D-06: ikm is the member-distributed 32-byte room key when stored,
+    // else the room topic string (pre-membership fallback).
+    const std::optional<std::vector<unsigned char>> storedRoomKey = RoomKeyFor( roomTopic );
+    const unsigned char *ikm     = reinterpret_cast<const unsigned char *>( roomTopic.data() );
+    int                  ikmSize = static_cast<int>( roomTopic.size() );
+    if ( storedRoomKey.has_value() )
+    {
+        ikm     = storedRoomKey->data();
+        ikmSize = static_cast<int>( storedRoomKey->size() );
     }
 
     std::vector<unsigned char> key( kRoomKeyLengthBytes, 0 );
@@ -43,11 +122,7 @@ outcome::result<std::vector<unsigned char>> DeriveRoomKey( const std::string &ro
                  reinterpret_cast<const unsigned char *>( kMessagesHkdfSalt ),
                  static_cast<int>( sizeof( kMessagesHkdfSalt ) - 1 ) )
              == 1 )
-        && ( EVP_PKEY_CTX_set1_hkdf_key(
-                 pctx,
-                 reinterpret_cast<const unsigned char *>( roomTopic.data() ),
-                 static_cast<int>( roomTopic.size() ) )
-             == 1 )
+        && ( EVP_PKEY_CTX_set1_hkdf_key( pctx, ikm, ikmSize ) == 1 )
         && ( EVP_PKEY_CTX_add1_hkdf_info(
                  pctx,
                  reinterpret_cast<const unsigned char *>( kMessagesHkdfInfo ),
@@ -154,6 +229,114 @@ outcome::result<std::string> DecryptPayload( const std::string &roomTopic,
     if ( EVP_DecryptInit_ex( ctx, EVP_aes_256_gcm(), nullptr, key.data(), nonce ) == 1
          && EVP_DecryptUpdate( ctx,
                                reinterpret_cast<unsigned char *>( plaintext.data() ),
+                               &outLen,
+                               ciphertext,
+                               static_cast<int>( cipherLen ) )
+                == 1
+         && EVP_CIPHER_CTX_ctrl( ctx, EVP_CTRL_GCM_SET_TAG,
+                                 static_cast<int>( kGcmTagLength ),
+                                 const_cast<unsigned char *>( tag ) )
+                == 1 )
+    {
+        int finalLen = 0;
+        ok = EVP_DecryptFinal_ex( ctx, nullptr, &finalLen );
+    }
+
+    EVP_CIPHER_CTX_free( ctx ); // always
+
+    if ( ok != 1 )
+    {
+        return outcome::failure( sgns::gcs::Error::GcsDbError );
+    }
+    return plaintext;
+}
+
+outcome::result<std::string> WrapRoomKey( const std::vector<unsigned char> &memberKey,
+                                          const std::vector<unsigned char> &roomKey )
+{
+    if ( memberKey.size() != kRoomKeyLengthBytes || roomKey.size() != kRoomKeyLengthBytes )
+    {
+        return outcome::failure( sgns::gcs::Error::GcsDbError );
+    }
+
+    unsigned char nonce[ kGcmNonceLength ] = { 0 };
+    if ( RAND_bytes( nonce, static_cast<int>( kGcmNonceLength ) ) != 1 )
+    {
+        return outcome::failure( sgns::gcs::Error::GcsDbError );
+    }
+
+    std::string envelope;
+    envelope.reserve( kGcmNonceLength + roomKey.size() + kGcmTagLength );
+    envelope.append( reinterpret_cast<const char *>( nonce ), kGcmNonceLength );
+
+    EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
+    if ( ctx == nullptr )
+    {
+        return outcome::failure( sgns::gcs::Error::GcsDbError );
+    }
+
+    int           outLen = 0;
+    int           ok     = 0;
+    std::string   ciphertext( roomKey.size(), '\0' );
+    unsigned char tag[ kGcmTagLength ] = { 0 };
+
+    if ( EVP_EncryptInit_ex( ctx, EVP_aes_256_gcm(), nullptr, memberKey.data(), nonce ) == 1
+         && EVP_EncryptUpdate( ctx,
+                               reinterpret_cast<unsigned char *>( ciphertext.data() ),
+                               &outLen,
+                               roomKey.data(),
+                               static_cast<int>( roomKey.size() ) )
+                == 1
+         && EVP_EncryptFinal_ex( ctx, nullptr, &outLen ) == 1 )
+    {
+        ok = EVP_CIPHER_CTX_ctrl( ctx, EVP_CTRL_GCM_GET_TAG,
+                                  static_cast<int>( kGcmTagLength ), tag );
+    }
+
+    EVP_CIPHER_CTX_free( ctx ); // always
+
+    if ( ok != 1 )
+    {
+        return outcome::failure( sgns::gcs::Error::GcsDbError );
+    }
+
+    envelope.append( ciphertext );
+    envelope.append( reinterpret_cast<const char *>( tag ), kGcmTagLength );
+    return envelope;
+}
+
+outcome::result<std::vector<unsigned char>> UnwrapRoomKey(
+    const std::vector<unsigned char> &memberKey, const std::string &envelope )
+{
+    if ( memberKey.size() != kRoomKeyLengthBytes
+         || envelope.size() < kGcmNonceLength + kGcmTagLength )
+    {
+        return outcome::failure( sgns::gcs::Error::GcsDbError );
+    }
+
+    const unsigned char *nonce      = reinterpret_cast<const unsigned char *>( envelope.data() );
+    const size_t         cipherLen  = envelope.size() - kGcmNonceLength - kGcmTagLength;
+    const unsigned char *ciphertext = nonce + kGcmNonceLength;
+    const unsigned char *tag        = ciphertext + cipherLen;
+
+    if ( cipherLen != kRoomKeyLengthBytes )
+    {
+        return outcome::failure( sgns::gcs::Error::GcsDbError );
+    }
+
+    EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
+    if ( ctx == nullptr )
+    {
+        return outcome::failure( sgns::gcs::Error::GcsDbError );
+    }
+
+    int                        outLen = 0;
+    int                        ok     = 0;
+    std::vector<unsigned char> plaintext( cipherLen, 0 );
+
+    if ( EVP_DecryptInit_ex( ctx, EVP_aes_256_gcm(), nullptr, memberKey.data(), nonce ) == 1
+         && EVP_DecryptUpdate( ctx,
+                               plaintext.data(),
                                &outLen,
                                ciphertext,
                                static_cast<int>( cipherLen ) )
