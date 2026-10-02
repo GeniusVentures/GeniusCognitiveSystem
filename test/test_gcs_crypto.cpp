@@ -16,7 +16,9 @@
 #include "lib/gcs_crypto.hpp"
 
 #include <cstddef>
+#include <optional>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -43,6 +45,18 @@ namespace
         plain.push_back( static_cast<char>( 0xFF ) );  // high-bit byte
         plain.push_back( 'c' );
         return plain;
+    }
+
+    /**
+     * @brief Builds a 32-byte room/member key filled with one repeating seed
+     *        byte (distinct seeds give distinct keys).
+     *
+     * @param[in] seed The byte value replicated across the key.
+     * @return The 32-byte key.
+     */
+    std::vector<unsigned char> MakeKey( unsigned char seed )
+    {
+        return std::vector<unsigned char>( kRoomKeyLengthBytes, seed );
     }
 } // namespace
 
@@ -176,6 +190,147 @@ TEST( GcsCryptoTests, TruncatedEnvelopeFailsImmediately )
 {
     const std::string tooShort( kGcmNonceLength + kGcmTagLength - 1, 'x' );
     EXPECT_FALSE( DecryptPayload( "roomA", tooShort ).has_value() );
+}
+
+/**
+ * @brief (MEMB-01) StoreRoomKey then RoomKeyFor returns exactly the stored
+ *        bytes; a second store for the same topic overwrites (last write wins).
+ */
+TEST( GcsCryptoTests, StoreRoomKeyRoundTripAndOverwrite )
+{
+    const std::string topic = "keystore-roundtrip-topic";
+    ClearRoomKey( topic );
+
+    const std::vector<unsigned char> first = MakeKey( 0x11 );
+    StoreRoomKey( topic, first );
+
+    auto stored = RoomKeyFor( topic );
+    ASSERT_TRUE( stored.has_value() );
+    EXPECT_EQ( stored.value(), first );
+
+    const std::vector<unsigned char> second = MakeKey( 0x22 );
+    StoreRoomKey( topic, second );
+
+    auto overwritten = RoomKeyFor( topic );
+    ASSERT_TRUE( overwritten.has_value() );
+    EXPECT_EQ( overwritten.value(), second );
+
+    ClearRoomKey( topic );
+}
+
+/**
+ * @brief (MEMB-01) RoomKeyFor returns nullopt for a topic never stored, so
+ *        DeriveRoomKey falls back to topic-derivation for that room.
+ */
+TEST( GcsCryptoTests, RoomKeyForAbsentTopicIsNullopt )
+{
+    const std::string topic = "keystore-absent-topic";
+    ClearRoomKey( topic );
+    EXPECT_FALSE( RoomKeyFor( topic ).has_value() );
+}
+
+/**
+ * @brief (WR-02 fallback) With no stored key, DeriveRoomKey stays the
+ *        deterministic topic-derived key — the pre-membership backward
+ *        compatibility path.
+ */
+TEST( GcsCryptoTests, DeriveRoomKeyFallsBackToTopicWhenStoreEmpty )
+{
+    const std::string topic = "keystore-fallback-topic";
+    ClearRoomKey( topic );
+
+    auto first = DeriveRoomKey( topic );
+    ASSERT_TRUE( first.has_value() );
+    ASSERT_EQ( first.value().size(), kRoomKeyLengthBytes );
+
+    auto second = DeriveRoomKey( topic );
+    ASSERT_TRUE( second.has_value() );
+    EXPECT_EQ( first.value(), second.value() );
+}
+
+/**
+ * @brief (WR-02 closure) With a stored room key, DeriveRoomKey uses the stored
+ *        32-byte key as HKDF input keying material — a different key than the
+ *        topic-derived fallback, and deterministic once stored.
+ */
+TEST( GcsCryptoTests, DeriveRoomKeyUsesStoredKeyWhenPresent )
+{
+    const std::string topic = "keystore-ikm-topic";
+    ClearRoomKey( topic );
+
+    auto topicDerived = DeriveRoomKey( topic );
+    ASSERT_TRUE( topicDerived.has_value() );
+
+    StoreRoomKey( topic, MakeKey( 0x7F ) );
+
+    auto storedDerivedFirst = DeriveRoomKey( topic );
+    ASSERT_TRUE( storedDerivedFirst.has_value() );
+    ASSERT_EQ( storedDerivedFirst.value().size(), kRoomKeyLengthBytes );
+    EXPECT_NE( storedDerivedFirst.value(), topicDerived.value() );
+
+    auto storedDerivedSecond = DeriveRoomKey( topic );
+    ASSERT_TRUE( storedDerivedSecond.has_value() );
+    EXPECT_EQ( storedDerivedFirst.value(), storedDerivedSecond.value() );
+
+    ClearRoomKey( topic );
+}
+
+/**
+ * @brief (MEMB-01) MintRoomKey returns a fresh 32-byte key; two mints differ.
+ */
+TEST( GcsCryptoTests, MintRoomKeyIsFresh32Bytes )
+{
+    const std::vector<unsigned char> first = MintRoomKey();
+    ASSERT_EQ( first.size(), kRoomKeyLengthBytes );
+
+    const std::vector<unsigned char> second = MintRoomKey();
+    ASSERT_EQ( second.size(), kRoomKeyLengthBytes );
+    EXPECT_NE( first, second );
+}
+
+/**
+ * @brief (P7) Concurrent StoreRoomKey/RoomKeyFor across threads are race-free:
+ *        the store holds only key bytes and every access is mutex-guarded.
+ */
+TEST( GcsCryptoTests, ConcurrentKeyStoreAccessIsRaceFree )
+{
+    constexpr int kThreadCount = 8;
+    constexpr int kIterations  = 500;
+
+    std::vector<std::thread> threads;
+    threads.reserve( kThreadCount );
+    for ( int t = 0; t < kThreadCount; ++t )
+    {
+        threads.emplace_back(
+            [t]()
+            {
+                const std::string topic = "keystore-concurrent-" + std::to_string( t );
+                const std::vector<unsigned char> key = MakeKey( static_cast<unsigned char>( t ) );
+                for ( int i = 0; i < kIterations; ++i )
+                {
+                    StoreRoomKey( topic, key );
+                    auto read = RoomKeyFor( topic );
+                    if ( read.has_value() )
+                    {
+                        EXPECT_EQ( read.value(), key );
+                    }
+                }
+            } );
+    }
+    for ( std::thread &thread : threads )
+    {
+        thread.join();
+    }
+
+    for ( int t = 0; t < kThreadCount; ++t )
+    {
+        const std::string topic = "keystore-concurrent-" + std::to_string( t );
+        auto              stored = RoomKeyFor( topic );
+        ASSERT_TRUE( stored.has_value() );
+        ASSERT_EQ( stored.value().size(), kRoomKeyLengthBytes );
+        EXPECT_EQ( stored.value().front(), static_cast<unsigned char>( t ) );
+        ClearRoomKey( topic );
+    }
 }
 
 } // namespace gcs::crypto
