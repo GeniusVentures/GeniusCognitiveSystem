@@ -20,6 +20,7 @@
 #include <atomic>
 #include <chrono>
 #include <random>
+#include <utility>
 
 namespace gcs {
 namespace
@@ -102,8 +103,8 @@ namespace
     }
 } // namespace
 
-EntityStore::EntityStore( CoreSession &session )
-    : m_session( session )
+EntityStore::EntityStore( CoreSession &session, std::string localAddress )
+    : m_session( session ), m_localAddress( std::move( localAddress ) )
 {
 }
 
@@ -187,7 +188,8 @@ outcome::result<void> EntityStore::LoadFromStore()
 
 outcome::result<SpaceRecord> EntityStore::CreateSpace( const std::string &name,
                                                        bool               isPublic,
-                                                       bool               autoJoinRooms )
+                                                       bool               autoJoinRooms,
+                                                       bool               membersCanInvite )
 {
     SpaceRecord record;
     const std::string id = NextEntityId( kSpaceIdPrefix );
@@ -196,6 +198,8 @@ outcome::result<SpaceRecord> EntityStore::CreateSpace( const std::string &name,
     record.set_name( name );
     record.set_is_public( isPublic );
     record.set_auto_join_rooms( autoJoinRooms );
+    record.set_creator( m_localAddress );              // D-03 Super Admin identity
+    record.set_members_can_invite( membersCanInvite ); // MEMB-05 invite gate
     record.set_created_at_ms( nowMs );
     record.set_updated_at_ms( nowMs );
     record.set_deleted( false );          // D-03: tombstone fields present from
@@ -221,7 +225,8 @@ outcome::result<SpaceRecord> EntityStore::CreateSpace( const std::string &name,
 }
 
 outcome::result<RoomRecord> EntityStore::CreateRoom( const std::string &name,
-                                                     const std::string &parentSpaceId )
+                                                     const std::string &parentSpaceId,
+                                                     bool               membersCanInvite )
 {
     if ( !parentSpaceId.empty() && !IsValidParentSpace( parentSpaceId ) )
     {
@@ -238,7 +243,15 @@ outcome::result<RoomRecord> EntityStore::CreateRoom( const std::string &name,
     const int64_t      nowMs = NowMs();
     record.set_id( id );
     record.set_name( name );
-    record.set_parent_space_id( parentSpaceId ); // empty = standalone (D-01)
+    record.set_parent_space_id( parentSpaceId );       // empty = standalone (D-01)
+    record.set_members_can_invite( membersCanInvite ); // MEMB-05 invite gate
+    if ( parentSpaceId.empty() )
+    {
+        // Standalone room = its own Super Admin scope (P2), so it carries the
+        // creator. A nested room's Super Admin is the parent space's creator,
+        // so its creator field stays empty.
+        record.set_creator( m_localAddress );
+    }
     record.set_created_at_ms( nowMs );
     record.set_updated_at_ms( nowMs );
     record.set_deleted( false );          // D-03: tombstone fields present from

@@ -50,9 +50,12 @@ public:
    *
    * Performs no I/O and no fallible work (deferred registration idiom).
    *
-   * @param[in] session The owning session; must outlive this store.
+   * @param[in] session      The owning session; must outlive this store.
+   * @param[in] localAddress Local wallet address stamped into `creator` on new
+   *                         spaces and standalone rooms (the D-03 authority);
+   *                         empty = the legacy pre-membership path.
    */
-  explicit EntityStore(CoreSession &session);
+  explicit EntityStore(CoreSession &session, std::string localAddress = {});
 
   EntityStore(const EntityStore &) = delete;
   EntityStore &operator=(const EntityStore &) = delete;
@@ -78,14 +81,17 @@ public:
    * C++ stamps id, timestamps, and the tombstone fields (D-01/D-27 — the
    * authority fields never come from Dart).
    *
-   * @param[in] name          Display name (mutable metadata, not identity).
-   * @param[in] isPublic      Public/private display flag.
-   * @param[in] autoJoinRooms D-04 derived-join source of truth.
+   * @param[in] name             Display name (mutable metadata, not identity).
+   * @param[in] isPublic         Public/private display flag.
+   * @param[in] autoJoinRooms    D-04 derived-join source of truth.
+   * @param[in] membersCanInvite MEMB-05 invite gate; false = members cannot
+   *                             invite (default matches the "if enabled" wording).
    * @return outcome::success with the stored SpaceRecord; propagated Error on
    *         a failed record/manifest write.
    */
   outcome::result<SpaceRecord> CreateSpace(const std::string &name,
-                                           bool isPublic, bool autoJoinRooms);
+                                           bool isPublic, bool autoJoinRooms,
+                                           bool membersCanInvite = false);
 
   /**
    * @brief Create a room: mint an opaque id, persist the record + manifest.
@@ -94,13 +100,20 @@ public:
    * model). A non-empty parentSpaceId must reference a known, non-tombstoned
    * space — otherwise the call is rejected without writing anything.
    *
-   * @param[in] name          Display name (mutable metadata, not identity).
-   * @param[in] parentSpaceId Parent space id; empty = standalone.
+   * A standalone room stamps `creator` from the injected address (it is its
+   * own Super Admin scope, P2); a nested room leaves `creator` empty because
+   * its Super Admin is the parent space's creator.
+   *
+   * @param[in] name             Display name (mutable metadata, not identity).
+   * @param[in] parentSpaceId    Parent space id; empty = standalone.
+   * @param[in] membersCanInvite MEMB-05 creation-time invite gate; false by
+   *                             default.
    * @return outcome::success with the stored RoomRecord; Error on an unknown
    *         parent or a failed record/manifest write.
    */
   outcome::result<RoomRecord> CreateRoom(const std::string &name,
-                                         const std::string &parentSpaceId);
+                                         const std::string &parentSpaceId,
+                                         bool membersCanInvite = false);
 
   /**
    * @brief Overwrite a space record with the full desired state (CORE-03).
@@ -166,6 +179,8 @@ private:
   static std::string NextEntityId(const char *prefix);
 
   CoreSession &m_session; ///< Borrowed session (Put/Get pass-throughs)
+
+  std::string m_localAddress; ///< Wallet address stamped into `creator` (D-03)
 
   std::map<std::string, SpaceRecord>
       m_spaces; ///< Known spaces by id (tombstoned records kept)
