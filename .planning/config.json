@@ -1,5 +1,5 @@
 {
-  "model_profile": "balanced",
+  "model_profile": "quality",
   "commit_docs": true,
   "parallelization": true,
   "search_gitignored": false,
@@ -49,7 +49,7 @@
     "security_enforcement": true,
     "security_asvs_level": 1,
     "security_block_on": "high",
-    "code_review_command": "codex exec -s read-only"
+    "code_review_command": "codex --profile deep-review exec -s read-only"
   },
   "hooks": {
     "context_warnings": true,
