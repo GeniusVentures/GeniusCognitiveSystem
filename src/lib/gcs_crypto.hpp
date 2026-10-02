@@ -4,8 +4,10 @@
  *             per-room HKDF-SHA256 key derivation + AES-256-GCM
  *             encrypt/decrypt of full message records.
  * @details    This adapter is the ONLY file in src/ that includes OpenSSL
- *             headers (the `openssl/...` family). It is stateless: every call
- *             derives a fresh room key
+ *             headers (the `openssl/...` family). It is stateless except for
+ *             ONE documented exception (D-06): a mutex-guarded per-room key
+ *             store holds 32-byte room-key BYTES only, never EVP contexts
+ *             (P7). Every call derives a fresh room key
  *             and constructs a fresh EVP_CIPHER_CTX / EVP_PKEY_CTX, because
  *             callers invoke it from three different thread types — the
  *             GossipSub strand thread (live receive), the CRDT DagWorker
@@ -32,6 +34,7 @@
 #define GCS_CRYPTO_HPP
 
 #include <cstddef>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -52,17 +55,68 @@ constexpr const char kMessagesHkdfSalt[] = "gcs-messages-hkdf-v1";
 constexpr const char kMessagesHkdfInfo[] = "gcs-messages-v1";
 
 /**
- * @brief Derive the per-room symmetric key (D-08).
+ * @brief Mint a fresh random 32-byte room key (D-06).
  *
- * room_key = HKDF-SHA256(ikm = room_topic UTF-8, salt = kMessagesHkdfSalt,
+ * Draws kRoomKeyLengthBytes bytes from RAND_bytes with a checked return. This
+ * is the per-room key minted at room creation and distributed to members
+ * AES-256-GCM-wrapped under each member's invite key (never derived from the
+ * public room topic).
+ *
+ * @return The 32-byte room key; an EMPTY vector when RAND_bytes fails (the
+ *         documented empty-on-failure contract for this accessor).
+ */
+std::vector<unsigned char> MintRoomKey();
+
+/**
+ * @brief Store (or overwrite) a room's 32-byte key in the per-room key store
+ *        (D-06 — the documented exception to this adapter's statelessness).
+ *
+ * The store holds key BYTES only, guarded by a std::mutex; no EVP context is
+ * ever cached, so the fresh-context-per-call rule still holds for every
+ * derive/encrypt/decrypt (P7).
+ *
+ * @param[in] roomTopic The room topic that addresses the key.
+ * @param[in] roomKey   The 32-byte room key bytes.
+ */
+void StoreRoomKey(const std::string &roomTopic,
+                  const std::vector<unsigned char> &roomKey);
+
+/**
+ * @brief Resolve a room topic to its stored 32-byte key (D-06).
+ *
+ * @param[in] roomTopic The room topic to look up.
+ * @return The stored 32-byte key; std::nullopt when the topic has no stored key
+ *         (pre-membership rooms), which makes DeriveRoomKey fall back to
+ *         topic-derivation.
+ */
+std::optional<std::vector<unsigned char>> RoomKeyFor(const std::string &roomTopic);
+
+/**
+ * @brief Remove a room's key from the per-room key store (removal paths, D-06).
+ *
+ * Harmless when the topic is absent.
+ *
+ * @param[in] roomTopic The room topic to clear.
+ */
+void ClearRoomKey(const std::string &roomTopic);
+
+/**
+ * @brief Derive the per-room symmetric key (D-08 / D-06 / WR-02).
+ *
+ * room_key = HKDF-SHA256(ikm, salt = kMessagesHkdfSalt,
  *                        info = kMessagesHkdfInfo, L = kRoomKeyLengthBytes)
- * using the default EXTRACT_AND_EXPAND mode (no set_hkdf_mode call).
+ * using the default EXTRACT_AND_EXPAND mode (no set_hkdf_mode call), where the
+ * input keying material is the member-distributed 32-byte room key from the
+ * per-room key store (RoomKeyFor) when present, else the room_topic UTF-8
+ * string — the pre-membership fallback for rooms minted before the swap. The
+ * salt and info are STABLE across the swap; only the ikm changes.
  *
- * Stateless: a fresh EVP_PKEY_CTX is created and freed on every call; the key
- * is derived per call (never cached) so the adapter is thread-safe by
- * construction.
+ * A fresh EVP_PKEY_CTX is created and freed on every call; the derived key is
+ * never cached, so the adapter stays thread-safe apart from the mutex-guarded
+ * byte store.
  *
- * @param[in] roomTopic The room topic string (the HKDF input keying material).
+ * @param[in] roomTopic The room topic string (addressing the key store, and
+ *                      the fallback HKDF input keying material).
  * @return outcome::success with the 32-byte room key; outcome::failure on any
  *         EVP/HKDF failure.
  */

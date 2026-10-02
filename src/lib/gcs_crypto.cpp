@@ -16,6 +16,10 @@
 
 #include "gcs_crypto.hpp"
 
+#include <mutex>
+#include <optional>
+#include <unordered_map>
+
 #include <openssl/evp.h>
 #include <openssl/kdf.h>
 #include <openssl/rand.h>
@@ -24,6 +28,70 @@
 
 namespace gcs::crypto
 {
+namespace
+{
+    /**
+     * @brief Returns the per-room key store's guarding mutex (D-06).
+     *
+     * Function-local static so construction is thread-safe and order-independent;
+     * guards EVERY read and write of the key map.
+     *
+     * @return The mutex guarding the per-room key store.
+     */
+    std::mutex &RoomKeyStoreMutex()
+    {
+        static std::mutex mutex;
+        return mutex;
+    }
+
+    /**
+     * @brief Returns the process-wide per-room key store (D-06).
+     *
+     * Maps a room topic to its 32-byte room-key BYTES. Only bytes are shared —
+     * never an EVP context (P7) — and every access goes through
+     * RoomKeyStoreMutex().
+     *
+     * @return The per-room key store.
+     */
+    std::unordered_map<std::string, std::vector<unsigned char>> &RoomKeyStore()
+    {
+        static std::unordered_map<std::string, std::vector<unsigned char>> store;
+        return store;
+    }
+} // namespace
+
+std::vector<unsigned char> MintRoomKey()
+{
+    std::vector<unsigned char> key( kRoomKeyLengthBytes, 0 );
+    if ( RAND_bytes( key.data(), static_cast<int>( kRoomKeyLengthBytes ) ) != 1 )
+    {
+        return {}; // documented empty-on-failure contract (header)
+    }
+    return key;
+}
+
+void StoreRoomKey( const std::string &roomTopic, const std::vector<unsigned char> &roomKey )
+{
+    std::lock_guard<std::mutex> lock( RoomKeyStoreMutex() );
+    RoomKeyStore()[ roomTopic ] = roomKey;
+}
+
+std::optional<std::vector<unsigned char>> RoomKeyFor( const std::string &roomTopic )
+{
+    std::lock_guard<std::mutex> lock( RoomKeyStoreMutex() );
+    const auto                  it = RoomKeyStore().find( roomTopic );
+    if ( it == RoomKeyStore().end() )
+    {
+        return std::nullopt;
+    }
+    return it->second;
+}
+
+void ClearRoomKey( const std::string &roomTopic )
+{
+    std::lock_guard<std::mutex> lock( RoomKeyStoreMutex() );
+    RoomKeyStore().erase( roomTopic );
+}
 
 outcome::result<std::vector<unsigned char>> DeriveRoomKey( const std::string &roomTopic )
 {
@@ -31,6 +99,17 @@ outcome::result<std::vector<unsigned char>> DeriveRoomKey( const std::string &ro
     if ( pctx == nullptr )
     {
         return outcome::failure( sgns::gcs::Error::GcsDbError );
+    }
+
+    // WR-02/D-06: ikm is the member-distributed 32-byte room key when stored,
+    // else the room topic string (pre-membership fallback).
+    const std::optional<std::vector<unsigned char>> storedRoomKey = RoomKeyFor( roomTopic );
+    const unsigned char *ikm     = reinterpret_cast<const unsigned char *>( roomTopic.data() );
+    int                  ikmSize = static_cast<int>( roomTopic.size() );
+    if ( storedRoomKey.has_value() )
+    {
+        ikm     = storedRoomKey->data();
+        ikmSize = static_cast<int>( storedRoomKey->size() );
     }
 
     std::vector<unsigned char> key( kRoomKeyLengthBytes, 0 );
@@ -43,11 +122,7 @@ outcome::result<std::vector<unsigned char>> DeriveRoomKey( const std::string &ro
                  reinterpret_cast<const unsigned char *>( kMessagesHkdfSalt ),
                  static_cast<int>( sizeof( kMessagesHkdfSalt ) - 1 ) )
              == 1 )
-        && ( EVP_PKEY_CTX_set1_hkdf_key(
-                 pctx,
-                 reinterpret_cast<const unsigned char *>( roomTopic.data() ),
-                 static_cast<int>( roomTopic.size() ) )
-             == 1 )
+        && ( EVP_PKEY_CTX_set1_hkdf_key( pctx, ikm, ikmSize ) == 1 )
         && ( EVP_PKEY_CTX_add1_hkdf_info(
                  pctx,
                  reinterpret_cast<const unsigned char *>( kMessagesHkdfInfo ),
