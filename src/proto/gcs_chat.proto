@@ -118,6 +118,10 @@ message SpaceRecord {
   int64 updated_at_ms = 6;
   bool deleted = 7;          // D-03 tombstone fields, present from creation,
   int64 deleted_at_ms = 8;   // set by NO Phase 2 command
+  string creator = 9;              // D-03 Super Admin identity — never demotable
+  bool members_can_invite = 10;    // P3/MEMB-05 invite gate (default false)
+  string approved_by = 11;         // D-07 empty = dormant op awaiting Super Admin
+  PendingAction pending_action = 12; // D-07 dormant op kind on the entity record
 }
 
 // Authoritative persistent room entity record. C++ stamps id/timestamps/
@@ -131,6 +135,10 @@ message RoomRecord {
   int64 updated_at_ms = 5;
   bool deleted = 6;           // D-03 tombstone fields, present from creation,
   int64 deleted_at_ms = 7;    // set by NO Phase 2 command
+  string creator = 8;              // P2 standalone-room Super Admin (empty for nested rooms)
+  bool members_can_invite = 9;     // P3/MEMB-05 creation-time invite gate
+  string approved_by = 10;         // D-07 empty = dormant op awaiting Super Admin
+  PendingAction pending_action = 11; // D-07 dormant op kind on the entity record
 }
 
 // Manifest of known entity ids (D-02). Value bytes under gcs/index/manifest.
@@ -178,4 +186,75 @@ message SpaceTree {
 message MessageHistory {
   string room_topic = 1;
   repeated ChatMessageState message = 2;
+}
+
+// === Phase 4: Membership & Invites (append-only additions — D-05/D-06/D-07/D-08) ===
+
+// Five-tier capability role (MEMB-02/D-08). C++ stamps the role at mint/redeem/
+// role-change; it is NEVER read from a client-supplied field (T-04-01-EoP).
+enum Role {
+  ROLE_UNSPECIFIED = 0;
+  ROLE_SUPER_ADMIN = 1;  // the scope creator, singular and never demotable (D-03)
+  ROLE_ADMIN = 2;
+  ROLE_MODERATOR = 3;
+  ROLE_MEMBER = 4;
+  ROLE_GUEST = 5;        // read-only — send-path write guard (D-08)
+}
+
+// Dormant destructive-op kind carried on the target record (D-07). An empty
+// `approved_by` plus a non-zero action means the op awaits Super Admin activation.
+enum PendingAction {
+  PENDING_ACTION_UNSPECIFIED = 0;
+  PENDING_ACTION_REMOVE = 1;
+  PENDING_ACTION_ROLE_CHANGE = 2;
+  PENDING_ACTION_DELETE = 3;
+}
+
+// Room key wrapped under a member's invite-borne key (D-06). `envelope` is the
+// raw binary nonce(12)||ciphertext||tag(16) payload and MUST be proto3 `bytes`,
+// NOT `string`: a string field would fail UTF-8 validation on parse and empty
+// every member list that carries it.
+message WrappedRoomKey {
+  string room_id = 1;
+  bytes envelope = 2;
+}
+
+// Per-member LWW record, one per member per scope under
+// `gcs/members/<scopeId>/<wallet>` (D-01), enumerated by prefix scan. Full-state
+// rewrite, never a patch; tombstone = `deleted`, never key removal (D-03).
+message MemberRecord {
+  string scope_id = 1;               // space id or standalone room id (D-01)
+  string address = 2;                // wallet identity (D-03)
+  Role role = 3;                     // C++-stamped five-tier role (MEMB-02)
+  bool explicit_leave = 4;           // D-02 derived-join precedence term
+  bool deleted = 5;                  // D-03 tombstone, never key removal
+  int64 created_at_ms = 6;           // wall-clock ms (same stamp as ChatMessageState)
+  int64 updated_at_ms = 7;
+  string approved_by = 8;            // D-07 empty = dormant op awaiting Super Admin
+  PendingAction pending_action = 9;  // D-07 dormant op kind on this member
+  Role pending_role = 10;            // D-07 target role of a dormant role change
+  repeated WrappedRoomKey wrapped_room_key = 11; // D-06 room key(s) wrapped under this member's key
+}
+
+// Flat, full-replacement roster pushed on the GcsEvent oneof (D-04) — the
+// SpaceTree push pattern. `self_address` is the local wallet C++ pushes so Dart
+// derives the "You" marker from authority instead of guessing.
+message MemberList {
+  string scope_id = 1;
+  repeated MemberRecord member = 2;
+  string self_address = 3;
+}
+
+// Pushed `gcs://invite/...` capability link (D-05).
+message InviteLink {
+  string url = 1;
+}
+
+// Write-at-redeem invite grant, persisted under `gcs/invites/<scopeId>/<inviteId>`
+// (D-05/P4). NOT a member record: nothing is written at mint except this record;
+// the redeemer's wallet-keyed MemberRecord is written at redeem.
+message InviteRecord {
+  string scope_id = 1;
+  Role role = 2;                                 // C++-stamped grant (Guest default, D-05)
+  repeated WrappedRoomKey wrapped_room_key = 3;  // room key(s) wrapped under the invite key IK
 }
