@@ -59,6 +59,13 @@ message GcsCommand {
     CreateSpaceCommand create_space = 3;
     CreateRoomCommand create_room = 4;
     UpdateSpaceCommand update_space = 5;
+    InviteCommand invite = 6;              // D-05 mint a `gcs://invite/...` capability link
+    RedeemCommand redeem = 7;              // D-05 redeem an invite link
+    ChangeRoleCommand change_role = 8;     // D-03/D-08 full-state role change
+    RemoveMemberCommand remove_member = 9; // D-07 member removal (dormant when 2+ admins)
+    LeaveCommand leave = 10;               // D-02 explicit leave of the caller's own record
+    DeleteScopeCommand delete_scope = 11;  // D-07 scope deletion (dormant when 2+ admins)
+    ApproveCommand approve = 12;           // D-07 Super Admin activates a dormant op
   }
 }
 
@@ -100,6 +107,8 @@ message GcsEvent {
     ErrorNotice error = 4;
     SpaceTree space_tree = 5;
     MessageHistory message_history = 6;
+    MemberList member_list = 7;  // D-04 flat full-replacement roster push
+    InviteLink invite_link = 8;  // D-05 pushed invite link
   }
 }
 
@@ -156,12 +165,14 @@ message CreateSpaceCommand {
   string name = 1;
   bool is_public = 2;
   bool auto_join_rooms = 3;
+  bool members_can_invite = 4; // P3/MEMB-05 invite gate (default false)
 }
 
 // Data-only create command (D-27: data-only; C++ stamps authority).
 message CreateRoomCommand {
   string name = 1;
   string parent_space_id = 2; // empty = standalone
+  bool members_can_invite = 3; // P3/MEMB-05 invite gate (rooms: creation-time only)
 }
 
 // Data-only edit command (D-27: data-only; C++ stamps authority). Full desired
@@ -171,6 +182,7 @@ message UpdateSpaceCommand {
   string name = 2;
   bool is_public = 3;
   bool auto_join_rooms = 4;
+  bool members_can_invite = 5; // P3/MEMB-05 invite gate (spaces own the post-creation toggle)
 }
 
 // Pushed entity-catalog event (D-02): FLAT records — Dart builds the tree.
@@ -257,4 +269,39 @@ message InviteRecord {
   string scope_id = 1;
   Role role = 2;                                 // C++-stamped grant (Guest default, D-05)
   repeated WrappedRoomKey wrapped_room_key = 3;  // room key(s) wrapped under the invite key IK
+}
+
+// Data-only commands (D-27: data-only; C++ stamps authority — the id, invite
+// key, timestamps, and role authority never come from Dart).
+
+message InviteCommand {
+  string scope_id = 1; // space id (`space-...`) or standalone room id (`room-...`)
+}
+
+message RedeemCommand {
+  string invite_url = 1; // full `gcs://invite/{space|room}/<inviteId>?key=<key>`; C++ re-parses
+}
+
+message ChangeRoleCommand {
+  string scope_id = 1;
+  string target = 2; // wallet address
+  Role role = 3;
+}
+
+message RemoveMemberCommand {
+  string scope_id = 1;
+  string target = 2; // wallet address
+}
+
+message LeaveCommand {
+  string scope_id = 1; // writes `explicit_leave` on the caller's own record (D-02)
+}
+
+message DeleteScopeCommand {
+  string scope_id = 1;
+}
+
+message ApproveCommand {
+  string scope_id = 1;
+  string target = 2; // member address (remove/role change) or the scope id itself (deletion)
 }
