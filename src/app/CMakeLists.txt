@@ -1,14 +1,16 @@
 # GCS Flutter app — always built; the only skip is dart/flutter missing
 # from PATH (e.g. C++-only CI runners). Included from src/CMakeLists.txt
 # (owned by plan 01-03) via add_subdirectory(app).
-find_program(DART_EXECUTABLE dart)
 if(WIN32)
-    # bin/ ships an extensionless bash script AND flutter.bat; find_program can
-    # latch onto the script, which CreateProcess (ctest / cmake -E env / ninja)
-    # cannot execute — test_gcs_ffi_dart then dies with kwsys "unknown error"
-    # before flutter prints anything. Prefer the .bat.
+    # bin/ ships extensionless bash launchers AND .bat files for both dart
+    # and flutter; find_program can latch onto the script, which
+    # CreateProcess (ctest / cmake -E env / ninja) cannot execute —
+    # app_pub_get / test_gcs_ffi_dart then die with kwsys "unknown error"
+    # before anything prints. Prefer the .bat.
+    find_program(DART_EXECUTABLE NAMES dart.bat dart)
     find_program(FLUTTER_EXECUTABLE NAMES flutter.bat flutter)
 else()
+    find_program(DART_EXECUTABLE dart)
     find_program(FLUTTER_EXECUTABLE flutter)
 endif()
 find_program(PYTHON3_EXECUTABLE python3)
