@@ -14,13 +14,25 @@ import 'package:flutter_app/generated/proto/gcs_chat.pb.dart';
 /// metadata). Topic is derived, never stored.
 class RailRoom {
   /// Creates a [RailRoom].
-  const RailRoom({required this.id, required this.name});
+  const RailRoom({
+    required this.id,
+    required this.name,
+    this.approvedBy = '',
+    this.pendingAction = PendingAction.PENDING_ACTION_UNSPECIFIED,
+  });
 
   /// Opaque C++-minted room id (identity; never changes).
   final String id;
 
   /// Human display name (mutable metadata on the record).
   final String name;
+
+  /// D-07 approver on the pushed record; empty means a dormant op (or none)
+  /// awaits the Super Admin. Surfaced verbatim -- never recomputed in Dart.
+  final String approvedBy;
+
+  /// D-07 dormant-op kind pushed on the record (presentation only, D-08).
+  final PendingAction pendingAction;
 
   /// Derived pub/sub topic for this room (D-01 namespacing).
   String get topic => 'gcs/chat/$id';
@@ -34,6 +46,8 @@ class RailSpace {
     required this.name,
     required this.isPublic,
     required this.autoJoinRooms,
+    this.approvedBy = '',
+    this.pendingAction = PendingAction.PENDING_ACTION_UNSPECIFIED,
     this.rooms = const <RailRoom>[],
   });
 
@@ -48,6 +62,13 @@ class RailSpace {
 
   /// D-04 derived-join source of truth (edit surface toggles this).
   final bool autoJoinRooms;
+
+  /// D-07 approver on the pushed record; empty means a dormant op (or none)
+  /// awaits the Super Admin. Surfaced verbatim -- never recomputed in Dart.
+  final String approvedBy;
+
+  /// D-07 dormant-op kind pushed on the record (presentation only, D-08).
+  final PendingAction pendingAction;
 
   /// Rooms grouped under this space by `parent_space_id` (pushed order).
   final List<RailRoom> rooms;
@@ -156,12 +177,19 @@ class RailCubit extends Cubit<RailState> {
           name: record.name,
           isPublic: record.isPublic,
           autoJoinRooms: record.autoJoinRooms,
+          approvedBy: record.approvedBy,
+          pendingAction: record.pendingAction,
         ),
       );
     }
     final List<RailRoom> standalone = <RailRoom>[];
     for (final RoomRecord record in rooms) {
-      final RailRoom room = RailRoom(id: record.id, name: record.name);
+      final RailRoom room = RailRoom(
+        id: record.id,
+        name: record.name,
+        approvedBy: record.approvedBy,
+        pendingAction: record.pendingAction,
+      );
       final List<RailRoom>? siblings = grouped[record.parentSpaceId];
       if (record.parentSpaceId.isEmpty || siblings == null) {
         standalone.add(room);
@@ -189,6 +217,8 @@ class RailCubit extends Cubit<RailState> {
       name: space.name,
       isPublic: space.isPublic,
       autoJoinRooms: space.autoJoinRooms,
+      approvedBy: space.approvedBy,
+      pendingAction: space.pendingAction,
       rooms: List<RailRoom>.unmodifiable(rooms),
     );
   }

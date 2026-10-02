@@ -240,6 +240,13 @@ enum GcsCommand_Payload {
   createSpace,
   createRoom,
   updateSpace,
+  invite,
+  redeem,
+  changeRole,
+  removeMember,
+  leave,
+  deleteScope,
+  approve,
   notSet
 }
 
@@ -251,6 +258,13 @@ class GcsCommand extends $pb.GeneratedMessage {
     CreateSpaceCommand? createSpace,
     CreateRoomCommand? createRoom,
     UpdateSpaceCommand? updateSpace,
+    InviteCommand? invite,
+    RedeemCommand? redeem,
+    ChangeRoleCommand? changeRole,
+    RemoveMemberCommand? removeMember,
+    LeaveCommand? leave,
+    DeleteScopeCommand? deleteScope,
+    ApproveCommand? approve,
   }) {
     final result = create();
     if (joinTopic != null) result.joinTopic = joinTopic;
@@ -258,6 +272,13 @@ class GcsCommand extends $pb.GeneratedMessage {
     if (createSpace != null) result.createSpace = createSpace;
     if (createRoom != null) result.createRoom = createRoom;
     if (updateSpace != null) result.updateSpace = updateSpace;
+    if (invite != null) result.invite = invite;
+    if (redeem != null) result.redeem = redeem;
+    if (changeRole != null) result.changeRole = changeRole;
+    if (removeMember != null) result.removeMember = removeMember;
+    if (leave != null) result.leave = leave;
+    if (deleteScope != null) result.deleteScope = deleteScope;
+    if (approve != null) result.approve = approve;
     return result;
   }
 
@@ -277,13 +298,20 @@ class GcsCommand extends $pb.GeneratedMessage {
     3: GcsCommand_Payload.createSpace,
     4: GcsCommand_Payload.createRoom,
     5: GcsCommand_Payload.updateSpace,
+    6: GcsCommand_Payload.invite,
+    7: GcsCommand_Payload.redeem,
+    8: GcsCommand_Payload.changeRole,
+    9: GcsCommand_Payload.removeMember,
+    10: GcsCommand_Payload.leave,
+    11: GcsCommand_Payload.deleteScope,
+    12: GcsCommand_Payload.approve,
     0: GcsCommand_Payload.notSet
   };
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'GcsCommand',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gcs.chat'),
       createEmptyInstance: create)
-    ..oo(0, [1, 2, 3, 4, 5])
+    ..oo(0, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])
     ..aOM<JoinTopicCommand>(1, _omitFieldNames ? '' : 'joinTopic',
         subBuilder: JoinTopicCommand.create)
     ..aOM<SendTextCommand>(2, _omitFieldNames ? '' : 'sendText',
@@ -294,6 +322,20 @@ class GcsCommand extends $pb.GeneratedMessage {
         subBuilder: CreateRoomCommand.create)
     ..aOM<UpdateSpaceCommand>(5, _omitFieldNames ? '' : 'updateSpace',
         subBuilder: UpdateSpaceCommand.create)
+    ..aOM<InviteCommand>(6, _omitFieldNames ? '' : 'invite',
+        subBuilder: InviteCommand.create)
+    ..aOM<RedeemCommand>(7, _omitFieldNames ? '' : 'redeem',
+        subBuilder: RedeemCommand.create)
+    ..aOM<ChangeRoleCommand>(8, _omitFieldNames ? '' : 'changeRole',
+        subBuilder: ChangeRoleCommand.create)
+    ..aOM<RemoveMemberCommand>(9, _omitFieldNames ? '' : 'removeMember',
+        subBuilder: RemoveMemberCommand.create)
+    ..aOM<LeaveCommand>(10, _omitFieldNames ? '' : 'leave',
+        subBuilder: LeaveCommand.create)
+    ..aOM<DeleteScopeCommand>(11, _omitFieldNames ? '' : 'deleteScope',
+        subBuilder: DeleteScopeCommand.create)
+    ..aOM<ApproveCommand>(12, _omitFieldNames ? '' : 'approve',
+        subBuilder: ApproveCommand.create)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -373,6 +415,83 @@ class GcsCommand extends $pb.GeneratedMessage {
   void clearUpdateSpace() => $_clearField(5);
   @$pb.TagNumber(5)
   UpdateSpaceCommand ensureUpdateSpace() => $_ensure(4);
+
+  @$pb.TagNumber(6)
+  InviteCommand get invite => $_getN(5);
+  @$pb.TagNumber(6)
+  set invite(InviteCommand value) => $_setField(6, value);
+  @$pb.TagNumber(6)
+  $core.bool hasInvite() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearInvite() => $_clearField(6);
+  @$pb.TagNumber(6)
+  InviteCommand ensureInvite() => $_ensure(5);
+
+  @$pb.TagNumber(7)
+  RedeemCommand get redeem => $_getN(6);
+  @$pb.TagNumber(7)
+  set redeem(RedeemCommand value) => $_setField(7, value);
+  @$pb.TagNumber(7)
+  $core.bool hasRedeem() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearRedeem() => $_clearField(7);
+  @$pb.TagNumber(7)
+  RedeemCommand ensureRedeem() => $_ensure(6);
+
+  @$pb.TagNumber(8)
+  ChangeRoleCommand get changeRole => $_getN(7);
+  @$pb.TagNumber(8)
+  set changeRole(ChangeRoleCommand value) => $_setField(8, value);
+  @$pb.TagNumber(8)
+  $core.bool hasChangeRole() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearChangeRole() => $_clearField(8);
+  @$pb.TagNumber(8)
+  ChangeRoleCommand ensureChangeRole() => $_ensure(7);
+
+  @$pb.TagNumber(9)
+  RemoveMemberCommand get removeMember => $_getN(8);
+  @$pb.TagNumber(9)
+  set removeMember(RemoveMemberCommand value) => $_setField(9, value);
+  @$pb.TagNumber(9)
+  $core.bool hasRemoveMember() => $_has(8);
+  @$pb.TagNumber(9)
+  void clearRemoveMember() => $_clearField(9);
+  @$pb.TagNumber(9)
+  RemoveMemberCommand ensureRemoveMember() => $_ensure(8);
+
+  @$pb.TagNumber(10)
+  LeaveCommand get leave => $_getN(9);
+  @$pb.TagNumber(10)
+  set leave(LeaveCommand value) => $_setField(10, value);
+  @$pb.TagNumber(10)
+  $core.bool hasLeave() => $_has(9);
+  @$pb.TagNumber(10)
+  void clearLeave() => $_clearField(10);
+  @$pb.TagNumber(10)
+  LeaveCommand ensureLeave() => $_ensure(9);
+
+  @$pb.TagNumber(11)
+  DeleteScopeCommand get deleteScope => $_getN(10);
+  @$pb.TagNumber(11)
+  set deleteScope(DeleteScopeCommand value) => $_setField(11, value);
+  @$pb.TagNumber(11)
+  $core.bool hasDeleteScope() => $_has(10);
+  @$pb.TagNumber(11)
+  void clearDeleteScope() => $_clearField(11);
+  @$pb.TagNumber(11)
+  DeleteScopeCommand ensureDeleteScope() => $_ensure(10);
+
+  @$pb.TagNumber(12)
+  ApproveCommand get approve => $_getN(11);
+  @$pb.TagNumber(12)
+  set approve(ApproveCommand value) => $_setField(12, value);
+  @$pb.TagNumber(12)
+  $core.bool hasApprove() => $_has(11);
+  @$pb.TagNumber(12)
+  void clearApprove() => $_clearField(12);
+  @$pb.TagNumber(12)
+  ApproveCommand ensureApprove() => $_ensure(11);
 }
 
 /// Authoritative message record. This proto type IS the C++ half (D-24 reinterpreted by D-26):
@@ -702,6 +821,8 @@ enum GcsEvent_Payload {
   error,
   spaceTree,
   messageHistory,
+  memberList,
+  inviteLink,
   notSet
 }
 
@@ -714,6 +835,8 @@ class GcsEvent extends $pb.GeneratedMessage {
     ErrorNotice? error,
     SpaceTree? spaceTree,
     MessageHistory? messageHistory,
+    MemberList? memberList,
+    InviteLink? inviteLink,
   }) {
     final result = create();
     if (message != null) result.message = message;
@@ -722,6 +845,8 @@ class GcsEvent extends $pb.GeneratedMessage {
     if (error != null) result.error = error;
     if (spaceTree != null) result.spaceTree = spaceTree;
     if (messageHistory != null) result.messageHistory = messageHistory;
+    if (memberList != null) result.memberList = memberList;
+    if (inviteLink != null) result.inviteLink = inviteLink;
     return result;
   }
 
@@ -741,13 +866,15 @@ class GcsEvent extends $pb.GeneratedMessage {
     4: GcsEvent_Payload.error,
     5: GcsEvent_Payload.spaceTree,
     6: GcsEvent_Payload.messageHistory,
+    7: GcsEvent_Payload.memberList,
+    8: GcsEvent_Payload.inviteLink,
     0: GcsEvent_Payload.notSet
   };
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'GcsEvent',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gcs.chat'),
       createEmptyInstance: create)
-    ..oo(0, [1, 2, 3, 4, 5, 6])
+    ..oo(0, [1, 2, 3, 4, 5, 6, 7, 8])
     ..aOM<ChatMessageState>(1, _omitFieldNames ? '' : 'message',
         subBuilder: ChatMessageState.create)
     ..aOM<RoomList>(2, _omitFieldNames ? '' : 'roomList',
@@ -760,6 +887,10 @@ class GcsEvent extends $pb.GeneratedMessage {
         subBuilder: SpaceTree.create)
     ..aOM<MessageHistory>(6, _omitFieldNames ? '' : 'messageHistory',
         subBuilder: MessageHistory.create)
+    ..aOM<MemberList>(7, _omitFieldNames ? '' : 'memberList',
+        subBuilder: MemberList.create)
+    ..aOM<InviteLink>(8, _omitFieldNames ? '' : 'inviteLink',
+        subBuilder: InviteLink.create)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -849,6 +980,28 @@ class GcsEvent extends $pb.GeneratedMessage {
   void clearMessageHistory() => $_clearField(6);
   @$pb.TagNumber(6)
   MessageHistory ensureMessageHistory() => $_ensure(5);
+
+  @$pb.TagNumber(7)
+  MemberList get memberList => $_getN(6);
+  @$pb.TagNumber(7)
+  set memberList(MemberList value) => $_setField(7, value);
+  @$pb.TagNumber(7)
+  $core.bool hasMemberList() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearMemberList() => $_clearField(7);
+  @$pb.TagNumber(7)
+  MemberList ensureMemberList() => $_ensure(6);
+
+  @$pb.TagNumber(8)
+  InviteLink get inviteLink => $_getN(7);
+  @$pb.TagNumber(8)
+  set inviteLink(InviteLink value) => $_setField(8, value);
+  @$pb.TagNumber(8)
+  $core.bool hasInviteLink() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearInviteLink() => $_clearField(8);
+  @$pb.TagNumber(8)
+  InviteLink ensureInviteLink() => $_ensure(7);
 }
 
 /// Authoritative persistent space entity record. This proto type IS the C++ half
@@ -865,6 +1018,10 @@ class SpaceRecord extends $pb.GeneratedMessage {
     $fixnum.Int64? updatedAtMs,
     $core.bool? deleted,
     $fixnum.Int64? deletedAtMs,
+    $core.String? creator,
+    $core.bool? membersCanInvite,
+    $core.String? approvedBy,
+    PendingAction? pendingAction,
   }) {
     final result = create();
     if (id != null) result.id = id;
@@ -875,6 +1032,10 @@ class SpaceRecord extends $pb.GeneratedMessage {
     if (updatedAtMs != null) result.updatedAtMs = updatedAtMs;
     if (deleted != null) result.deleted = deleted;
     if (deletedAtMs != null) result.deletedAtMs = deletedAtMs;
+    if (creator != null) result.creator = creator;
+    if (membersCanInvite != null) result.membersCanInvite = membersCanInvite;
+    if (approvedBy != null) result.approvedBy = approvedBy;
+    if (pendingAction != null) result.pendingAction = pendingAction;
     return result;
   }
 
@@ -899,6 +1060,14 @@ class SpaceRecord extends $pb.GeneratedMessage {
     ..aInt64(6, _omitFieldNames ? '' : 'updatedAtMs')
     ..aOB(7, _omitFieldNames ? '' : 'deleted')
     ..aInt64(8, _omitFieldNames ? '' : 'deletedAtMs')
+    ..aOS(9, _omitFieldNames ? '' : 'creator')
+    ..aOB(10, _omitFieldNames ? '' : 'membersCanInvite')
+    ..aOS(11, _omitFieldNames ? '' : 'approvedBy')
+    ..e<PendingAction>(
+        12, _omitFieldNames ? '' : 'pendingAction', $pb.PbFieldType.OE,
+        defaultOrMaker: PendingAction.PENDING_ACTION_UNSPECIFIED,
+        valueOf: PendingAction.valueOf,
+        enumValues: PendingAction.values)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -992,6 +1161,42 @@ class SpaceRecord extends $pb.GeneratedMessage {
   $core.bool hasDeletedAtMs() => $_has(7);
   @$pb.TagNumber(8)
   void clearDeletedAtMs() => $_clearField(8);
+
+  @$pb.TagNumber(9)
+  $core.String get creator => $_getSZ(8);
+  @$pb.TagNumber(9)
+  set creator($core.String value) => $_setString(8, value);
+  @$pb.TagNumber(9)
+  $core.bool hasCreator() => $_has(8);
+  @$pb.TagNumber(9)
+  void clearCreator() => $_clearField(9);
+
+  @$pb.TagNumber(10)
+  $core.bool get membersCanInvite => $_getBF(9);
+  @$pb.TagNumber(10)
+  set membersCanInvite($core.bool value) => $_setBool(9, value);
+  @$pb.TagNumber(10)
+  $core.bool hasMembersCanInvite() => $_has(9);
+  @$pb.TagNumber(10)
+  void clearMembersCanInvite() => $_clearField(10);
+
+  @$pb.TagNumber(11)
+  $core.String get approvedBy => $_getSZ(10);
+  @$pb.TagNumber(11)
+  set approvedBy($core.String value) => $_setString(10, value);
+  @$pb.TagNumber(11)
+  $core.bool hasApprovedBy() => $_has(10);
+  @$pb.TagNumber(11)
+  void clearApprovedBy() => $_clearField(11);
+
+  @$pb.TagNumber(12)
+  PendingAction get pendingAction => $_getN(11);
+  @$pb.TagNumber(12)
+  set pendingAction(PendingAction value) => $_setField(12, value);
+  @$pb.TagNumber(12)
+  $core.bool hasPendingAction() => $_has(11);
+  @$pb.TagNumber(12)
+  void clearPendingAction() => $_clearField(12);
 }
 
 /// Authoritative persistent room entity record. C++ stamps id/timestamps/
@@ -1006,6 +1211,10 @@ class RoomRecord extends $pb.GeneratedMessage {
     $fixnum.Int64? updatedAtMs,
     $core.bool? deleted,
     $fixnum.Int64? deletedAtMs,
+    $core.String? creator,
+    $core.bool? membersCanInvite,
+    $core.String? approvedBy,
+    PendingAction? pendingAction,
   }) {
     final result = create();
     if (id != null) result.id = id;
@@ -1015,6 +1224,10 @@ class RoomRecord extends $pb.GeneratedMessage {
     if (updatedAtMs != null) result.updatedAtMs = updatedAtMs;
     if (deleted != null) result.deleted = deleted;
     if (deletedAtMs != null) result.deletedAtMs = deletedAtMs;
+    if (creator != null) result.creator = creator;
+    if (membersCanInvite != null) result.membersCanInvite = membersCanInvite;
+    if (approvedBy != null) result.approvedBy = approvedBy;
+    if (pendingAction != null) result.pendingAction = pendingAction;
     return result;
   }
 
@@ -1038,6 +1251,14 @@ class RoomRecord extends $pb.GeneratedMessage {
     ..aInt64(5, _omitFieldNames ? '' : 'updatedAtMs')
     ..aOB(6, _omitFieldNames ? '' : 'deleted')
     ..aInt64(7, _omitFieldNames ? '' : 'deletedAtMs')
+    ..aOS(8, _omitFieldNames ? '' : 'creator')
+    ..aOB(9, _omitFieldNames ? '' : 'membersCanInvite')
+    ..aOS(10, _omitFieldNames ? '' : 'approvedBy')
+    ..e<PendingAction>(
+        11, _omitFieldNames ? '' : 'pendingAction', $pb.PbFieldType.OE,
+        defaultOrMaker: PendingAction.PENDING_ACTION_UNSPECIFIED,
+        valueOf: PendingAction.valueOf,
+        enumValues: PendingAction.values)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -1121,6 +1342,42 @@ class RoomRecord extends $pb.GeneratedMessage {
   $core.bool hasDeletedAtMs() => $_has(6);
   @$pb.TagNumber(7)
   void clearDeletedAtMs() => $_clearField(7);
+
+  @$pb.TagNumber(8)
+  $core.String get creator => $_getSZ(7);
+  @$pb.TagNumber(8)
+  set creator($core.String value) => $_setString(7, value);
+  @$pb.TagNumber(8)
+  $core.bool hasCreator() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearCreator() => $_clearField(8);
+
+  @$pb.TagNumber(9)
+  $core.bool get membersCanInvite => $_getBF(8);
+  @$pb.TagNumber(9)
+  set membersCanInvite($core.bool value) => $_setBool(8, value);
+  @$pb.TagNumber(9)
+  $core.bool hasMembersCanInvite() => $_has(8);
+  @$pb.TagNumber(9)
+  void clearMembersCanInvite() => $_clearField(9);
+
+  @$pb.TagNumber(10)
+  $core.String get approvedBy => $_getSZ(9);
+  @$pb.TagNumber(10)
+  set approvedBy($core.String value) => $_setString(9, value);
+  @$pb.TagNumber(10)
+  $core.bool hasApprovedBy() => $_has(9);
+  @$pb.TagNumber(10)
+  void clearApprovedBy() => $_clearField(10);
+
+  @$pb.TagNumber(11)
+  PendingAction get pendingAction => $_getN(10);
+  @$pb.TagNumber(11)
+  set pendingAction(PendingAction value) => $_setField(11, value);
+  @$pb.TagNumber(11)
+  $core.bool hasPendingAction() => $_has(10);
+  @$pb.TagNumber(11)
+  void clearPendingAction() => $_clearField(11);
 }
 
 /// Manifest of known entity ids (D-02). Value bytes under gcs/index/manifest.
@@ -1190,11 +1447,13 @@ class CreateSpaceCommand extends $pb.GeneratedMessage {
     $core.String? name,
     $core.bool? isPublic,
     $core.bool? autoJoinRooms,
+    $core.bool? membersCanInvite,
   }) {
     final result = create();
     if (name != null) result.name = name;
     if (isPublic != null) result.isPublic = isPublic;
     if (autoJoinRooms != null) result.autoJoinRooms = autoJoinRooms;
+    if (membersCanInvite != null) result.membersCanInvite = membersCanInvite;
     return result;
   }
 
@@ -1214,6 +1473,7 @@ class CreateSpaceCommand extends $pb.GeneratedMessage {
     ..aOS(1, _omitFieldNames ? '' : 'name')
     ..aOB(2, _omitFieldNames ? '' : 'isPublic')
     ..aOB(3, _omitFieldNames ? '' : 'autoJoinRooms')
+    ..aOB(4, _omitFieldNames ? '' : 'membersCanInvite')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -1263,6 +1523,15 @@ class CreateSpaceCommand extends $pb.GeneratedMessage {
   $core.bool hasAutoJoinRooms() => $_has(2);
   @$pb.TagNumber(3)
   void clearAutoJoinRooms() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.bool get membersCanInvite => $_getBF(3);
+  @$pb.TagNumber(4)
+  set membersCanInvite($core.bool value) => $_setBool(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasMembersCanInvite() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearMembersCanInvite() => $_clearField(4);
 }
 
 /// Data-only create command (D-27: data-only; C++ stamps authority).
@@ -1270,10 +1539,12 @@ class CreateRoomCommand extends $pb.GeneratedMessage {
   factory CreateRoomCommand({
     $core.String? name,
     $core.String? parentSpaceId,
+    $core.bool? membersCanInvite,
   }) {
     final result = create();
     if (name != null) result.name = name;
     if (parentSpaceId != null) result.parentSpaceId = parentSpaceId;
+    if (membersCanInvite != null) result.membersCanInvite = membersCanInvite;
     return result;
   }
 
@@ -1292,6 +1563,7 @@ class CreateRoomCommand extends $pb.GeneratedMessage {
       createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'name')
     ..aOS(2, _omitFieldNames ? '' : 'parentSpaceId')
+    ..aOB(3, _omitFieldNames ? '' : 'membersCanInvite')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -1332,6 +1604,15 @@ class CreateRoomCommand extends $pb.GeneratedMessage {
   $core.bool hasParentSpaceId() => $_has(1);
   @$pb.TagNumber(2)
   void clearParentSpaceId() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.bool get membersCanInvite => $_getBF(2);
+  @$pb.TagNumber(3)
+  set membersCanInvite($core.bool value) => $_setBool(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasMembersCanInvite() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearMembersCanInvite() => $_clearField(3);
 }
 
 /// Data-only edit command (D-27: data-only; C++ stamps authority). Full desired
@@ -1342,12 +1623,14 @@ class UpdateSpaceCommand extends $pb.GeneratedMessage {
     $core.String? name,
     $core.bool? isPublic,
     $core.bool? autoJoinRooms,
+    $core.bool? membersCanInvite,
   }) {
     final result = create();
     if (spaceId != null) result.spaceId = spaceId;
     if (name != null) result.name = name;
     if (isPublic != null) result.isPublic = isPublic;
     if (autoJoinRooms != null) result.autoJoinRooms = autoJoinRooms;
+    if (membersCanInvite != null) result.membersCanInvite = membersCanInvite;
     return result;
   }
 
@@ -1368,6 +1651,7 @@ class UpdateSpaceCommand extends $pb.GeneratedMessage {
     ..aOS(2, _omitFieldNames ? '' : 'name')
     ..aOB(3, _omitFieldNames ? '' : 'isPublic')
     ..aOB(4, _omitFieldNames ? '' : 'autoJoinRooms')
+    ..aOB(5, _omitFieldNames ? '' : 'membersCanInvite')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -1426,6 +1710,15 @@ class UpdateSpaceCommand extends $pb.GeneratedMessage {
   $core.bool hasAutoJoinRooms() => $_has(3);
   @$pb.TagNumber(4)
   void clearAutoJoinRooms() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.bool get membersCanInvite => $_getBF(4);
+  @$pb.TagNumber(5)
+  set membersCanInvite($core.bool value) => $_setBool(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasMembersCanInvite() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearMembersCanInvite() => $_clearField(5);
 }
 
 /// Pushed entity-catalog event (D-02): FLAT records — Dart builds the tree.
@@ -1549,6 +1842,920 @@ class MessageHistory extends $pb.GeneratedMessage {
 
   @$pb.TagNumber(2)
   $pb.PbList<ChatMessageState> get message => $_getList(1);
+}
+
+/// Room key wrapped under a member's invite-borne key (D-06). `envelope` is the
+/// raw binary nonce(12)||ciphertext||tag(16) payload and MUST be proto3 `bytes`,
+/// NOT `string`: a string field would fail UTF-8 validation on parse and empty
+/// every member list that carries it.
+class WrappedRoomKey extends $pb.GeneratedMessage {
+  factory WrappedRoomKey({
+    $core.String? roomId,
+    $core.List<$core.int>? envelope,
+  }) {
+    final result = create();
+    if (roomId != null) result.roomId = roomId;
+    if (envelope != null) result.envelope = envelope;
+    return result;
+  }
+
+  WrappedRoomKey._();
+
+  factory WrappedRoomKey.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory WrappedRoomKey.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'WrappedRoomKey',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gcs.chat'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'roomId')
+    ..a<$core.List<$core.int>>(
+        2, _omitFieldNames ? '' : 'envelope', $pb.PbFieldType.OY)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  WrappedRoomKey clone() => WrappedRoomKey()..mergeFromMessage(this);
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  WrappedRoomKey copyWith(void Function(WrappedRoomKey) updates) =>
+      super.copyWith((message) => updates(message as WrappedRoomKey))
+          as WrappedRoomKey;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static WrappedRoomKey create() => WrappedRoomKey._();
+  @$core.override
+  WrappedRoomKey createEmptyInstance() => create();
+  static $pb.PbList<WrappedRoomKey> createRepeated() =>
+      $pb.PbList<WrappedRoomKey>();
+  @$core.pragma('dart2js:noInline')
+  static WrappedRoomKey getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<WrappedRoomKey>(create);
+  static WrappedRoomKey? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get roomId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set roomId($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasRoomId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearRoomId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.List<$core.int> get envelope => $_getN(1);
+  @$pb.TagNumber(2)
+  set envelope($core.List<$core.int> value) => $_setBytes(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasEnvelope() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearEnvelope() => $_clearField(2);
+}
+
+/// Per-member LWW record, one per member per scope under
+/// `gcs/members/<scopeId>/<wallet>` (D-01), enumerated by prefix scan. Full-state
+/// rewrite, never a patch; tombstone = `deleted`, never key removal (D-03).
+class MemberRecord extends $pb.GeneratedMessage {
+  factory MemberRecord({
+    $core.String? scopeId,
+    $core.String? address,
+    Role? role,
+    $core.bool? explicitLeave,
+    $core.bool? deleted,
+    $fixnum.Int64? createdAtMs,
+    $fixnum.Int64? updatedAtMs,
+    $core.String? approvedBy,
+    PendingAction? pendingAction,
+    Role? pendingRole,
+    $core.Iterable<WrappedRoomKey>? wrappedRoomKey,
+  }) {
+    final result = create();
+    if (scopeId != null) result.scopeId = scopeId;
+    if (address != null) result.address = address;
+    if (role != null) result.role = role;
+    if (explicitLeave != null) result.explicitLeave = explicitLeave;
+    if (deleted != null) result.deleted = deleted;
+    if (createdAtMs != null) result.createdAtMs = createdAtMs;
+    if (updatedAtMs != null) result.updatedAtMs = updatedAtMs;
+    if (approvedBy != null) result.approvedBy = approvedBy;
+    if (pendingAction != null) result.pendingAction = pendingAction;
+    if (pendingRole != null) result.pendingRole = pendingRole;
+    if (wrappedRoomKey != null) result.wrappedRoomKey.addAll(wrappedRoomKey);
+    return result;
+  }
+
+  MemberRecord._();
+
+  factory MemberRecord.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory MemberRecord.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'MemberRecord',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gcs.chat'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'scopeId')
+    ..aOS(2, _omitFieldNames ? '' : 'address')
+    ..e<Role>(3, _omitFieldNames ? '' : 'role', $pb.PbFieldType.OE,
+        defaultOrMaker: Role.ROLE_UNSPECIFIED,
+        valueOf: Role.valueOf,
+        enumValues: Role.values)
+    ..aOB(4, _omitFieldNames ? '' : 'explicitLeave')
+    ..aOB(5, _omitFieldNames ? '' : 'deleted')
+    ..aInt64(6, _omitFieldNames ? '' : 'createdAtMs')
+    ..aInt64(7, _omitFieldNames ? '' : 'updatedAtMs')
+    ..aOS(8, _omitFieldNames ? '' : 'approvedBy')
+    ..e<PendingAction>(
+        9, _omitFieldNames ? '' : 'pendingAction', $pb.PbFieldType.OE,
+        defaultOrMaker: PendingAction.PENDING_ACTION_UNSPECIFIED,
+        valueOf: PendingAction.valueOf,
+        enumValues: PendingAction.values)
+    ..e<Role>(10, _omitFieldNames ? '' : 'pendingRole', $pb.PbFieldType.OE,
+        defaultOrMaker: Role.ROLE_UNSPECIFIED,
+        valueOf: Role.valueOf,
+        enumValues: Role.values)
+    ..pc<WrappedRoomKey>(
+        11, _omitFieldNames ? '' : 'wrappedRoomKey', $pb.PbFieldType.PM,
+        subBuilder: WrappedRoomKey.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  MemberRecord clone() => MemberRecord()..mergeFromMessage(this);
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  MemberRecord copyWith(void Function(MemberRecord) updates) =>
+      super.copyWith((message) => updates(message as MemberRecord))
+          as MemberRecord;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static MemberRecord create() => MemberRecord._();
+  @$core.override
+  MemberRecord createEmptyInstance() => create();
+  static $pb.PbList<MemberRecord> createRepeated() =>
+      $pb.PbList<MemberRecord>();
+  @$core.pragma('dart2js:noInline')
+  static MemberRecord getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<MemberRecord>(create);
+  static MemberRecord? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get scopeId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set scopeId($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasScopeId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearScopeId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get address => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set address($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasAddress() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearAddress() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  Role get role => $_getN(2);
+  @$pb.TagNumber(3)
+  set role(Role value) => $_setField(3, value);
+  @$pb.TagNumber(3)
+  $core.bool hasRole() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearRole() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.bool get explicitLeave => $_getBF(3);
+  @$pb.TagNumber(4)
+  set explicitLeave($core.bool value) => $_setBool(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasExplicitLeave() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearExplicitLeave() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.bool get deleted => $_getBF(4);
+  @$pb.TagNumber(5)
+  set deleted($core.bool value) => $_setBool(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasDeleted() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearDeleted() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $fixnum.Int64 get createdAtMs => $_getI64(5);
+  @$pb.TagNumber(6)
+  set createdAtMs($fixnum.Int64 value) => $_setInt64(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasCreatedAtMs() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearCreatedAtMs() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $fixnum.Int64 get updatedAtMs => $_getI64(6);
+  @$pb.TagNumber(7)
+  set updatedAtMs($fixnum.Int64 value) => $_setInt64(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasUpdatedAtMs() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearUpdatedAtMs() => $_clearField(7);
+
+  @$pb.TagNumber(8)
+  $core.String get approvedBy => $_getSZ(7);
+  @$pb.TagNumber(8)
+  set approvedBy($core.String value) => $_setString(7, value);
+  @$pb.TagNumber(8)
+  $core.bool hasApprovedBy() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearApprovedBy() => $_clearField(8);
+
+  @$pb.TagNumber(9)
+  PendingAction get pendingAction => $_getN(8);
+  @$pb.TagNumber(9)
+  set pendingAction(PendingAction value) => $_setField(9, value);
+  @$pb.TagNumber(9)
+  $core.bool hasPendingAction() => $_has(8);
+  @$pb.TagNumber(9)
+  void clearPendingAction() => $_clearField(9);
+
+  @$pb.TagNumber(10)
+  Role get pendingRole => $_getN(9);
+  @$pb.TagNumber(10)
+  set pendingRole(Role value) => $_setField(10, value);
+  @$pb.TagNumber(10)
+  $core.bool hasPendingRole() => $_has(9);
+  @$pb.TagNumber(10)
+  void clearPendingRole() => $_clearField(10);
+
+  @$pb.TagNumber(11)
+  $pb.PbList<WrappedRoomKey> get wrappedRoomKey => $_getList(10);
+}
+
+/// Flat, full-replacement roster pushed on the GcsEvent oneof (D-04) — the
+/// SpaceTree push pattern. `self_address` is the local wallet C++ pushes so Dart
+/// derives the "You" marker from authority instead of guessing.
+class MemberList extends $pb.GeneratedMessage {
+  factory MemberList({
+    $core.String? scopeId,
+    $core.Iterable<MemberRecord>? member,
+    $core.String? selfAddress,
+  }) {
+    final result = create();
+    if (scopeId != null) result.scopeId = scopeId;
+    if (member != null) result.member.addAll(member);
+    if (selfAddress != null) result.selfAddress = selfAddress;
+    return result;
+  }
+
+  MemberList._();
+
+  factory MemberList.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory MemberList.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'MemberList',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gcs.chat'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'scopeId')
+    ..pc<MemberRecord>(2, _omitFieldNames ? '' : 'member', $pb.PbFieldType.PM,
+        subBuilder: MemberRecord.create)
+    ..aOS(3, _omitFieldNames ? '' : 'selfAddress')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  MemberList clone() => MemberList()..mergeFromMessage(this);
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  MemberList copyWith(void Function(MemberList) updates) =>
+      super.copyWith((message) => updates(message as MemberList)) as MemberList;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static MemberList create() => MemberList._();
+  @$core.override
+  MemberList createEmptyInstance() => create();
+  static $pb.PbList<MemberList> createRepeated() => $pb.PbList<MemberList>();
+  @$core.pragma('dart2js:noInline')
+  static MemberList getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<MemberList>(create);
+  static MemberList? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get scopeId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set scopeId($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasScopeId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearScopeId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $pb.PbList<MemberRecord> get member => $_getList(1);
+
+  @$pb.TagNumber(3)
+  $core.String get selfAddress => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set selfAddress($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasSelfAddress() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearSelfAddress() => $_clearField(3);
+}
+
+/// Pushed `gcs://invite/...` capability link (D-05).
+class InviteLink extends $pb.GeneratedMessage {
+  factory InviteLink({
+    $core.String? url,
+  }) {
+    final result = create();
+    if (url != null) result.url = url;
+    return result;
+  }
+
+  InviteLink._();
+
+  factory InviteLink.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory InviteLink.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'InviteLink',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gcs.chat'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'url')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  InviteLink clone() => InviteLink()..mergeFromMessage(this);
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  InviteLink copyWith(void Function(InviteLink) updates) =>
+      super.copyWith((message) => updates(message as InviteLink)) as InviteLink;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static InviteLink create() => InviteLink._();
+  @$core.override
+  InviteLink createEmptyInstance() => create();
+  static $pb.PbList<InviteLink> createRepeated() => $pb.PbList<InviteLink>();
+  @$core.pragma('dart2js:noInline')
+  static InviteLink getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<InviteLink>(create);
+  static InviteLink? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get url => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set url($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasUrl() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearUrl() => $_clearField(1);
+}
+
+/// Write-at-redeem invite grant, persisted under `gcs/invites/<scopeId>/<inviteId>`
+/// (D-05/P4). NOT a member record: nothing is written at mint except this record;
+/// the redeemer's wallet-keyed MemberRecord is written at redeem.
+class InviteRecord extends $pb.GeneratedMessage {
+  factory InviteRecord({
+    $core.String? scopeId,
+    Role? role,
+    $core.Iterable<WrappedRoomKey>? wrappedRoomKey,
+  }) {
+    final result = create();
+    if (scopeId != null) result.scopeId = scopeId;
+    if (role != null) result.role = role;
+    if (wrappedRoomKey != null) result.wrappedRoomKey.addAll(wrappedRoomKey);
+    return result;
+  }
+
+  InviteRecord._();
+
+  factory InviteRecord.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory InviteRecord.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'InviteRecord',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gcs.chat'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'scopeId')
+    ..e<Role>(2, _omitFieldNames ? '' : 'role', $pb.PbFieldType.OE,
+        defaultOrMaker: Role.ROLE_UNSPECIFIED,
+        valueOf: Role.valueOf,
+        enumValues: Role.values)
+    ..pc<WrappedRoomKey>(
+        3, _omitFieldNames ? '' : 'wrappedRoomKey', $pb.PbFieldType.PM,
+        subBuilder: WrappedRoomKey.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  InviteRecord clone() => InviteRecord()..mergeFromMessage(this);
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  InviteRecord copyWith(void Function(InviteRecord) updates) =>
+      super.copyWith((message) => updates(message as InviteRecord))
+          as InviteRecord;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static InviteRecord create() => InviteRecord._();
+  @$core.override
+  InviteRecord createEmptyInstance() => create();
+  static $pb.PbList<InviteRecord> createRepeated() =>
+      $pb.PbList<InviteRecord>();
+  @$core.pragma('dart2js:noInline')
+  static InviteRecord getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<InviteRecord>(create);
+  static InviteRecord? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get scopeId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set scopeId($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasScopeId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearScopeId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  Role get role => $_getN(1);
+  @$pb.TagNumber(2)
+  set role(Role value) => $_setField(2, value);
+  @$pb.TagNumber(2)
+  $core.bool hasRole() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearRole() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $pb.PbList<WrappedRoomKey> get wrappedRoomKey => $_getList(2);
+}
+
+class InviteCommand extends $pb.GeneratedMessage {
+  factory InviteCommand({
+    $core.String? scopeId,
+  }) {
+    final result = create();
+    if (scopeId != null) result.scopeId = scopeId;
+    return result;
+  }
+
+  InviteCommand._();
+
+  factory InviteCommand.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory InviteCommand.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'InviteCommand',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gcs.chat'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'scopeId')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  InviteCommand clone() => InviteCommand()..mergeFromMessage(this);
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  InviteCommand copyWith(void Function(InviteCommand) updates) =>
+      super.copyWith((message) => updates(message as InviteCommand))
+          as InviteCommand;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static InviteCommand create() => InviteCommand._();
+  @$core.override
+  InviteCommand createEmptyInstance() => create();
+  static $pb.PbList<InviteCommand> createRepeated() =>
+      $pb.PbList<InviteCommand>();
+  @$core.pragma('dart2js:noInline')
+  static InviteCommand getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<InviteCommand>(create);
+  static InviteCommand? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get scopeId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set scopeId($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasScopeId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearScopeId() => $_clearField(1);
+}
+
+class RedeemCommand extends $pb.GeneratedMessage {
+  factory RedeemCommand({
+    $core.String? inviteUrl,
+  }) {
+    final result = create();
+    if (inviteUrl != null) result.inviteUrl = inviteUrl;
+    return result;
+  }
+
+  RedeemCommand._();
+
+  factory RedeemCommand.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory RedeemCommand.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'RedeemCommand',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gcs.chat'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'inviteUrl')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  RedeemCommand clone() => RedeemCommand()..mergeFromMessage(this);
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  RedeemCommand copyWith(void Function(RedeemCommand) updates) =>
+      super.copyWith((message) => updates(message as RedeemCommand))
+          as RedeemCommand;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static RedeemCommand create() => RedeemCommand._();
+  @$core.override
+  RedeemCommand createEmptyInstance() => create();
+  static $pb.PbList<RedeemCommand> createRepeated() =>
+      $pb.PbList<RedeemCommand>();
+  @$core.pragma('dart2js:noInline')
+  static RedeemCommand getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<RedeemCommand>(create);
+  static RedeemCommand? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get inviteUrl => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set inviteUrl($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasInviteUrl() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearInviteUrl() => $_clearField(1);
+}
+
+class ChangeRoleCommand extends $pb.GeneratedMessage {
+  factory ChangeRoleCommand({
+    $core.String? scopeId,
+    $core.String? target,
+    Role? role,
+  }) {
+    final result = create();
+    if (scopeId != null) result.scopeId = scopeId;
+    if (target != null) result.target = target;
+    if (role != null) result.role = role;
+    return result;
+  }
+
+  ChangeRoleCommand._();
+
+  factory ChangeRoleCommand.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ChangeRoleCommand.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ChangeRoleCommand',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gcs.chat'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'scopeId')
+    ..aOS(2, _omitFieldNames ? '' : 'target')
+    ..e<Role>(3, _omitFieldNames ? '' : 'role', $pb.PbFieldType.OE,
+        defaultOrMaker: Role.ROLE_UNSPECIFIED,
+        valueOf: Role.valueOf,
+        enumValues: Role.values)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ChangeRoleCommand clone() => ChangeRoleCommand()..mergeFromMessage(this);
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ChangeRoleCommand copyWith(void Function(ChangeRoleCommand) updates) =>
+      super.copyWith((message) => updates(message as ChangeRoleCommand))
+          as ChangeRoleCommand;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ChangeRoleCommand create() => ChangeRoleCommand._();
+  @$core.override
+  ChangeRoleCommand createEmptyInstance() => create();
+  static $pb.PbList<ChangeRoleCommand> createRepeated() =>
+      $pb.PbList<ChangeRoleCommand>();
+  @$core.pragma('dart2js:noInline')
+  static ChangeRoleCommand getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ChangeRoleCommand>(create);
+  static ChangeRoleCommand? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get scopeId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set scopeId($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasScopeId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearScopeId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get target => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set target($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasTarget() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearTarget() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  Role get role => $_getN(2);
+  @$pb.TagNumber(3)
+  set role(Role value) => $_setField(3, value);
+  @$pb.TagNumber(3)
+  $core.bool hasRole() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearRole() => $_clearField(3);
+}
+
+class RemoveMemberCommand extends $pb.GeneratedMessage {
+  factory RemoveMemberCommand({
+    $core.String? scopeId,
+    $core.String? target,
+  }) {
+    final result = create();
+    if (scopeId != null) result.scopeId = scopeId;
+    if (target != null) result.target = target;
+    return result;
+  }
+
+  RemoveMemberCommand._();
+
+  factory RemoveMemberCommand.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory RemoveMemberCommand.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'RemoveMemberCommand',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gcs.chat'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'scopeId')
+    ..aOS(2, _omitFieldNames ? '' : 'target')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  RemoveMemberCommand clone() => RemoveMemberCommand()..mergeFromMessage(this);
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  RemoveMemberCommand copyWith(void Function(RemoveMemberCommand) updates) =>
+      super.copyWith((message) => updates(message as RemoveMemberCommand))
+          as RemoveMemberCommand;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static RemoveMemberCommand create() => RemoveMemberCommand._();
+  @$core.override
+  RemoveMemberCommand createEmptyInstance() => create();
+  static $pb.PbList<RemoveMemberCommand> createRepeated() =>
+      $pb.PbList<RemoveMemberCommand>();
+  @$core.pragma('dart2js:noInline')
+  static RemoveMemberCommand getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<RemoveMemberCommand>(create);
+  static RemoveMemberCommand? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get scopeId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set scopeId($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasScopeId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearScopeId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get target => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set target($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasTarget() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearTarget() => $_clearField(2);
+}
+
+class LeaveCommand extends $pb.GeneratedMessage {
+  factory LeaveCommand({
+    $core.String? scopeId,
+  }) {
+    final result = create();
+    if (scopeId != null) result.scopeId = scopeId;
+    return result;
+  }
+
+  LeaveCommand._();
+
+  factory LeaveCommand.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory LeaveCommand.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'LeaveCommand',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gcs.chat'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'scopeId')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  LeaveCommand clone() => LeaveCommand()..mergeFromMessage(this);
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  LeaveCommand copyWith(void Function(LeaveCommand) updates) =>
+      super.copyWith((message) => updates(message as LeaveCommand))
+          as LeaveCommand;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static LeaveCommand create() => LeaveCommand._();
+  @$core.override
+  LeaveCommand createEmptyInstance() => create();
+  static $pb.PbList<LeaveCommand> createRepeated() =>
+      $pb.PbList<LeaveCommand>();
+  @$core.pragma('dart2js:noInline')
+  static LeaveCommand getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<LeaveCommand>(create);
+  static LeaveCommand? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get scopeId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set scopeId($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasScopeId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearScopeId() => $_clearField(1);
+}
+
+class DeleteScopeCommand extends $pb.GeneratedMessage {
+  factory DeleteScopeCommand({
+    $core.String? scopeId,
+  }) {
+    final result = create();
+    if (scopeId != null) result.scopeId = scopeId;
+    return result;
+  }
+
+  DeleteScopeCommand._();
+
+  factory DeleteScopeCommand.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory DeleteScopeCommand.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'DeleteScopeCommand',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gcs.chat'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'scopeId')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeleteScopeCommand clone() => DeleteScopeCommand()..mergeFromMessage(this);
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeleteScopeCommand copyWith(void Function(DeleteScopeCommand) updates) =>
+      super.copyWith((message) => updates(message as DeleteScopeCommand))
+          as DeleteScopeCommand;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static DeleteScopeCommand create() => DeleteScopeCommand._();
+  @$core.override
+  DeleteScopeCommand createEmptyInstance() => create();
+  static $pb.PbList<DeleteScopeCommand> createRepeated() =>
+      $pb.PbList<DeleteScopeCommand>();
+  @$core.pragma('dart2js:noInline')
+  static DeleteScopeCommand getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<DeleteScopeCommand>(create);
+  static DeleteScopeCommand? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get scopeId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set scopeId($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasScopeId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearScopeId() => $_clearField(1);
+}
+
+class ApproveCommand extends $pb.GeneratedMessage {
+  factory ApproveCommand({
+    $core.String? scopeId,
+    $core.String? target,
+  }) {
+    final result = create();
+    if (scopeId != null) result.scopeId = scopeId;
+    if (target != null) result.target = target;
+    return result;
+  }
+
+  ApproveCommand._();
+
+  factory ApproveCommand.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ApproveCommand.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ApproveCommand',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gcs.chat'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'scopeId')
+    ..aOS(2, _omitFieldNames ? '' : 'target')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ApproveCommand clone() => ApproveCommand()..mergeFromMessage(this);
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ApproveCommand copyWith(void Function(ApproveCommand) updates) =>
+      super.copyWith((message) => updates(message as ApproveCommand))
+          as ApproveCommand;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ApproveCommand create() => ApproveCommand._();
+  @$core.override
+  ApproveCommand createEmptyInstance() => create();
+  static $pb.PbList<ApproveCommand> createRepeated() =>
+      $pb.PbList<ApproveCommand>();
+  @$core.pragma('dart2js:noInline')
+  static ApproveCommand getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ApproveCommand>(create);
+  static ApproveCommand? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get scopeId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set scopeId($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasScopeId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearScopeId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get target => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set target($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasTarget() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearTarget() => $_clearField(2);
 }
 
 const $core.bool _omitFieldNames =
