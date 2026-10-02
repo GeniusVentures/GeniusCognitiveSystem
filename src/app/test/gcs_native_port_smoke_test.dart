@@ -131,6 +131,13 @@ void main()
         );
     expect(initApiDl(NativeApi.initializeApiDLData), isZero, reason: 'Dart_InitializeApiDL version mismatch with vendored API_DL');
 
+    // CI runners can't reach the OS credential store (Windows CredWriteA fails
+    // in the agent's service context — kept node logs, run 36953278673:
+    // "Failed to generate Genius address from private key"). Install the DLL's
+    // test secure-storage factory before boot — the same seam
+    // test_gcs_ffi_sdk.cpp uses in SetUp (gcs_use_test_secure_storage).
+    dl.lookupFunction<Void Function(), void Function()>('gcs_use_test_secure_storage')();
+
     // D-29: codec-tagged config bytes; buffer freed right after the call.
     final Directory tempDir = await Directory.systemTemp.createTemp('gcs_dart_smoke');
     // GCS_KEEP_TEMP retains the node's file logs (account logger writes under
