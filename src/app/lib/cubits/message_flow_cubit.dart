@@ -52,11 +52,15 @@ const int kSenderShortMarkerLength = 2 + 1;
 /// exactly prefix + suffix + marker + headroom passes through verbatim.
 const int kSenderShortHeadroomLength = 1;
 
-/// Truncates a wallet-address sender to a display short-form (D-04): the
+/// Truncates a wallet address to a display short-form (D-04): the
 /// leading '0x' plus the first [kSenderShortPrefixLength] and last
 /// [kSenderShortSuffixLength] hex characters, joined by '…'. Addresses short
 /// enough to read whole are returned unchanged.
-String _truncateSender(String address) {
+///
+/// The one home for this display rule: the Phase 3 sender label and the
+/// Phase 4 member-row address use the same convention (UI-SPEC typography
+/// contract -- member addresses render exactly like the `senderName` label).
+String truncateSender(String address) {
   if (address.length >
       kSenderShortPrefixLength +
           kSenderShortSuffixLength +
@@ -125,7 +129,7 @@ class MessageFlowCubit extends Cubit<List<ChatFlowItem>> {
       text: message.text,
       senderName: message.sender.isEmpty
           ? null
-          : _truncateSender(message.sender),
+          : truncateSender(message.sender),
     );
   }
 }
