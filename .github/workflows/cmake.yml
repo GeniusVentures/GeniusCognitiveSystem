@@ -952,6 +952,24 @@ jobs:
         if: ${{ matrix.target == 'OSX' }}
         run: ctest . -j 4 -C ${{ matrix.build-type }} --output-on-failure
 
+      - name: Dart ctest leg diagnostics (TEMP - remove once test_gcs_ffi_dart passes)
+        if: ${{ matrix.build-type == 'Release' && matrix.target == 'Windows' }}
+        working-directory: ${{github.workspace}}/src/app
+        shell: powershell
+        continue-on-error: true
+        run: |
+          Write-Host '=== baked ctest command ==='
+          Select-String -Path "${{github.workspace}}/${{env.BUILD_DIRECTORY}}/CTestTestfile.cmake" -Pattern 'test_gcs_ffi_dart' -Context 0,8
+          Write-Host '=== flutter resolution in step env ==='
+          Get-Command flutter | Format-List Name,Source,CommandType
+          flutter --version
+          Write-Host ("flutter --version exit = 0x{0:X8}" -f $LASTEXITCODE)
+          Write-Host '=== manual dart FFI test via cmake -E env ==='
+          $dll = (Get-ChildItem -Recurse -Filter gcs_ffi.dll "${{github.workspace}}/${{env.BUILD_DIRECTORY}}" | Select-Object -First 1).FullName
+          Write-Host "GCS_FFI_LIBRARY=$dll"
+          cmake -E env "GCS_FFI_LIBRARY=$dll" flutter test test/gcs_native_port_smoke_test.dart
+          Write-Host ("manual test exit = 0x{0:X8}" -f $LASTEXITCODE)
+
       - name: Run tests (Windows)
         working-directory: ${{github.workspace}}/${{env.BUILD_DIRECTORY}}
         if: ${{ matrix.build-type == 'Release' && matrix.target == 'Windows' }}
