@@ -772,7 +772,24 @@ jobs:
             sudo apt-get update || true
             sudo apt install ccache ninja-build libvulkan-dev libzstd-dev libsecret-1-dev dbus gnome-keyring -y
           fi
+          # Self-hosted non-container Linux hosts (Android legs): pre-own
+          # the flutter toolcache dir so flutter-action can install into it
+          # (GeniusWallet build.yml pattern; the container legs are handled
+          # by the dedicated clean step below).
+          if [ "${{ runner.environment }}" = "self-hosted" ] && [ -z "${{ matrix.container }}" ] && [ -n "${RUNNER_TOOL_CACHE:-}" ]; then
+            sudo mkdir -p "$RUNNER_TOOL_CACHE/flutter"
+            sudo chown -R "$(id -u):$(id -g)" "$RUNNER_TOOL_CACHE/flutter"
+          fi
+
           echo "CMAKE_GENERATOR=Ninja" >> $GITHUB_ENV
+          # Persist tar ownership behavior for all subsequent Linux steps
+          # (GeniusWallet build.yml): flutter's first-run artifact bootstrap
+          # (Dart SDK, gradle-wrapper) extracts with tar inside the
+          # container, where chown to the toolcache uid fails ("Cannot
+          # change ownership ... Invalid argument", run 36908194216
+          # Linux x86_64 Debug dart leg). --no-same-owner makes every
+          # extraction skip ownership.
+          echo "TAR_OPTIONS=--no-same-owner" >> $GITHUB_ENV
 
       - name: Configure Windows host
         if: ${{ runner.os == 'Windows'}}
@@ -814,6 +831,34 @@ jobs:
             echo "Android NDK already exists at $NDK_DIR, skipping download"
           fi
           echo "ANDROID_NDK_HOME=$NDK_DIR" >> $GITHUB_ENV
+
+      # GeniusWallet build.yml pattern verbatim: shared self-hosted Linux
+      # runners accumulate a stale/root-owned flutter toolcache that breaks
+      # flutter-action — clear and re-own it before setup.
+      - name: Clean stale Flutter toolcache (self-hosted Linux)
+        if: ${{ runner.os == 'Linux' && runner.environment == 'self-hosted' }}
+        run: |
+          TOOLCACHE_ROOT="${RUNNER_TOOL_CACHE:-${ACTIONS_RUNNER_TOOL_CACHE:-/__w/_tool}}/flutter"
+          echo "Checking Flutter toolcache at: $TOOLCACHE_ROOT"
+
+          if [ -d "$TOOLCACHE_ROOT" ]; then
+            # Clear Flutter toolcache so flutter-action can do a clean install.
+            rm -rf "$TOOLCACHE_ROOT" || sudo rm -rf "$TOOLCACHE_ROOT"
+          fi
+
+          mkdir -p "$TOOLCACHE_ROOT" || sudo mkdir -p "$TOOLCACHE_ROOT"
+          sudo chown -R "$(id -u):$(id -g)" "$TOOLCACHE_ROOT" || true
+
+      # Same pinned flutter-action as GeniusWallet build.yml so both repos
+      # build against the identical Flutter toolchain. src/app always
+      # configures now; without dart/flutter on PATH its per-platform
+      # fragments (cmake/<platform>/appBuild.cmake) never load, which is
+      # what this PR exists to exercise.
+      - name: Setup Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
+        with:
+          channel: master
+          flutter-version: 3.41.9
 
       # Configure deltas vs the GeniusSDK template:
       #   - working-directory is ${{github.workspace}} (GCS checkout IS the root)
@@ -899,6 +944,49 @@ jobs:
         working-directory: ${{github.workspace}}/${{env.BUILD_DIRECTORY}}
         if: ${{ matrix.target == 'OSX' }}
         run: ctest . -j 4 -C ${{ matrix.build-type }} --output-on-failure
+
+      - name: Dart ctest leg diagnostics (TEMP - remove once test_gcs_ffi_dart passes)
+        if: ${{ matrix.build-type == 'Release' && matrix.target == 'Windows' }}
+        working-directory: ${{github.workspace}}/src/app
+        shell: powershell
+        continue-on-error: true
+        run: |
+          Write-Host '=== baked ctest command ==='
+          Select-String -Path "${{github.workspace}}/${{env.BUILD_DIRECTORY}}/CTestTestfile.cmake" -Pattern 'test_gcs_ffi_dart' -Context 0,8
+          Write-Host '=== flutter resolution in step env ==='
+          Get-Command flutter | Format-List Name,Source,CommandType
+          flutter --version
+          Write-Host ("flutter --version exit = 0x{0:X8}" -f $LASTEXITCODE)
+          Write-Host '=== manual dart FFI test (env set, temp kept) ==='
+          $dll = (Get-ChildItem -Recurse -Filter gcs_ffi.dll "${{github.workspace}}/${{env.BUILD_DIRECTORY}}" | Select-Object -First 1).FullName
+          Write-Host "GCS_FFI_LIBRARY=$dll"
+          $env:GCS_FFI_LIBRARY = $dll
+          $env:GCS_KEEP_TEMP = '1'
+          flutter test test/gcs_native_port_smoke_test.dart
+          Write-Host ("manual test exit = 0x{0:X8}" -f $LASTEXITCODE)
+          Remove-Item Env:\GCS_FFI_LIBRARY, Env:\GCS_KEEP_TEMP -ErrorAction SilentlyContinue
+          Write-Host '=== node temp-dir contents ==='
+          Write-Host "TEMP=$env:TEMP TMP=$env:TMP USERPROFILE=$env:USERPROFILE"
+          $roots = @($env:TEMP, "$env:USERPROFILE\AppData\Local\Temp", $env:RUNNER_TEMP) |
+            Where-Object { $_ } | Select-Object -Unique
+          foreach ($rootDir in $roots) {
+            Write-Host "--- scanning $rootDir"
+            Get-ChildItem -Path $rootDir -Directory -Filter 'gcs_dart_smoke*' -ErrorAction SilentlyContinue |
+              ForEach-Object {
+                Get-ChildItem -Path $_.FullName -Recurse -ErrorAction SilentlyContinue | Select-Object FullName, Length
+              }
+          }
+          Write-Host '=== node temp-dir logs ==='
+          foreach ($rootDir in $roots) {
+            Get-ChildItem -Path $rootDir -Directory -Filter 'gcs_dart_smoke*' -ErrorAction SilentlyContinue |
+              ForEach-Object {
+                Get-ChildItem -Path $_.FullName -Recurse -File -ErrorAction SilentlyContinue |
+                  Where-Object { $_.Extension -in '.log', '.txt', '.json' } | ForEach-Object {
+                    Write-Host "--- $($_.FullName)"
+                    Get-Content $_.FullName -ErrorAction SilentlyContinue
+                  }
+              }
+          }
 
       - name: Run tests (Windows)
         working-directory: ${{github.workspace}}/${{env.BUILD_DIRECTORY}}

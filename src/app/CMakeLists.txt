@@ -1,16 +1,21 @@
-# GCS Flutter app — gated behind dart/flutter detection (D-16, D-08).
-# Included from src/CMakeLists.txt (owned by plan 01-03) via add_subdirectory(app).
-# Default OFF so the C++-only CI path configures cleanly with no dart/flutter.
-option(FRONTEND_BUILD_ENABLED "Enable Flutter/Dart app targets" OFF)
-if(NOT FRONTEND_BUILD_ENABLED)
-    return()
+# GCS Flutter app — always built; the only skip is dart/flutter missing
+# from PATH (e.g. C++-only CI runners). Included from src/CMakeLists.txt
+# (owned by plan 01-03) via add_subdirectory(app).
+if(WIN32)
+    # bin/ ships extensionless bash launchers AND .bat files for both dart
+    # and flutter; find_program can latch onto the script, which
+    # CreateProcess (ctest / cmake -E env / ninja) cannot execute —
+    # app_pub_get / test_gcs_ffi_dart then die with kwsys "unknown error"
+    # before anything prints. Prefer the .bat.
+    find_program(DART_EXECUTABLE NAMES dart.bat dart)
+    find_program(FLUTTER_EXECUTABLE NAMES flutter.bat flutter)
+else()
+    find_program(DART_EXECUTABLE dart)
+    find_program(FLUTTER_EXECUTABLE flutter)
 endif()
-
-find_program(DART_EXECUTABLE dart)
-find_program(FLUTTER_EXECUTABLE flutter)
 find_program(PYTHON3_EXECUTABLE python3)
 if(NOT DART_EXECUTABLE OR NOT FLUTTER_EXECUTABLE)
-    message(WARNING "FRONTEND_BUILD_ENABLED=ON but dart/flutter not found — skipping app targets.")
+    message(WARNING "dart/flutter not found on PATH — skipping app targets.")
     return()
 endif()
 
@@ -135,83 +140,32 @@ add_custom_target(app_test
     DEPENDS app_pub_get app_generate_chat_components
 )
 
-# Dart-side FFI smoke test (01-05 Task 4) — registered in the SAME ctest
-# harness as the gtests, so `ninja && ctest` is the single entry point.
-# CMake owns all path/suffix knowledge: $<TARGET_FILE:gcs_ffi> expands to
-# libgcs_ffi.dylib/.so/gcs_ffi.dll per platform and config, injected via
-# `cmake -E env` (COMMAND args support generator expressions on every CMake
-# version we target; the test ENVIRONMENT property does not). Host-only gate
-# is the platform NAME, NOT CMAKE_CROSSCOMPILING: build/apple.toolchain.cmake
-# sets CMAKE_SYSTEM_NAME even for host-matching SDKs (MAC_UNIVERSAL), which
-# forces CMAKE_CROSSCOMPILING=TRUE on plain macOS builds — verified via
-# CMakeFiles/*/CMakeSystem.cmake in the build tree. iOS/Android
-# (CMAKE_SYSTEM_NAME iOS/Android) don't match: the device-arch artifact can't
-# load in the host Dart VM — device coverage is the integration_test flavor.
-if(BUILD_TESTS AND CMAKE_SYSTEM_NAME MATCHES "Darwin|Linux|Windows" AND TARGET gcs_ffi)
-    add_test(NAME test_gcs_ffi_dart
-        COMMAND ${CMAKE_COMMAND} -E env
-            "GCS_FFI_LIBRARY=$<TARGET_FILE:gcs_ffi>"
-            ${FLUTTER_EXECUTABLE} test test/gcs_native_port_smoke_test.dart
-        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+# Bare-app desktop build. Platform-specific targets and install rules live
+# in cmake/${BUILD_TARGET_OS}/appBuild.cmake fragments (OSX, Windows),
+# glob-included by cmake/platform.cmake — no CMAKE_SYSTEM_NAME gates here.
+# Map the CMake config to Flutter's build mode/product dir so a Release
+# CMake tree produces the Release bundle the fragments' install rules look
+# for (Codex PR #11 P1: hardcoded --debug made non-Debug installs silently
+# skip the app bundle).
+string(TOUPPER "${CMAKE_BUILD_TYPE}" _gcs_build_type_upper)
+if(_gcs_build_type_upper STREQUAL "DEBUG")
+    set(GCS_FLUTTER_CONFIG_DIR "Debug")
+    set(GCS_FLUTTER_BUILD_MODE "--debug")
+elseif(_gcs_build_type_upper STREQUAL "RELEASE")
+    set(GCS_FLUTTER_CONFIG_DIR "Release")
+    set(GCS_FLUTTER_BUILD_MODE "--release")
+else()
+    # Empty CMAKE_BUILD_TYPE = multi-config generator (Xcode). The --release
+    # build mode selected here emits the Release product dir —
+    # RelWithDebInfo matched no Flutter output dir and silently skipped
+    # the app install (IN-09).
+    set(GCS_FLUTTER_CONFIG_DIR "Release")
+    set(GCS_FLUTTER_BUILD_MODE "--release")
 endif()
 
-# Bare-app desktop build. Host-desktop only (macOS here) — the equivalent
-# windows/linux targets can be added the same way when those hosts are needed.
-# Same Flutter invocation `flutter run -d macos` uses under the hood.
-if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
-    # Map the CMake config to Flutter's build mode/product dir so a Release
-    # CMake tree produces the Release bundle the install block looks for
-    # (Codex PR #11 P1: hardcoded --debug made non-Debug installs silently
-    # skip the app bundle).
-    string(TOUPPER "${CMAKE_BUILD_TYPE}" _gcs_build_type_upper)
-    if(_gcs_build_type_upper STREQUAL "DEBUG")
-        set(GCS_FLUTTER_CONFIG_DIR "Debug")
-        set(GCS_FLUTTER_BUILD_MODE "--debug")
-    elseif(_gcs_build_type_upper STREQUAL "RELEASE")
-        set(GCS_FLUTTER_CONFIG_DIR "Release")
-        set(GCS_FLUTTER_BUILD_MODE "--release")
-    else()
-        # Empty CMAKE_BUILD_TYPE = multi-config generator (Xcode). The
-        # --release build mode selected here emits the Release product dir —
-        # RelWithDebInfo matched no Flutter output dir and silently skipped
-        # the app install (IN-09).
-        set(GCS_FLUTTER_CONFIG_DIR "Release")
-        set(GCS_FLUTTER_BUILD_MODE "--release")
-    endif()
+# app_generate_chat_components must precede flutter build: chat/ is
+# gitignored (regenerated, never committed) — without this dependency a
+# fresh checkout's flutter build fails on unresolvable imports.
+set(_app_extra_deps app_pub_get gcs_ffi app_generate_chat_components)
 
-    set(GCS_FLUTTER_APP_BUNDLE
-        "${CMAKE_CURRENT_SOURCE_DIR}/build/macos/Build/Products/${GCS_FLUTTER_CONFIG_DIR}/flutter_app.app")
-    # app_generate_chat_components must precede flutter build: chat/ is
-    # gitignored (regenerated, never committed) — without this dependency a
-    # fresh checkout's flutter build fails on unresolvable imports.
-    set(_app_extra_deps app_pub_get gcs_ffi app_generate_chat_components)
-    add_custom_target(app_build_macos
-        COMMAND ${FLUTTER_EXECUTABLE} build macos ${GCS_FLUTTER_BUILD_MODE}
-        # Package the FFI dylib next to the executable (Contents/Frameworks) —
-        # the packaged layout SessionCubit's exe-relative fallback resolves,
-        # and the layout a Windows/Linux package dir uses. Self-contained
-        # dylib (all-static GeniusSDK chain): a plain copy is sufficient.
-        COMMAND ${CMAKE_COMMAND} -E make_directory
-            "${GCS_FLUTTER_APP_BUNDLE}/Contents/Frameworks"
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "$<TARGET_FILE:gcs_ffi>" "${GCS_FLUTTER_APP_BUNDLE}/Contents/Frameworks"
-        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-        DEPENDS ${_app_extra_deps}
-        COMMENT "Building bare Flutter app for macOS (${GCS_FLUTTER_BUILD_MODE})"
-    )
-
-    # `ninja install` copies the built .app bundle into <prefix>/bin/
-    # (i.e. build/OSX/Debug/GeniusCogntiveSystem/bin/, next to neo-swarm).
-    # Flutter always builds under src/app/build/... (not configurable), so
-    # this bridges it into the CMake install tree. ditto preserves the
-    # framework symlink structure. Skipped gracefully if the app hasn't been
-    # built yet (ninja app_build_macos), so C++-only installs still work.
-    install(CODE "
-        if(EXISTS \"${GCS_FLUTTER_APP_BUNDLE}\")
-            execute_process(COMMAND ditto \"${GCS_FLUTTER_APP_BUNDLE}\"
-                    \"\${CMAKE_INSTALL_PREFIX}/bin/flutter_app.app\")
-            message(STATUS \"Installing: \${CMAKE_INSTALL_PREFIX}/bin/flutter_app.app\")
-        else()
-            message(STATUS \"Flutter app not built (ninja app_build_macos) — skipping app install\")
-        endif()")
-endif()
+include("${CMAKE_CURRENT_SOURCE_DIR}/../../cmake/platform.cmake")
