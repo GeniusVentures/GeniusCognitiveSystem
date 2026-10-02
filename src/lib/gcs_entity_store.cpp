@@ -287,13 +287,16 @@ outcome::result<SpaceRecord> EntityStore::UpdateSpace( const SpaceRecord &desire
     }
 
     // Full-state rewrite (per-key LWW replaces the whole value) — but the
-    // immutable fields stay stamped by C++: the caller's desired record may
-    // carry only id/name/is_public/auto_join_rooms, so created_at_ms and the
-    // tombstone state are preserved from the stored record, never zeroed.
+    // immutable authority fields stay stamped by C++: the caller's desired
+    // record may carry only id/name/is_public/auto_join_rooms, so created_at_ms,
+    // the tombstone state, and the creator (D-03 — a client command can never
+    // blank or overwrite the Super Admin) are preserved from the stored record.
+    // members_can_invite is NOT preserved — it is desired state, applied as-is.
     SpaceRecord updated = desired;
     updated.set_created_at_ms( existingIt->second.created_at_ms() );
     updated.set_deleted( existingIt->second.deleted() );
     updated.set_deleted_at_ms( existingIt->second.deleted_at_ms() );
+    updated.set_creator( existingIt->second.creator() );
     updated.set_updated_at_ms( NowMs() );
 
     auto putResult = m_session.Put( std::string( kSpacesKeyPrefix ) + updated.id(),

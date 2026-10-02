@@ -77,6 +77,9 @@ namespace
 
     /// Arbitrary tombstone timestamp for direct-write fixtures (D-03).
     constexpr int64_t kTombstoneAtMs = 1234;
+
+    /// Injected local wallet address used as the Super Admin creator (D-03).
+    constexpr const char kTestCreatorAddress[] = "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY";
 } // namespace
 
 namespace gcs::test
@@ -506,6 +509,178 @@ namespace gcs::test
 
             sessionB.Shutdown();
         }
+        pubsub->Stop();
+    }
+
+    /**
+     * @brief D-03/MEMB-05: a store constructed with a wallet address stamps
+     *        `creator` on new spaces and applies the passed `members_can_invite`
+     *        value (default false — the MEMB-05 "if enabled" wording); both
+     *        survive a serialization round-trip through the manifest reload.
+     */
+    TEST_F( GcsEntitiesTest, CreateSpaceStampsCreatorAndMembersCanInvite )
+    {
+        auto pubsub = MakeStartedPubSub( m_tempPath + "/key" );
+        ASSERT_NE( pubsub, nullptr );
+        auto graphsync = gcs::test::MakeGraphsyncContext( pubsub );
+
+        gcs::CoreSession::Config cfg{};
+        cfg.m_dbPath = m_tempPath + "/db";
+        gcs::CoreSession session( cfg );
+        ASSERT_TRUE( session.Initialize( pubsub, graphsync.network ).has_value() );
+
+        const auto dbPath = cfg.m_dbPath;
+        EXPECT_TRUE( gcs::test::WaitForCondition( [&dbPath]() { return std::filesystem::exists( dbPath ); },
+                                                  gcs::test::kWaitTimeout ) );
+
+        gcs::EntityStore store( session, kTestCreatorAddress );
+        ASSERT_TRUE( store.LoadFromStore().has_value() );
+
+        auto invited = store.CreateSpace( "ops", true, true, true );
+        ASSERT_TRUE( invited.has_value() );
+        EXPECT_EQ( invited.value().creator(), kTestCreatorAddress );
+        EXPECT_TRUE( invited.value().members_can_invite() );
+
+        // T-04-04-EoP: membersCanInvite defaults false — the gate is opt-in.
+        auto closed = store.CreateSpace( "closed", true, true );
+        ASSERT_TRUE( closed.has_value() );
+        EXPECT_EQ( closed.value().creator(), kTestCreatorAddress );
+        EXPECT_FALSE( closed.value().members_can_invite() );
+
+        // T-04-04-T: creator is a persisted C++-stamped field — it must survive
+        // the proto serialization + manifest replay, not just the in-memory map.
+        gcs::EntityStore reloaded( session, kTestCreatorAddress );
+        ASSERT_TRUE( reloaded.LoadFromStore().has_value() );
+        const auto persisted = reloaded.Spaces();
+        ASSERT_EQ( persisted.size(), 2U );
+        for ( const auto &space : persisted )
+        {
+            EXPECT_EQ( space.creator(), kTestCreatorAddress );
+        }
+
+        session.Shutdown();
+        pubsub->Stop();
+    }
+
+    /**
+     * @brief P2: a standalone room (empty parent) is its own Super Admin scope,
+     *        so it carries the creator; a nested room leaves `creator` empty
+     *        because its Super Admin is the parent space's creator.
+     */
+    TEST_F( GcsEntitiesTest, RoomCreatorStampedOnlyForStandaloneRooms )
+    {
+        auto pubsub = MakeStartedPubSub( m_tempPath + "/key" );
+        ASSERT_NE( pubsub, nullptr );
+        auto graphsync = gcs::test::MakeGraphsyncContext( pubsub );
+
+        gcs::CoreSession::Config cfg{};
+        cfg.m_dbPath = m_tempPath + "/db";
+        gcs::CoreSession session( cfg );
+        ASSERT_TRUE( session.Initialize( pubsub, graphsync.network ).has_value() );
+
+        const auto dbPath = cfg.m_dbPath;
+        EXPECT_TRUE( gcs::test::WaitForCondition( [&dbPath]() { return std::filesystem::exists( dbPath ); },
+                                                  gcs::test::kWaitTimeout ) );
+
+        gcs::EntityStore store( session, kTestCreatorAddress );
+        ASSERT_TRUE( store.LoadFromStore().has_value() );
+
+        auto standalone = store.CreateRoom( "lounge", "", true );
+        ASSERT_TRUE( standalone.has_value() );
+        EXPECT_EQ( standalone.value().creator(), kTestCreatorAddress );
+        EXPECT_TRUE( standalone.value().members_can_invite() );
+
+        auto space = store.CreateSpace( "ops", true, true );
+        ASSERT_TRUE( space.has_value() );
+        auto nested = store.CreateRoom( "general", space.value().id(), true );
+        ASSERT_TRUE( nested.has_value() );
+        EXPECT_TRUE( nested.value().creator().empty() );
+        EXPECT_TRUE( nested.value().members_can_invite() );
+
+        session.Shutdown();
+        pubsub->Stop();
+    }
+
+    /**
+     * @brief T-04-04-T: a full-state rewrite preserves the stored creator even
+     *        when the desired record carries a different (client-supplied) value,
+     *        while `members_can_invite` is applied as desired state.
+     */
+    TEST_F( GcsEntitiesTest, UpdateSpacePreservesCreatorAndAppliesMembersCanInvite )
+    {
+        auto pubsub = MakeStartedPubSub( m_tempPath + "/key" );
+        ASSERT_NE( pubsub, nullptr );
+        auto graphsync = gcs::test::MakeGraphsyncContext( pubsub );
+
+        gcs::CoreSession::Config cfg{};
+        cfg.m_dbPath = m_tempPath + "/db";
+        gcs::CoreSession session( cfg );
+        ASSERT_TRUE( session.Initialize( pubsub, graphsync.network ).has_value() );
+
+        const auto dbPath = cfg.m_dbPath;
+        EXPECT_TRUE( gcs::test::WaitForCondition( [&dbPath]() { return std::filesystem::exists( dbPath ); },
+                                                  gcs::test::kWaitTimeout ) );
+
+        gcs::EntityStore store( session, kTestCreatorAddress );
+        ASSERT_TRUE( store.LoadFromStore().has_value() );
+
+        auto space = store.CreateSpace( "ops", true, true, false );
+        ASSERT_TRUE( space.has_value() );
+        EXPECT_EQ( space.value().creator(), kTestCreatorAddress );
+
+        // Desired record supplies a hostile creator + flips the invite gate on.
+        gcs::SpaceRecord desired;
+        desired.set_id( space.value().id() );
+        desired.set_name( "ops" );
+        desired.set_is_public( true );
+        desired.set_auto_join_rooms( true );
+        desired.set_creator( "attacker-supplied-address" );
+        desired.set_members_can_invite( true );
+
+        auto toggledOn = store.UpdateSpace( desired );
+        ASSERT_TRUE( toggledOn.has_value() );
+        EXPECT_EQ( toggledOn.value().creator(), kTestCreatorAddress );
+        EXPECT_TRUE( toggledOn.value().members_can_invite() );
+
+        desired.set_members_can_invite( false );
+        auto toggledOff = store.UpdateSpace( desired );
+        ASSERT_TRUE( toggledOff.has_value() );
+        EXPECT_EQ( toggledOff.value().creator(), kTestCreatorAddress );
+        EXPECT_FALSE( toggledOff.value().members_can_invite() );
+
+        session.Shutdown();
+        pubsub->Stop();
+    }
+
+    /**
+     * @brief Legacy path: a default-constructed store (no injected address)
+     *        still creates a space, with an empty `creator` (the documented
+     *        pre-membership retrofit boundary — research P1).
+     */
+    TEST_F( GcsEntitiesTest, DefaultStoreLeavesCreatorEmpty )
+    {
+        auto pubsub = MakeStartedPubSub( m_tempPath + "/key" );
+        ASSERT_NE( pubsub, nullptr );
+        auto graphsync = gcs::test::MakeGraphsyncContext( pubsub );
+
+        gcs::CoreSession::Config cfg{};
+        cfg.m_dbPath = m_tempPath + "/db";
+        gcs::CoreSession session( cfg );
+        ASSERT_TRUE( session.Initialize( pubsub, graphsync.network ).has_value() );
+
+        const auto dbPath = cfg.m_dbPath;
+        EXPECT_TRUE( gcs::test::WaitForCondition( [&dbPath]() { return std::filesystem::exists( dbPath ); },
+                                                  gcs::test::kWaitTimeout ) );
+
+        gcs::EntityStore store( session );
+        ASSERT_TRUE( store.LoadFromStore().has_value() );
+
+        auto created = store.CreateSpace( "legacy", true, true );
+        ASSERT_TRUE( created.has_value() );
+        EXPECT_TRUE( created.value().creator().empty() );
+        EXPECT_FALSE( created.value().members_can_invite() );
+
+        session.Shutdown();
         pubsub->Stop();
     }
 
