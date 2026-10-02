@@ -333,4 +333,117 @@ TEST( GcsCryptoTests, ConcurrentKeyStoreAccessIsRaceFree )
     }
 }
 
+/**
+ * @brief (D-06) WrapRoomKey then UnwrapRoomKey with the same member key returns
+ *        the original 32-byte room key (round-trip).
+ */
+TEST( GcsCryptoTests, WrapUnwrapRoomKeyRoundTrip )
+{
+    const std::vector<unsigned char> memberKey = MakeKey( 0xA1 );
+    const std::vector<unsigned char> roomKey   = MakeKey( 0xB2 );
+
+    auto wrapped = WrapRoomKey( memberKey, roomKey );
+    ASSERT_TRUE( wrapped.has_value() );
+
+    auto unwrapped = UnwrapRoomKey( memberKey, wrapped.value() );
+    ASSERT_TRUE( unwrapped.has_value() );
+    EXPECT_EQ( unwrapped.value(), roomKey );
+}
+
+/**
+ * @brief (T-04-02-T) UnwrapRoomKey with the WRONG member key fails closed
+ *        (GCM tag mismatch).
+ */
+TEST( GcsCryptoTests, UnwrapWithWrongMemberKeyFails )
+{
+    auto wrapped = WrapRoomKey( MakeKey( 0xA1 ), MakeKey( 0xB2 ) );
+    ASSERT_TRUE( wrapped.has_value() );
+
+    EXPECT_FALSE( UnwrapRoomKey( MakeKey( 0xA2 ), wrapped.value() ).has_value() );
+}
+
+/**
+ * @brief (T-04-02-T) Tampering any byte of the wrapped envelope (nonce,
+ *        ciphertext, or tag) makes UnwrapRoomKey fail (GCM integrity).
+ */
+TEST( GcsCryptoTests, TamperedWrappedEnvelopeFails )
+{
+    const std::vector<unsigned char> memberKey = MakeKey( 0xA1 );
+    auto wrapped = WrapRoomKey( memberKey, MakeKey( 0xB2 ) );
+    ASSERT_TRUE( wrapped.has_value() );
+    const std::string envelope = wrapped.value();
+
+    // Nonce region.
+    std::string tamperedNonce = envelope;
+    tamperedNonce[ 0 ] = static_cast<char>( tamperedNonce[ 0 ] ^ 0x01 );
+    EXPECT_FALSE( UnwrapRoomKey( memberKey, tamperedNonce ).has_value() );
+
+    // Ciphertext region.
+    std::string tamperedCiphertext = envelope;
+    tamperedCiphertext[ kGcmNonceLength ] =
+        static_cast<char>( tamperedCiphertext[ kGcmNonceLength ] ^ 0x01 );
+    EXPECT_FALSE( UnwrapRoomKey( memberKey, tamperedCiphertext ).has_value() );
+
+    // Tag region.
+    std::string  tamperedTag = envelope;
+    const size_t tagIndex    = envelope.size() - kGcmTagLength;
+    tamperedTag[ tagIndex ]  = static_cast<char>( tamperedTag[ tagIndex ] ^ 0x01 );
+    EXPECT_FALSE( UnwrapRoomKey( memberKey, tamperedTag ).has_value() );
+}
+
+/**
+ * @brief (T-04-02-DoS) A truncated wrapped envelope shorter than nonce + tag
+ *        has no complete frame and fails immediately (before any EVP work).
+ */
+TEST( GcsCryptoTests, TruncatedWrappedEnvelopeFails )
+{
+    const std::vector<unsigned char> memberKey = MakeKey( 0xA1 );
+    const std::string tooShort( kGcmNonceLength + kGcmTagLength - 1, 'x' );
+    EXPECT_FALSE( UnwrapRoomKey( memberKey, tooShort ).has_value() );
+}
+
+/**
+ * @brief (T-04-02-DoS) WrapRoomKey/UnwrapRoomKey reject non-32-byte key inputs
+ *        up front with GcsDbError before any EVP call.
+ */
+TEST( GcsCryptoTests, Non32ByteKeysAreRejected )
+{
+    const std::vector<unsigned char> shortKey( kRoomKeyLengthBytes - 1, 0x01 );
+    const std::vector<unsigned char> goodKey = MakeKey( 0xB2 );
+
+    EXPECT_FALSE( WrapRoomKey( shortKey, goodKey ).has_value() );
+    EXPECT_FALSE( WrapRoomKey( goodKey, shortKey ).has_value() );
+
+    auto wrapped = WrapRoomKey( goodKey, goodKey );
+    ASSERT_TRUE( wrapped.has_value() );
+    EXPECT_FALSE( UnwrapRoomKey( shortKey, wrapped.value() ).has_value() );
+}
+
+/**
+ * @brief (D-06) WrapRoomKey uses a fresh nonce per call: two wraps of the same
+ *        room key differ, each is nonce + roomKey + tag long, and both unwrap.
+ */
+TEST( GcsCryptoTests, WrapRoomKeyFreshNonceAndLength )
+{
+    const std::vector<unsigned char> memberKey = MakeKey( 0xA1 );
+    const std::vector<unsigned char> roomKey   = MakeKey( 0xB2 );
+
+    auto first = WrapRoomKey( memberKey, roomKey );
+    ASSERT_TRUE( first.has_value() );
+    EXPECT_EQ( first.value().size(),
+               kGcmNonceLength + kRoomKeyLengthBytes + kGcmTagLength );
+
+    auto second = WrapRoomKey( memberKey, roomKey );
+    ASSERT_TRUE( second.has_value() );
+    EXPECT_NE( first.value(), second.value() );
+
+    auto unwrappedFirst = UnwrapRoomKey( memberKey, first.value() );
+    ASSERT_TRUE( unwrappedFirst.has_value() );
+    EXPECT_EQ( unwrappedFirst.value(), roomKey );
+
+    auto unwrappedSecond = UnwrapRoomKey( memberKey, second.value() );
+    ASSERT_TRUE( unwrappedSecond.has_value() );
+    EXPECT_EQ( unwrappedSecond.value(), roomKey );
+}
+
 } // namespace gcs::crypto
