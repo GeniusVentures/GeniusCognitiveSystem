@@ -122,6 +122,11 @@ gcs_test(test_gcs_messaging test_gcs_messaging.cpp "gcs_core;gcs_storage;neoswar
 # histories, at-rest opacity, and restart replay over the REAL GossipSub
 # transport (two nodes in one process, ../SuperGenius multinode pattern).
 gcs_test(test_gcs_messaging_multinode test_gcs_messaging_multinode.cpp "gcs_core;gcs_storage;neoswarm_common")
+# Phase 4 Membership component (04-03 Task 2): member roster + five-tier
+# permission matrix + capability-token invite mint/redeem (write-at-redeem) +
+# D-03 Super Admin demotion guard + D-07 dormant-until-approved, over the same
+# injected-pubsub seam (Membership lives in gcs_core).
+gcs_test(test_gcs_membership test_gcs_membership.cpp "gcs_core;gcs_storage;neoswarm_common")
 # FFI ABI smoke (01-04 Task 3): config-bytes gcs_init failure classes, arg
 # validation, shutdown-null. Also links gcs_proto so the test can serialize a
 # gcs::chat::GcsConfig via gcs_chat.pb.h (D-29 codec-tagged init bytes).
