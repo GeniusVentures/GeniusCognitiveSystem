@@ -11,9 +11,6 @@ set(
         FILEPATH
         "Default toolchain"
 )
-add_definitions(-D_WIN32_WINNT=0x0601)
-add_definitions(-DBOOST_BIND_GLOBAL_PLACEHOLDERS)
-
 project(GeniusCogntiveSystem VERSION 0.1.0
         DESCRIPTION "GCS cognitive system — shared GlobalDB storage, API server, and FFI over the NEO-SWARM inference engine"
         LANGUAGES CXX)
