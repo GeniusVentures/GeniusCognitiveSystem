@@ -319,60 +319,57 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # TEMP(test_gcs_ffi_dart red): iterate the Windows Release leg only —
-        # restore the full target/build-type lists and the platform includes
-        # and excludes below in the cleanup commit once the dart test is green.
-        target: [Windows]
-        build-type: [Release]
+        target: [Android, iOS, OSX, Linux, Windows]
+        build-type: [Debug, Release]
         abi: [""]
         include:
+          - target: Linux
+            runner_key: linux_x64
+            abi: "x86_64"
+            build-type: "Release"
+            container: ghcr.io/geniusventures/almalinux-8:latest
+          - target: Linux
+            runner_key: linux_x64
+            abi: "x86_64"
+            build-type: "Debug"
+            container: ghcr.io/geniusventures/almalinux-8:latest
+          - target: Linux
+            runner_key: linux_arm
+            abi: "aarch64"
+            build-type: "Release"
+            container: ghcr.io/geniusventures/almalinux-8:latest
+          - target: Linux
+            runner_key: linux_arm
+            abi: "aarch64"
+            build-type: "Debug"
+            container: ghcr.io/geniusventures/almalinux-8:latest
           - target: Windows
             runner_key: windows
-          # - target: Linux
-          #   runner_key: linux_x64
-          #   abi: "x86_64"
-          #   build-type: "Release"
-          #   container: ghcr.io/geniusventures/almalinux-8:latest
-          # - target: Linux
-          #   runner_key: linux_x64
-          #   abi: "x86_64"
-          #   build-type: "Debug"
-          #   container: ghcr.io/geniusventures/almalinux-8:latest
-          # - target: Linux
-          #   runner_key: linux_arm
-          #   abi: "aarch64"
-          #   build-type: "Release"
-          #   container: ghcr.io/geniusventures/almalinux-8:latest
-          # - target: Linux
-          #   runner_key: linux_arm
-          #   abi: "aarch64"
-          #   build-type: "Debug"
-          #   container: ghcr.io/geniusventures/almalinux-8:latest
-          # - target: OSX
-          #   runner_key: mac
-          # - target: Android
-          #   runner_key: linux_x64
-          #   abi: arm64-v8a
-          #   build-type: "Release"
-          # - target: Android
-          #   runner_key: linux_x64
-          #   abi: arm64-v8a
-          #   build-type: "Debug"
-          # - target: Android
-          #   runner_key: linux_x64
-          #   abi: armeabi-v7a
-          #   build-type: "Release"
-          # - target: Android
-          #   runner_key: linux_x64
-          #   abi: armeabi-v7a
-          #   build-type: "Debug"
-          # - target: iOS
-          #   runner_key: mac
-        # exclude:
-        #   - target: Android
-        #     abi: ""
-        #   - target: Linux
-        #     abi: ""
+          - target: OSX
+            runner_key: mac
+          - target: Android
+            runner_key: linux_x64
+            abi: arm64-v8a
+            build-type: "Release"
+          - target: Android
+            runner_key: linux_x64
+            abi: arm64-v8a
+            build-type: "Debug"
+          - target: Android
+            runner_key: linux_x64
+            abi: armeabi-v7a
+            build-type: "Release"
+          - target: Android
+            runner_key: linux_x64
+            abi: armeabi-v7a
+            build-type: "Debug"
+          - target: iOS
+            runner_key: mac
+        exclude:
+          - target: Android
+            abi: ""
+          - target: Linux
+            abi: ""
     steps:
       # Shell-agnostic body so this works on both bash and pwsh runners.
       - name: Skip build disabled by workflow_dispatch input
