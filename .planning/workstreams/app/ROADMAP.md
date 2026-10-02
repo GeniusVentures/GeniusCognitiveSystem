@@ -153,13 +153,13 @@ Plans:
   4. Super Admin cannot be demoted by other admins
   5. When 2+ admins exist, destructive actions require Super Admin approval
 
-**Plans:** 7 plans
+**Plans:** 2/7 plans executed
 
 Plans:
 **Wave 1**
 
-- [ ] 04-01-PLAN.md — Wave 1 — Append-only proto contract (Role/MemberRecord/MemberList/InviteLink + creator/members_can_invite/approved_by + 7 command/2 event arms)
-- [ ] 04-02-PLAN.md — Wave 1 — Crypto key-wrap + per-room key store + WR-02 HKDF-ikm swap (D-06)
+- [x] 04-01-PLAN.md — Wave 1 — Append-only proto contract (Role/MemberRecord/MemberList/InviteLink + creator/members_can_invite/approved_by + 7 command/2 event arms)
+- [x] 04-02-PLAN.md — Wave 1 — Crypto key-wrap + per-room key store + WR-02 HKDF-ikm swap (D-06)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -232,7 +232,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 1. Foundation | 11/11 | Complete | 2026-09-16 |
 | 2. Spaces & Rooms | 5/5 | Complete   | 2026-09-19 |
 | 3. Messaging | 6/6 | Complete   | 2026-09-24 |
-| 4. Membership & Invites | 0/7 | Not started | - |
+| 4. Membership & Invites | 2/7 | In Progress|  |
 | 5. Moderation | 0/TBD | Not started | - |
 | 6. GCS Bot | 0/TBD | Not started | - |
 | 7. Discovery | 0/TBD | Not started | - |
