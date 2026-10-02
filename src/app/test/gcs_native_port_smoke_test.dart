@@ -46,6 +46,12 @@ const String kRoomName = 'general';
 const int kGcsOk = 0;
 const Duration kWaitLimit = Duration(seconds: 5);
 
+/// Windows teardown: native log/DB handles can briefly outlive gcs_shutdown
+/// (spdlog sinks close at process exit), making the temp-dir delete fail with
+/// a sharing violation (errno 32) right after the test passes.
+const int kTempDeleteAttempts = 10;
+const int kTempDeleteRetryMs = 200;
+
 /// Pinned pubsub listen port for this test's embedded node (continues the C++
 /// FFI binaries' 41500-41502 pins): written to network_config.json under the
 /// temp dir before gcs_init. GeniusNode derives ports as 40001 + hash%301
@@ -145,11 +151,27 @@ void main()
     // otherwise, destroying the only record of the real error.
     addTearDown(() async {
       if (Platform.environment['GCS_KEEP_TEMP'] != null) {
-        // ignore: avoid_print
         print('gcs_dart_smoke temp dir kept: ${tempDir.path}');
         return;
       }
-      await tempDir.delete(recursive: true);
+      // Windows can keep native log/DB handles open past gcs_shutdown
+      // (errno 32 sharing violation) — the C++ sibling's remove_all swallows
+      // the same error. Retry briefly, then leave the dir behind: cleanup
+      // must not fail an otherwise-passed test.
+      for (var attempt = 0; attempt < kTempDeleteAttempts; ++attempt)
+      {
+        try
+        {
+          await tempDir.delete(recursive: true);
+          return;
+        }
+        on PathAccessException
+        {
+          await Future<void>.delayed(
+              const Duration(milliseconds: kTempDeleteRetryMs));
+        }
+      }
+      print('gcs_dart_smoke temp dir still locked, kept: ${tempDir.path}');
     });
     // Pin the embedded node's pubsub port (child_registration.cpp pattern):
     // the node reads this file at InitNetwork; the temp dir is the node base
