@@ -55,12 +55,18 @@ const String kGcsCommandTopic = 'gcs/command';
 /// injects `$<TARGET_FILE:gcs_ffi>`; see src/app/CMakeLists.txt).
 const String kFfiLibraryEnvVar = 'GCS_FFI_LIBRARY';
 
+/// Soname used to open the packaged gcs_ffi library on Android: jniLibs
+/// live in the APK's native-library dir, reachable only through the OS
+/// linker's soname search — never through an executable-relative path.
+const String kAndroidFfiLibraryName = 'libgcs_ffi.so';
+
 /// File names probed for the packaged gcs_ffi library, per-platform file
-/// naming (macOS dylib / Windows dll / Linux so).
+/// naming (macOS dylib / Windows dll / Linux so — the .so name is shared
+/// with [kAndroidFfiLibraryName]).
 const List<String> kPackagedFfiLibraryFileNames = <String>[
   'libgcs_ffi.dylib',
   'gcs_ffi.dll',
-  'libgcs_ffi.so',
+  kAndroidFfiLibraryName,
 ];
 
 /// Environment flag set by the Flutter test harness; the default session
@@ -219,14 +225,23 @@ class SessionCubit extends Cubit<SessionState> implements GcsCommandTransport {
   }
 
   /// Resolves the gcs_ffi library path: [kFfiLibraryEnvVar] when set and
-  /// present, else the packaged location relative to the running executable
-  /// (macOS bundle `../Frameworks/`, then the executable's own directory —
-  /// the Windows/Linux package layout). Returns null when no candidate file
-  /// exists, leaving the session inert.
+  /// present, the Android soname on Android (jniLibs are opened through
+  /// the OS linker, not by path), else the packaged location relative to
+  /// the running executable (macOS bundle `../Frameworks/`, then the
+  /// executable's own directory — the Windows/Linux package layout).
+  /// Returns null when no candidate file exists, leaving the session
+  /// inert.
   static String? _resolveLibraryPath() {
     final String? fromEnv = Platform.environment[kFfiLibraryEnvVar];
     if (fromEnv != null && fromEnv.isNotEmpty && File(fromEnv).existsSync()) {
       return fromEnv;
+    }
+    // Android packs the .so into the APK (jniLibs); the OS linker resolves
+    // it by soname from the app's native-library dir — DynamicLibrary.open
+    // performs that dlopen search, and an exe-relative File probe can never
+    // reach it. A missing library surfaces via the open() failure below.
+    if (Platform.isAndroid) {
+      return kAndroidFfiLibraryName;
     }
     final String exeDir = File(Platform.resolvedExecutable).parent.path;
     final List<String> candidates = <String>[
