@@ -964,11 +964,22 @@ jobs:
           Get-Command flutter | Format-List Name,Source,CommandType
           flutter --version
           Write-Host ("flutter --version exit = 0x{0:X8}" -f $LASTEXITCODE)
-          Write-Host '=== manual dart FFI test via cmake -E env ==='
+          Write-Host '=== manual dart FFI test (env set, temp kept) ==='
           $dll = (Get-ChildItem -Recurse -Filter gcs_ffi.dll "${{github.workspace}}/${{env.BUILD_DIRECTORY}}" | Select-Object -First 1).FullName
           Write-Host "GCS_FFI_LIBRARY=$dll"
-          cmake -E env "GCS_FFI_LIBRARY=$dll" flutter test test/gcs_native_port_smoke_test.dart
+          $env:GCS_FFI_LIBRARY = $dll
+          $env:GCS_KEEP_TEMP = '1'
+          flutter test test/gcs_native_port_smoke_test.dart
           Write-Host ("manual test exit = 0x{0:X8}" -f $LASTEXITCODE)
+          Remove-Item Env:\GCS_FFI_LIBRARY, Env:\GCS_KEEP_TEMP -ErrorAction SilentlyContinue
+          Write-Host '=== node temp-dir contents ==='
+          Get-ChildItem "$env:TEMP\gcs_dart_smoke*" -Recurse -ErrorAction SilentlyContinue | Select-Object FullName, Length
+          Write-Host '=== node temp-dir logs ==='
+          Get-ChildItem "$env:TEMP\gcs_dart_smoke*" -Recurse -File -ErrorAction SilentlyContinue |
+            Where-Object { $_.Extension -in '.log', '.txt', '.json' } | ForEach-Object {
+              Write-Host "--- $($_.FullName)"
+              Get-Content $_.FullName -ErrorAction SilentlyContinue
+            }
 
       - name: Run tests (Windows)
         working-directory: ${{github.workspace}}/${{env.BUILD_DIRECTORY}}

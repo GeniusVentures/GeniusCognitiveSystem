@@ -133,7 +133,17 @@ void main()
 
     // D-29: codec-tagged config bytes; buffer freed right after the call.
     final Directory tempDir = await Directory.systemTemp.createTemp('gcs_dart_smoke');
-    addTearDown(() => tempDir.delete(recursive: true));
+    // GCS_KEEP_TEMP retains the node's file logs (account logger writes under
+    // the base path) for CI diagnosis when boot fails — teardown deletes them
+    // otherwise, destroying the only record of the real error.
+    addTearDown(() async {
+      if (Platform.environment['GCS_KEEP_TEMP'] != null) {
+        // ignore: avoid_print
+        print('gcs_dart_smoke temp dir kept: ${tempDir.path}');
+        return;
+      }
+      await tempDir.delete(recursive: true);
+    });
     // Pin the embedded node's pubsub port (child_registration.cpp pattern):
     // the node reads this file at InitNetwork; the temp dir is the node base
     // path (the db sits at <tmp>/db).
