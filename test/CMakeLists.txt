@@ -127,6 +127,10 @@ gcs_test(test_gcs_messaging_multinode test_gcs_messaging_multinode.cpp "gcs_core
 # D-03 Super Admin demotion guard + D-07 dormant-until-approved, over the same
 # injected-pubsub seam (Membership lives in gcs_core).
 gcs_test(test_gcs_membership test_gcs_membership.cpp "gcs_core;gcs_storage;neoswarm_common")
+# Phase 4 two-node integration (04-03 Task 3): remote member-list convergence
+# (P6) over the REAL GossipSub transport — mint on A, redeem on B, both rosters
+# converge through the CRDT heal callback wired per node.
+gcs_test(test_gcs_membership_multinode test_gcs_membership_multinode.cpp "gcs_core;gcs_storage;neoswarm_common")
 # FFI ABI smoke (01-04 Task 3): config-bytes gcs_init failure classes, arg
 # validation, shutdown-null. Also links gcs_proto so the test can serialize a
 # gcs::chat::GcsConfig via gcs_chat.pb.h (D-29 codec-tagged init bytes).
