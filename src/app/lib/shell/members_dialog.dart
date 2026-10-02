@@ -203,28 +203,11 @@ Future<void> showMembersDialog({
 // Roster
 // ---------------------------------------------------------------------------
 
-/// The pushed role label of the local user in [roster], or null when the
-/// roster carries no `self` row. Null means "role unknown" -- every gated
-/// affordance stays hidden rather than guessing (D-08).
-String? _viewerRole(List<MemberInfo> roster) {
-  for (final MemberInfo member in roster) {
-    if (member.self) {
-      return member.role;
-    }
-  }
-  return null;
-}
-
-/// Whether a viewer with [viewerRole] may offer membership-grant affordances
-/// (UI-SPEC roster anatomy: Super Admin/Admin). Presentation only (T-04-07-EoP).
-bool _viewerCanManageMembers(String? viewerRole) =>
-    viewerRole == kRoleLabelSuperAdmin || viewerRole == kRoleLabelAdmin;
-
 /// Whether a viewer with [viewerRole] may offer the invite CTA (MEMB-05):
 /// Super Admin/Admin always; Member only when the pushed [membersCanInvite]
 /// flag says so.
 bool _viewerCanInvite(String? viewerRole, bool membersCanInvite) {
-  if (viewerRole == kRoleLabelSuperAdmin || viewerRole == kRoleLabelAdmin) {
+  if (viewerCanManageMembers(viewerRole)) {
     return true;
   }
   return viewerRole == kRoleLabelMember && membersCanInvite;
@@ -277,7 +260,7 @@ class _RosterBody extends StatelessWidget {
             emptyBody: kNoMembersBody,
           );
         }
-        final String? viewerRole = _viewerRole(roster);
+        final String? viewerRole = viewerOf(roster)?.role;
         return Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -326,7 +309,7 @@ class _MemberRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ScaffoldDimens dimens = context.dimens;
-    final bool viewerCanManage = _viewerCanManageMembers(viewerRole);
+    final bool viewerCanManage = viewerCanManageMembers(viewerRole);
     final bool targetIsSuperAdmin = member.role == kRoleLabelSuperAdmin;
     // UI-SPEC presence table: a Super Admin target never offers
     // change-role/remove (D-03), a pending target offers neither (the op is
@@ -338,8 +321,7 @@ class _MemberRow extends StatelessWidget {
         !targetIsSuperAdmin &&
         !member.self &&
         !member.pending;
-    final bool showApprove =
-        viewerRole == kRoleLabelSuperAdmin && member.pending;
+    final bool showApprove = viewerIsSuperAdmin(viewerRole) && member.pending;
 
     return Padding(
       padding: EdgeInsets.symmetric(
@@ -429,8 +411,12 @@ class _MemberRow extends StatelessWidget {
                 semanticLabel: member.pendingLabel == kPendingRemovalLabel
                     ? 'Approve removal of ${member.address}'
                     : 'Approve role change for ${member.address}',
-                onTap: () =>
-                    _approve(context: context, transport: transport, scopeId: scopeId, target: member.address),
+                onTap: () => approvePendingOp(
+                  context: context,
+                  transport: transport,
+                  scopeId: scopeId,
+                  target: member.address,
+                ),
               ),
             ],
           ],
@@ -508,8 +494,7 @@ class _RosterFooter extends StatelessWidget {
     final ScaffoldDimens dimens = context.dimens;
     return BlocBuilder<MembersCubit, MembersState>(
       builder: (BuildContext context, MembersState state) {
-        final List<MemberInfo>? roster = state.byScope[scopeId];
-        final String? viewerRole = roster == null ? null : _viewerRole(roster);
+        final String? viewerRole = viewerOf(state.byScope[scopeId])?.role;
         final bool canLeave = viewerRole != null &&
             viewerRole != kRoleLabelSuperAdmin;
         final bool canInvite = _viewerCanInvite(viewerRole, membersCanInvite);
@@ -943,9 +928,13 @@ void _openLeaveConfirm({
   );
 }
 
-/// Publishes the Super Admin's approve for a pending op on [target]
-/// (immediate, no confirmation -- D-07 single-signer).
-void _approve({
+/// Publishes the Super Admin's approve for a pending destructive op on
+/// [target] in [scopeId] (immediate, no confirmation -- D-07 single-signer).
+///
+/// One home for the approve publish: the member row's approve affordance and
+/// the rail's approve-for-deletion affordance both call it, so the command
+/// shape and the refusal toast can never drift apart.
+void approvePendingOp({
   required BuildContext context,
   required GcsCommandTransport transport,
   required String scopeId,
