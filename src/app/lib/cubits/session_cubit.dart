@@ -17,6 +17,9 @@
 ///   messageHistory -> MessageFlowCubit.replaceAll(mapped batch) (D-06, same
 ///                active-room gate -- a replay for a just-joined room must
 ///                not wipe the room the user is reading)
+///   memberList -> MembersCubit.setMembers(scopeId, members, selfAddress)
+///                (D-04 full-replacement roster + pushed "You" marker)
+///   inviteLink -> pendingInviteLink (D-05 pushed capability link)
 ///   error    -> session error surface (raw string per D-29)
 ///
 /// Rail selection is watched too (review P1): the active-room gate above
@@ -42,6 +45,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_app/generated/proto/gcs_chat.pb.dart';
 import 'package:flutter_app/gcs_bindings_generated.dart';
 
+import 'members_cubit.dart';
 import 'message_flow_cubit.dart';
 import 'rail_cubit.dart';
 
@@ -123,19 +127,21 @@ class SessionState {
 class SessionCubit extends Cubit<SessionState> implements GcsCommandTransport {
   /// Creates a [SessionCubit].
   ///
-  /// [railCubit]/[messageFlowCubit] are the dispatch targets for pushed
-  /// room-list and message events; [initialError] seeds the error surface
-  /// (e.g. a failed library open).
+  /// [railCubit]/[messageFlowCubit]/[membersCubit] are the dispatch targets
+  /// for pushed room-list, message, and membership events; [initialError]
+  /// seeds the error surface (e.g. a failed library open).
   SessionCubit({
     GcsBindings? bindings,
     String? dbPath,
     RailCubit? railCubit,
     MessageFlowCubit? messageFlowCubit,
+    MembersCubit? membersCubit,
     String? initialError,
   }) : _bindings = bindings,
        _dbPath = dbPath,
        _railCubit = railCubit,
        _messageFlowCubit = messageFlowCubit,
+       _membersCubit = membersCubit,
        super(SessionState(error: initialError)) {
     if (railCubit != null) {
       _lastSeenActiveRoom = railCubit.state.activeRoom;
@@ -146,6 +152,7 @@ class SessionCubit extends Cubit<SessionState> implements GcsCommandTransport {
   final GcsBindings? _bindings;
   final RailCubit? _railCubit;
   final MessageFlowCubit? _messageFlowCubit;
+  final MembersCubit? _membersCubit;
   final String? _dbPath;
 
   ffi.Pointer<GcsSession> _handle = ffi.Pointer<GcsSession>.fromAddress(0);
@@ -153,6 +160,11 @@ class SessionCubit extends Cubit<SessionState> implements GcsCommandTransport {
   bool _nativeShutdownDone = false;
   StreamSubscription<RailState>? _railSubscription;
   String? _lastSeenActiveRoom;
+  String? _pendingInviteLink;
+
+  /// The most recently pushed `InviteLink.url`, if any (D-05). The invite
+  /// view/queue consumes it; null until C++ pushes a link.
+  String? get pendingInviteLink => _pendingInviteLink;
 
   /// Creates the production session, resolving the gcs_ffi shared library
   /// from [kFfiLibraryEnvVar], falling back to the packaged location next to
@@ -169,11 +181,13 @@ class SessionCubit extends Cubit<SessionState> implements GcsCommandTransport {
     String? dbPath,
     RailCubit? railCubit,
     MessageFlowCubit? messageFlowCubit,
+    MembersCubit? membersCubit,
   }) {
     if (Platform.environment[kTestHarnessEnvVar] == 'true') {
       return SessionCubit(
         railCubit: railCubit,
         messageFlowCubit: messageFlowCubit,
+        membersCubit: membersCubit,
       );
     }
     final String? fromEnv = Platform.environment[kFfiLibraryEnvVar];
@@ -187,6 +201,7 @@ class SessionCubit extends Cubit<SessionState> implements GcsCommandTransport {
       return SessionCubit(
         railCubit: railCubit,
         messageFlowCubit: messageFlowCubit,
+        membersCubit: membersCubit,
         initialError: envPathSet
             ? 'gcs_ffi library not found at $fromEnv (check $kFfiLibraryEnvVar)'
             : 'gcs_ffi library not found (set $kFfiLibraryEnvVar)',
@@ -206,6 +221,7 @@ class SessionCubit extends Cubit<SessionState> implements GcsCommandTransport {
         return SessionCubit(
           railCubit: railCubit,
           messageFlowCubit: messageFlowCubit,
+          membersCubit: membersCubit,
           initialError: 'Dart_InitializeApiDL version mismatch ($result)',
         );
       }
@@ -214,11 +230,13 @@ class SessionCubit extends Cubit<SessionState> implements GcsCommandTransport {
         dbPath: dbPath,
         railCubit: railCubit,
         messageFlowCubit: messageFlowCubit,
+        membersCubit: membersCubit,
       );
     } catch (error) {
       return SessionCubit(
         railCubit: railCubit,
         messageFlowCubit: messageFlowCubit,
+        membersCubit: membersCubit,
         initialError: 'failed to open gcs_ffi library: $error',
       );
     }
@@ -479,6 +497,23 @@ class SessionCubit extends Cubit<SessionState> implements GcsCommandTransport {
             flow.buildChatFlowItemTextBubble(m),
         ]);
       }
+      return;
+    }
+    if (event.hasMemberList()) {
+      // D-04 flat full-replacement roster. `selfAddress` is the wallet C++
+      // stamped alongside the roster -- never resolved from the session and
+      // never defaulted to '' (the "You" marker must come from authority).
+      _membersCubit?.setMembers(
+        event.memberList.scopeId,
+        event.memberList.member,
+        event.memberList.selfAddress,
+      );
+      return;
+    }
+    if (event.hasInviteLink()) {
+      // D-05: the pushed capability link is held for the invite view/queue
+      // (plan 04-07) and opened on demand -- Dart never mints or re-signs it.
+      _pendingInviteLink = event.inviteLink.url;
       return;
     }
     if (event.hasError()) {
