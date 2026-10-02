@@ -46,6 +46,12 @@ String roomDisplayName(String roomTopic) {
   return roomTopic.substring(lastSlash + 1);
 }
 
+/// Extent of a node's leading glyph (the space chevron and the room chat
+/// bubble both use the default 24px Material icon size). A node's metadata
+/// line indents one glyph + one space3 past the row's own leading padding so
+/// its badges align under the node name.
+const double _kNodeLeadingGlyph = 24.0;
+
 /// The left room rail of the GCS chat shell (D-21).
 ///
 /// The toolbar persists in every rail state (loading, empty, populated) --
@@ -417,12 +423,19 @@ class _SpaceNode extends StatelessWidget {
     // VIEWER's pushed role for this scope; an absent roster (role unknown)
     // hides every gated affordance rather than guessing.
     final String? viewerRole = viewerOf(rosters[space.id])?.role;
-    final bool canDelete = viewerCanManageMembers(viewerRole);
     final bool showPendingDeletion =
         space.pendingAction == PendingAction.PENDING_ACTION_DELETE &&
         space.approvedBy.isEmpty;
+    final bool canDelete = viewerCanDeleteScope(
+      viewerRole,
+      deletionPending: showPendingDeletion,
+    );
     final bool canApproveDeletion =
         showPendingDeletion && viewerIsSuperAdmin(viewerRole);
+    // Privacy and dormancy are metadata, not actions: they render on their own
+    // line under the row (see [_NodeMetadataLine]) so the 280px header always
+    // has room for its 48px affordances.
+    final bool showMetadata = !space.isPublic || showPendingDeletion;
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -465,26 +478,7 @@ class _SpaceNode extends StatelessWidget {
                       ),
                     ),
                   ),
-                  if (!space.isPublic) ...<Widget>[
-                    SizedBox(width: dimens.space2),
-                    ScaffoldBadge(
-                      variant: BadgeVariant.text,
-                      text: 'Private',
-                      badgeColor: context.palette.textSecondary,
-                    ),
-                  ],
                   const Spacer(),
-                  // D-07 pending-deletion surface (pushed state only): the
-                  // informational badge is always shown while the op is
-                  // dormant; the approve affordance is Super-Admin-only.
-                  if (showPendingDeletion) ...<Widget>[
-                    ScaffoldBadge(
-                      variant: BadgeVariant.text,
-                      text: kPendingDeletionLabel,
-                      badgeColor: context.palette.statusWarningText,
-                    ),
-                    SizedBox(width: dimens.space2),
-                  ],
                   _NodeIconAffordance(
                     icon: Icons.group_outlined,
                     semanticLabel: 'View members of ${space.name}',
@@ -544,6 +538,29 @@ class _SpaceNode extends StatelessWidget {
             ),
           ),
         ),
+        if (showMetadata)
+          _NodeMetadataLine(
+            // One leading glyph + one space3 past the row's own space6, so the
+            // badges line up under the space name.
+            leadingInset: dimens.space6 + _kNodeLeadingGlyph + dimens.space3,
+            badges: <Widget>[
+              if (!space.isPublic)
+                ScaffoldBadge(
+                  variant: BadgeVariant.text,
+                  text: 'Private',
+                  badgeColor: context.palette.textSecondary,
+                ),
+              // D-07 pending-deletion surface (pushed state only): the
+              // informational badge is always shown while the op is dormant;
+              // the approve affordance is Super-Admin-only.
+              if (showPendingDeletion)
+                ScaffoldBadge(
+                  variant: BadgeVariant.text,
+                  text: kPendingDeletionLabel,
+                  badgeColor: context.palette.statusWarningText,
+                ),
+            ],
+          ),
         AnimatedSize(
           // Body reveal, zero-duration under reduced motion. Padding keeps a
           // stable child across the transition (ScaffoldDisclosure idiom).
@@ -636,6 +653,45 @@ class _NodeIconAffordance extends StatelessWidget {
   }
 }
 
+/// The metadata line under a rail node: the privacy and dormant-op badges,
+/// rendered on their own line instead of the node's header row.
+///
+/// The rail is 280px wide; a text badge costs roughly 100px of a row's budget,
+/// which the header needs for its 48px touch-target affordances. Keeping
+/// badges on their own line keeps the header from overflowing while every
+/// badge stays visible. Hidden entirely when [badges] is empty (callers gate
+/// on their own flags).
+class _NodeMetadataLine extends StatelessWidget {
+  /// Creates the metadata line, indenting its badges by [leadingInset] so they
+  /// align under the node name.
+  const _NodeMetadataLine({required this.leadingInset, required this.badges});
+
+  /// Start inset aligning the badges with the node name.
+  final double leadingInset;
+
+  /// The badges to render, in order.
+  final List<Widget> badges;
+
+  @override
+  Widget build(BuildContext context) {
+    final ScaffoldDimens dimens = context.dimens;
+    return Padding(
+      padding: EdgeInsetsDirectional.only(
+        start: leadingInset,
+        end: dimens.space6,
+        bottom: dimens.space2,
+      ),
+      // Wrap so two badges (private + pending) degrade to a second line rather
+      // than overflowing the rail.
+      child: Wrap(
+        spacing: dimens.space2,
+        runSpacing: dimens.space2,
+        children: badges,
+      ),
+    );
+  }
+}
+
 /// One catalog room row (nested under a space, or standalone). Joined rows
 /// follow the Phase 1 row contract (selected = accent tint + textPrimary,
 /// else textSecondary, tap selects). Catalog-but-not-joined rows are
@@ -687,14 +743,17 @@ class _TreeRoomRow extends StatelessWidget {
     final String? viewerRole = standalone
         ? viewerOf(rosters[room.id])?.role
         : null;
-    final bool canDelete = viewerCanManageMembers(viewerRole);
     final bool showPendingDeletion =
         standalone &&
         room.pendingAction == PendingAction.PENDING_ACTION_DELETE &&
         room.approvedBy.isEmpty;
+    final bool canDelete = viewerCanDeleteScope(
+      viewerRole,
+      deletionPending: showPendingDeletion,
+    );
     final bool canApproveDeletion =
         showPendingDeletion && viewerIsSuperAdmin(viewerRole);
-    return ScaffoldPressable(
+    final Widget row = ScaffoldPressable(
       disabled: !joined,
       onPressed: () => context.read<RailCubit>().selectRoom(room.topic),
       child: DecoratedBox(
@@ -725,20 +784,12 @@ class _TreeRoomRow extends StatelessWidget {
                   child: Text(
                     room.name,
                     overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: foreground,
-                    ),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodyMedium?.copyWith(color: foreground),
                   ),
                 ),
                 if (standalone) ...<Widget>[
-                  if (showPendingDeletion) ...<Widget>[
-                    ScaffoldBadge(
-                      variant: BadgeVariant.text,
-                      text: kPendingDeletionLabel,
-                      badgeColor: palette.statusWarningText,
-                    ),
-                    SizedBox(width: dimens.space2),
-                  ],
                   if (canApproveDeletion) ...<Widget>[
                     _NodeIconAffordance(
                       icon: Icons.check_circle_outline,
@@ -777,6 +828,29 @@ class _TreeRoomRow extends StatelessWidget {
           ),
         ),
       ),
+    );
+    if (!showPendingDeletion) {
+      return row;
+    }
+    // D-07 pending-deletion surface: the badge is metadata, so it renders on
+    // its own line (see [_NodeMetadataLine]) instead of competing with the
+    // affordances for the row's width.
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        row,
+        _NodeMetadataLine(
+          leadingInset: leadingInset + _kNodeLeadingGlyph + dimens.space3,
+          badges: <Widget>[
+            ScaffoldBadge(
+              variant: BadgeVariant.text,
+              text: kPendingDeletionLabel,
+              badgeColor: palette.statusWarningText,
+            ),
+          ],
+        ),
+      ],
     );
   }
 }

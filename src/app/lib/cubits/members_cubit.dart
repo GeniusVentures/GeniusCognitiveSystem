@@ -160,6 +160,18 @@ bool viewerCanManageMembers(String? viewerRole) =>
 bool viewerIsSuperAdmin(String? viewerRole) =>
     viewerRole == kRoleLabelSuperAdmin;
 
+/// Whether a viewer whose pushed role label is [viewerRole] may START a
+/// deletion of a scope whose destructive op is [deletionPending].
+///
+/// One home for the "no second delete while one is in flight" rule: a dormant
+/// deletion offers the approve affordance, not another Delete (the same rule
+/// the member rows apply to a pending target). Presentation only
+/// (T-04-07-EoP) -- the C++ write guards are the enforcement.
+bool viewerCanDeleteScope(
+  String? viewerRole, {
+  required bool deletionPending,
+}) => viewerCanManageMembers(viewerRole) && !deletionPending;
+
 /// Immutable membership state: the per-scope rosters, each the full
 /// replacement pushed by the most recent `MemberList` for that scope (D-04).
 class MembersState {
