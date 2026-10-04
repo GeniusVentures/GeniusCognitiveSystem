@@ -155,6 +155,8 @@ CognitiveAsset {
 
 Trust and privacy are independent dimensions. A user-private email may be higher-trust while remaining local-only and prohibited from training. A public webpage may be public but lower-trust and usable only for grounding.
 
+Authorship metadata must distinguish source observations, user decisions, model conclusions, and system maintenance. Preserve the originating actor and, where applicable, model/version, session, and source references through summaries and handoffs; unknown authorship must remain unknown. A receiving expert must not relabel another actor's conclusion as its own observation or as a user instruction.
+
 The graph relationships are as important as the payload. A fact may support a policy, a procedure may depend on a tool result, a bridge block may reference a conversation summary, an execution verdict may contradict a node claim, a verifier result may contradict a generated answer, and a distillation sample may be derived from a consensus record. This allows GAML to behave as a cognitive graph rather than a flat memory table.
 
 Cognitive Assets should not all be injected into prompts. The Memory Governor decides which assets are authorized, relevant, fresh, trusted, policy-allowed, and compact enough for the current execution path. Some assets are useful only for offline evaluation, distillation, EIS calibration, reputation updates, or later reconciliation.
@@ -193,6 +195,8 @@ Representative retrieval stages:
 Privacy enforcement occurs before relevance ranking. Unauthorized memory must not enter the candidate set merely because it is semantically similar.
 
 EIS trust-class checks may also apply where execution evidence affects confidence. Results may be merged using reputation-weighted, policy-aware selection when multiple authorized nodes return conflicting or overlapping state.
+
+Retrieval frequency, co-retrieval, replication, and repeated summaries must not by themselves increase factual confidence or create evidence-support relationships. Verification, arbitration, and learning must trace shared source lineage so multiple experts repeating one source do not count as independent corroboration. Retrieval usefulness and factual confidence remain separate; disuse alone must not invalidate a fact or silently remove an applicable standing user constraint, subject to correction, supersession, retention, and revocation.
 
 ---
 
