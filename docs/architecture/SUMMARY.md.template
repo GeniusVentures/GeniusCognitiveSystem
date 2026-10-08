@@ -15,7 +15,7 @@ Combining PRD + TDD + System Architecture Blueprint
 
 ### **Developer and commercial entry point**
 
-Read [Developer API and Distributed Compute Bridge](developer-api-and-compute-bridge.md) before the long [OpenAI-compatible API Router technical specification](openai-compatible-api-router-and-gcs-job-queue.md). The external API is **planned (v1.1 Phase 6)**; $0.0003/active external ELM-hour is a **planning assumption**, not an announced retail price. The [pricing methodology](https://docs.gnus.ai/about-gnus.ai/features-and-benefits/pricing-methodology/) separates it from historical node-hours and throughput-per-dollar estimates.
+Read [Developer API and Distributed Compute Bridge](./developer-api-and-compute-bridge.md) before the long [OpenAI-compatible API Router technical specification](./openai-compatible-api-router-and-gcs-job-queue.md). The external API is **planned (v1.1 Phase 6)**; $0.0003/active external ELM-hour is a **planning assumption**, not an announced retail price. The [pricing methodology](https://docs.gnus.ai/about-gnus.ai/features-and-benefits/pricing-methodology/) separates it from historical node-hours and throughput-per-dollar estimates.
 
 ## **Architecture Index**
 
