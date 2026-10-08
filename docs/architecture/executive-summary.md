@@ -14,6 +14,14 @@
   * secure tool use through an intermediary boundary
   * private customization through retrieval, memory, and private Expert Models, including private ELM and EJM capabilities
 
+### Developer interfaces and commercialization boundary
+
+GNUS.ai supports **raw distributed compute** and a planned **OpenAI-compatible GCS inference interface**. The developer-facing API is intended to let existing SDK, IDE, agent, and business applications change their endpoint, key, and model alias while GCS chooses specialist cognition and the suitable local, private, or public-network execution route. It is not merely a large model sharded over GPU nodes. The API adapter is not the cognitive controller.
+
+The compatibility gateway is a **v1.1 Phase 6 roadmap item**, not a publicly operational service. Details: [Developer API and Distributed Compute Bridge](developer-api-and-compute-bridge.md); [technical API spec](openai-compatible-api-router-and-gcs-job-queue.md).
+
+**Commercial figures must not mix units:** $0.0003 per active *external ELM-hour* is a newly proposed compute-cost planning assumption (usually no more than about three external experts per ordinary request), not a ratified API retail rate. Older $0.005/node-hour scenarios and TFLOPS-per-dollar comparison tables have separate meanings; see [pricing methodology](https://docs.gnus.ai/about-gnus.ai/features-and-benefits/pricing-methodology/).
+
 The system:
 
 * Executes quantized Semantic Core and expert inference across GNUS nodes.

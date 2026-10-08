@@ -6,6 +6,14 @@ The **Genius Cognitive System (GCS)** is an integrated distributed cognitive pla
 
 This documentation is a combined product requirements document, technical design document, and system architecture blueprint.
 
+## Start here: Two ways to use GNUS.ai
+
+**GNUS is both distributed compute and a cognitive application platform.** Low-level clients can submit compute jobs; planned OpenAI-compatible clients can request inference and GCS cognitive services with familiar API request and response shapes. GCS selects the Semantic Core, specialist models, GAML memory, and checks, then executes locally, privately, or through SuperGenius nodes when appropriate.
+
+Read the [Developer API and Distributed Compute Bridge](developer-api-and-compute-bridge.md) for the short architecture, commercial opportunity, and **pricing-status distinctions**. The [OpenAI-compatible API specification](openai-compatible-api-router-and-gcs-job-queue.md) is detailed architecture; the public gateway is **planned v1.1 Phase 6**, not a live service.
+
+**Cost references:** The latest **$0.0003 per active external ELM-hour** figure is a planning assumption, not finalized customer pricing. Earlier $0.005/node-hour documents and throughput-per-dollar comparisons use different units. See [GNUS pricing methodology](https://docs.gnus.ai/about-gnus.ai/features-and-benefits/pricing-methodology/).
+
 ## Architecture documentation
 
 Use the left navigation to browse the generated architecture index and source-reference documentation.
