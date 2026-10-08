@@ -136,13 +136,38 @@ This separation prevents reputation-weighted semantic consensus from carrying a 
 
 The GNUS Agentic Memory Layer (GAML) should be understood as the Cognitive Knowledge Layer of GCS rather than as a conventional vector database. Its purpose is not merely to find similar text. Its purpose is to decide which durable cognitive context should influence the next action.
 
-GAML supports multiple memory classes:
+GAML separates **memory lifecycle stage** from **memory class**.
+
+Memory stages are:
+
+* **Working memory** — request-scoped active goals, retrieved context, tool outputs, specialist outputs, temporary plans, and pending decisions.
+* **Short-term memory (STM)** — bounded recent experience that survives request boundaries while the system determines whether it is important enough to consolidate.
+* **Long-term memory (LTM)** — consolidated Cognitive Assets intended for durable retention.
+
+Memory classes are orthogonal to those stages:
 
 * **Semantic memory** — durable facts, definitions, specifications, APIs, architecture, and domain knowledge.
-* **Episodic memory** — prior conversations, task history, debugging sessions, deployment outcomes, and user/project events.
+* **Episodic memory** — prior conversations, task history, debugging sessions, deployment outcomes, major events, and user/project experiences.
 * **Procedural memory** — workflows, tool sequences, coding patterns, deployment procedures, support playbooks, and tenant operating rules.
-* **Working memory** — active goals, retrieved context, tool outputs, specialist outputs, temporary plans, and pending decisions for the current request.
 * **Policy and preference memory** — user preferences, tenant constraints, safety boundaries, formatting rules, privacy requirements, and trust policies.
+
+The lifecycle is:
+
+```text
+Working Memory
+    ↓
+Short-Term Memory
+    ↓
+Consolidation Evaluation
+    ├── low-value / redundant / transient -> decay or expire
+    ├── useful / repeated / corrective    -> Long-Term Memory
+    └── major event / major mistake       -> strongly consolidated LTM
+```
+
+Activation and retention are separate. A major long-term memory may have very low current activation while remaining strongly consolidated for years or effectively indefinitely. Confidence, freshness, importance, consolidation, and activation are separate state dimensions.
+
+Long-term memory is also logically compartmentalized by cognitive scope. Shared Core and Domain memory may be referenced by many Expert Models, while role/expert overlays hold sparse affinities, activation biases, contextual preferences, and local lessons rather than duplicating the underlying objective knowledge. Runtime expert instances normally keep working memory, STM, cache, and activation state; durable LTM normally belongs to a stable expert lineage, role, domain, user, or tenant scope.
+
 
 GAML retrieves and writes memory through a governed process. The Memory Governor determines whether memory is needed, which memory classes are relevant, how much context budget may be spent, which memories are stale or superseded, which sources are trusted, and whether conflicting memories require arbitration.
 
