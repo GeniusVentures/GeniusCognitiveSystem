@@ -306,6 +306,7 @@ Responsibilities:
 - implement `/v1/chat/completions`
 - implement `/v1/completions` if required for older clients
 - implement `/v1/embeddings`
+- leave `/v1/responses` for a separately specified compatibility phase; do not imply it works in the MVP
 - validate request shape
 - normalize model aliases
 - attach tenant/project identity
@@ -848,7 +849,7 @@ MVP supported fields:
 }
 ```
 
-MVP should tolerate unsupported OpenAI fields by ignoring them unless strict compatibility mode is enabled.
+MVP must **not silently ignore behavior-changing request fields** (for example, tool calls, structured-output contracts, or unsupported response modalities). An unsupported capability must produce a documented OpenAI-shaped validation or unsupported-feature error, unless the client explicitly selects a compatible fallback. Truly advisory metadata may be ignored only when documented as such. Field acceptance and behavior must be covered by SDK compatibility tests. `/v1/responses` is a follow-on compatibility surface, **not part of the initial `/v1/chat/completions` MVP**.
 
 ### 26.15.3 `/v1/embeddings`
 
@@ -1516,6 +1517,25 @@ The usage record should feed:
 - abuse analytics
 - reputation updates
 - token settlement or burn/buyback logic where applicable
+
+---
+
+### 26.21.3 Commercial units and provisional costing (October 2026)
+
+The OpenAI-compatible API is a **new way for customers to buy GCS services** on GNUS infrastructure. It must be metered at both the **external request** boundary and the **underlying execution** boundary. An OpenAI-compatible response's token counts do not fully describe local planning, external expert work, retrieval, verification, and network settlement.
+
+The most recent lightweight-model planning estimate is **$0.0003 per active external ELM-hour**. This is an **illustrative compute-only cost assumption** pending validation, not an approved retail API price or production payout. A typical request is expected to consult zero to approximately three external ELMs, not reserve those experts continuously. There is no enforced three-model limit in this specification.
+
+```text
+illustrative external ELM cost (USD)
+  = 0.0003 * SUM(each external ELM's active execution seconds / 3600)
+```
+
+For example, three external ELMs each active for one minute imply `3 * (1/60) * $0.0003 = $0.000015` under this assumption. Do not treat idle time between requests as a running model rental. **Do not** advertise this figure as the full price of a GCS API request: Semantic Core work, ingress, storage, memory, retrieval, verification, bandwidth, settlement, failures/retries, pricing volatility and operating margin may also matter.
+
+Earlier **$0.005/node-hour** documents, hardware-throughput **TFLOPS-per-dollar-hour** comparisons, and the native SuperGenius `TokenAmount` USD-per-FLOP estimate describe **different units and assumptions**. None converts into an API retail price without resource/workload normalization and tested billing policy. See the [short commercial bridge](developer-api-and-compute-bridge.md) and [GNUS pricing methodology](https://docs.gnus.ai/about-gnus.ai/features-and-benefits/pricing-methodology/).
+
+Metering should capture **which active unit was billed**, per-expert active time, model/capability identifiers, actual token usage, completed versus cancelled work, private/public mode, retries and other chargeable costs. Dollar display and optional GNUS-token settlement must have explicit exchange-rate/rounding policies. **No live API pricing is asserted by this specification.**
 
 ---
 
