@@ -132,6 +132,32 @@ A domain-specific expert is not required to be an ELM. Its contract capabilities
 
 Organizations may deploy private EMs trained or adapted on proprietary data, workflows, and response patterns. Private ELMs, EJMs, diffusion-backed experts, and future capability/processor combinations may run fully inside a tenant boundary, on local infrastructure, on permissioned GNUS nodes, or within restricted private or hybrid swarms.
 
+
+### 5.2.7.1 Expert Identity, Runtime Instance, and Memory Scope
+
+GCS distinguishes a stable **Expert Model identity or lineage** from a **runtime expert instance**.
+
+A stable expert identity describes the durable cognitive specialization: for example a Code Expert, C++ Expert, Verifier, or tenant-private Operations Expert. A runtime instance is one process, device, or GNUS worker executing that expert artifact for a particular job.
+
+This distinction is required for large swarms. If 10,000 nodes can execute the same C++ Expert, GCS SHOULD NOT create 10,000 complete copies of C++ long-term memory. Instead:
+
+```text
+Stable C++ Expert Lineage
+        ↓
+Shared C++ Domain / Expert LTM
+        ↓
++-------+-------+-------+
+|       |       |       |
+worker  worker  worker  ...
+```
+
+Runtime instances normally own only request-local working memory, bounded short-term memory, caches, and scoped activation state. Durable lessons and long-term memory attach to the stable expert lineage, role, domain, user, tenant, or other governed cognitive scope.
+
+Distinct experts MAY maintain sparse persistent overlays over shared GAML assets. These overlays contain references and weights such as affinity, activation bias, contextual preference, mistake/lesson references, or organization/team/cultural experience. They do not duplicate shared objective facts.
+
+For highly objective tasks, shared domain memory should dominate. For context-dependent or subjective tasks, relevant overlays may have greater influence on retrieval, critique, synthesis, and arbitration. Overlay influence MUST NOT silently rewrite objective confidence, provenance, or verified transition statistics.
+
+
 ### 5.2.8 Expert Invocation Patterns
 
 Expert Models may be invoked in several ways:
@@ -193,6 +219,7 @@ The orchestration path is responsible for:
 * deciding whether verification or arbitration is required
 * determining whether private knowledge grounding is required
 * deciding whether tenant-scoped or private memory should be loaded
+* selecting the relevant core, domain, role, expert, and contextual memory scopes or overlays
 * enforcing policy constraints
 * determining latency, privacy, token, and spend budgets
 * producing an execution graph for local or distributed completion
