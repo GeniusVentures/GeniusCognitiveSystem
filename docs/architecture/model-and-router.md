@@ -12,12 +12,12 @@ The Semantic Core is intentionally selected from high-performing, medium-sized m
 
 ### 5.1.2 Quantization
 
-To achieve energy-efficient inference and minimize memory usage, the Semantic Core is heavily optimized using custom weight compression techniques. Full details are in [16 SGFP4 Adaptive Quantization Format](./sgfp4-format.md).
+To achieve energy-efficient inference and minimize memory usage, the Semantic Core is heavily optimized using custom weight compression techniques. Full details are in [22 SGFP4 Adaptive Quantization Format](./sgfp4-format.md).
 
-* **SGFP4 Macroblocks:** Model weights are quantized using the SGFP4 adaptive format operating on 64x64 macroblocks with fixed 2048-byte payloads.
-* **Per-Block Affine Decode:** Each macroblock stores a scale + bias header (packed FP16), with all modes using `w_hat = S * code + Bias`.
-* **Adaptive Dual-Mode:** The encoder selects per block between **FP4_AFFINE** (4-bit signed codes) and **T158_AFFINE** (ternary, ~1.58-bit class) via a 32-step scale search and error minimization.
-* **GPU-Decoded:** Weights are decoded in shared memory at inference time; mode flags are embedded in aligned offset low bits for zero-cost per-block branching.
+* **SGFP4 Macroblocks:** Model weights are quantized using the SGFP4 format operating on 64x64 macroblocks — either the **v1 fixed-payload** profile (2048-byte payload per block) or the **v2 quadtree-adaptive** profile (variable 64x64–4x4 leaves per block).
+* **Per-Block Affine Decode:** Each block (v1) or leaf (v2) stores a scale + bias header (packed FP16), with all modes using `w_hat = S * code + Bias`.
+* **Adaptive Dual-Mode:** The encoder selects per block/leaf between **FP4_AFFINE** (4-bit signed codes) and **T158_AFFINE** (ternary, ~1.58-bit class) via a 16-candidate log-space scale search and Laplacian-weighted error minimization.
+* **GPU-Decoded:** Weights are decoded in shared memory at inference time; mode flags are embedded in aligned offset low bits (v1) or leaf-header low bits (v2) for zero-cost branching.
 
 The Semantic Core runs efficiently on the **GNUS compute nodes** using the MNN model runtime and GPU acceleration via Vulkan / MoltenVK.
 
