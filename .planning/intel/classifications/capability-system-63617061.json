@@ -1,0 +1,13 @@
+{
+  "source_path": "/Users/Shared/SSDevelopment/Development/GeniusVentures/GeniusNetwork/GeniusCogntiveSystem/docs/architecture/capability-system.md",
+  "type": "DOC",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "30. GCS Capability System",
+  "summary": "Describes a protocol-neutral system for discovering, governing, routing, and executing external and local operations through canonical capability contracts within GeniusCognitiveSystem.",
+  "scope": ["GCS Capability System", "Capability Contract", "MCP Connector Adapter", "Tool Intermediary", "GAML", "Connector", "Capability Provider", "Credential Handling", "Capability Routing", "Reputation System"],
+  "cross_refs": [],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}

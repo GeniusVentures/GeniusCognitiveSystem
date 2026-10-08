@@ -5,7 +5,7 @@
 ## **11.1 Phase 1 — Semantic Core Foundations**
 
 * Base model selection.
-* FP4 v3 quantization pipeline.
+* SGFP4 quantization pipeline (v1 fixed-payload and v2 quadtree-adaptive profiles).
 * Validate activation error.
 * Deploy across initial nodes.
 
@@ -56,7 +56,7 @@ Risk
 
 Mitigation
 
-FP4 underperforms
+SGFP4 underperforms
 
 Fallback to INT4 or adjusted quantization policy
 

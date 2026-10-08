@@ -1,0 +1,29 @@
+{
+  "source_path": "/Users/Shared/SSDevelopment/Development/GeniusVentures/GeniusNetwork/GeniusCogntiveSystem/docs/architecture/agentic-memory-layer.md",
+  "type": "DOC",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "8.4 GNUS Agentic Memory Layer (GAML v1)",
+  "summary": "Describes the GNUS Agentic Memory Layer (GAML), a structured reasoning-oriented long-term memory system with Cognitive Asset model, privacy-scoped replication, CRDT synchronization, swarm memory consensus, and encryption policies for GeniusCognitiveSystem.",
+  "scope": [
+    "GNUS Agentic Memory Layer (GAML)",
+    "Cognitive Asset model",
+    "MemoryObject",
+    "Memory Governor",
+    "RocksDB",
+    "IPFS-lite",
+    "CRDT synchronization",
+    "swarm memory consensus",
+    "privacy scopes",
+    "replication policies",
+    "encryption and key references",
+    "bridge blocks",
+    "execution integrity system (EIS)",
+    "Expert Layer Model (ELM)",
+    "derived-asset inheritance"
+  ],
+  "cross_refs": [],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}
