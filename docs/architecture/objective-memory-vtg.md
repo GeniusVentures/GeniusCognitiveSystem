@@ -213,6 +213,9 @@ Representative structure:
   "policy_hash": "policy_version_hash",
   "accept_count": 0,
   "reject_count": 0,
+  "failure_signature_ref": "optional_mistake_or_failure_asset_ref",
+  "failure_severity_score": 0.0,
+  "last_failed_at": 0,
   "verification_score": 0.0,
   "grounding_score": 0.0,
   "execution_success_score": 0.0,
@@ -283,8 +286,30 @@ It should account for:
 - grounding agreement
 - latency saved
 - downstream execution success
+- optional scope-specific activation bias, used only for ordering and never as objective confidence
 
 ---
+
+
+### **23.8.1 Negative Transition Evidence and Scoped Activation**
+
+Rejected or failed transitions are useful memory. VTG SHOULD retain verified negative evidence when it helps the system avoid repeating a known bad path.
+
+A failed edge may reference a GAML Mistake Event or other failure artifact through `failure_signature_ref`. Rejection count, failure severity, recency, verifier evidence, and model/policy compatibility may reduce a candidate's rank or cause escalation to a different execution path.
+
+Negative evidence is not necessarily permanent. Failures tied to obsolete model versions, policies, tools, or environments may decay or become inapplicable as those dependencies change.
+
+VTG may also consume **scope-specific activation** from GAML as a candidate-ordering hint. For example, a currently active C++/CMake cognitive neighborhood may bias compatible verified transitions upward for a Code Expert.
+
+However:
+
+* activation is not evidence
+* repeated retrieval is not verification
+* subjective or cultural overlays are not objective transition confidence
+* one expert's activation state must not globally heat an edge for unrelated experts, users, or tenants
+
+Objective edge statistics such as acceptance, rejection, grounding, verification, and execution success remain separate from scoped activation and subjective preference adaptation.
+
 
 ## **23.9 Relationship to GAML**
 
