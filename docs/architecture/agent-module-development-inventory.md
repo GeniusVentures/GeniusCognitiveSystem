@@ -713,6 +713,8 @@ Core asset types include:
 * Capability Contract
 * Capability Execution Record
 * Memory Trace
+* Mistake Event
+* Lesson
 
 ## **31.7.2 GAML Memory API**
 
@@ -926,6 +928,97 @@ trust_score =
   + approved_consensus
 ```
 
+
+### **31.7.14.1 Memory Lifecycle and Consolidation Manager**
+
+**Class:** Deterministic Service with optional model-assisted scoring
+
+Responsibilities:
+
+* distinguish working, short-term, and long-term memory stages
+* keep memory stage separate from semantic, episodic, procedural, and policy/preference class
+* score importance and consolidation independently from confidence and freshness
+* promote selected short-term memories into durable long-term memory
+* allow low-value, redundant, routine, or superseded short-term experience to decay or expire
+* strongly consolidate major events, major corrections, and high-value mistakes when policy permits
+* support retroactive consolidation when later outcomes increase an older event's significance
+* preserve explicit retention, audit, privacy, deletion, and revocation requirements
+
+Representative consolidation inputs include:
+
+```text
+novelty
+consequence
+goal impact
+explicit importance
+recurrence
+prediction error / surprise
+correction value
+future utility
+provenance
+policy constraints
+```
+
+Long-term retention strength and current cognitive activation are separate. Strongly consolidated LTM may use near-zero retention decay while remaining normally inactive until cued.
+
+### **31.7.14.2 Scoped Activation State Service**
+
+**Class:** Deterministic Runtime/Data Service
+
+Responsibilities:
+
+* maintain activation state keyed by cognitive scope plus Cognitive Asset ID
+* calculate lazy time-based activation decay
+* reinforce activation when an asset is successfully used
+* keep activation independent from confidence, freshness, provenance, and importance
+* prevent one expert, user, tenant, or worker's activity from globally heating shared memory
+* provide bounded activation bias to retrieval, prefetch, and VTG candidate ordering
+* support optional one- or two-hop bounded spreading activation
+* ensure co-activation never becomes evidence or independent corroboration
+
+Representative state:
+
+```text
+scope_id
+asset_id
+activation_score
+last_activated_at
+activation_half_life
+activation_floor
+```
+
+### **31.7.14.3 Cognitive Scope and Memory Overlay Service**
+
+**Class:** Deterministic Data Service
+
+Responsibilities:
+
+* represent core, domain, role, expert, cultural, regional, professional, organization/team, individual, user, and tenant memory scopes
+* store sparse overlays as asset references and weighting deltas rather than duplicated canonical memory
+* compose authorized overlays for a request
+* distinguish stable expert lineage scope from ephemeral runtime worker state
+* allow context-dependent preference and affinity without rewriting objective facts
+* support promotion of verified lessons from expert scope to role/domain scope and, when justified, to core scope
+* preserve independent privacy, provenance, and retention policy for referenced assets
+
+A stable expert lineage may accumulate durable expert-scoped lessons and affinities. A runtime worker instance normally keeps only working memory, short-term memory, caches, and activation state.
+
+### **31.7.14.4 Mistake and Lesson Processor**
+
+**Class:** Hybrid Agent and Deterministic Service
+
+Responsibilities:
+
+* create Mistake Event candidates from failed executions, verifier corrections, user corrections, tool failures, or unexpected outcomes
+* preserve expected outcome, actual outcome, failure signature, severity, context, correction, and root-cause status where available
+* distinguish verified root cause from hypothesis
+* cluster recurring failure signatures
+* generate Lesson candidates with provenance back to supporting events
+* require verification, recurrence, or independent support before promoting a Lesson into procedural memory or policy
+* emit relevant VTG negative evidence and EGGROLL adaptation signals
+* prevent one isolated failure from becoming a global rule
+
+
 ## **31.7.15 Private-Memory Authorization Service**
 
 Privacy is independent of trust.
@@ -1013,11 +1106,12 @@ A derived artifact may not receive a broader privacy scope unless an explicit re
 Responsibilities:
 
 * determine whether memory is required
-* select allowed memory classes
+* select allowed memory stages, classes, cognitive scopes, and contextual overlays
 * select retrieval budgets
 * choose trusted-only or mixed-trust behavior
 * evaluate stale or superseded assets
 * resolve whether contradictions require arbitration
+* apply relevance plus bounded scope-specific activation bias without treating activation as evidence
 * assemble the smallest useful memory set
 * prevent private memory from reaching unauthorized execution nodes
 
@@ -1029,6 +1123,7 @@ Responsibilities:
 * perform graph traversal
 * perform temporal filtering
 * perform semantic matching
+* apply bounded scope-specific activation and overlay ranking hints after authorization filtering
 * perform provenance filtering
 * retrieve candidate Bridge Blocks
 * retrieve related procedures and policies
@@ -1052,6 +1147,7 @@ Responsibilities:
 
 * combine current request
 * combine relevant GAML assets
+* compose authorized core/domain/role/expert/contextual memory overlays
 * combine active policies
 * combine contradictions and uncertainty
 * combine permitted capability metadata
@@ -1089,6 +1185,8 @@ Responsibilities:
 Responsibilities:
 
 * apply retention schedules
+* expire low-value short-term memory when consolidation policy does not promote it
+* avoid deleting strongly consolidated LTM merely because current activation is low
 * delete or tombstone assets
 * remove derived indexes
 * revoke shared copies where possible
@@ -1126,6 +1224,7 @@ Responsibilities:
 
 * store candidate transitions
 * store acceptance and rejection counts
+* store optional failure-signature references, severity, and last-failure time
 * store verification and grounding scores
 * store execution-success scores
 * store latency savings
@@ -1138,7 +1237,7 @@ Responsibilities:
 Responsibilities:
 
 * retrieve multiple possible continuations
-* rank candidates by verification, compatibility, reputation, and recency
+* rank candidates by verification, compatibility, reputation, recency, and optional scoped activation bias
 * return candidates as proposals
 * never treat a cache or transition hit as truth
 * expose confidence and required verification path
@@ -1153,6 +1252,7 @@ Responsibilities:
 * consume tool execution outcomes
 * consume user acceptance or rejection
 * update transition evidence
+* link verified failures to GAML Mistake Events and negative transition evidence
 
 ## **31.8.5 Transition Decay and Compatibility Manager**
 
