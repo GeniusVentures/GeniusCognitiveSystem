@@ -1,0 +1,238 @@
+# Roadmap: Genius Cognitive System — App Workstream (v1.0 GCS Chat)
+
+## Overview
+
+Build a working multi-party chat application where users create spaces and rooms, invite participants via capability tokens, chat in real-time via CRDT sync, and interact with the GCS bot as an AI participant — all without central servers. The roadmap progresses from C++ core foundation through entity management (spaces/rooms), messaging, membership, moderation, bot integration, and finally public discovery.
+
+## Phases
+
+**Phase Numbering:**
+
+- Integer phases (1, 2, 3): Planned milestone work
+- Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
+
+Decimal phases appear between their surrounding integers in numeric order.
+
+- [x] **Phase 1: Foundation** - C++ core scaffolding, GlobalDB CRDT integration, FFI bridge to Flutter, and cross-platform CI/CD (macOS, Linux, Windows, iOS, Android)
+- [x] **Phase 2: Spaces & Rooms** - Space and room creation with configurable inheritance (completed 2026-09-19)
+- [x] **Phase 3: Messaging** - Real-time text messaging with CRDT sync across participants (completed 2026-09-24)
+- [ ] **Phase 4: Membership & Invites** - Roles, capability tokens, and permission model
+- [ ] **Phase 5: Moderation** - Message tombstones, kick/ban, and admin approval flows
+- [ ] **Phase 6: GCS Bot** - Bot participant with auto-answer policies and Expert Model routing
+- [ ] **Phase 7: Discovery** - Public space lobby and private space isolation
+
+## Phase Details
+
+### Phase 1: Foundation
+
+**Goal**: The C++ chat core compiles, links against GlobalDB, and exposes a working FFI surface that Flutter can call.
+**Depends on**: Nothing (first phase)
+**Requirements**: CORE-05
+**Success Criteria** (what must be TRUE):
+
+  1. C++ core library builds on macOS, Linux, Windows, iOS, and Android without errors
+  2. GlobalDB CRDT instance can be initialized and a test op can be published/subscribed locally
+  3. Flutter app can call into C++ via FFI and receive a response
+  4. GossipSub topics can be created and joined from the C++ core
+  5. CI/CD pipeline builds and tests on self-hosted runners for macOS, Linux, Windows, iOS, Android
+
+**Plans:** 11/11 plans executed
+
+Plans:
+**Wave 1**
+
+- [x] 01-01-PLAN.md — Wave 1 — Move GcsGlobalDb to root src/lib/gcs_storage/ + four pass-through accessors (D-25) + staged test
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [x] 01-02-PLAN.md — Wave 2 (depends: 01-01) — Wire gcs_core to gcs_storage; create gcs::CoreSession class
+- [x] 01-07-PLAN.md — Wave 2 (depends: 01-01) — Flutter app build wiring (FRONTEND_BUILD_ENABLED gate) + pubspec (keep neoswarm_ffi, add flutter_bloc/ffigen/protobuf/protoc_plugin)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [x] 01-03-PLAN.md — Wave 3 (depends: 01-01, 01-02, 01-07) — protobuf wire contract (gcs_chat.proto + gcs_proto) + gcs_ffi SHARED lib + C ABI (D-26 push-not-pull) + add_subdirectory(app) wiring
+- [x] 01-08-PLAN.md — Wave 3 (depends: 01-07) — chat_message_bubble composite codegen (Dart triple; C++ half = proto)
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [x] 01-04-PLAN.md — Wave 4 (depends: 01-01, 01-02, 01-03) — Test scaffolding + CORE-05 smoke tests (lifecycle, CRDT round-trip, FFI option-C init)
+- [x] 01-09-PLAN.md — Wave 4 (depends: 01-08) — code_block + media composite codegen (top-level flow items)
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
+- [x] 01-05-PLAN.md — Wave 5 (depends: 01-03, 01-04, 01-07) — Dart_PostCObject protobuf-byte posting + ffigen/protobuf Dart bindings + Dart smoke test
+- [x] 01-06-PLAN.md — Wave 5 (depends: 01-03, 01-04) — CI workflow (.github/workflows/cmake.yml, -DBUILD_TESTS=ON) for all 5 platforms
+- [ ] 01-10-PLAN.md — Wave 5 (depends: 01-08, 01-09) — chat_message_flow envelope (sealed ChatFlowItem)
+
+**Wave 6** *(blocked on Wave 5 completion)*
+
+- [x] 01-11-PLAN.md — Wave 6 (depends: 01-05, 01-10) — GCSChat app shell (rail + flow + composer) + pushed-event cubits + theming
+
+### Phase 2: Spaces & Rooms
+
+**Goal**: Users can create spaces and rooms with configurable inheritance, and the entity hierarchy is persisted via CRDT.
+**Depends on**: Phase 1
+**Requirements**: CORE-01, CORE-02, CORE-03
+**Success Criteria** (what must be TRUE):
+
+  1. User can create a public or private space and see it in their local space list
+  2. User can create a room within a space or as a standalone room
+  3. User can toggle `autoJoinRooms` on a space and observe the join behavior change
+  4. Space/room metadata survives app restart (CRDT persistence)
+
+**Plans:** 5/5 plans complete
+
+Plans:
+**Wave 1**
+
+- [x] 02-01-PLAN.md — Wave 1 — Extend gcs_chat.proto (entity records/commands/SpaceTree) + gcs::EntityStore + unit tests
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [x] 02-02-PLAN.md — Wave 2 (depends: 02-01) — FFI dispatch (create/update arms, SpaceTree push, derived joins) + two-session persistence test
+- [x] 02-03-PLAN.md — Wave 2 (depends: 02-01) — Dart pb regen (pinned 22.5.0) + RailCubit tree + SpaceTree dispatch + cubit tests
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [x] 02-04-PLAN.md — Wave 3 (depends: 02-03) — Create/edit dialog (space_room_dialog.dart) + dialog tests + scaffold contrast ticket
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [x] 02-05-PLAN.md — Wave 4 (depends: 02-03, 02-04) — Rail tree render (sections/badges/affordances/dimming) + rail widget tests
+
+**UI hint**: yes
+
+### Phase 3: Messaging
+
+**Goal**: Users can send and receive text messages in real-time, with all room participants converging on the same message history via CRDT.
+**Depends on**: Phase 2
+**Requirements**: CORE-04
+**Success Criteria** (what must be TRUE):
+
+  1. User can send a text message to a room and see it appear locally
+  2. A second user in the same room receives the message without manual refresh
+  3. Message history is identical across all participants after sync
+  4. Messages display in chronological order with sender identification
+
+**Plans:** 6/6 plans complete
+
+Plans:
+**Wave 1**
+
+- [x] 03-01-PLAN.md — Wave 1 — SuperGenius/GeniusSDK signature verification (QueryKeyValues/PutLocal/RegisterNewElementCallback/GetAddress/Publish/Subscribe) + append-only proto additions (sender/deleted/deleted_at_ms + MessageHistory)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [x] 03-02-PLAN.md — Wave 2 (depends: 03-01) — Storage widening (topics-aware Put, PutLocal, QueryKeyValues, RegisterNewElementCallback, raw full-value Publish/Subscribe + CoreSession pass-throughs) + storage tests
+- [x] 03-03-PLAN.md — Wave 2 (depends: 03-01) — Dart pb regen + MessageFlowCubit upsert/replaceAll + SessionCubit messageHistory dispatch + cubit tests
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [x] 03-04-PLAN.md — Wave 3 (depends: 03-01, 03-02) — gcs::Messaging component (live full-value publish + archive send, two-route dedupe, history) + test_gcs_messaging (TDD)
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [x] 03-05-PLAN.md — Wave 4 (depends: 03-04) — FFI wiring (send_text delegate, join-time history replay, live subscribe + CRDT receive bridge)
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
+- [x] 03-06-PLAN.md — Wave 5 (depends: 03-03, 03-05) — Human-verify checkpoint (live send/receive + history convergence)
+
+**UI hint**: yes
+
+### Phase 4: Membership & Invites
+
+**Goal**: Users can invite others via capability tokens, and the five-tier role model (Super Admin → Guest) governs what actions each participant can take.
+**Depends on**: Phase 3
+**Requirements**: MEMB-01, MEMB-02, MEMB-03, MEMB-04, MEMB-05
+**Success Criteria** (what must be TRUE):
+
+  1. User can generate an invite link (`gcs://invite/...`) for a space or room
+  2. Recipient can use the invite to join and appears in the member list
+  3. Each participant has a visible role (Super Admin, Admin, Moderator, Member, Guest)
+  4. Super Admin cannot be demoted by other admins
+  5. When 2+ admins exist, destructive actions require Super Admin approval
+
+**Plans:** 7 plans
+
+Plans:
+**Wave 1**
+
+- [ ] 04-01-PLAN.md — Wave 1 — Append-only proto contract (Role/MemberRecord/MemberList/InviteLink + creator/members_can_invite/approved_by + 7 command/2 event arms)
+- [ ] 04-02-PLAN.md — Wave 1 — Crypto key-wrap + per-room key store + WR-02 HKDF-ikm swap (D-06)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 04-04-PLAN.md — Wave 2 (depends: 04-01) — EntityStore creator + members_can_invite stamping (P1/P2/P3) + UpdateSpace preservation
+- [ ] 04-06-PLAN.md — Wave 2 (depends: 04-01) — Dart pb regen + MembersCubit + SessionCubit dispatch arms
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 04-03-PLAN.md — Wave 3 (depends: 04-01, 04-02, 04-04) — gcs::Membership component (mint/redeem/role/remove/leave/delete/approve + D-03/D-07/D-08 guards) + unit/multinode tests
+- [ ] 04-07-PLAN.md — Wave 3 (depends: 04-06) — Membership UI (members dialog, join dialog, rail affordances, MembersCubit wiring)
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 04-05-PLAN.md — Wave 4 (depends: 04-03, 04-04) — FFI wiring (membership arms + /gcs/members/ heal callback + P5 retroactive guards + D-02 explicit_leave)
+**UI hint**: yes
+
+### Phase 5: Moderation
+
+**Goal**: Moderators and admins can manage room content and membership through tombstone-based CRDT ops that preserve history while hiding removed content.
+**Depends on**: Phase 4
+**Requirements**: MODR-01, MODR-02, MODR-03
+**Success Criteria** (what must be TRUE):
+
+  1. Moderator can delete a message and it disappears from all participants' views
+  2. Deleted message content is preserved in the CRDT (tombstone, not removal)
+  3. Moderator can kick a user from a room; the user loses access immediately
+  4. Moderator can ban a user; the ban persists across rejoin attempts
+
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 6: GCS Bot
+
+**Goal**: The GCS system joins rooms as a participant and responds to messages according to the room's `autoAnswer` policy, routing requests through capability-first Expert Model selection (ELM/EJM/EDM contracts).
+**Depends on**: Phase 3
+**Requirements**: GCSB-01, GCSB-02, GCSB-03, GCSB-04
+**Success Criteria** (what must be TRUE):
+
+  1. GCS bot appears in the room participant list
+  2. When `autoAnswer: GCS`, the bot responds to every message automatically
+  3. When `autoAnswer: None`, the bot responds only when `@gcs` is mentioned
+  4. Bot responses are routed through the correct Expert Model (ELM/EJM/EDM) for the query type
+  5. Bot messages appear in the same CRDT message stream as human messages
+
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 7: Discovery
+
+**Goal**: Users can browse public spaces in a global lobby, while private spaces remain invisible to the network.
+**Depends on**: Phase 2
+**Requirements**: DISC-01, DISC-02, DISC-03
+**Success Criteria** (what must be TRUE):
+
+  1. Creating a public space publishes its existence to the lobby topic
+  2. Private spaces never appear in the lobby
+  3. User can open the lobby and see a list of public spaces
+  4. User can join a public space directly from the lobby
+
+**Plans**: TBD
+**UI hint**: yes
+
+## Progress
+
+**Execution Order:**
+Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
+
+| Phase | Plans Complete | Status | Completed |
+|-------|----------------|--------|-----------|
+| 1. Foundation | 11/11 | Complete | 2026-09-16 |
+| 2. Spaces & Rooms | 5/5 | Complete   | 2026-09-19 |
+| 3. Messaging | 6/6 | Complete   | 2026-09-24 |
+| 4. Membership & Invites | 0/7 | Not started | - |
+| 5. Moderation | 0/TBD | Not started | - |
+| 6. GCS Bot | 0/TBD | Not started | - |
+| 7. Discovery | 0/TBD | Not started | - |

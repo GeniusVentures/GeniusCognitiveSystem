@@ -1,0 +1,5 @@
+{
+  "widget_class_name": "ChatMessageFlow",
+  "file_stem": "chat_message_flow",
+  "item_types": ["text_bubble", "code_block", "media"]
+}

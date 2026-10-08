@@ -191,7 +191,7 @@ Frozen Micro-MTP is useful because verification keeps commitment bounded.
 Verification may be performed by:
 
 - the same frozen backbone
-- a role-specific verifier ELM
+- a role-specific Verifier Expert, including an EJM bounded judgment path where appropriate
 - schema validation
 - parser validation
 - compiler or tests
@@ -297,7 +297,7 @@ Attach a small head to the most deterministic local specialist.
 
 ### **25.13.3 Phase 3 — Code Specialist Micro-MTP**
 
-Extend to code paths where compiler, tests, static analysis, or verifier ELMs can validate.
+Extend to code paths where compiler, tests, static analysis, or Verifier Experts can validate; bounded EJM verification may be used when the acceptance decision can be expressed as a typed judgment.
 
 ### **25.13.4 Phase 4 — Router Policy**
 

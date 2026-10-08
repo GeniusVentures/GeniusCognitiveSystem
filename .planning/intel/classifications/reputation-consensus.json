@@ -1,24 +1,29 @@
 {
   "source_path": "/Users/Shared/SSDevelopment/Development/GeniusVentures/GeniusNetwork/GeniusCogntiveSystem/docs/architecture/reputation-consensus.md",
-  "type": "DOC",
-  "confidence": "high",
-  "manifest_override": true,
+  "type": "SPEC",
+  "confidence": "medium",
+  "manifest_override": false,
   "title": "7 Reputation-Based Consensus System",
-  "summary": "Describes the reputation-based consensus system including data model, weighted update formulas, consensus protocol, swarm execution flow, and Byzantine tolerance mechanisms for swarm inference coordination.",
+  "summary": "Specifies the reputation data model, weighted update formulas, consensus message protocol, swarm execution flow, and Byzantine-tolerance and liveness rules for task-level swarm consensus.",
   "scope": [
-    "reputation consensus",
-    "weighted consensus algorithm",
-    "swarm execution flow",
-    "libp2p",
-    "Byzantine tolerance",
-    "CRDT state",
-    "RocksDB",
-    "wallet-core",
     "reputation data model",
-    "consensus engine"
+    "reputation update formulas",
+    "weighted consensus algorithm",
+    "consensus engine",
+    "swarm execution flow",
+    "consensus message types",
+    "Byzantine tolerance",
+    "liveness model",
+    "reputation-gated participation",
+    "genesis anchor bootstrap nodes",
+    "requestor-orchestrator",
+    "libp2p",
+    "wallet-core",
+    "RocksDB",
+    "CRDT replicated state"
   ],
   "cross_refs": [],
   "locked": false,
   "precedence": null,
-  "notes": ""
+  "notes": "Lives in docs/architecture/ with some design-rationale prose (mild DOC signal) and a prior manifest-based run tagged it DOC, but dominant content is schemas, formulas, protocol message definitions, and liveness/quorum contracts; resolved to SPEC per ambiguity rule (SPEC > DOC)."
 }

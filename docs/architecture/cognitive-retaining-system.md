@@ -11,7 +11,7 @@ This approach maintains a **stable Semantic Core** while dynamically adapting re
 
 Targeted Retraining is defined as:
 
-> Continuous, fine-grained adaptation of user-specific and role-specific cognitive behavior through lightweight updates to adapters, routing weights, critic weights, verification behavior, memory, and arbitration behavior—without requiring full base-model replacement.
+> Continuous, fine-grained adaptation of user-specific and role-specific cognitive behavior through lightweight updates to adapters, EJM decision heads/readouts, routing weights, critic weights, verification behavior, memory, and arbitration behavior—without requiring full base-model replacement.
 
 ### 20.2.1 Key Properties
 
@@ -22,9 +22,10 @@ Targeted Retraining is defined as:
 - **Lightweight**
   - Operates on:
     - adapters
+    - EJM decision heads/readouts and calibration artifacts
     - routing weights
     - critic or verifier weight distributions
-    - memory structures
+    - memory structures and sparse contextual overlay weights
     - arbitration logic
 
 - **Non-Differentiable Optimization**
@@ -55,10 +56,12 @@ EGGROLL enables:
 ### 20.3.2 Optimization Targets
 
 - Adapter parameters
+- EJM decision-head/readout parameters and calibration state
 - Routing decisions
 - Critic or verifier weighting distributions
 - Exploration vs alignment balance
 - Arbitration strategies
+- Contextual memory-overlay affinities and preference weights
 
 ### 20.3.3 Reward Signals
 
@@ -95,6 +98,61 @@ Representative evaluation perspectives include:
 - grounded factual consistency
 
 ---
+
+
+### 20.4.2 Persistent Contextual Memory Overlays
+
+HCTS context layers may maintain sparse, persistent GAML overlays rather than separate copies of shared knowledge.
+
+Representative overlay scopes include:
+
+* country / cultural
+* regional / social
+* professional / domain
+* organizational / team
+* individual cognitive
+* stable expert lineage
+
+An overlay references canonical GAML Cognitive Assets and adds context-specific weighting:
+
+```text
+Shared objective/domain memory
+        +
+country / regional context
+        +
+professional / organization context
+        +
+individual or expert overlay
+        +
+current short-term / working memory
+        ↓
+context packet for critique or execution
+```
+
+A representative logical shape is:
+
+```text
+MemoryOverlay {
+    overlay_id
+    scope_type
+    scope_id
+    entries[] {
+        asset_id
+        affinity_delta
+        activation_bias
+        preference_weight
+    }
+}
+```
+
+The overlay SHOULD remain sparse. Shared facts, procedures, and verified evidence remain canonical GAML assets rather than being copied into every cultural, organizational, or expert context.
+
+Context layers are affinities, not immutable identity labels. An expert or user may have strong affinity with multiple countries, professional cultures, organizations, teams, or reasoning styles at the same time, and those affinities may evolve.
+
+Overlay influence should scale with context dependence. Objective facts and verified transitions should normally dominate highly objective tasks. Cultural, organizational, stylistic, or individual overlays may have much greater influence on subjective or norm-dependent tasks.
+
+An overlay MUST NOT silently change objective confidence, provenance, authorization, or verified VTG statistics. It may affect retrieval priority, critique framing, synthesis, arbitration, and preference-sensitive ranking.
+
 
 ## 20.5 Functional Responsibilities
 
@@ -181,13 +239,21 @@ Each interaction generates a **Cognitive Training Event**:
 }
 ```
 
+Cognitive Training Events use the shared Qualified Cognitive Event envelope defined by [Cognitive Evolution Coordination](./cognitive-evolution-control.md). The shared envelope supplies request, tenant, policy, privacy, provenance, component-version, replay, and promotion metadata while this document retains the HCTS-specific feedback fields.
+
+When an interaction yields bounded judgment training material, the learning pipeline SHOULD separate the semantic source from the target-specific training representation. The semantic layer records a canonical decision state plus isolated decision branches with semantic choices, probabilities or verified outcomes, dependency semantics, provenance, and governance. Target-specific Distillation Views then compile those records for a particular model/expert lineage, capability, tokenizer/template, adapter/head/readout, and validation policy.
+
 This data drives Targeted Retraining via:
 
 - weight adjustments
 - adapter updates
+- EJM decision-head/readout updates and calibration
+- target-specific Distillation View / training-shard generation
 - critic influence tuning
 - routing refinement
 - arbitration refinement
+
+Candidate updates follow the validation, replay, canary, and promotion contract of the target subsystem. Canonical decision records may be shared across compatible expert views, but user/tenant-private source data, calibration, artifact identity, promotion state, and rollback history remain independently governed per target lineage and privacy boundary.
 
 ---
 

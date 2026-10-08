@@ -2,7 +2,7 @@
 
 ## Product & Technical Design Specification
 
-The **Genius Cognitive System (GCS)** is an integrated distributed cognitive platform. The **Genius Expert Language Model (Genius ELM)** provides the semantic inference core within a broader architecture for orchestration, verification, memory, specialized agents, distributed execution, and swarm cognition.
+The **Genius Cognitive System (GCS)** is an integrated distributed cognitive platform. The **Genius Expert Language Model (Genius ELM)** provides the semantic inference core within a broader architecture for orchestration, verification, memory, specialized agents, distributed execution, swarm cognition, and coordinated cognitive evolution.
 
 This documentation is a combined product requirements document, technical design document, and system architecture blueprint.
 
@@ -10,4 +10,4 @@ This documentation is a combined product requirements document, technical design
 
 Use the left navigation to browse the generated architecture index and source-reference documentation.
 
-A good starting path is the executive summary and system overview, followed by the model, routing, consensus, grounding, memory, distributed swarm thinking, the Context Lifecycle, Caching, and Governance contract, secure-agent architecture, the retraining layers, epistemic arbitration, SGFP4, Objective Memory / VTG, speculative decoding, Frozen Micro-MTP, the OpenAI-compatible API router, Local Cognitive Second Brain Mode, Forecast-Driven Cognition, the Execution Integrity System, the GCS Capability System, and the Agent and Module Development Inventory.
+A good starting path is the executive summary and system overview, followed by the model, routing, consensus, grounding, memory, distributed swarm thinking, the Context Lifecycle, Caching, and Governance contract, secure-agent architecture, the retraining layers, cognitive evolution coordination, epistemic arbitration, SGFP4, Objective Memory / VTG, speculative decoding, Frozen Micro-MTP, the OpenAI-compatible API router, Local Cognitive Second Brain Mode, Forecast-Driven Cognition, the Execution Integrity System, the GCS Capability System, and the Agent and Module Development Inventory.

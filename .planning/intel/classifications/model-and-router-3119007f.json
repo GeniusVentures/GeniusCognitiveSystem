@@ -1,0 +1,35 @@
+{
+  "source_path": "/Users/Shared/SSDevelopment/Development/GeniusVentures/GeniusNetwork/GeniusCogntiveSystem/docs/architecture/model-and-router.md",
+  "type": "DOC",
+  "confidence": "medium",
+  "manifest_override": false,
+  "title": "Model Architecture and Router Design",
+  "summary": "Architecture description of the GCS model layer — Semantic Core, Expert Model taxonomy (ELM/EJM/EDM), execution backends — and the Router's rule-based MVP routing design with future evolution.",
+  "scope": [
+    "Semantic Core",
+    "Expert Models",
+    "ELM",
+    "EJM",
+    "EDM",
+    "diffusion processor",
+    "bounded judgment",
+    "Router",
+    "Planner",
+    "Verifier",
+    "Arbiter",
+    "SGFP4 quantization",
+    "MNN runtime",
+    "Vulkan",
+    "RuntimeCoordinator",
+    "Cognitive Execution Scheduler",
+    "execution graph",
+    "domain specialists",
+    "private expert models"
+  ],
+  "cross_refs": [
+    "./sgfp4-format.md"
+  ],
+  "locked": false,
+  "precedence": null,
+  "notes": "No frontmatter or filename type signal; classification from content only. Mild SPEC competition from normative must-statements (EJM token-label adapter validation, contract taxonomy) resolved to DOC because the document is prose-heavy architecture description with no schemas, endpoints, data models, or SLOs. Document contains two H1s (Model Architecture, Router Design); title combines both."
+}

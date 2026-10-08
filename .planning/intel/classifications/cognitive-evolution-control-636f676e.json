@@ -1,0 +1,31 @@
+{
+  "source_path": "/Users/Shared/SSDevelopment/Development/GeniusVentures/GeniusNetwork/GeniusCogntiveSystem/docs/architecture/cognitive-evolution-control.md",
+  "type": "SPEC",
+  "confidence": "medium",
+  "manifest_override": false,
+  "title": "Cognitive Evolution Coordination",
+  "summary": "Defines the coordination contract linking GCS learning mechanisms through signed Qualified Cognitive Events, governance resolution, replay, promotion, and observability contracts.",
+  "scope": [
+    "Qualified Cognitive Events",
+    "RuntimeCoordinator",
+    "GAML",
+    "Objective Memory",
+    "VTG",
+    "EGGROLL",
+    "EJM decision replay",
+    "Distillation Views",
+    "governance resolution",
+    "event signature contract",
+    "replay contract",
+    "promotion contract",
+    "GNUS-NEO-SWARM",
+    "SGProcessingManager",
+    "SuperGenius",
+    "MNN",
+    "Cognitive Assets"
+  ],
+  "cross_refs": [],
+  "locked": false,
+  "precedence": null,
+  "notes": "No frontmatter or filename convention; classification from content only. Mild DOC tension (architecture-prose diagrams in docs/architecture/) resolved in favor of SPEC because the document defines normative schemas and event/replay/promotion contracts the system must honor."
+}

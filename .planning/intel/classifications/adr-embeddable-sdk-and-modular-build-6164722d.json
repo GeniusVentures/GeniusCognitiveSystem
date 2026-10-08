@@ -1,0 +1,26 @@
+{
+  "source_path": "/Users/Shared/SSDevelopment/Development/GeniusVentures/GeniusNetwork/GeniusCogntiveSystem/docs/architecture/decisions/adr-embeddable-sdk-and-modular-build.md",
+  "type": "ADR",
+  "confidence": "high",
+  "manifest_override": false,
+  "title": "ADR: Embeddable GCS SDK and Modular Native Build",
+  "summary": "Decides that GeniusCognitiveSystem becomes the stable embeddable SDK and C ABI boundary with backend-neutral Flutter chat contracts and per-module CMake ownership, with GNUS-NEO-SWARM injected behind RuntimeCoordinator.",
+  "scope": [
+    "GeniusCognitiveSystem parent repository",
+    "native SDK boundary",
+    "GNUS-NEO-SWARM runtime implementation",
+    "RuntimeCoordinator interface",
+    "GeniusCognitiveSystem facade",
+    "stable C ABI for Flutter and FFI consumers",
+    "Dart FFI",
+    "Flutter chat UI packages (gcs_client, gcs_chat, gcs_native)",
+    "modular per-directory CMake build",
+    "native targets (gcs_common, gcs_runtime, gcs_chat_core, gcs_api, gcs_ffi, neoswarm_runtime)",
+    "heavy dependency isolation (MNN, Vulkan/MoltenVK, SGProcessingManager, SuperGenius, libp2p, RocksDB)",
+    "PImpl and abstract interfaces for ABI stability"
+  ],
+  "cross_refs": [],
+  "locked": true,
+  "precedence": null,
+  "notes": ""
+}

@@ -3,7 +3,7 @@
 **GeniusCognitiveSystem** is a distributed, modular, reputation-weighted cognitive system built on GNUS.ai infrastructure, with **Genius Expert Language Model (Genius ELM)** as the semantic core inference engine.
 
 * Genius ELM is evolving from a modular routed model into a distributed swarm thinking system.
-* The current architecture is centered on **Genius ELM** (the Semantic Core) working with specialized **Domain and Role-Based Expert Language Models**, structured memory, execution integrity, grounding, verification, arbitration, and secure agent execution.
+* The current architecture is centered on **Genius ELM** (the Semantic Core) working with specialized **Domain and Role-Based Expert Models (EMs)**, structured memory, execution integrity, grounding, verification, arbitration, and secure agent execution. Expert roles may expose language-generation contracts (ELM), bounded judgment contracts (EJM), refinement/infill capabilities, or combinations of these.
 * Rather than treating agents as isolated application-level workers or a narrow Mixture-of-Agents pipeline, the architecture treats agent execution as one operating mode of the broader Genius Cognitive System.
 * Future operation includes:
   * memory-guided context assembly
@@ -12,7 +12,7 @@
   * synthesis of multiple specialist outputs
   * inspectable thinking traces
   * secure tool use through an intermediary boundary
-  * private customization through retrieval, memory, and private ELMs
+  * private customization through retrieval, memory, and private Expert Models, including private ELM and EJM capabilities
 
 The system:
 
@@ -37,7 +37,7 @@ This is a Specialized Adaptable Intelligence Fabric.
 
 1. ✅ Distributed inference and cognitive execution across GNUS nodes.
 2. ✅ Efficient quantized Semantic Core deployment.
-3. ✅ Modular expert execution through ELMs and specialist services.
+3. ✅ Modular expert execution through capability-oriented Expert Models and specialist services.
 4. ✅ Reputation-weighted output consensus.
 5. ✅ Knowledge grounding via Grokipedia and private retrieval layers.
 6. ✅ Measurable improvement vs naive single-model baseline.
@@ -93,7 +93,7 @@ This distinction is important because GCS does not assume that every task should
 
 At the highest level, GCS is built from four foundational subsystem families:
 
-* **Semantic Core and ELMs** — produce reasoning, language, specialist, and workflow outputs.
+* **Semantic Core and Expert Models** — provide general reasoning plus capability-oriented specialist execution. ELM contracts generate/transform language; EJM contracts return bounded typed judgments; other processor capabilities may refine, rank, embed, or classify without forcing all specialist work through language generation.
 * **GAML** — provides governed cognitive memory, knowledge, provenance, and asset storage.
 * **EIS** — verifies that distributed computation was executed according to the declared execution contract.
 * **Consensus, Verification, and Synthesis** — determine semantic quality, resolve disagreement, and form the final response.
@@ -108,7 +108,7 @@ The Executive Controller is responsible for:
 * selecting the execution mode: core-only, specialist-assisted, swarm, or agent mode
 * deciding whether memory, grounding, tools, execution attestation, or private tenant context are required
 * allocating token, latency, privacy, verification, and spend budgets
-* selecting the initial Semantic Core, Role-Based ELMs, Domain-Specific ELMs, and verification path
+* selecting the initial Semantic Core, role-based and domain-specific Expert Models, required capabilities, compatible processor architecture, and verification path
 * producing an execution graph that can run locally or be distributed across GNUS nodes
 
 The Router remains a key part of this layer, but it is not the whole cognitive system. Routing is one decision function inside a broader executive process that also includes planning, memory governance, policy evaluation, scheduling, execution-integrity policy, and learning decisions.
@@ -136,13 +136,38 @@ This separation prevents reputation-weighted semantic consensus from carrying a 
 
 The GNUS Agentic Memory Layer (GAML) should be understood as the Cognitive Knowledge Layer of GCS rather than as a conventional vector database. Its purpose is not merely to find similar text. Its purpose is to decide which durable cognitive context should influence the next action.
 
-GAML supports multiple memory classes:
+GAML separates **memory lifecycle stage** from **memory class**.
+
+Memory stages are:
+
+* **Working memory** — request-scoped active goals, retrieved context, tool outputs, specialist outputs, temporary plans, and pending decisions.
+* **Short-term memory (STM)** — bounded recent experience that survives request boundaries while the system determines whether it is important enough to consolidate.
+* **Long-term memory (LTM)** — consolidated Cognitive Assets intended for durable retention.
+
+Memory classes are orthogonal to those stages:
 
 * **Semantic memory** — durable facts, definitions, specifications, APIs, architecture, and domain knowledge.
-* **Episodic memory** — prior conversations, task history, debugging sessions, deployment outcomes, and user/project events.
+* **Episodic memory** — prior conversations, task history, debugging sessions, deployment outcomes, major events, and user/project experiences.
 * **Procedural memory** — workflows, tool sequences, coding patterns, deployment procedures, support playbooks, and tenant operating rules.
-* **Working memory** — active goals, retrieved context, tool outputs, specialist outputs, temporary plans, and pending decisions for the current request.
 * **Policy and preference memory** — user preferences, tenant constraints, safety boundaries, formatting rules, privacy requirements, and trust policies.
+
+The lifecycle is:
+
+```text
+Working Memory
+    ↓
+Short-Term Memory
+    ↓
+Consolidation Evaluation
+    ├── low-value / redundant / transient -> decay or expire
+    ├── useful / repeated / corrective    -> Long-Term Memory
+    └── major event / major mistake       -> strongly consolidated LTM
+```
+
+Activation and retention are separate. A major long-term memory may have very low current activation while remaining strongly consolidated for years or effectively indefinitely. Confidence, freshness, importance, consolidation, and activation are separate state dimensions.
+
+Long-term memory is also logically compartmentalized by cognitive scope. Shared Core and Domain memory may be referenced by many Expert Models, while role/expert overlays hold sparse affinities, activation biases, contextual preferences, and local lessons rather than duplicating the underlying objective knowledge. Runtime expert instances normally keep working memory, STM, cache, and activation state; durable LTM normally belongs to a stable expert lineage, role, domain, user, or tenant scope.
+
 
 GAML retrieves and writes memory through a governed process. The Memory Governor determines whether memory is needed, which memory classes are relevant, how much context budget may be spent, which memories are stale or superseded, which sources are trusted, and whether conflicting memories require arbitration.
 
@@ -163,7 +188,7 @@ A typical context packet may include:
 * tool state or prior tool outputs
 * selected procedures or playbooks
 * known contradictions or uncertainty markers
-* specialist-specific context for verifier, formatter, grounding, code, math, or operations ELMs
+* specialist-specific context for verifier, formatter, grounding, code, math, or operations Expert Models
 
 This approach is closer to human working memory than archive search. The system does not retrieve everything it has seen. It retrieves and composes the information most likely to improve the next decision.
 
@@ -171,21 +196,21 @@ This approach is closer to human working memory than archive search. The system 
 
 The Semantic Core remains the general reasoning substrate of GCS. It provides broad language understanding, default response generation, synthesis support, and fallback reasoning. The Semantic Core is the primary target for aggressive quantization because it is broadly useful and frequently active.
 
-Specialist cognition is handled by ELMs and specialist modules. These may be role-based or domain-specific.
+Specialist cognition is handled by Expert Models and specialist modules. A cognitive role is distinct from the public model contract used to implement it.
 
 Role-based specialists include:
 
-* Planner ELM
-* Primary Draft ELM
-* Verifier ELM
-* Arbiter ELM
-* Refiner / Formatter ELM
-* Grounding ELM
-* Tool-Support ELM
+* **Planner Expert** — may use an EJM for bounded route/plan decisions and an ELM when generated plan text is required.
+* **Primary Draft Expert** — normally exposes an ELM generation contract.
+* **Verifier Expert** — may expose an EJM for correctness, contradiction, ranking, or confidence judgments and an ELM for explanations.
+* **Arbiter Expert** — may use bounded EJM judgments, generated synthesis, or both.
+* **Refiner / Formatter Expert** — may use ELM generation, bounded refinement/infill, or deterministic schema machinery.
+* **Grounding Expert** — may combine bounded evidence judgments with generated explanation.
+* **Tool-Support Expert** — may use EJM scoring/classification and ELM generation while deterministic capability policy retains authority.
 
 Domain-specific specialists include:
 
-* Math Specialist / ELM
+* Math Specialist / Expert Model
 * Code Specialist
 * Scientific Specialist
 * Legal / Compliance Specialist
@@ -193,7 +218,7 @@ Domain-specific specialists include:
 * Customer Support Specialist
 * Finance Specialist
 
-These specialists may be compact standalone SLMs, adapter-augmented models, distilled expert models, constrained services, or distributed swarm participants. The architecture intentionally leaves room for multiple implementation strategies while preserving the higher-level cognitive role.
+These specialists may be compact standalone SLMs, adapter-augmented models, distilled Expert Models, constrained services, or distributed swarm participants. One specialist lineage may expose multiple capabilities against one shared backbone—for example a Code Expert with an ELM generation artifact and a separately trained EJM decision head/readout—while preserving independent training, calibration, and promotion state.
 
 ### **2.3.6 Verification, Arbitration, and Synthesis**
 
@@ -222,14 +247,15 @@ GCS should therefore treat distillation as more than answer imitation. The syste
 * planning behavior
 * router decisions
 * memory selection decisions
-* verifier judgments
+* verifier judgments and calibrated probability distributions
+* bounded routing, classification, ranking, and arbitration judgments
 * synthesis revisions
 * formatting repairs
 * tool execution traces
 * consensus and arbitration outcomes
 * domain-specialist responses
 
-This allows GCS to improve individual cognitive functions without retraining one monolithic model. It also creates a durable learning loop: production execution produces structured traces, traces feed evaluation and distillation, and improved specialists return to the execution layer.
+This allows GCS to improve individual cognitive functions without retraining one monolithic model. For EJM training, reusable semantic decision state and isolated decision branches can be stored once in a canonical corpus, then compiled into target-specific distillation views keyed by model lineage, expert, capability, tokenizer/template, readout/head type, and governance scope. Production execution therefore produces structured traces and decision records; those records feed evaluation and sharded distillation; improved specialist artifacts return to the execution layer.
 
 ### **2.3.8 Relationship to the GNUS Swarm**
 

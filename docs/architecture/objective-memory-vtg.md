@@ -4,7 +4,7 @@
 
 This document defines the **Objective Memory** layer and its primary execution structure, the **Verified Transition Graph (VTG)**.
 
-Objective Memory is not a replacement for GAML, the Semantic Core, Expert Language Models (ELMs), the Router, Reputation-Weighted Consensus, Epistemic Arbitration, or EGGROLL.
+Objective Memory is not a replacement for GAML, the Semantic Core, Expert Models (including ELM and EJM contracts), the Router, Reputation-Weighted Consensus, Epistemic Arbitration, or EGGROLL.
 
 It is a new **verified cognitive execution substrate** that records reusable low-entropy transitions discovered during inference, specialist execution, verification, tool use, grounding, and swarm consensus.
 
@@ -41,7 +41,7 @@ GAML Retrieval + Memory Governor
     ↓
 Objective Memory / VTG Candidate Frontier
     ↓
-Semantic Core + ELM Execution
+Semantic Core + Expert Model Execution
     ↓
 Verification / Arbitration / Synthesis
     ↓
@@ -162,10 +162,12 @@ A basic token-derived state key may include:
 
 ```text
 state_id = H(
-  model_family,
+  model_lineage_id,
   model_version,
   tokenizer_version,
-  role_or_elm_id,
+  expert_id,
+  expert_role,
+  capability,
   tenant_boundary_id,
   policy_hash,
   context_packet_hash,
@@ -201,13 +203,19 @@ Representative structure:
   "current_state": "state_id",
   "candidate_next_state": "state_id",
   "artifact_ref": "optional_content_or_delta_ref",
-  "model_family": "semantic_core_or_elm_family",
+  "model_lineage_id": "semantic_core_or_expert_lineage",
   "model_version": "version_or_cid",
-  "elm_role": "planner|code|verifier|formatter|tool|grounding|synthesizer",
+  "expert_id": "expert_artifact_or_role_instance",
+  "expert_role": "planner|code|verifier|formatter|tool|grounding|synthesizer",
+  "capability": "generate|judge|classify|rank|refine|infill|embed",
+  "processor_kind": "autoregressive|diffusion|encoder|reranker|multimodal",
   "tenant_scope": "global|tenant|private|local",
   "policy_hash": "policy_version_hash",
   "accept_count": 0,
   "reject_count": 0,
+  "failure_signature_ref": "optional_mistake_or_failure_asset_ref",
+  "failure_severity_score": 0.0,
+  "last_failed_at": 0,
   "verification_score": 0.0,
   "grounding_score": 0.0,
   "execution_success_score": 0.0,
@@ -254,11 +262,11 @@ current transition context
 The candidate frontier may be consumed by:
 
 - the Router / Planner
-- the Primary Draft ELM
+- the Primary Draft Expert / ELM
 - a Code Specialist
-- a Formatter ELM
-- a Tool-Support ELM
-- a Verifier ELM
+- a Formatter Expert
+- a Tool-Support Expert
+- a Verifier Expert / EJM
 - the Requestor Node
 - the Epistemic Arbitration Layer
 
@@ -278,8 +286,30 @@ It should account for:
 - grounding agreement
 - latency saved
 - downstream execution success
+- optional scope-specific activation bias, used only for ordering and never as objective confidence
 
 ---
+
+
+### **23.8.1 Negative Transition Evidence and Scoped Activation**
+
+Rejected or failed transitions are useful memory. VTG SHOULD retain verified negative evidence when it helps the system avoid repeating a known bad path.
+
+A failed edge may reference a GAML Mistake Event or other failure artifact through `failure_signature_ref`. Rejection count, failure severity, recency, verifier evidence, and model/policy compatibility may reduce a candidate's rank or cause escalation to a different execution path.
+
+Negative evidence is not necessarily permanent. Failures tied to obsolete model versions, policies, tools, or environments may decay or become inapplicable as those dependencies change.
+
+VTG may also consume **scope-specific activation** from GAML as a candidate-ordering hint. For example, a currently active C++/CMake cognitive neighborhood may bias compatible verified transitions upward for a Code Expert.
+
+However:
+
+* activation is not evidence
+* repeated retrieval is not verification
+* subjective or cultural overlays are not objective transition confidence
+* one expert's activation state must not globally heat an edge for unrelated experts, users, or tenants
+
+Objective edge statistics such as acceptance, rejection, grounding, verification, and execution success remain separate from scoped activation and subjective preference adaptation.
+
 
 ## **23.9 Relationship to GAML**
 
@@ -391,15 +421,15 @@ This improves routing without requiring full Semantic Core retraining.
 
 ---
 
-## **23.12 Relationship to Semantic Core and ELMs**
+## **23.12 Relationship to Semantic Core and Expert Models**
 
 The Semantic Core remains the broad reasoning substrate.
 
-ELMs remain the specialist execution layer.
+Expert Models remain the specialist execution layer. ELM contracts handle language generation/transformation; EJM contracts handle bounded typed judgments; other capabilities may rank, refine, infill, classify, or embed according to the execution stage.
 
 VTG acts as a proposal layer.
 
-It can propose candidate continuations, but Semantic Core and ELM execution remain responsible for producing, validating, or rejecting the final output.
+It can propose candidate continuations or prior transition evidence, but the Semantic Core, selected Expert Models, deterministic validators, and verification/arbitration stack remain responsible for producing, judging, validating, or rejecting the final output.
 
 A typical flow:
 
@@ -486,7 +516,7 @@ A global VTG shard should only accept transitions that are broadly valid across 
 
 ## **23.15 Relationship to EGGROLL**
 
-EGGROLL evolves specialist models, adapters, routing policies, verifier behavior, and other adaptive artifacts using compact swarm-friendly optimization signals.
+EGGROLL evolves specialist models, ELM adapters, EJM adapters/decision heads/readouts, routing policies, verifier behavior, and other adaptive artifacts using compact swarm-friendly optimization signals.
 
 Objective Memory gives EGGROLL another target:
 
@@ -516,7 +546,9 @@ Representative event:
   "grounding_score": 0.91,
   "execution_success": true,
   "latency_saved_ms": 64,
-  "elm_role": "formatter",
+  "expert_role": "formatter",
+  "capability": "refine",
+  "model_lineage_id": "lineage_id",
   "model_version": "cid_or_version",
   "policy_hash": "policy_hash",
   "tenant_scope": "tenant_private",
@@ -537,11 +569,28 @@ model/adapters improve over time
 to:
 
 ```text
-models, adapters, routers, arbiters, and verified cognitive transition memory improve over time
+models, adapters, decision heads/readouts, routers, arbiters, and verified cognitive transition memory improve over time
 ```
 
 ---
 
+
+### **23.15.1 Relationship to EJM Decision Corpora and Distillation Shards**
+
+VTG state identity and EJM distillation state are related but not interchangeable. A VTG edge records a verified transition prior; an EJM canonical decision corpus records a shared semantic state plus one or more bounded decision branches and teacher/verified probability targets.
+
+When a VTG outcome becomes suitable EJM training material, the learning pipeline should create or reference:
+
+* a canonical decision-state artifact;
+* one or more isolated decision-branch artifacts;
+* target-specific Distillation View manifests keyed by model lineage, expert, capability, tokenizer/template, readout/head kind, and governance scope;
+* EGGROLL training-shard manifests joining the selected state shard and branch shard.
+
+Large shared state should be content-addressed once. Multiple expert views may reference the same canonical state/branch records without sharing calibration, promotion, rollback, or artifact identity.
+
+For independent decision branches, reuse of a VTG/context prefix must preserve branch isolation: a judgment branch may see the shared state, but not sibling questions, sibling answers, or sibling intermediate state unless the request explicitly declares a sequential dependency.
+
+---
 ## **23.16 Storage and Distribution Model**
 
 VTG should be implemented as a distributed, content-addressed, policy-scoped graph.

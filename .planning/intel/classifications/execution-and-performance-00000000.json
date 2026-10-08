@@ -1,10 +1,10 @@
 {
   "source_path": "/Users/Shared/SSDevelopment/Development/GeniusVentures/GeniusNetwork/GeniusCogntiveSystem/docs/architecture/execution-and-performance.md",
   "type": "DOC",
-  "confidence": "high",
-  "manifest_override": true,
+  "confidence": "medium",
+  "manifest_override": false,
   "title": "Execution and Performance — Execution Modes and Performance Targets",
-  "summary": "Describes four execution modes (Single Node, ELM-Assisted, Swarm, Agent) and defines performance targets for throughput, memory, quality, scaling, and tool safety.",
+  "summary": "Describes four execution modes (Single Node, ELM-Assisted, Swarm, Agent) and defines qualitative performance targets for throughput, memory, quality, scaling, and tool safety.",
   "scope": [
     "execution modes",
     "Single Node mode",
@@ -16,10 +16,12 @@
     "Expert Language Models (ELMs)",
     "Tool Intermediary",
     "reputation-based selection",
-    "arbiter-mediated synthesis"
+    "arbiter-mediated synthesis",
+    "multi-node scaling",
+    "tool safety overhead"
   ],
   "cross_refs": [],
   "locked": false,
   "precedence": null,
-  "notes": ""
+  "notes": "Ambiguity resolved: Performance Targets section resembles non-functional SLOs (SPEC signal), but all targets are qualitative with no numbers, schemas, or contracts, and descriptive architecture prose dominates, so DOC. Prior classification for this source_path was DOC via manifest_override; no manifest type provided this run, so confidence is content-based. Refreshed existing file in place to avoid a duplicate-source artifact."
 }

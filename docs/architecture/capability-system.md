@@ -198,7 +198,7 @@ The adapter may:
 * sanitize returned content before model or memory use
 * expose selected GCS capabilities through an MCP server interface
 
-No MCP operation executes directly from an ELM or Semantic Core worker.
+No MCP operation executes directly from a Semantic Core or Expert Model worker, including ELM generation or EJM judgment paths.
 
 ```text
 MCP tools/list
@@ -303,7 +303,7 @@ email.message.read Capability
     ↓
 Tool Intermediary
     ↓
-Local extraction or local ELM
+Local extraction or local Expert Model
     ↓
 Temporary context or proposed private GAML memory
 ```

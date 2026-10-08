@@ -12,7 +12,7 @@ The **Execution Integrity System (EIS)** is the GCS subsystem responsible for ve
 
 EIS verifies **execution honesty**, not semantic answer quality. It answers:
 
-> Did this node run the declared model, adapter, SGFP4 container, kernel manifest, determinism class, sampling seed, and execution profile?
+> Did this node run the declared model lineage, expert artifact, adapter or decision head/readout, SGFP4 container, processor contract, tokenizer/template contract where relevant, kernel manifest, determinism class, sampling/decision configuration, and execution profile?
 
 It does not answer:
 
@@ -97,6 +97,9 @@ At minimum, it includes:
 
 - model hash
 - adapter version hash
+- decision-head/readout hash when the expert uses a separately trained EJM head
+- tokenizer/template contract hash where the judgment representation depends on it
+- processor/capability contract identifier
 - SGFP4 container hash
 - kernel manifest ID
 - determinism class
@@ -111,9 +114,10 @@ A node accepting a job attests that it executed under exactly this contract. Ser
 
 The execution contract pins every property that can materially affect output or verification:
 
-- **Weights:** model, specialist, adapter, and quantization container hashes.
+- **Weights and expert artifacts:** model lineage, specialist artifact, adapter, decision head/readout, and quantization container hashes.
+- **Representation contract:** expert capability, tokenizer/template version, choice/readout mapping contract, and processor architecture where these affect the declared computation.
 - **Kernels:** kernel manifest, determinism class, reduction order, fusion order, and runtime profile.
-- **Sampling:** seed, sampler type, temperature, top-k/top-p settings, and any other decoding controls.
+- **Sampling / judgment controls:** seed, sampler type, temperature, top-k/top-p settings for generation, or bounded candidate/readout configuration for judgment.
 - **Checkpoints:** checkpoint tensor schedule, digest format, comparison domain, and class band.
 
 This turns distributed inference from a vague promise into a numerical contract that EIS can test.
@@ -227,13 +231,43 @@ Band parameters are stored as Cognitive Assets with provenance:
 - substitution margin
 - hardware class
 - kernel manifest
-- model and adapter version
+- model lineage, expert artifact, adapter/head/readout version
 
-They are recalibrated when a new hardware class joins the network, a model/adapter version ships, or observed honest-mismatch rates move outside control limits.
+They are recalibrated when a new hardware class joins the network, a model/adapter/head/readout version ships, a processor contract changes, or observed honest-mismatch rates move outside control limits.
 
 Verifier disagreement statistics feed the same reputation and telemetry pipeline as semantic consensus, but remain a separate execution-integrity signal.
 
 ---
+
+### **29.5.5 EJM readout/head substitution**
+
+EJM execution adds a substitution class that is easy to miss if integrity checks stop at the backbone.
+
+A node may load the correct base model and even the correct SGFP4 weights while substituting:
+
+- a stale decision head;
+- the generic next-token readout instead of the declared trained candidate/pointer head;
+- a different prompt/template or semantic-choice mapping;
+- an uncalibrated adapter;
+- a different processor path such as generation followed by parsing instead of the declared bounded read;
+- a cheaper or incompatible diffusion/readout implementation.
+
+Such execution is not contract-compliant even when the returned judgment looks plausible.
+
+For bounded judgment jobs, EIS should therefore pin and attest the full **judgment execution identity**:
+
+```text
+model_lineage
++ expert_id
++ capability
++ adapter/head/readout artifact
++ tokenizer/template contract
++ processor kind
++ candidate/slot mapping contract
++ quantization/runtime/kernel identity
+```
+
+Spot checking may compare exact allowed-candidate logits/probabilities and selected internal checkpoints rather than replaying free-running text. The checker must use the same semantic choice set and compiled representation contract declared by the serving node.
 
 ## **29.6 Teacher-Forced Spot-Check Protocol**
 
@@ -288,7 +322,7 @@ All claims, check results, and verdicts are recorded as Cognitive Assets with pr
 
 | Concern | Mechanism | Cost |
 |---------|-----------|------|
-| Did the node run the specified model, weights, adapter, kernel, and sampler honestly? | EIS checkpoint-band attestation + teacher-forced spot checks | O(prefill), sampled, usually off the latency path |
+| Did the node run the specified model lineage, expert weights, adapter/head/readout, processor contract, kernel, and generation/judgment configuration honestly? | EIS checkpoint-band attestation + contract-appropriate spot checks | O(prefill/read), sampled, usually off the latency path |
 | Is the answer good, correct, grounded, or safe? | Reputation-weighted semantic consensus, grounding, verifier specialists, arbitration, synthesis | Applied where quality matters |
 | Was routing or arbitration good? | Semantic consensus + Cognitive Asset records | Unchanged |
 

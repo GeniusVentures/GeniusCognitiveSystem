@@ -10,7 +10,7 @@ The goal is to make GeniusCognitiveSystem more than a routed collection of speci
 The current architecture describes:
 
 - a Semantic Core
-- role-based ELMs
+- role-based Expert Models (including ELM and EJM contracts)
 - domain-specific experts
 - a router plus planner
 - swarm execution with reputation-weighted consensus
@@ -88,6 +88,8 @@ It is not raw hidden chain-of-thought. Instead, it is a high-level event and art
 - grounding sources consulted
 - primary draft identity and latency
 - secondary expert critiques
+- bounded judgment artifacts, including choice distributions, calibration/uncertainty, and expert identity
+- judgment dependency mode and state/branch references when applicable
 - synthesis decisions
 - final answer lineage
 
@@ -95,7 +97,7 @@ It is not raw hidden chain-of-thought. Instead, it is a high-level event and art
 
 This lets GeniusCognitiveSystem provide the benefits of inspectable reasoning without depending on exposing unrestricted internal token-level chain-of-thought.
 
-It also creates a reusable debugging and training artifact for improving routing, verification, grounding, and consensus.
+It also creates a reusable debugging and training artifact for improving routing, verification, grounding, consensus, and bounded EJM decision quality.
 
 ## 16.7 Memory and context construction
 
@@ -398,27 +400,54 @@ The current architecture discussions suggest multiple possible implementation pa
 
 Both are compatible with the swarm-thinking design, but the documentation does not yet lock in one choice.
 
-### 16.15.1 Recommended documentation additions
+### 16.15.1 Specialist implementation and training identity
 
-The architecture set should later specify:
+The architecture now distinguishes cognitive role, public capability contract, processor architecture, and execution backend. A specialist may therefore expose an ELM generation artifact, an EJM judgment artifact/head/readout, or both against one model lineage.
 
-- which specialists are full models versus adapters
-- how adapters are composed or switched
-- whether synthesis, verifier, and planner roles use shared or independent backbones
-- what teacher data is used for each specialist
-- what evaluation sets measure each specialist role
+Training and deployment identity should specify:
+
+- which specialists are full models versus adapters/heads/readouts
+- how adapters and judgment heads are composed or switched
+- whether synthesis, verifier, planner, and router roles share or separate backbones
+- which canonical decision corpora and target-specific Distillation Views feed each EJM capability
+- which tokenizer/template/readout contract compiles a semantic decision record for the target
+- which evaluation sets and calibration/permutation/OOD gates measure each specialist role and capability
 
 ### 16.15.2 Distillation targets by role
 
 Potential distillation targets include:
 
 - planner traces
-- verifier judgments
-- synthesis revisions
+- verifier judgments and calibrated choice distributions
+- routing and specialist-selection judgments
+- synthesis revisions and arbitration choices
 - tool call correction traces
 - formatting and schema repair examples
+- contradiction, grounding, risk, and evidence judgments
 
-This is different from monolithic reasoning distillation and should be described as role-specific distillation rather than only domain-specific fine-tuning.
+Language-generation training and bounded-judgment training should remain distinct even when they share one specialist lineage. ELM distillation may train generated text; EJM distillation should preferably train semantic decision distributions/outcomes through a target-specific view rather than copying target-token IDs into the canonical corpus.
+
+For JEV-style EJM training, shared state is stored once and multiple decision branches reference it. Independent branches may share prefix/KV or equivalent processor state but cannot observe sibling questions or answers. This is different from monolithic reasoning distillation and should be described as capability- and role-specific distillation rather than only domain-specific fine-tuning.
+
+### 16.15.3 Swarm trace to EJM training-shard conversion
+
+A qualified swarm trace may produce EJM training material through the Cognitive Evolution / EGGROLL pipeline:
+
+```text
+Thinking Trace
+    ↓
+Canonical Decision State + Decision Branches
+    ↓
+Target-Specific Distillation View
+    ↓
+State Shard + Branch Shard
+    ↓
+Beehive-local EGGROLL evaluation
+    ↓
+Promoted adapter/head/readout artifact
+```
+
+The trace should preserve model/expert lineage, capability, source context/provenance, judgment family, dependency semantics, probabilities/outcomes, policy/privacy scope, and artifact versions required for deterministic replay. Multiple target experts may reference the same canonical record while retaining independent calibration and promotion histories.
 
 ## 16.16 Summary
 

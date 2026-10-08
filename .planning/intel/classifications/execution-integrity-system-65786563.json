@@ -1,24 +1,24 @@
 {
   "source_path": "/Users/Shared/SSDevelopment/Development/GeniusVentures/GeniusNetwork/GeniusCogntiveSystem/docs/architecture/execution-integrity-system.md",
-  "type": "DOC",
-  "confidence": "high",
-  "manifest_override": true,
+  "type": "SPEC",
+  "confidence": "medium",
+  "manifest_override": false,
   "title": "29. Execution Integrity System (EIS)",
-  "summary": "Describes the EIS subsystem that verifies distributed computation was executed faithfully according to a declared execution contract, focusing on execution honesty rather than semantic answer quality.",
+  "summary": "Specifies the Execution Integrity System for verifying honest distributed inference: execution contracts, determinism classes, checkpoint-band matching, and teacher-forced spot-check protocol.",
   "scope": [
-    "Execution Integrity System",
+    "Execution Integrity System (EIS)",
     "execution contracts",
     "determinism classes",
     "checkpoint-band matching",
     "teacher-forced spot-check protocol",
-    "semantic consensus interaction",
-    "GAML",
-    "Cognitive Assets",
-    "SGFP4 kernel specification",
+    "sampling-consistency verification",
+    "EJM decision head/readout substitution",
+    "SGFP4 containers and kernel manifests",
     "speculative decoding",
+    "GAML / Cognitive Asset Model",
     "reputation-weighted consensus",
-    "lazy-node attack",
-    "model-substitution attack"
+    "fraud verdicts and slashing",
+    "Cognitive Asset calibration records"
   ],
   "cross_refs": [
     "SGFP4 container/kernel spec",
@@ -29,5 +29,5 @@
   ],
   "locked": false,
   "precedence": null,
-  "notes": ""
+  "notes": "No manifest type provided this run; classified from content. ADR-like signals (Status: Draft for review, Supersedes field, zk-exclusion decision rationale) competed but SPEC dominates: normative execution-contract field lists, determinism-class comparison table, numbered teacher-forced protocol, and kernel-author constraints. Prior ingest run recorded this file as manifest-declared DOC (this same filename, manifest_override true) before the doc gained EJM/processor-contract sections; reclassified from current content. Cross-refs in section 29.10 name target docs without paths."
 }

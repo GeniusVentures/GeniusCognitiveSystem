@@ -4,3 +4,9 @@
 [submodule "gendoc-template"]
 	path = gendoc-template
 	url = ../gendoc-template.git
+[submodule "build"]
+	path = build
+	url = ../cmaketemplate.git
+[submodule "/src/app/scaffold"]
+	path = src/app/scaffold
+	url = ../openapi-client-scaffold.git

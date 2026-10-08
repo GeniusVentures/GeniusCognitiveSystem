@@ -1,0 +1,631 @@
+# CommonBuildParameters.cmake — GeniusCognitiveSystem
+# Called from build/<Platform>/CMakeLists.txt via build/CommonBuildParameters.cmake.
+# Sets up all thirdparty dependencies and adds the project source/test trees.
+#
+# At this point, CommonCompilerOptions.cmake has already set:
+#   - PROJECT_ROOT (via get_default_root)
+#   - _THIRDPARTY_BUILD_DIR
+#   - C++17, GNUInstallDirs, CompilationFlags, etc.
+
+# ---------------------------------------------------------------------------
+# Convenience alias
+# ---------------------------------------------------------------------------
+set(THIRDPARTY_BUILD_DIR "${_THIRDPARTY_BUILD_DIR}" CACHE PATH "" FORCE)
+
+# BOOST VERSION TO USE
+set(BOOST_MAJOR_VERSION "1" CACHE STRING "Boost Major Version")
+set(BOOST_MINOR_VERSION "85" CACHE STRING "Boost Minor Version")
+set(BOOST_PATCH_VERSION "0" CACHE STRING "Boost Patch Version")
+
+# convenience settings
+set(BOOST_VERSION "${BOOST_MAJOR_VERSION}.${BOOST_MINOR_VERSION}.${BOOST_PATCH_VERSION}")
+set(BOOST_VERSION_2U "${BOOST_MAJOR_VERSION}_${BOOST_MINOR_VERSION}")
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+# --------------------------------------------------------
+# Set config of GTest
+set(GTest_DIR "${THIRDPARTY_BUILD_DIR}/GTest/lib/cmake/GTest")
+set(GTest_INCLUDE_DIR "${THIRDPARTY_BUILD_DIR}/GTest/include")
+find_package(GTest CONFIG REQUIRED)
+include_directories(${GTest_INCLUDE_DIR})
+
+# --------------------------------------------------------
+# zlib (vendored, static) — MUST precede Protobuf and Libssh2: both of their
+# package configs call find_package(ZLIB) without CONFIG (protobuf-config
+# guards it with "if(NOT ZLIB_FOUND)", libssh2-config's find_dependency is
+# unguarded), which otherwise resolves to CMake's FindZLIB module and
+# searches system paths — run 35807447520 linked the container's system
+# libz on Linux and died "missing: ZLIB_LIBRARY" on Windows (the vendored
+# static lib is zs.lib there, a name FindZLIB never searches). Same layout
+# as SuperGenius build/CommonBuildParameters.cmake: resolve the vendored
+# CONFIG package first (it exports ZLIB::ZLIBSTATIC and knows zs.lib /
+# zsd.lib / libz.a itself), and set CMAKE_FIND_PACKAGE_PREFER_CONFIG below
+# so every later module-mode-shaped call re-finds THIS config instead of
+# the system. A re-find is harmless: the config's target creation is
+# guarded by NOT TARGET and ZLIB::ZLIB stays an alias of ZLIB::ZLIBSTATIC.
+set(ZLIB_ROOT "${THIRDPARTY_BUILD_DIR}/zlib")
+set(ZLIB_DIR "${THIRDPARTY_BUILD_DIR}/zlib/lib/cmake/zlib")
+find_package(ZLIB CONFIG REQUIRED)
+# Applied from here on (not before GTest): a global PREFER_CONFIG would
+# also redirect other packages' module-mode finds (OpenSSL below is
+# deliberately module-mode against the vendored OPENSSL_DIR tree), so keep
+# the window as narrow as SuperGenius does around their own libssh2 call.
+# (Stays ON through the Protobuf find below; restored right after it.)
+set(_GCS_FIND_PREFER_CONFIG_PREV "")
+if(DEFINED CMAKE_FIND_PACKAGE_PREFER_CONFIG)
+    set(_GCS_FIND_PREFER_CONFIG_PREV "${CMAKE_FIND_PACKAGE_PREFER_CONFIG}")
+endif()
+set(CMAKE_FIND_PACKAGE_PREFER_CONFIG ON)
+
+# --------------------------------------------------------
+# protobuf (+ absl / utf8_range) — needed by NEO-SWARM src/proto add_proto_library
+if(NOT DEFINED absl_DIR)
+    set(absl_DIR "${THIRDPARTY_BUILD_DIR}/protobuf/lib/cmake/absl")
+endif()
+if(NOT DEFINED utf8_range_DIR)
+    set(utf8_range_DIR "${THIRDPARTY_BUILD_DIR}/protobuf/lib/cmake/utf8_range")
+endif()
+if(NOT DEFINED Protobuf_DIR)
+    set(Protobuf_DIR "${THIRDPARTY_BUILD_DIR}/protobuf/lib/cmake/protobuf")
+endif()
+# No gRPC: protobuf headers resolve from protobuf's own include tree.
+if(NOT DEFINED Protobuf_INCLUDE_DIR)
+    set(Protobuf_INCLUDE_DIR "${THIRDPARTY_BUILD_DIR}/protobuf/include")
+endif()
+find_package(Protobuf CONFIG REQUIRED)
+
+if(NOT DEFINED PROTOC_EXECUTABLE)
+    set(PROTOC_EXECUTABLE "${THIRDPARTY_BUILD_DIR}/protobuf/bin/protoc${CMAKE_EXECUTABLE_SUFFIX}")
+endif()
+set(Protobuf_PROTOC_EXECUTABLE ${PROTOC_EXECUTABLE} CACHE PATH "Initial cache" FORCE)
+if(NOT TARGET protobuf::protoc)
+    add_executable(protobuf::protoc IMPORTED)
+endif()
+if(EXISTS "${Protobuf_PROTOC_EXECUTABLE}")
+    set_target_properties(protobuf::protoc PROPERTIES
+        IMPORTED_LOCATION ${Protobuf_PROTOC_EXECUTABLE})
+endif()
+
+# Restore the find mode right after the ZLIB-sensitive window (the protobuf
+# config find above): OpenSSL below is deliberately module-mode against the
+# vendored OPENSSL_DIR tree and Boost discovery must keep its usual mode.
+if(NOT "${_GCS_FIND_PREFER_CONFIG_PREV}" STREQUAL "")
+    set(CMAKE_FIND_PACKAGE_PREFER_CONFIG "${_GCS_FIND_PREFER_CONFIG_PREV}")
+else()
+    unset(CMAKE_FIND_PACKAGE_PREFER_CONFIG)
+endif()
+unset(_GCS_FIND_PREFER_CONFIG_PREV)
+
+# --------------------------------------------------------
+# Set config of OpenSSL
+set(OPENSSL_DIR "${THIRDPARTY_BUILD_DIR}/openssl/build" CACHE PATH "Path to OpenSSL install folder")
+set(OPENSSL_USE_STATIC_LIBS ON CACHE BOOL "OpenSSL use static libs")
+set(OPENSSL_MSVC_STATIC_RT ON CACHE BOOL "OpenSSL use static RT")
+set(OPENSSL_ROOT_DIR "${OPENSSL_DIR}" CACHE PATH "Path to OpenSSL install root folder")
+set(OPENSSL_INCLUDE_DIR "${OPENSSL_DIR}/include" CACHE PATH "Path to OpenSSL include folder")
+find_package(OpenSSL REQUIRED)
+
+# --------------------------------------------------------
+# Set config of Microsoft GSL (header-only library)
+set(GSL_INCLUDE_DIR "${THIRDPARTY_BUILD_DIR}/Microsoft.GSL/include")
+include_directories(${GSL_INCLUDE_DIR})
+add_library(Microsoft.GSL INTERFACE IMPORTED)
+set_target_properties(Microsoft.GSL PROPERTIES
+    INTERFACE_INCLUDE_DIRECTORIES "${GSL_INCLUDE_DIR}"
+)
+add_library(Microsoft.GSL::GSL ALIAS Microsoft.GSL)
+
+# --------------------------------------------------------
+# Set config of Boost project
+set(_BOOST_ROOT "${THIRDPARTY_BUILD_DIR}/boost/build")
+set(Boost_LIB_DIR "${_BOOST_ROOT}/lib")
+set(Boost_INCLUDE_DIR "${_BOOST_ROOT}/include/boost-${BOOST_VERSION_2U}")
+set(Boost_DIR "${Boost_LIB_DIR}/cmake/Boost-${BOOST_VERSION}")
+# Per-component DIR hints (needed by GeniusSDK's own component list below —
+# ported from GeniusNetwork/GeniusSDK/cmake/CommonBuildParameters.cmake).
+set(boost_atomic_DIR "${Boost_LIB_DIR}/cmake/boost_atomic-${BOOST_VERSION}")
+set(boost_chrono_DIR "${Boost_LIB_DIR}/cmake/boost_chrono-${BOOST_VERSION}")
+set(boost_container_DIR "${Boost_LIB_DIR}/cmake/boost_container-${BOOST_VERSION}")
+set(boost_context_DIR "${Boost_LIB_DIR}/cmake/boost_context-${BOOST_VERSION}")
+set(boost_date_time_DIR "${Boost_LIB_DIR}/cmake/boost_date_time-${BOOST_VERSION}")
+set(boost_filesystem_DIR "${Boost_LIB_DIR}/cmake/boost_filesystem-${BOOST_VERSION}")
+set(boost_headers_DIR "${Boost_LIB_DIR}/cmake/boost_headers-${BOOST_VERSION}")
+set(boost_json_DIR "${Boost_LIB_DIR}/cmake/boost_json-${BOOST_VERSION}")
+set(boost_log_DIR "${Boost_LIB_DIR}/cmake/boost_log-${BOOST_VERSION}")
+set(boost_log_setup_DIR "${Boost_LIB_DIR}/cmake/boost_log_setup-${BOOST_VERSION}")
+set(boost_program_options_DIR "${Boost_LIB_DIR}/cmake/boost_program_options-${BOOST_VERSION}")
+set(boost_random_DIR "${Boost_LIB_DIR}/cmake/boost_random-${BOOST_VERSION}")
+set(boost_regex_DIR "${Boost_LIB_DIR}/cmake/boost_regex-${BOOST_VERSION}")
+set(boost_system_DIR "${Boost_LIB_DIR}/cmake/boost_system-${BOOST_VERSION}")
+set(boost_thread_DIR "${Boost_LIB_DIR}/cmake/boost_thread-${BOOST_VERSION}")
+set(boost_coroutine_DIR "${Boost_LIB_DIR}/cmake/boost_coroutine-${BOOST_VERSION}")
+set(boost_unit_test_framework_DIR "${Boost_LIB_DIR}/cmake/boost_unit_test_framework-${BOOST_VERSION}")
+set(Boost_USE_MULTITHREADED ON)
+set(Boost_USE_STATIC_LIBS ON)
+set(Boost_NO_SYSTEM_PATHS ON)
+option(Boost_USE_STATIC_RUNTIME "Use static runtimes" ON)
+
+if(POLICY CMP0167)
+    cmake_policy(SET CMP0167 OLD)
+endif()
+
+option(SGNS_STACKTRACE_BACKTRACE "Use BOOST_STACKTRACE_USE_BACKTRACE in stacktraces, for POSIX" OFF)
+if(SGNS_STACKTRACE_BACKTRACE)
+    add_definitions(-DSGNS_STACKTRACE_BACKTRACE=1)
+    if(BACKTRACE_INCLUDE)
+        add_definitions(-DBOOST_STACKTRACE_BACKTRACE_INCLUDE_FILE=${BACKTRACE_INCLUDE})
+    endif()
+endif()
+
+# Component list is the union of GCS's own needs and GeniusSDK's genius_node
+# needs (container, unit_test_framework, coroutine added per GeniusSDK's file).
+find_package(Boost REQUIRED COMPONENTS container date_time filesystem random regex system thread log log_setup program_options json unit_test_framework coroutine)
+include_directories(${Boost_INCLUDE_DIRS})
+
+# zlib: vendored discovery lives ABOVE, before Protobuf — see that block.
+
+# fmt
+set(fmt_DIR "${THIRDPARTY_BUILD_DIR}/fmt/lib/cmake/fmt")
+find_package(fmt CONFIG REQUIRED)
+
+# spdlog
+set(spdlog_DIR "${THIRDPARTY_BUILD_DIR}/spdlog/lib/cmake/spdlog")
+find_package(spdlog CONFIG REQUIRED)
+add_compile_definitions("SPDLOG_FMT_EXTERNAL")
+
+# libsecp256k1
+set(libsecp256k1_DIR "${THIRDPARTY_BUILD_DIR}/libsecp256k1/lib/cmake/libsecp256k1")
+find_package(libsecp256k1 CONFIG REQUIRED)
+
+# nlohmann/json
+set(nlohmann_json_DIR "${THIRDPARTY_BUILD_DIR}/json/share/cmake/nlohmann_json")
+find_package(nlohmann_json CONFIG REQUIRED)
+
+# --------------------------------------------------------
+# Remaining GeniusSDK transitive dependencies. GeniusCognitiveSystem now
+# links GeniusSDK directly (sgns::GeniusSDK -> sgns::genius_node), and
+# genius_node is GeniusSDK's own internal aggregate library — its exported
+# config does not re-chain further find_package() calls for its own PUBLIC
+# dependencies, so this file (the consumer) must resolve every one of them
+# itself, exactly as GeniusNetwork/GeniusSDK/cmake/CommonBuildParameters.cmake
+# does for its own build. Ported verbatim from that file; only entries GCS
+# already had (GTest, protobuf, OpenSSL, Microsoft.GSL, zlib, fmt, spdlog,
+# libsecp256k1, nlohmann_json) are skipped here to avoid duplication.
+
+# MNN
+set(MNN_INCLUDE_DIR "${THIRDPARTY_BUILD_DIR}/MNN/include")
+set(MNN_DIR "${THIRDPARTY_BUILD_DIR}/MNN/lib/cmake/MNN")
+find_package(MNN CONFIG REQUIRED)
+include_directories(${MNN_INCLUDE_DIR})
+
+# --------------------------------------------------------
+# Vulkan / VulkanHeaders (GPU acceleration — needed by MNN/SGProcessingManager
+# via GNUS-NEO-SWARM). MUST be established before find_package(vk-bootstrap)
+# below: the rebuilt vk-bootstrap package config does
+# find_package(VulkanHeaders CONFIG) with a find_package(Vulkan) fallback and
+# fatals when neither resolves, and this machine has no system Vulkan SDK.
+# Ported from the updated discovery in
+# GeniusNetwork/SuperGenius/build/CommonBuildParameters.cmake.
+# The Vulkan::Vulkan target created here is still visible to both
+# add_subdirectory() subtrees at the bottom of this file (sibling
+# add_subdirectory scopes don't share targets with each other, only with
+# their common parent — which is this scope).
+if(APPLE)
+    if(IOS)
+        # Settings specifically for iOS
+        set(Vulkan_INCLUDE_DIR "${THIRDPARTY_BUILD_DIR}/moltenvk/build/include")
+        set(Vulkan_LIBRARY "${THIRDPARTY_BUILD_DIR}/moltenvk/build/lib/MoltenVK.xcframework")
+    else()
+        # Settings for macOS
+        set(Vulkan_INCLUDE_DIR "${THIRDPARTY_BUILD_DIR}/moltenvk/build/include")
+        set(Vulkan_LIBRARY "${THIRDPARTY_BUILD_DIR}/moltenvk/build/lib/MoltenVK.xcframework")
+    endif()
+endif()
+
+set(VulkanHeaders_DIR "${THIRDPARTY_BUILD_DIR}/Vulkan-Headers/share/cmake/VulkanHeaders" CACHE PATH "Path to Vulkan-Headers install folder")
+find_package(VulkanHeaders CONFIG REQUIRED)
+find_package(Vulkan)
+
+if(NOT TARGET Vulkan::Vulkan)
+    set(Vulkan_INCLUDE_DIR "${THIRDPARTY_BUILD_DIR}/Vulkan-Headers/include")
+    if(NOT DEFINED ENV{VULKAN_SDK})
+        set(ENV{VULKAN_SDK} "${THIRDPARTY_BUILD_DIR}/Vulkan-Loader")
+    endif()
+
+    find_package(Vulkan REQUIRED)
+endif()
+
+# Override Vulkan::Vulkan to use our vendored Vulkan-Headers on all platforms.
+# vk-bootstrap was built against our headers (v1.4); mixing with system/NDK
+# headers (v1.3 or other versions) causes unknown-type errors in
+# VkBootstrapDispatch.h and VkBootstrapFeatureChain.h.
+set_target_properties(Vulkan::Vulkan PROPERTIES
+    INTERFACE_INCLUDE_DIRECTORIES "${THIRDPARTY_BUILD_DIR}/Vulkan-Headers/include"
+)
+
+# On macOS, libMoltenVK.a contains Objective-C code that calls Metal.
+# The ObjC runtime (-lobjc) and Metal frameworks must be linked by
+# every consumer of Vulkan::Vulkan or the linker fails with undefined
+# _objc_msgSend / _objc_retain / _objc_release etc.
+# AppKit does not exist on iOS (ld: framework 'AppKit' not found); MoltenVK
+# uses UIKit there, mirroring the gating in SGProcessors.
+if(APPLE)
+    target_link_libraries(Vulkan::Vulkan INTERFACE
+        "-framework Metal"
+        "-framework IOSurface"
+        "-framework QuartzCore"
+        "-framework Foundation"
+        "-framework CoreFoundation"
+        "-framework CoreGraphics"
+        "-framework IOKit"
+    )
+    if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+        target_link_libraries(Vulkan::Vulkan INTERFACE "-framework AppKit")
+    else()
+        target_link_libraries(Vulkan::Vulkan INTERFACE "-framework UIKit")
+    endif()
+endif()
+
+# Resolve the Vulkan runtime DLL that matches the loader we just linked.
+# The thirdparty Vulkan-Loader installs vulkan-1.dll (runtime) alongside
+# vulkan-1.lib (import lib, found above). Every exe that links it — directly
+# or via SGProcessors' MNN::MNN + Vulkan::Vulkan PUBLIC deps — needs the DLL
+# next to the exe or the Windows loader kills the process with 0xc0000135
+# before main() runs. CI runners have no system Vulkan runtime, so the
+# vendored one must be deployed next to test/app executables.
+if(WIN32)
+    find_file(VULKAN_RUNTIME_DLL NAMES vulkan-1.dll
+        PATHS "${THIRDPARTY_BUILD_DIR}/Vulkan-Loader/bin"
+              "${THIRDPARTY_BUILD_DIR}/Vulkan-Loader/lib"
+        NO_DEFAULT_PATH)
+
+    if(NOT VULKAN_RUNTIME_DLL)
+        # Only fatal when we actually link the thirdparty loader; a system
+        # Vulkan SDK brings its own runtime on PATH.
+        string(FIND "${Vulkan_LIBRARY}" "${THIRDPARTY_BUILD_DIR}" _GCS_VK_LOADER_IS_VENDORED)
+        if(_GCS_VK_LOADER_IS_VENDORED EQUAL 0)
+            message(FATAL_ERROR "vulkan-1.dll not found in "
+                "${THIRDPARTY_BUILD_DIR}/Vulkan-Loader (searched bin/ and lib/). "
+                "Executables link ${Vulkan_LIBRARY} and will fail to start with "
+                "0xc0000135 without the matching runtime DLL.")
+        endif()
+    endif()
+endif()
+
+# vk-bootstrap
+set(vk-bootstrap_DIR "${THIRDPARTY_BUILD_DIR}/vk-bootstrap/lib/cmake/vk-bootstrap")
+find_package(vk-bootstrap CONFIG REQUIRED)
+
+# soralog
+set(soralog_DIR "${THIRDPARTY_BUILD_DIR}/soralog/lib/cmake/soralog")
+set(soralog_INCLUDE_DIR "${THIRDPARTY_BUILD_DIR}/soralog/include")
+find_package(soralog CONFIG REQUIRED)
+
+# yaml-cpp
+set(yaml-cpp_DIR "${THIRDPARTY_BUILD_DIR}/yaml-cpp/lib/cmake/yaml-cpp")
+set(yaml-cpp_INCLUDE_DIR "${THIRDPARTY_BUILD_DIR}/yaml-cpp/include")
+find_package(yaml-cpp CONFIG REQUIRED)
+
+# snappy
+set(Snappy_DIR "${THIRDPARTY_BUILD_DIR}/snappy/lib/cmake/Snappy")
+find_package(Snappy CONFIG REQUIRED)
+
+# rocksdb
+set(RocksDB_DIR "${THIRDPARTY_BUILD_DIR}/rocksdb/lib/cmake/rocksdb")
+set(RocksDB_INCLUDE_DIR "${THIRDPARTY_BUILD_DIR}/rocksdb/include")
+find_package(RocksDB CONFIG REQUIRED)
+
+# stb
+include_directories(${THIRDPARTY_BUILD_DIR}/stb/include)
+
+#  tsl_hat_trie
+set(tsl_hat_trie_DIR "${THIRDPARTY_BUILD_DIR}/tsl_hat_trie/lib/cmake/tsl_hat_trie")
+set(tsl_hat_trie_INCLUDE_DIR "${THIRDPARTY_BUILD_DIR}/tsl_hat_trie/include")
+find_package(tsl_hat_trie CONFIG REQUIRED)
+
+# Boost.DI
+set(Boost.DI_INCLUDE_DIR "${THIRDPARTY_BUILD_DIR}/Boost.DI/include")
+set(Boost.DI_DIR "${THIRDPARTY_BUILD_DIR}/Boost.DI/lib/cmake/Boost.DI")
+find_package(Boost.DI CONFIG REQUIRED)
+
+# SQLiteModernCpp
+set(SQLiteModernCpp_ROOT_DIR "${THIRDPARTY_BUILD_DIR}/SQLiteModernCpp")
+set(SQLiteModernCpp_DIR "${SQLiteModernCpp_ROOT_DIR}/lib/cmake/SQLiteModernCpp")
+set(SQLiteModernCpp_LIB_DIR "${SQLiteModernCpp_ROOT_DIR}/lib")
+set(SQLiteModernCpp_INCLUDE_DIR "${SQLiteModernCpp_ROOT_DIR}/include")
+
+# sqlite3
+set(sqlite3_ROOT_DIR "${THIRDPARTY_BUILD_DIR}/sqlite3")
+set(sqlite3_DIR "${sqlite3_ROOT_DIR}/lib/cmake/sqlite3")
+set(sqlite3_LIB_DIR "${sqlite3_ROOT_DIR}/lib")
+set(sqlite3_INCLUDE_DIR "${sqlite3_ROOT_DIR}/include")
+
+# cares
+set(c-ares_DIR "${THIRDPARTY_BUILD_DIR}/cares/lib/cmake/c-ares" CACHE PATH "Path to c-ares install folder")
+set(c-ares_INCLUDE_DIR "${THIRDPARTY_BUILD_DIR}/cares/include" CACHE PATH "Path to c-ares include folder")
+
+# libp2p
+set(libp2p_DIR "${THIRDPARTY_BUILD_DIR}/libp2p/lib/cmake/libp2p")
+set(libp2p_LIBRARY_DIR "${THIRDPARTY_BUILD_DIR}/libp2p/lib")
+set(libp2p_INCLUDE_DIR "${THIRDPARTY_BUILD_DIR}/libp2p/include")
+find_package(libp2p CONFIG REQUIRED)
+
+# Find and include cares if libp2p have not included it
+if(NOT TARGET c-ares::cares_static)
+    find_package(c-ares CONFIG REQUIRED)
+endif()
+
+# ipfs-lite-cpp
+set(ipfs-lite-cpp_DIR "${THIRDPARTY_BUILD_DIR}/ipfs-lite-cpp/lib/cmake/ipfs-lite-cpp")
+set(ipfs-lite-cpp_INCLUDE_DIR "${THIRDPARTY_BUILD_DIR}/ipfs-lite-cpp/include")
+set(ipfs-lite-cpp_LIB_DIR "${THIRDPARTY_BUILD_DIR}/ipfs-lite-cpp/lib")
+set(CBOR_INCLUDE_DIR "${THIRDPARTY_BUILD_DIR}/ipfs-lite-cpp/include/deps/tinycbor/src")
+find_package(ipfs-lite-cpp CONFIG REQUIRED)
+
+# ipfs-pubsub
+set(ipfs-pubsub_INCLUDE_DIR "${THIRDPARTY_BUILD_DIR}/ipfs-pubsub/include")
+set(ipfs-pubsub_DIR "${THIRDPARTY_BUILD_DIR}/ipfs-pubsub/lib/cmake/ipfs-pubsub")
+find_package(ipfs-pubsub CONFIG REQUIRED)
+
+# ipfs-bitswap-cpp
+set(ipfs-bitswap-cpp_INCLUDE_DIR "${THIRDPARTY_BUILD_DIR}/ipfs-bitswap-cpp/include")
+set(ipfs-bitswap-cpp_DIR "${THIRDPARTY_BUILD_DIR}/ipfs-bitswap-cpp/lib/cmake/ipfs-bitswap-cpp")
+find_package(ipfs-bitswap-cpp CONFIG REQUIRED)
+
+# ed25519
+set(ed25519_DIR "${THIRDPARTY_BUILD_DIR}/ed25519/lib/cmake/ed25519")
+set(ed25519_INCLUDE_DIR "${THIRDPARTY_BUILD_DIR}/ed25519/include")
+find_package(ed25519 CONFIG REQUIRED)
+
+# RapidJSON
+set(RapidJSON_DIR "${THIRDPARTY_BUILD_DIR}/rapidjson/lib/cmake/RapidJSON")
+set(RapidJSON_INCLUDE_DIR "${THIRDPARTY_BUILD_DIR}/rapidjson/include")
+find_package(RapidJSON CONFIG REQUIRED)
+include_directories(${RapidJSON_INCLUDE_DIR})
+
+# jsonrpc-lean
+set(jsonrpc_lean_INCLUDE_DIR "${THIRDPARTY_DIR}/jsonrpc-lean/include")
+include_directories(${jsonrpc_lean_INCLUDE_DIR})
+
+# xxhash
+set(xxHash_INCLUDE_DIR "${THIRDPARTY_BUILD_DIR}/xxhash/include")
+set(xxHash_LIBRARY_DIR "${THIRDPARTY_BUILD_DIR}/xxhash/lib")
+set(xxHash_DIR "${THIRDPARTY_BUILD_DIR}/xxhash/lib/cmake/xxHash")
+find_package(xxHash CONFIG REQUIRED)
+
+# libssh2
+# PREFER_CONFIG (same mechanism as SuperGenius build/CommonBuildParameters.cmake
+# "Prefer package config files while loading Libssh2's dependencies"): its
+# config calls find_dependency(ZLIB) without CONFIG, which would otherwise
+# run FindZLIB in module mode and pick up a system libz — or die on
+# Windows where the vendored static lib (zs.lib) is not a name FindZLIB
+# searches. Re-enable the flag around this call (it was restored to its
+# pre-zlib value above); with it, the dependency re-finds the vendored
+# ZLIBConfig and links ZLIB::ZLIBSTATIC.
+set(_GCS_FIND_PREFER_CONFIG_PREV_2 "")
+if(DEFINED CMAKE_FIND_PACKAGE_PREFER_CONFIG)
+    set(_GCS_FIND_PREFER_CONFIG_PREV_2 "${CMAKE_FIND_PACKAGE_PREFER_CONFIG}")
+endif()
+set(CMAKE_FIND_PACKAGE_PREFER_CONFIG ON)
+set(Libssh2_DIR "${THIRDPARTY_BUILD_DIR}/libssh2/lib/cmake/libssh2")
+find_package(Libssh2 CONFIG REQUIRED)
+if(NOT "${_GCS_FIND_PREFER_CONFIG_PREV_2}" STREQUAL "")
+    set(CMAKE_FIND_PACKAGE_PREFER_CONFIG "${_GCS_FIND_PREFER_CONFIG_PREV_2}")
+else()
+    unset(CMAKE_FIND_PACKAGE_PREFER_CONFIG)
+endif()
+unset(_GCS_FIND_PREFER_CONFIG_PREV_2)
+
+# AsyncIOManager
+set(AsyncIOManager_INCLUDE_DIR "${THIRDPARTY_BUILD_DIR}/AsyncIOManager/include")
+set(AsyncIOManager_LIBRARY_DIR "${THIRDPARTY_BUILD_DIR}/AsyncIOManager/lib")
+set(AsyncIOManager_DIR "${THIRDPARTY_BUILD_DIR}/AsyncIOManager/lib/cmake/AsyncIOManager")
+find_package(AsyncIOManager CONFIG REQUIRED)
+
+# gnus_upnp
+set(gnus_upnp_INCLUDE_DIR "${THIRDPARTY_BUILD_DIR}/gnus_upnp/include")
+set(gnus_upnp_LIBRARY_DIR "${THIRDPARTY_BUILD_DIR}/gnus_upnp/lib")
+set(gnus_upnp_DIR "${THIRDPARTY_BUILD_DIR}/gnus_upnp/lib/cmake/gnus_upnp")
+find_package(gnus_upnp CONFIG REQUIRED)
+
+# wallet-core
+set(TrustWalletCore_LIBRARY_DIR "${THIRDPARTY_BUILD_DIR}/wallet-core/lib")
+set(TrustWalletCore_INCLUDE_DIR "${THIRDPARTY_BUILD_DIR}/wallet-core/include")
+
+find_library(TrezorCrypto_PATH TrezorCrypto PATHS ${TrustWalletCore_LIBRARY_DIR} REQUIRED)
+find_library(wallet_core_rs_PATH wallet_core_rs PATHS ${TrustWalletCore_LIBRARY_DIR} REQUIRED)
+find_library(TrustWalletCore_PATH TrustWalletCore PATHS ${TrustWalletCore_LIBRARY_DIR} REQUIRED)
+
+add_library(TrezorCrypto STATIC IMPORTED)
+add_library(wallet_core_rs STATIC IMPORTED)
+add_library(TrustWalletCore STATIC IMPORTED)
+
+set_target_properties(TrezorCrypto PROPERTIES IMPORTED_LOCATION "${TrezorCrypto_PATH}")
+set_target_properties(wallet_core_rs PROPERTIES IMPORTED_LOCATION "${wallet_core_rs_PATH}")
+set_target_properties(TrustWalletCore PROPERTIES IMPORTED_LOCATION "${TrustWalletCore_PATH}")
+
+target_include_directories(TrustWalletCore INTERFACE "${TrustWalletCore_INCLUDE_DIR}")
+
+# --------------------------------------------------------
+# zkLLVM / crypto3 (GCS's own CommonCompilerOptions.cmake already resolves
+# ZKLLVM_BUILD_DIR — this only adds the IMPORTED targets GeniusSDK's own
+# crypto3-consuming code links against, plus LLVM itself).
+add_library(crypto3::algebra INTERFACE IMPORTED)
+add_library(crypto3::block INTERFACE IMPORTED)
+add_library(crypto3::blueprint INTERFACE IMPORTED)
+add_library(crypto3::codec INTERFACE IMPORTED)
+add_library(crypto3::math INTERFACE IMPORTED)
+add_library(crypto3::multiprecision INTERFACE IMPORTED)
+add_library(crypto3::pkpad INTERFACE IMPORTED)
+add_library(crypto3::pubkey INTERFACE IMPORTED)
+add_library(crypto3::random INTERFACE IMPORTED)
+add_library(crypto3::zk INTERFACE IMPORTED)
+add_library(marshalling::core INTERFACE IMPORTED)
+add_library(marshalling::crypto3_algebra INTERFACE IMPORTED)
+add_library(marshalling::crypto3_multiprecision INTERFACE IMPORTED)
+add_library(marshalling::crypto3_zk INTERFACE IMPORTED)
+
+foreach(_crypto3_tgt crypto3::algebra crypto3::block crypto3::blueprint crypto3::codec
+                     crypto3::math crypto3::multiprecision crypto3::pkpad crypto3::pubkey
+                     crypto3::random crypto3::zk marshalling::core marshalling::crypto3_algebra
+                     marshalling::crypto3_multiprecision marshalling::crypto3_zk)
+    set_target_properties(${_crypto3_tgt} PROPERTIES
+        INTERFACE_INCLUDE_DIRECTORIES "${ZKLLVM_BUILD_DIR}/zkLLVM/include"
+    )
+endforeach()
+
+set(zkLLVM_INCLUDE_DIR "${ZKLLVM_BUILD_DIR}/zkLLVM/include")
+
+# llvm
+set(LLVM_DIR "${ZKLLVM_BUILD_DIR}/zkLLVM/lib/cmake/llvm")
+find_package(LLVM CONFIG REQUIRED)
+
+# --------------------------------------------------------
+# NOTE: Vulkan discovery (VulkanHeaders + Vulkan::Vulkan + runtime DLL
+# resolution) now lives above, before find_package(vk-bootstrap) — the
+# rebuilt vk-bootstrap config requires Vulkan::Headers at its own
+# find_package() time and fatals when it is only configured here. The
+# Vulkan::Vulkan target is still created before either add_subdirectory()
+# call below, so it remains visible to both the GNUS-NEO-SWARM subtree and
+# the GCS-level src/ subtree.
+
+set(SUPERGENIUS_BUILD_DIR "${PROJECT_SUPER_ROOT}/SuperGenius/build/${BUILD_PLATFORM_NAME}/${CMAKE_BUILD_TYPE}${ABI_SUBFOLDER_NAME}" CACHE STRING "Default SuperGenius Build Directory")
+
+# libsecret — same two lines SuperGenius/GeniusSDK use. The arm64 CI
+# phantom-path drama (aarch64-linux-gnu paths that exist nowhere) was
+# never an image or .pc problem: stale dep trees from earlier runs
+# survived in the workspace because the cleanup step tested the RUNNER
+# HOST path inside the container (see the workflow's Clean workspace
+# step) and silently skipped; pkg_check_modules then resolved against
+# leftover artifacts. With the workspace actually wiped, this plain
+# discovery is sufficient — SuperGenius's exported config re-runs the
+# same two lines itself, which is harmless (guarded target creation).
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    find_package(PkgConfig)
+    pkg_check_modules(LIBSECRET REQUIRED IMPORTED_TARGET libsecret-1>=0.18.4)
+endif()
+
+# SuperGenius project
+set(evmrelay_DIR "${SUPERGENIUS_BUILD_DIR}/SuperGenius/lib/cmake/evmrelay/")
+set(SuperGenius_DIR "${SUPERGENIUS_BUILD_DIR}/SuperGenius/lib/cmake/SuperGenius/")
+set(ProofSystem_DIR "${SUPERGENIUS_BUILD_DIR}/SuperGenius/lib/cmake/ProofSystem/")
+set(SGProcessingManager_DIR "${SUPERGENIUS_BUILD_DIR}/SuperGenius/lib/cmake/SGProcessingManager/")
+
+print("SuperGenius_DIR: ${SuperGenius_DIR}")
+
+# shaderc installs no CMake package config, so SuperGenius hand-rolls this
+# IMPORTED target rather than exporting one; SGProcessingManagerTargets.cmake's
+# SGShaderCompiler link interface references shaderc::shaderc directly, so
+# consumers of that export (like this file) must define the same target
+# themselves before find_package(SGProcessingManager) resolves it below.
+if(NOT TARGET shaderc::shaderc)
+    add_library(shaderc::shaderc STATIC IMPORTED GLOBAL)
+    set_target_properties(shaderc::shaderc PROPERTIES
+        IMPORTED_LOCATION "${THIRDPARTY_BUILD_DIR}/shaderc/lib/${CMAKE_STATIC_LIBRARY_PREFIX}shaderc_combined${CMAKE_STATIC_LIBRARY_SUFFIX}"
+        INTERFACE_INCLUDE_DIRECTORIES "${THIRDPARTY_BUILD_DIR}/shaderc/include"
+    )
+endif()
+
+find_package(evmrelay CONFIG REQUIRED)
+find_package(ProofSystem CONFIG REQUIRED)
+find_package(SGProcessingManager CONFIG REQUIRED)
+find_package(SuperGenius CONFIG REQUIRED)
+message(STATUS "Looking for GeniusSDK at ${PROJECT_SUPER_ROOT}/GeniusSDK")
+if(EXISTS "${PROJECT_SUPER_ROOT}/GeniusSDK")
+    set(GENIUS_SDK_DIR "${PROJECT_SUPER_ROOT}/GeniusSDK")
+    message(STATUS "Found GeniusSDK source at ${GENIUS_SDK_DIR}")
+else()
+    message(STATUS "GeniusSDK not found locally — attempting to obtain from releases")
+
+    set(GITHUB_SDK_REPO "GeniusVentures/GeniusSDK")
+    set(SDK_TARGET_BRANCH "${BUILD_PLATFORM_NAME}-develop-${CMAKE_BUILD_TYPE}")
+    if(ANDROID)
+        set(SDK_TARGET_BRANCH "${BUILD_PLATFORM_NAME}-${ANDROID_ABI}-develop-${CMAKE_BUILD_TYPE}")
+    elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND DEFINED ARCH)
+        set(SDK_TARGET_BRANCH "${BUILD_PLATFORM_NAME}-${ARCH}-develop-${CMAKE_BUILD_TYPE}")
+    endif()
+
+    set(SDK_ARCHIVE_NAME "${BUILD_PLATFORM_NAME}-${CMAKE_BUILD_TYPE}.tar.gz")
+    set(SDK_RELEASE_URL "https://github.com/${GITHUB_SDK_REPO}/releases/download/${SDK_TARGET_BRANCH}/${SDK_ARCHIVE_NAME}")
+    set(SDK_ARCHIVE "${CMAKE_BINARY_DIR}/geniussdk-${SDK_ARCHIVE_NAME}")
+    set(SDK_EXTRACT_DIR "${PROJECT_SUPER_ROOT}/GeniusSDK")
+
+    message(STATUS "Downloading GeniusSDK from ${SDK_RELEASE_URL}")
+    execute_process(
+            COMMAND curl -L -o ${SDK_ARCHIVE} ${SDK_RELEASE_URL}
+            RESULT_VARIABLE SDK_DOWNLOAD_RESULT
+    )
+
+    if(NOT SDK_DOWNLOAD_RESULT EQUAL 0)
+        message(WARNING "Failed to download GeniusSDK from ${SDK_RELEASE_URL} — build without connectivity")
+        set(GENIUS_SDK_DIR "")
+    else()
+        file(MAKE_DIRECTORY ${SDK_EXTRACT_DIR})
+        execute_process(
+                COMMAND ${CMAKE_COMMAND} -E tar xzf ${SDK_ARCHIVE}
+                WORKING_DIRECTORY ${SDK_EXTRACT_DIR}
+                RESULT_VARIABLE SDK_EXTRACT_RESULT
+        )
+
+        if(NOT SDK_EXTRACT_RESULT EQUAL 0)
+            message(WARNING "Failed to extract GeniusSDK archive — build without connectivity")
+            set(GENIUS_SDK_DIR "")
+        else()
+            set(GENIUS_SDK_DIR "${SDK_EXTRACT_DIR}")
+            message(STATUS "GeniusSDK downloaded and extracted to ${SDK_EXTRACT_DIR}")
+        endif()
+        file(REMOVE ${SDK_ARCHIVE})
+    endif()
+endif()
+
+# Compute GENIUS_SDK_BUILD_DIR from GENIUS_SDK_DIR
+if(GENIUS_SDK_DIR AND NOT "${GENIUS_SDK_DIR}" STREQUAL "")
+    set(GENIUS_SDK_BUILD_DIR "${GENIUS_SDK_DIR}/build/${BUILD_PLATFORM_NAME}/${CMAKE_BUILD_TYPE}${ABI_SUBFOLDER_NAME}" CACHE STRING "Default GeniusSDK Build Directory")
+    cmake_path(SET GENIUS_SDK_BUILD_DIR NORMALIZE "${GENIUS_SDK_BUILD_DIR}")
+    message(STATUS "GENIUS_SDK_BUILD_DIR set to ${GENIUS_SDK_BUILD_DIR}")
+endif()
+
+set(GeniusSDK_DIR "${GENIUS_SDK_BUILD_DIR}/GeniusSDK/lib/cmake/GeniusSDK/" CACHE PATH "GeniusSDK cmake config")
+find_package(GeniusSDK CONFIG QUIET)
+
+# --------------------------------------------------------
+# Project options
+option(BUILD_TESTS "Build tests" FALSE)
+option(BUILD_SHARED_LIBS "Build shared libraries" OFF)
+option(BUILD_EXAMPLES "Enable demonstration targets." FALSE)
+
+# --------------------------------------------------------
+# Project include root
+include_directories(${PROJECT_ROOT}/src)
+
+# --------------------------------------------------------
+# Submodule + source-tree wiring (this file is the entry point the
+# build/<Platform>/CMakeLists.txt chain runs — add_subdirectory lives here).
+# --------------------------------------------------------
+
+# Register tests with CTest at the top level (this file is include()d by the
+# build/<Platform>/ shim at top-level scope). NEO-SWARM builds its tests
+# whenever BUILD_TESTING is on, so discovery must not depend on BUILD_TESTS.
+enable_testing()
+
+# GNUS-NEO-SWARM: C++ inference engine library (neoswarm_* targets)
+add_subdirectory(${PROJECT_ROOT}/GNUS-NEO-SWARM ${CMAKE_BINARY_DIR}/GNUS-NEO-SWARM)
+
+
+# GCS-level source tree (storage, api, FFI)
+# Binary dir is gcs_src (not "src") — GNUS-NEO-SWARM's own CommonBuildParameters
+# already claims ${CMAKE_BINARY_DIR}/src for its own source tree.
+add_subdirectory(${PROJECT_ROOT}/src ${CMAKE_BINARY_DIR}/gcs_src)
+
+if(BUILD_TESTS)
+    # Binary dir is gcs_test (not "test") — NEO-SWARM's CommonBuildParameters
+    # already claims ${CMAKE_BINARY_DIR}/test for its own test tree.
+    if(IS_DIRECTORY "${PROJECT_ROOT}/test")
+        add_subdirectory(${PROJECT_ROOT}/test ${CMAKE_BINARY_DIR}/gcs_test)
+    endif()
+endif()
+
+

@@ -1,8 +1,8 @@
 {
   "source_path": "/Users/Shared/SSDevelopment/Development/GeniusVentures/GeniusNetwork/GeniusCogntiveSystem/docs/architecture/sgfp4-format.md",
-  "type": "DOC",
-  "confidence": "high",
-  "manifest_override": true,
+  "type": "SPEC",
+  "confidence": "medium",
+  "manifest_override": false,
   "title": "22 SGFP4 Adaptive Quantization Format",
   "summary": "Defines the SGFP4 adaptive mixed-bit weight compression format with FP4 and ternary affine modes, 64x64 macroblocks, and GPU-friendly decode for cross-device inference.",
   "scope": [
@@ -18,6 +18,7 @@
     "adaptive mode selection",
     "codes_blob layout",
     "half2 scale and bias",
+    "flags-in-offsets encoding",
     "Vulkan",
     "MoltenVK",
     "MNN"
@@ -29,5 +30,5 @@
   ],
   "locked": false,
   "precedence": null,
-  "notes": ""
+  "notes": "No manifest type provided this run; prior record used manifest_override DOC. Content signals (container layout tables, bit-level flag schema, MUST-alignment constraints, decode procedure) resolve to SPEC per highest-precedence ambiguity rule."
 }

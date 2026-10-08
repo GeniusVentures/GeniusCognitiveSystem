@@ -1,10 +1,10 @@
 {
   "source_path": "/Users/Shared/SSDevelopment/Development/GeniusVentures/GeniusNetwork/GeniusCogntiveSystem/docs/architecture/cognitive-retaining-system.md",
   "type": "DOC",
-  "confidence": "high",
-  "manifest_override": true,
+  "confidence": "medium",
+  "manifest_override": false,
   "title": "20. Targeted Retraining and Hierarchical Critical Thinking Specialists",
-  "summary": "Describes Targeted Retraining framework and Hierarchical Critical Thinking Specialist architecture for continuously improving personalized cognition without full model retraining.",
+  "summary": "Explains the Targeted Retraining framework and Hierarchical Critical Thinking Specialists (HCTS) that enable continuously improving personalized cognition without full base-model retraining.",
   "scope": [
     "Targeted Retraining",
     "Hierarchical Critical Thinking Specialists (HCTS)",
@@ -13,10 +13,16 @@
     "Cognitive Twin",
     "Cognitive Training Event",
     "Bias-Aware Reasoning",
-    "Semantic Core"
+    "Semantic Core",
+    "adapters",
+    "EJM decision heads and readouts",
+    "routing weights",
+    "Distillation Views"
   ],
-  "cross_refs": [],
+  "cross_refs": [
+    "./cognitive-evolution-control.md"
+  ],
   "locked": false,
   "precedence": null,
-  "notes": ""
+  "notes": "Mild SPEC signal (illustrative Cognitive Training Event JSON block and one RFC-2119 'SHOULD' statement) resolved as DOC; document is predominantly explanatory architecture prose with no frontmatter and neutral path heuristics. Supersedes prior manifest-declared DOC record for the same path; this run had no manifest override."
 }

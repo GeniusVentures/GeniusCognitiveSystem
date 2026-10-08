@@ -1,13 +1,13 @@
 {
   "source_path": "/Users/Shared/SSDevelopment/Development/GeniusVentures/GeniusNetwork/GeniusCogntiveSystem/docs/architecture/executive-summary.md",
   "type": "DOC",
-  "confidence": "high",
-  "manifest_override": true,
+  "confidence": "medium",
+  "manifest_override": false,
   "title": "1. Executive Summary",
-  "summary": "High-level overview of GeniusCognitiveSystem as a distributed, modular, reputation-weighted cognitive system with Genius ELM as its semantic core inference engine and future swarm-thinking direction.",
-  "scope": ["GeniusCognitiveSystem", "Genius ELM", "Semantic Core", "GAML", "EIS", "Executive Controller", "Bridge Blocks", "Specialist ELMs", "Verification and Arbitration", "GNUS Swarm"],
+  "summary": "High-level overview of GeniusCognitiveSystem as a distributed, reputation-weighted cognitive system built around the Genius ELM semantic core, Expert Models, GAML memory, EIS execution integrity, and swarm verification.",
+  "scope": ["GeniusCognitiveSystem", "Genius ELM", "Semantic Core", "Expert Models", "EJM", "GAML", "EIS", "Executive Controller", "Memory Governor", "Bridge Blocks", "Verification", "Arbitration", "Synthesis", "GNUS Swarm", "Grokipedia grounding", "Distillation"],
   "cross_refs": [],
   "locked": false,
   "precedence": null,
-  "notes": ""
+  "notes": "No frontmatter or filename convention; content-only signals. 'System Objectives' goal lists are PRD-adjacent but lack user stories/acceptance criteria, so resolved to DOC as a prose-dominant architecture overview. Reused c32f1a8b hash from prior classification of this identical source path; overwrote it to keep one entry per source."
 }

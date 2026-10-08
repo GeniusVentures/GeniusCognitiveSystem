@@ -1,0 +1,28 @@
+{
+  "source_path": "/Users/Shared/SSDevelopment/Development/GeniusVentures/GeniusNetwork/GeniusCogntiveSystem/docs/architecture/agentic-memory-layer.md",
+  "type": "SPEC",
+  "confidence": "medium",
+  "manifest_override": false,
+  "title": "GNUS Agentic Memory Layer (GAML v1)",
+  "summary": "Defines the GNUS Agentic Memory Layer (GAML v1): structured long-term memory via MemoryObject and Cognitive Asset models, privacy-scoped ingestion, staged retrieval, CRDT replication, and swarm consensus.",
+  "scope": [
+    "GNUS Agentic Memory Layer (GAML)",
+    "MemoryObject",
+    "Cognitive Asset model",
+    "Memory Governor",
+    "ingestion pipeline",
+    "staged retrieval",
+    "privacy scopes",
+    "replication policy",
+    "swarm memory consensus",
+    "Execution Integrity System (EIS)",
+    "Expert Models",
+    "bridge blocks",
+    "CRDT synchronization",
+    "GeniusCognitiveSystem"
+  ],
+  "cross_refs": [],
+  "locked": false,
+  "precedence": null,
+  "notes": "No frontmatter and no filename convention; content signals only. DOC competed (numbered 8.4.x architecture-chapter prose, Purpose/Strategic Impact sections) but concrete data-model schemas (MemoryObject, CognitiveAsset), policy enums, staged retrieval pipeline, and normative must/should contracts make SPEC dominant per the ADR>SPEC>PRD>DOC precedence rule. Not an ADR: no Status field, no Decision/Consequences sections, covers a whole subsystem rather than one decision."
+}
