@@ -3529,8 +3529,8 @@
       "nav_section": "Source Reference"
     },
     "docs:./executive-summary.md": {
-      "hash": "7bd5fd6ea1be3bf1",
-      "description": "Explains GCS Semantic Core, expert reasoning, governed memory, verification, the planned API bridge and compute price units.",
+      "hash": "302e291d0f1be58c",
+      "description": "Explains GCS specialist architecture, planned API access, native GNUS escrow funding, and distinct ELM-hour price assumptions.",
       "category": "architecture",
       "optional": false,
       "exclude": false,
@@ -3682,8 +3682,8 @@
       "nav_section": "**Genius Cognitive System Architecture Documentation**"
     },
     "docs:./openai-compatible-api-router-and-gcs-job-queue.md": {
-      "hash": "b0f184f9c1e1ef4b",
-      "description": "Specifies signed GCS API jobs, OpenAI-compatible streaming, worker claims, metering, and provisional ELM compute assumptions.",
+      "hash": "f2ce4e94194ca687",
+      "description": "Specifies signed GCS API jobs and metering, the native GNUS-price escrow mechanism, and currently unresolved usage-unit mapping.",
       "category": "architecture",
       "optional": false,
       "exclude": false,
@@ -3747,8 +3747,8 @@
       "nav_section": "**Genius Cognitive System Architecture Documentation**"
     },
     "docs:./developer-api-and-compute-bridge.md": {
-      "hash": "6d60be41303891c1",
-      "description": "Explains how existing OpenAI SDKs can use GCS and GNUS nodes, what is planned, and why compute costs differ from API prices.",
+      "hash": "73eb44958179cf1c",
+      "description": "Explains GCS/OpenAI API plans, the implemented market-quoted GNUS escrow cost path, its work-unit limits, and provisional pricing.",
       "category": "api",
       "optional": false,
       "exclude": false,
