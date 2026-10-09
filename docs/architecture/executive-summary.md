@@ -20,7 +20,7 @@ GNUS.ai supports **raw distributed compute** and a planned **OpenAI-compatible G
 
 The compatibility gateway is a **v1.1 Phase 6 roadmap item**, not a publicly operational service. Details: [Developer API and Distributed Compute Bridge](developer-api-and-compute-bridge.md); [technical API spec](openai-compatible-api-router-and-gcs-job-queue.md).
 
-**Commercial figures must not mix units:** $0.0003 per active *external ELM-hour* is a newly proposed compute-cost planning assumption (usually no more than about three external experts per ordinary request), not a ratified API retail rate. Older $0.005/node-hour scenarios and TFLOPS-per-dollar comparison tables have separate meanings; see [pricing methodology](https://docs.gnus.ai/about-gnus.ai/features-and-benefits/pricing-methodology/).
+**Commercial figures must not mix units:** $0.0003 per active *external ELM-hour* is a newly proposed compute-cost planning assumption (ordinarily zero to about three *external ELMs* per request), not a ratified API retail rate. Native SuperGenius **already** uses a GNUS/USD quote to fund processing jobs in escrow based on an estimated-FLOP calculation; this is distinct from historical $0.005/node-hour scenarios and TFLOPS-per-dollar tables. Its input `block_len` needs unit validation before interpreting the charge as measured FLOPs or bytes. See [pricing methodology](https://docs.gnus.ai/about-gnus.ai/features-and-benefits/pricing-methodology/).
 
 The system:
 
