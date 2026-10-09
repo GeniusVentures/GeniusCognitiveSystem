@@ -57,7 +57,17 @@ Use `eth_call` with selector `0x18160ddd` (ERC-20 `totalSupply()`) and `0x313ce5
 
 `totalSupply()` reports minted minus burned supply on that chain, **including treasury and locked holdings**. Supply in different deployments is counted once per deployment in this four-chain figure; if a later bridge creates wrapped representations of the same economic assets, also publish any adjusted deduplicated figure and the matching bridge ledger. Testnet and BRC-20 assets are excluded from this four-chain EVM subtotal.
 
-**Verification status October 9, 2026:** Live `eth_call` requests were not accessible from this review environment. Therefore this register deliberately does not invent a four-chain numeric snapshot. Update this section when direct chain results can be archived; a currently indexed third-party Polygon estimate is not a substitute for those reads.
+**User-reported live `eth_call` snapshot (October 8, 2026):** The owner executed the Python RPC script against the four listed networks and supplied the following decoded results. **These are user-reported outputs; the original block heights, raw RPC payloads and transaction-independent logs were not attached to this audit.**
+
+| Mainnet | Reported `totalSupply()/10^18` (GNUS) |
+| --- | ---: |
+| Ethereum | 970,018.513038 |
+| Polygon | 14,943,848.730392 |
+| Base | 250,000.000000 |
+| BNB Chain | 1,000,000.000000 |
+| **Four-chain outstanding EVM supply** | **17,163,867.243430** |
+
+The sum agrees arithmetically with the supplied four values. Treat it as a **dated outstanding on-chain supply snapshot**, including treasury/locked balances—not circulating supply, not a permanent supply cap, and not a forecast. For fully reproducible third-party evidence, retain each chain's block number, raw hexadecimal return and decimals value on the next read.
 
 ## Evidence standard for upgrades
 
