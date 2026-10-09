@@ -1,0 +1,13 @@
+name: GNUS supply probe
+on:
+  push:
+    branches: [chore/temporary-gnus-supply-probe-20261008]
+  workflow_dispatch:
+jobs:
+  supply:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 scripts/gnus_supply.py
