@@ -134,7 +134,7 @@ Instead:
 5. The job is published into the GNUS.ai pub/sub and CRDT-backed queue system.
 6. Online nodes that have registered matching capabilities can claim the job.
 7. The winning node or queue-selected node executes the API request job.
-8. The API request job may create one or more lower-level processing jobs.
+8. For externally executed ELM work, the GCS requestor funds **one native `elm_processing` job** containing all `elms[]` work items; independent non-ELM retrieval or verification work may use separate native jobs.
 9. Results are published back to a result channel or stream channel.
 10. The API router converts results into OpenAI-compatible JSON or SSE chunks.
 
@@ -167,7 +167,7 @@ Properties:
 - may not map directly to an external user request
 - generally has no direct HTTP client lifecycle
 - generally stores result through `TaskResult`
-- may be one of many child jobs under a larger request
+- may coexist with separate **non-ELM** native jobs within a heterogeneous API request; multiple ELM work items belong to **one** funded native ELM job, not one job per ELM
 
 ### 26.6.2 New Job Type: API Request Job
 
@@ -181,7 +181,7 @@ Typical examples:
 - RAG request
 - code-specialist request
 - enterprise private-node request
-- gateway-level request that decomposes into child processing jobs
+- gateway-level request that coordinates ELM work and, where needed, separate non-ELM retrieval or verification jobs
 
 Properties:
 
@@ -191,7 +191,7 @@ Properties:
 - owns streaming state
 - owns request policy
 - owns metering and billing envelope
-- may create zero, one, or many processing chunk jobs
+- may execute locally with no native job, or fund **one native ELM job containing all `elms[]` work items**; independent non-ELM stages can use additional native jobs if required
 - may return a result without child chunks if one node can execute directly
 - may be routed through public, private, hybrid, local-only, or gateway-local queues
 - is signed by the API gateway or trusted tenant ingress
@@ -214,64 +214,61 @@ A chat completion request is not just an AI chunk. It is a customer-facing trans
 - result formatting
 - billing records
 - retry and requeue semantics
-- child task fan-out
+- native work-item coordination: a **single funded ELM job**, with separate non-ELM jobs only for distinct work
 
 The correct model is:
 
 ```text
-API Request Job
-    owns the external request contract
-    may create Processing Chunk Jobs
-        each processing chunk owns distributed compute
+GCS API request envelope [planned]
+    owns external request, lifecycle, privacy, usage, response
+    -> locally executed work (zero native jobs), or
+    -> ONE funded SuperGenius ELM Task with elms[] work items
+         each ELM work item maps to a native SubTask; ONE escrow
+    -> optional separate native jobs only for distinct non-ELM work
+SuperGenius processing grid owns native task scheduling and worker selection
 ```
 
 ---
 
+
 ## 26.7 Architecture Overview
 
 ```text
-OpenAI-Compatible Client
-      |
-      | HTTPS /v1/chat/completions
-      v
-Cloudflare Edge
-      |
-      | TLS, WAF, auth precheck, rate limits
-      v
-GCS API Router
-      |
-      | Normalize OpenAI request
-      | Attach tenant/project/policy
-      | Create signed API request job
-      v
-GCS Gateway Node
-      |
-      | Publish job to pub/sub + CRDT queue
-      | Subscribe to result/stream channels
-      v
-GNUS.ai Democratized Queue
-      |
-      | Online nodes observe available jobs
-      | Nodes claim jobs based on capability and policy
-      v
-GCS Worker / Router / Planner / ELM Nodes
-      |
-      | Execute directly or decompose into processing chunk jobs
-      v
-Processing Task Queue
-      |
-      | Existing low-level AI processing chunks
-      v
-Aggregator / Result Publisher
-      |
-      | Final result, usage, attestations, stream chunks
-      v
-API Router
-      |
-      | Convert to OpenAI-compatible JSON/SSE
-      v
-Client
+OpenAI-compatible Client
+       |
+       | HTTPS /v1/chat/completions [planned]
+       v
+Cloudflare / installed GCS API Router
+       | Authenticate, validate, apply tenant policy and request budget
+       v
+GCS API envelope (optional high-level GCS claim/lease)
+       | Coordinates API lifecycle; NOT a SuperGenius worker scheduler
+       v
+GCS Semantic Core / Requestor Adapter [planned ELM bridge]
+       |
+       +---- Local-only or tenant-private direct execution if permitted
+       |
+       +---- ONE funded native ELM processing Task (elms[] in Task.json_data)
+       |          |
+       |          v
+       |     Existing SuperGenius queue, native ownership and worker selection
+       |          |
+       |          v
+       |     SGProcessingManager work-item execution -> SubTask results
+       |          |
+       |          v
+       |     GNUS escrow / native payout -> GCS aggregation
+       |
+       +---- Optional separate non-ELM jobs (retrieval, verification)
+       |
+       v
+GCS result aggregation / API-level usage / response formatting
+       |
+       v
+OpenAI-compatible JSON or incremental SSE to Client
 ```
+
+The optional **GCS-level** API envelope/claim lifecycle is distinct from **SuperGenius's already-existing native task queue**. One external request can include other work such as RAG, but its ELM work items are grouped into **one funded native ELM job and escrow**. SuperGenius selects processors; GCS does not introduce processor bidding, another native scheduler or per-ELM native job claims.
 
 ---
 
@@ -322,7 +319,7 @@ Responsibilities:
 
 ### 26.8.3 GCS Gateway Node
 
-The GCS Gateway Node bridges the HTTP/API world into the GNUS.ai p2p world.
+The GCS Gateway Node bridges the HTTP/API world into the GNUS.ai p2p world. Any gateway claim/lease or durable job queue described here is **GCS API-envelope orchestration**, not a replacement for native SuperGenius task ownership; native ELM workers participate via the **existing** SuperGenius processing grid.
 
 Responsibilities:
 
@@ -340,7 +337,7 @@ Responsibilities:
 
 ### 26.8.4 Online GCS Worker Nodes
 
-Worker nodes register their availability and capabilities.
+These planned **GCS API-envelope workers** may register their availability and capabilities for API-level orchestration. They are **not** an ELM processor inventory/advertisement layer: native SuperGenius selects processing participants using its existing queue, and no extra ELM participant-selection protocol is required.
 
 Responsibilities:
 
@@ -348,7 +345,7 @@ Responsibilities:
 - subscribe to relevant job channels
 - evaluate job requirements
 - claim eligible jobs
-- execute API request jobs directly or through child processing jobs
+- execute locally when permitted or use the existing SuperGenius grid through a single funded `elm_processing` job (with additional **non-ELM** tasks only when separately needed)
 - publish stream chunks
 - publish final result
 - sign claims and results
@@ -363,7 +360,8 @@ Responsibilities:
 - classify request
 - determine whether memory, RAG, ELMs, tools, or verification are needed
 - choose execution topology
-- create child processing jobs when needed
+- create **one funded SuperGenius `elm_processing` Task** for all required `elms[]` work items, rather than one native job/escrow per expert
+- create additional native jobs only for **independent non-ELM** retrieval, verification or similar work that genuinely requires separate processing
 - combine child results
 - return final answer or stream to aggregator
 
@@ -422,7 +420,7 @@ gcs.api.jobs.local.<swarm_id>
 
 ### 26.9.3 Processing Chunk Channels
 
-Existing processing jobs can continue to use existing processing topics.
+Existing processing jobs can continue to use existing processing topics. The planned ELM bridge **reuses those native topics and task locks**; no new processor-discovery, queue-claim, or bidding protocol is a Phase 13 requirement. Any channels sketched below are optional for **distinct future non-ELM work**, not a new mandatory ELM scheduling layer.
 
 Optional future split:
 
@@ -743,7 +741,7 @@ requeued
 8. Worker starts execution.
 9. Worker either:
    a. executes directly, or
-   b. creates child processing jobs.
+   b. submits **one funded native ELM Task** with multiple `elms[]` work items, and/or distinct non-ELM jobs for separate retrieval/verification needs.
 10. Worker publishes stream chunks if streaming.
 11. Worker publishes final result.
 12. Gateway verifies final result.
@@ -767,49 +765,49 @@ Flow:
 1. Gateway marks API job cancelled.
 2. Gateway publishes cancellation message.
 3. Worker stops generation if possible.
-4. Child processing jobs are cancelled or orphan-marked.
+4. Any associated native Task(s) receive cancellation/orphan handling; for ELM work, **one funded Task and its `elms[]` SubTasks** are tracked together (partial escrow settlement/refund policy remains to be designed).
 5. Partial usage is recorded.
 6. No final client response is required if client disconnected.
 ```
 
 ---
 
-## 26.14 Child Processing Jobs
 
-### 26.14.1 When to Create Child Jobs
+## 26.14 Native Processing Jobs and ELM Work Items
 
-An API request job may create child processing jobs when:
+### 26.14.1 One Funded ELM Job for Multiple ELMs
 
-- RAG retrieval requires distributed vector search
-- multiple ELMs are needed
-- verification or arbitration is needed
-- model inference must be chunked
-- embeddings need distributed batch processing
-- response requires code specialist plus general synthesis
-- private and public hybrid execution is needed
-- memory hydration requires multiple shards
+For **externally executed ELM work**, a GCS instance must create and fund **one normal SuperGenius processing job** (one `SGProcessing::Task` with one escrow), regardless of how many ELM experts participate in that planned request. Its existing `Task.json_data` contains `job_type: "elm_processing"`, one or more entries in `elms[]`, and `funding.maximum_processing_hours` as specified by [SuperGenius #369](https://github.com/GeniusVentures/SuperGenius/issues/369). Do **not** create a separate native `Task`, escrow, node-selection/lease protocol, or quote for each ELM.
 
-### 26.14.2 Child Job Reference
+Each `elms[]` work item carries its own `work_item_id`, ELM type, immutable model-manifest reference, input reference and generation settings. SuperGenius's **existing** processing queue and ownership logic assign the work as **SubTasks**; `SGProcessingManager` performs model/runtime execution and each `SubTaskResult` identifies its work item. GCS aggregates the work-item results. The mapping and ELM runtime remain **planned**, not an implemented or deployed ELM service (see [runtime #17](https://github.com/GeniusVentures/SGProcessingManager/issues/17)).
 
-Each child processing job should reference the parent API job.
+The chosen ELM-job rate is **$0.0003 per funded processing-hour**. Whether the hours are **one pooled job budget** or **separate per-ELM allocations** is unresolved. The contract must not assume one charged processing-hour *per expert* merely because several ELM work items exist.
+
+**Separate native jobs remain possible only for distinct non-ELM workloads**, if necessary for a heterogeneous GCS request—for example, an independent distributed vector search, non-ELM verification, or document preprocessing. ELM-based code review, ELM-based verification, specialist synthesis and similar **ELM** stages belong in the **same ELM job's `elms[]` work items**, not an automatic fan-out into separately funded native jobs. Purely local GCS execution may require **no** native job.
+
+### 26.14.2 Parent API Correlation and Completion
+
+The **high-level GCS API request envelope** can correlate a native processing `task_id` and its constituent `subtask_id` / `work_item_id` values without adding fields to `SGProcessing.proto`. The following is **illustrative GCS bookkeeping**, **not** a new required wire format or a second queue:
 
 ```json
 {
-  "parent_job": {
-    "job_type": "GCS_API_REQUEST_JOB",
-    "job_id": "gcsapi_01J...",
-    "phase": "retrieval"
+  "gcs_api_request_id": "gcsapi_01J...",
+  "native_elm_processing_job": {
+    "task_id": "task_elm_abc",
+    "job_type": "elm_processing",
+    "escrow_path": "...",
+    "work_items": [
+      {"work_item_id": "code_specialist", "subtask_id": "subtask_001"},
+      {"work_item_id": "review_specialist", "subtask_id": "subtask_002"}
+    ]
   },
-  "processing_task": {
-    "task_id": "task_abc",
-    "subtask_id": "subtask_123"
-  }
+  "other_non_elm_task_ids": []
 }
 ```
 
-The parent API job is not complete until all required child jobs complete, enough child jobs complete to satisfy quorum, timeout policy allows partial result, or failure policy aborts the request.
+The single `native_elm_processing_job.task_id` references the **one funded ELM Task**; the two work-item IDs are **not** two native Task IDs or two escrows. Distinct non-ELM jobs, when genuinely required, may also be correlated with this GCS request.
 
-Aggregation can happen at the claiming worker, router/planner node, aggregator node, or gateway node for MVP.
+The API response waits for required ELM work-item results and any separately required non-ELM jobs, or follows its documented timeout, failure and partial-result policy. The GCS-level aggregator manages client-facing completion; SuperGenius continues to own native scheduling, execution transport and GNUS payout. Cancellation, partial funded-hours consumption and any escrow refund remain separate open implementation questions.
 
 ---
 
@@ -1696,15 +1694,15 @@ Deliver:
 - worker can publish final result
 - gateway converts to OpenAI-compatible response
 
-### 26.24.6 Phase 6: Child Processing Jobs
+### 26.24.6 Phase 6: Funded ELM Job Bridging and Optional Non-ELM Jobs
 
 Deliver:
 
-- API job can create child `SGProcessing::Task` jobs
-- parent job tracks child job IDs
-- existing processing queue executes children
-- parent aggregates child results
-- parent publishes final result
+- GCS requestor submits **one funded `SGProcessing::Task`** with `job_type: "elm_processing"` and all needed `elms[]` work items in `Task.json_data`; **one GNUS escrow** covers that native ELM job
+- native `SubTask` entries carry/map the ELM work-item IDs and run under **existing SuperGenius scheduling and ownership**, with no per-ELM child `Task` or parallel claim/lease protocol
+- GCS correlates the one ELM Task ID and multiple SubTask results with its API request envelope, then aggregates their outputs
+- optional independent **non-ELM** native tasks are handled separately only if retrieval, verification or another stage requires them
+- parent publishes final OpenAI-compatible result after required work finishes; hours pooling/allocation, cancellation and escrow settlement policy must be settled before ELM billing is called implemented
 
 ### 26.24.7 Phase 7: Metering and Settlement
 
@@ -1749,14 +1747,14 @@ MVP is complete when:
 - Usage is recorded per tenant/project/API key/node.
 - Usage records distinguish generated tokens from delivered tokens.
 - Existing processing chunk jobs still work independently.
-- API request jobs can create child processing jobs in a later MVP phase.
+- In its later ELM integration phase, a GCS requestor submits **one funded native ELM job with one or more `elms[]` work items**, not one native job per expert; separate **non-ELM** processing jobs are permitted only for distinct supporting work.
 - Public/private/local routing policy is represented in the job envelope.
 
 ---
 
 ## 26.26 Open Questions
 
-- Should API job leases reuse any existing `TaskLock` behavior internally, or should API jobs use a fully separate lease type from day one?
+- If an **optional high-level GCS API job** uses claim/lease semantics, how should its lifecycle be tracked **separately from** existing SuperGenius native `TaskLock` and worker selection?
 - Should the first API gateway act as the only claim validator during MVP, or should claim acceptance be CRDT-consensus visible immediately?
 - Should model aliases be global, tenant-specific, or both?
 - Should `gpt-4o`-style compatibility aliases be allowed, or should GNUS only expose `gnus-*` names?
@@ -1776,8 +1774,8 @@ This feature gives GNUS.ai a simple developer-facing wedge:
 
 Under the hood, this requires a clean queue distinction:
 
-- **Processing chunk jobs** remain the low-level distributed compute units.
-- **API request jobs** become the high-level request/response orchestration units.
+- **Existing SuperGenius processing Tasks/SubTasks** remain the low-level distributed compute units; **one funded ELM Task contains multiple expert work items**.
+- **GCS API request envelopes** own client lifecycle, authentication, policy and response orchestration, without creating a second native processor scheduler.
 
 Streaming is part of the core API request job contract, not an addendum. The proxy must bridge signed GCS stream chunks into real-time OpenAI-compatible SSE while handling buffering, ordering, disconnect cancellation, partial usage, and failure boundaries.
 

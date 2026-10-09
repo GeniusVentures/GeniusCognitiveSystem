@@ -3682,8 +3682,8 @@
       "nav_section": "**Genius Cognitive System Architecture Documentation**"
     },
     "docs:./openai-compatible-api-router-and-gcs-job-queue.md": {
-      "hash": "71cad8e3346ce33e",
-      "description": "Specifies GCS API job orchestration boundaries, native SuperGenius queue ownership, ELM-hour funding, escrow and metering gaps.",
+      "hash": "594a4f3789881d30",
+      "description": "Defines one funded SuperGenius ELM job per request, native work-item mapping, API orchestration and metering boundaries.",
       "category": "architecture",
       "optional": false,
       "exclude": false,
@@ -3747,8 +3747,8 @@
       "nav_section": "**Genius Cognitive System Architecture Documentation**"
     },
     "docs:./developer-api-and-compute-bridge.md": {
-      "hash": "4726a2348ce4324f",
-      "description": "Explains the planned OpenAI API and owner-set ELM processing-hour rate versus the implemented market-priced native GNUS job escrow.",
+      "hash": "49ef77ed6bdedbab",
+      "description": "Summarizes planned GCS API access, native GNUS estimated-work escrow and owner-set funded ELM processing-hour pricing.",
       "category": "api",
       "optional": false,
       "exclude": false,
