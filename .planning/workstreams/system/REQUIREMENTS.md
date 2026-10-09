@@ -72,7 +72,7 @@ Source: CON-13 `openai-compatible-api-router-and-gcs-job-queue.md` §26.3–26.2
 - [ ] **API-04**: Slow clients cannot cause unbounded proxy memory growth (backpressure enforced)
 - [ ] **API-05**: Non-streaming requests return OpenAI-compatible JSON
 - [ ] **API-06**: Usage is recorded per tenant/project/API key/node with generated vs delivered tokens distinguished
-- [ ] **API-07**: Existing processing chunk jobs keep working; API jobs can spawn child processing jobs
+- [ ] **API-07**: Existing SuperGenius processing Tasks/SubTasks remain operational. When a GCS API request requires distributed **ELM** execution, GCS selects the ELM work and funds **one** native `elm_processing` `SGProcessing::Task` with all `elms[]` work items in `Task.json_data` and **one escrow**; SuperGenius owns native SubTask scheduling and worker selection. Additional native processing jobs are allowed **only for distinct non-ELM** retrieval, preprocessing, verification or other workloads when needed. Requests executed locally may require **no** native job. The ELM bridge is planned, not implemented; pooled versus per-ELM funded processing-hour allocation remains unresolved.
 - [ ] **API-08**: Routing policy (private/hybrid) is represented in the job envelope
 
 **Open questions (§26.26 — recorded open, NOT commitments; resolve at Phase 6 planning):** lease reuse vs separate job type; single claim validator vs CRDT-visible; alias scoping; `gpt-4o`-style aliases; inline payloads vs gateway references; minimum settlement record; host repo (GCS vs SuperGenius vs separate); protobuf-first vs JSON-first; post-token stream failure representation.
