@@ -122,7 +122,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   1. A standard OpenAI SDK completes a chat completion against `https://api.gnus.ai/v1/chat/completions` with API key auth via the Cloudflare ingress
   2. A registered node claims a signed request job (first-valid-claim), holds a lease, and a failed job requeues
   3. Streaming arrives as incremental OpenAI-compatible SSE chunks (not buffered), a client disconnect cancels the GCS job, and slow clients cannot grow proxy memory unboundedly
-  4. Usage is recorded per tenant/project/API key/node with generated vs delivered tokens distinguished, existing processing chunk jobs keep working, and API jobs can spawn child processing jobs
+  4. Usage is recorded per tenant/project/API key/node with generated vs delivered tokens distinguished; existing SuperGenius Tasks/SubTasks keep working. For distributed ELM execution, GCS selects expert work and submits **one funded native `elm_processing` Task** containing all `elms[]` work items and **one GNUS escrow**; SuperGenius retains SubTask assignment and node scheduling. Any additional native jobs must be for **independent non-ELM work** (e.g. retrieval or verification). Local-only work may need no native job. ELM bridging and funded-hour aggregation (pooled versus allocated per ELM) remain pending implementation/decision.
 **Plans**: TBD
 
 ### Phase 7: Context Lifecycle & Caching
