@@ -13,6 +13,10 @@ Combining PRD + TDD + System Architecture Blueprint
 
 ---
 
+### **Architecture and evidence quick start**
+
+Read [Architecture at a Glance](./ARCHITECTURE-AT-A-GLANCE.md), [Implementation Status](./IMPLEMENTATION-STATUS.md), [Technical FAQ](./TECHNICAL-FAQ.md), [Performance Benchmarks](./PERFORMANCE-BENCHMARKS.md), and [Document Index](./DOCUMENT-INDEX.md). Design descriptions are not automatically current deployment or audited performance claims.
+
 ### **Developer and commercial entry point**
 
 Read [Developer API and Distributed Compute Bridge](./developer-api-and-compute-bridge.md) before the long [OpenAI-compatible API Router technical specification](./openai-compatible-api-router-and-gcs-job-queue.md). The external API is **planned (v1.1 Phase 6)**. SuperGenius leadership selected **$0.0003 per funded processing-hour** for the **planned ELM-job bridge** ([Phase 13, issue #369](https://github.com/GeniusVentures/SuperGenius/issues/369)); its ELM-hour metering is not yet deployed and this is **not a public API retail price**. A job may use one pooled hours budget or per-ELM allocations; that policy remains unresolved. Existing general processing jobs instead use a market-quoted **estimated-workload** GNUS escrow, not measured compute. The [pricing methodology](https://docs.gnus.ai/about-gnus.ai/features-and-benefits/pricing-methodology/) separates these from historical node-hours and throughput-per-dollar scenarios.
