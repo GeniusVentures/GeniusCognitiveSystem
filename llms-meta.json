@@ -3529,8 +3529,8 @@
       "nav_section": "Source Reference"
     },
     "docs:./executive-summary.md": {
-      "hash": "302e291d0f1be58c",
-      "description": "Explains GCS specialist architecture, planned API access, native GNUS escrow funding, and distinct ELM-hour price assumptions.",
+      "hash": "a957122251eaee8e",
+      "description": "Explains GCS cognition and API architecture, including the fixed future ELM processing-hour rate and existing GNUS-priced escrow.",
       "category": "architecture",
       "optional": false,
       "exclude": false,
@@ -3682,8 +3682,8 @@
       "nav_section": "**Genius Cognitive System Architecture Documentation**"
     },
     "docs:./openai-compatible-api-router-and-gcs-job-queue.md": {
-      "hash": "f2ce4e94194ca687",
-      "description": "Specifies signed GCS API jobs and metering, the native GNUS-price escrow mechanism, and currently unresolved usage-unit mapping.",
+      "hash": "71cad8e3346ce33e",
+      "description": "Specifies GCS API job orchestration boundaries, native SuperGenius queue ownership, ELM-hour funding, escrow and metering gaps.",
       "category": "architecture",
       "optional": false,
       "exclude": false,
@@ -3747,8 +3747,8 @@
       "nav_section": "**Genius Cognitive System Architecture Documentation**"
     },
     "docs:./developer-api-and-compute-bridge.md": {
-      "hash": "73eb44958179cf1c",
-      "description": "Explains GCS/OpenAI API plans, the implemented market-quoted GNUS escrow cost path, its work-unit limits, and provisional pricing.",
+      "hash": "4726a2348ce4324f",
+      "description": "Explains the planned OpenAI API and owner-set ELM processing-hour rate versus the implemented market-priced native GNUS job escrow.",
       "category": "api",
       "optional": false,
       "exclude": false,
