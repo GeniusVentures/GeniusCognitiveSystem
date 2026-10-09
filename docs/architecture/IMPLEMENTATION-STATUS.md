@@ -40,7 +40,24 @@
 4. **Floating-point reproducibility:** EIS specifies determinism classes and tolerances, but this review did not find a published cross-GPU signed attestation dataset. The legacy verifier slicing pseudocode is not a deployed protocol proof.
 5. **Public API economics:** `$0.0003 per funded processing-hour` is a planned ELM-job design rate, not a live tariff. Job-hour pooling/aggregation remains undecided.
 6. **Security:** Publish completed audit scope and dates; label unaudited components accurately.
-7. **Commercial diligence:** Issued, circulating, treasury and cross-chain mirrored GNUS supply and any revenue/partnership/valuation claims need dated primary evidence.
+7. **Commercial diligence:** Four-chain **outstanding EVM supply** can be computed directly as the sum of `totalSupply()/10^18` for the published Ethereum, Polygon, BNB Chain and Base GNUS contracts. Circulating/treasury balances, possible transfer mirrors and revenue/valuation claims are different questions and need separate evidence. See the calculation below.
+
+## Four-chain EVM token supply: direct read recipe
+
+Read the Diamond proxy on **each** mainnet, not merely a block explorer's displayed 'maximum supply' or a market-data site's circulating figure. GNUS combines ERC-20 and ERC-1155 interfaces; the GNUS ERC-20 facet in [`GNUSBridge.sol`](https://github.com/GeniusVentures/gnus-ai-contracts/blob/main/GNUSBridge.sol) declares 18 decimals and implements `totalSupply()` by returning `totalSupply(GNUS_TOKEN_ID)`. Do **not** sum both interface views; they refer to the same GNUS token supply on a chain.
+
+| Network | Chain ID | Diamond address |
+| --- | ---: | --- |
+| Ethereum | 1 | `0x614577036F0a024DBC1C88BA616b394DD65d105a` |
+| Polygon | 137 | `0x127E47abA094a9a87D084a3a93732909Ff031419` |
+| BNB Chain | 56 | `0x614577036F0a024DBC1C88BA616b394DD65d105a` |
+| Base | 8453 | `0x614577036F0a024DBC1C88BA616b394DD65d105a` |
+
+Use `eth_call` with selector `0x18160ddd` (ERC-20 `totalSupply()`) and `0x313ce567` (`decimals()`) at a recorded block for each chain. Divide each returned integer by `10^18`, then **add all four amounts** using integer arithmetic before converting to a human-readable decimal. Write down each block number, timestamp, endpoint, raw hex result, decoded integer, and final sum. Where the Diamond does not expose a facet through that selector, inspect its active louper facets and call ERC-1155 `totalSupply(uint256)` with `GNUS_TOKEN_ID` instead; never treat an RPC error as zero.
+
+`totalSupply()` reports minted minus burned supply on that chain, **including treasury and locked holdings**. Supply in different deployments is counted once per deployment in this four-chain figure; if a later bridge creates wrapped representations of the same economic assets, also publish any adjusted deduplicated figure and the matching bridge ledger. Testnet and BRC-20 assets are excluded from this four-chain EVM subtotal.
+
+**Verification status October 9, 2026:** Live `eth_call` requests were not accessible from this review environment. Therefore this register deliberately does not invent a four-chain numeric snapshot. Update this section when direct chain results can be archived; a currently indexed third-party Polygon estimate is not a substitute for those reads.
 
 ## Evidence standard for upgrades
 
