@@ -52,7 +52,7 @@ The existing [OpenAI-compatible API router specification](openai-compatible-api-
 
 | Product | Commercial basis | Status |
 | --- | --- | --- |
-| Pooled distributed compute | Measured compute usage | Native mainnet implementation complete; public launch not active |
+| Pooled distributed compute | Estimated or job-declared workload, quoted and escrowed in GNUS (current `dimensions.block_len` proxy; **not measured FLOPs, bytes or elapsed time**) | Native general-processing escrow implemented; public mainnet not active |
 | OpenAI-compatible inference | Contracted API request or token usage | API design specified, external production gateway **planned** |
 | GCS cognitive services | Specialist reasoning, governed memory, retrieval, verification, workflows | Integration and differentiated service design |
 | Enterprise/private execution | License, private resource allocation and approved usage | Product-specific scope and pricing to be confirmed |
