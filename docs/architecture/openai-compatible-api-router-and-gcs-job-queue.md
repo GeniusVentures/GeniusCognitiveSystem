@@ -10,7 +10,7 @@ The core design rule is:
 
 This preserves the GNUS.ai distributed execution model while giving developers a familiar API surface. Developers should be able to switch existing tools by changing the API base URL and API key, without learning the p2p network internals.
 
-This design extends the existing processing task queue with a higher-level job class for API request/response orchestration. That job class is intentionally different from strict AI processing chunk jobs. Existing processing chunk jobs remain the low-level unit of compute. API request jobs become the higher-level unit that owns external client lifecycle, OpenAI API compatibility, streaming, authentication, policy, metering, orchestration, and result packaging.
+This design describes a higher-level **GCS API request envelope** for client lifecycle, compatibility, authentication, policy, metering and response packaging. That envelope must not add a second native scheduler or duplicate SuperGenius `Task`/`SubTask` queue ownership. Under the owner-corrected [SuperGenius ELM plan (#369)](https://github.com/GeniusVentures/SuperGenius/issues/369), an installed GCS instance funds **one ordinary native SuperGenius processing job** containing `elms[]` in `Task.json_data`; SuperGenius handles processor selection and native queue ownership, and `SGProcessingManager` executes its work items. Existing processing chunk jobs remain the low-level unit of compute. Some descriptions later in this specification of GCS parent-job claims/leases may be useful for **GCS-orchestrator** coordination only, and require reconciliation before implementation.
 
 ---
 
@@ -1520,24 +1520,24 @@ The usage record should feed:
 
 ---
 
-### 26.21.3 Commercial units and provisional costing (October 2026)
+### 26.21.3 Native GNUS escrow and owner-set ELM-hour funding (October 2026)
 
-The OpenAI-compatible API **is intended to become a new way for customers to buy GCS services** on GNUS infrastructure. It must be metered at both the **external request** boundary and the **underlying execution** boundary. An OpenAI-compatible response's token counts do not fully describe local planning, external expert work, retrieval, verification, and network settlement.
+The OpenAI-compatible GCS API **is intended** to provide a familiar route to GCS services, but is not publicly operational. Its request usage, local cognitive work, native child jobs and retail billing are separate accounting boundaries.
 
-The most recent lightweight-model planning estimate is **$0.0003 per active external ELM-hour**. This is an **illustrative compute-only cost assumption** pending validation, not an approved retail API price or production payout. A typical request is expected to consult zero to approximately three external ELMs, not reserve those experts continuously. There is no enforced three-model limit in this specification.
+**Existing processing-job implementation:** `GeniusNode::ProcessImage` gets the USD/GNUS market quote, converts an estimated processing cost into GNUS minions, checks the UTXO balance, and calls `HoldEscrow` before enqueueing. `TokenAmount` computes **`L * 20 * 500 / 10^15` USD**, equivalent to **$0.005 per 10 billion assumed FLOPs**, where `L` is `ProcessingManager::ParseBlockSize()`. It is **not an hourly rate**. `ParseBlockSize()` sums input `dimensions.block_len`, sometimes a processor's patch depth or length rather than physical bytes; matched-workload/quantity normalization is needed before this is treated as verified measured-FLOP billing. On completion, `TransactionManager` distributes escrow using subtask results and configured burn. See the [source-backed pricing breakdown](developer-api-and-compute-bridge.md).
+
+**Owner-resolved *future ELM-job* rate:** SuperGenius planning formally resolved the rate-unit ambiguity on **2026-08-26** to **$0.0003 per funded processing-hour**, not 0.0003 cents. It is the fixed engineering rate for planned **Phase 13 funded ELM bridging** ([owner decision](https://github.com/GeniusVentures/SuperGenius/blob/develop/.planning/INGEST-CONFLICTS.md), [job issue #369](https://github.com/GeniusVentures/SuperGenius/issues/369), [runtime issue #17](https://github.com/GeniusVentures/SGProcessingManager/issues/17)). Both issues remain open; the rate is **agreed as a design, but not yet demonstrated as implemented ELM billing, payout or API retail pricing**.
 
 ```text
-illustrative external ELM cost (USD)
-  = 0.0003 * SUM(each external ELM's active execution seconds / 3600)
+intended ELM-job funded USD = 0.0003 * funded_processing_hours
+intended escrow GNUS ~= intended USD / quote_USD_per_GNUS
 ```
 
-For example, three external ELMs each active for one minute imply `3 * (1/60) * $0.0003 = $0.000015` under this assumption. Do not treat idle time between requests as a running model rental. **Do not** advertise this figure as the full price of a GCS API request: Semantic Core work, ingress, storage, memory, retrieval, verification, bandwidth, settlement, failures/retries, pricing volatility and operating margin may also matter.
+A GCS requestor is planned to submit **one funded** `job_type: "elm_processing"` native job with `elms[]` work items and `funding.maximum_processing_hours`. Existing SuperGenius task/queue/processor-ownership logic must be reused. **Do not introduce GCS-side child worker selection, bidding, quotes, claim/lease, or another native scheduler.** GCS owns API credentials, routing policy, privacy, budget and aggregation. Any GCS-level `GCS_API_REQUEST_JOB` claim/lease described above must remain **a separate high-level orchestration envelope**, never a replacement for SuperGenius child task ownership. Reconcile these boundaries in GCS Phase 6 acceptance criteria before implementation.
 
-The native SuperGenius implementation **already has job-level GNUS payments**: `GeniusNode::ProcessImage` obtains the GNUS/USD market price, converts a fixed USD-per-estimated-FLOP cost into GNUS minions, and pre-funds escrow via `HoldEscrow` before enqueueing. The existing `TokenAmount` estimate is **`L * 20 * 500 / 10^15 USD`**, or **$0.005 per 10 billion estimated FLOPs**, with `L = ProcessingManager::ParseBlockSize()`. **It is not a dollar-per-hour rate**. `ParseBlockSize()` currently sums `dimensions.block_len` (which can represent patch depth/length) and does not measure actual execution time or validated bytes/FLOPs; that unit mismatch needs tests and normalization before real-work billing claims. See the [code-backed breakdown](developer-api-and-compute-bridge.md).
+**Unresolved funding unit:** The proposed job contract permits either **one pooled hours budget** or a **per-ELM work-item allocation**. Consequently, a request with three external ELMs does **not** necessarily incur three times one elapsed-hour rate. Precise handling of concurrent execution, idle/model-download time, cancellation, actual-versus-funded hours, settlement, rounding and refunds remains to be specified/tested.
 
-Earlier **$0.005/node-hour** comparisons, hardware-throughput **TFLOPS-per-dollar-hour** tables, and the newer **$0.0003/active external ELM-hour** planning input are distinct units and commercial contexts. None automatically establishes the future API retail price. GCS request metering still needs an explicit mapping to the native escrow mechanism or a separately approved settlement policy. See the [short commercial bridge](developer-api-and-compute-bridge.md) and [GNUS pricing methodology](https://docs.gnus.ai/about-gnus.ai/features-and-benefits/pricing-methodology/).
-
-Metering should capture **which active unit was billed**, per-expert active time, model/capability identifiers, actual token usage, completed versus cancelled work, private/public mode, retries and other chargeable costs. Dollar display and optional GNUS-token settlement must have explicit exchange-rate/rounding policies. **No live API pricing is asserted by this specification.**
+Historical **$0.005/node-hour** examples and modeled **TFLOPS-per-$1-hour** figures are unrelated to the new fixed ELM processing-hour design. The eventual OpenAI-compatible API may meter tokens or requests for tenants, but **no final retail tariff or usage-to-native-settlement mapping** is established here.
 
 ---
 
