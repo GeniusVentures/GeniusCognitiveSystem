@@ -1,5 +1,8 @@
 # **11 Execution Roadmap**
 
+> **SUPERSEDED delivery sequence (historical).** This older four-phase roadmap is not the current GCS implementation schedule. Use the [System Workstream ROADMAP](https://github.com/GeniusVentures/GeniusCognitiveSystem/blob/main/.planning/workstreams/system/ROADMAP.md) (15 phases) and [Implementation Status](IMPLEMENTATION-STATUS.md) instead. Milestones below are retained as design history, not a claim that these components are running.
+
+
 ---
 
 ## **11.1 Phase 1 — Semantic Core Foundations**
