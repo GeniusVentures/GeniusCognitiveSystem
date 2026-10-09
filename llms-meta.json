@@ -3586,12 +3586,13 @@
       "nav_section": "**Genius Cognitive System Architecture Documentation**"
     },
     "docs:./roadmap-and-risks.md": {
-      "hash": "94ce688a8109c3d4",
-      "description": "Answers what the phased delivery plan is from semantic core alpha through experts, reputation, memory, consensus, EIS, and agent mode.",
+      "hash": "41186ef98e37f1e2",
+      "description": "Historical four-phase GCS plan, explicitly superseded by the current 15-phase System Workstream roadmap.",
       "category": "architecture",
-      "optional": false,
+      "optional": true,
       "exclude": false,
-      "nav_section": "**Genius Cognitive System Architecture Documentation**"
+      "nav_section": "**Genius Cognitive System Architecture Documentation**",
+      "stale": false
     },
     "docs:./future-and-positioning.md": {
       "hash": "3d09777b8d729d9b",
@@ -3753,6 +3754,56 @@
       "optional": false,
       "exclude": false,
       "nav_section": "**Genius Cognitive System Architecture Documentation**",
+      "stale": false
+    },
+    "docs:./ARCHITECTURE-AT-A-GLANCE.md": {
+      "hash": "f5dfe687f1bdcb72",
+      "description": "Explains the GCS planning and SuperGenius scheduling split, local and distributed modes, and where deployment claims stop.",
+      "category": "architecture",
+      "optional": false,
+      "exclude": false,
+      "nav_section": "Architecture",
+      "pinned": false,
+      "stale": false
+    },
+    "docs:./IMPLEMENTATION-STATUS.md": {
+      "hash": "d090c90b0c0d721b",
+      "description": "Lists source-backed GCS, NEO-SWARM and SuperGenius implementation status, tests and unresolved deployment evidence.",
+      "category": "technical",
+      "optional": false,
+      "exclude": false,
+      "nav_section": "Architecture",
+      "pinned": false,
+      "stale": false
+    },
+    "docs:./TECHNICAL-FAQ.md": {
+      "hash": "d3ee0ca8a944675c",
+      "description": "Answers ledger, burn, EIS, verifier, native scheduling, audit and pricing questions with current source boundaries.",
+      "category": "technical",
+      "optional": false,
+      "exclude": false,
+      "nav_section": "Architecture",
+      "pinned": false,
+      "stale": false
+    },
+    "docs:./PERFORMANCE-BENCHMARKS.md": {
+      "hash": "111f74420bf257da",
+      "description": "Specifies how to reproduce expert, routing, hardware, cross-GPU and cost measurements; no fabricated results.",
+      "category": "technical",
+      "optional": false,
+      "exclude": false,
+      "nav_section": "Architecture",
+      "pinned": false,
+      "stale": false
+    },
+    "docs:./DOCUMENT-INDEX.md": {
+      "hash": "d191ec3ac8ba53bf",
+      "description": "Points reviewers to current GNUS/GCS source authorities and flags superseded roadmaps and historical claims.",
+      "category": "architecture",
+      "optional": false,
+      "exclude": false,
+      "nav_section": "Architecture",
+      "pinned": false,
       "stale": false
     }
   }
