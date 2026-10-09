@@ -16,30 +16,35 @@ An existing OpenAI-compatible application should be able to use the planned GNUS
 ```text
 Existing application / OpenAI-compatible client
             |
-            | HTTPS, standard /v1 API shape
             v
-api.gnus.ai  [planned, not public production]
-    Cloudflare ingress and GCS API Router
+Installed GCS /v1 gateway or hosted api.gnus.ai [both planned]
+    OpenAI-compatible request / authentication / usage envelope
             |
-            | Signed GCS_API_REQUEST_JOB
             v
-GCS gateway / queue and policy-aware worker selection
+GCS Semantic Core: plan, select ELMs, apply privacy + memory policy
             |
-            +---- Local execution or private tenant pool
+            +---- Local or tenant-private execution (when permitted)
             |
-            +---- Eligible SuperGenius distributed nodes
+            +---- Planned SuperGenius requestor bridge
                        |
-                       +---- Semantic Core and selected experts
-                       +---- GAML / retrieval / verification when permitted
+                       | ONE funded native ELM processing job
+                       | Task.json_data carries elms[] work items
+                       | GNUS wallet + job escrow
+                       v
+                  EXISTING SuperGenius processing grid
+                  (native queue, worker selection, ownership)
+                       |
+                       v
+                  SGProcessingManager model/runtime on processor
+                       |
+                       v
+                  Results (work-item ids), usage + settlement
             |
             v
-Result aggregation + usage accounting
-            |
-            v
-OpenAI-compatible JSON / SSE response
+GCS assembles result / SSE or JSON back to application
 ```
 
-The API adapter converts transport formats and reports usage; **GCS** controls cognitive planning and memory, while **SuperGenius** provides the distributed queue, node execution and settlement when selected. Neither a token on an EVM chain nor a public API document proves that native public mainnet has been activated.
+The API adapter converts transport formats and reports usage; **GCS** controls cognitive planning, memory, API authentication, request budgeting and final response synthesis. **SuperGenius** owns the existing distributed processing queue, native worker selection/ownership, node execution and GNUS escrow/settlement. Do **not** add a second scheduler, processor-bidding layer or child-task claim/lease protocol to SuperGenius. The previously specified higher-level GCS API request job, if needed to coordinate *GCS orchestrators*, is distinct from the one funded native child-processing job. These boundaries follow the corrected [SuperGenius ELM bridge design (#369)](https://github.com/GeniusVentures/SuperGenius/issues/369) and [ELM runtime scope (#17)](https://github.com/GeniusVentures/SGProcessingManager/issues/17). Neither a token on EVM nor API documentation proves native public mainnet activation.
 
 The existing [OpenAI-compatible API router specification](openai-compatible-api-router-and-gcs-job-queue.md) defines `/v1/models`, `/v1/chat/completions`, and `/v1/embeddings` for the intended MVP. Streaming uses incremental SSE responses. A future `/v1/responses` endpoint and broad tool-calling/structured-output coverage require separate compatibility work; they are **not** claimed as implemented MVP features. Applications depending on unsupported behavior should receive a documented error instead of silently different behavior.
 
@@ -72,31 +77,26 @@ At the configured rate this is **$0.005 per 10 billion *estimated* FLOPs** ($0.5
 
 **Implementation caveat requiring follow-up:** `L` comes from `SGProcessingManager::ParseBlockSize()`, which sums input `dimensions.block_len` values per model input rather than measuring actual FLOPs, elapsed seconds, or total file bytes. The [processing schema guide](https://github.com/GeniusVentures/SGProcessingManager/blob/91021875491925e08c26e1d3ffedbe5815f3871d/doc/processing-json-guide.md) uses `block_len` for a *patch depth* in a texture3D example. Therefore treating `L` as bytes can be dimensionally inconsistent for some processing formats. The implemented estimator needs **unit normalization and matched-workload tests before publication as a guaranteed per-work cost**.
 
-This existing native escrow estimate must be integrated or intentionally superseded by the proposed GCS signed API-job/metering layer. **OpenAI-compatible GCS calls are not yet wired to a deployed public API that automatically bills through this mechanism**.
+This **implemented native general-processing escrow** remains the substrate for a planned funded ELM-job extension. The ELM integration is not yet complete, so current byte/proxy work estimates should not be presented as pricing for a working multi-ELM service. **OpenAI-compatible GCS calls are not yet wired to a deployed public API that automatically bills through this mechanism**.
 
-## Compute-cost planning, not a confirmed API price
+## Owner-resolved ELM-job rate (designed, not yet deployed)
 
-The latest lightweight-ELM **planning assumption** is **$0.0003 per active external ELM-hour**. It is a compute-cost input for analysis, **not an approved node payout, public service tariff, production benchmark, or price per API request**.
+SuperGenius engineering planning **resolved the rate to $0.0003 per funded processing-hour on 2026-08-26**, explicitly choosing **dollars**, not the conflicting “$0.0003 cents/hour” wording in early notes. This is the **fixed rate chosen for Phase 13 ELM Job Bridging**, *not* an unapproved hypothetical and *not* the current general-processing `TokenAmount` formula. It is a project-design commitment; [SuperGenius #369](https://github.com/GeniusVentures/SuperGenius/issues/369) and [SGProcessingManager runtime #17](https://github.com/GeniusVentures/SGProcessingManager/issues/17) are still **open**, and [Phase 13/14 in the SuperGenius roadmap](https://github.com/GeniusVentures/SuperGenius/blob/develop/.planning/ROADMAP.md) remains incomplete.
 
-A simple illustrative model is:
+The planned extension uses a **single native processing job** with `job_type: "elm_processing"`, `elms[]` work items in `Task.json_data`, and `funding.maximum_processing_hours`/GNUS escrow. The existing SuperGenius grid selects and runs participants; GCS does *not* bid for devices or maintain a parallel native scheduler. Model downloads may count toward billable work. No fixed retail OpenAI-API price follows from the engineering funding rate.
 
 ```text
-external ELM compute estimate (USD)
-  = $0.0003 / active ELM-hour
-    * sum(active hours of each externally executed ELM)
+planned native ELM job funding, USD-equivalent
+  = $0.0003 / processing-hour * funded processing-hours
+
+GNUS required for escrow (planned)
+  = above USD amount / quoted USD price per GNUS
+    [subject to an agreed quote-time, rounding and escrow policy]
 ```
 
-The expected small-model workload typically needs zero to about **three external ELMs** rather than three always-on workers. That is a planning expectation, not a contractual hard cap on model calls or compute usage. Three external ELMs each active for one minute would cost **$0.000015 in this hypothetical model**. Three active for a full hour each would cost **$0.0009**. An intermittent request is not a 24/7 rental.
+**Unresolved aggregation semantics:** The design allows either a **single pooled processing-hour budget** for the job or **separate allocations per ELM work item**. Zero to roughly three external ELMs is a common workload expectation, *not* a requirement or pricing multiplier. For a hypothetical minute of allocated work, a one-minute pool is $0.000005. **Only if** three ELMs are independently charged one minute each would the funded estimate be $0.000015. Final behavior must define concurrency, billed versus elapsed time, overrun/refund rules, minimum GNUS units and quote staleness. Neither illustrative value is a production quote.
 
-This compute-only estimate **excludes** any unmeasured Semantic Core work, network ingress, memory retrieval and storage, trust/verification, bandwidth, retries, token conversion, accounting, operations, and margins. Actual metering can record individual expert durations, model classes, privacy modes, input/output tokens, and network resource usage without prematurely choosing a customer tariff.
-
-Do **not** equate this active-ELM-hour estimate with either:
-
-- The historical **$0.005 per node-hour** assumed in earlier GNUS network and AI Boss comparisons; hardware, available FLOPs, utilization, and billing intent are different.
-- The **TFLOPS per $1 per hour** comparison in [GNUS AI Pricing Comparison](https://github.com/GeniusVentures/gnus-ai-pricing); that uses assumed effective throughput and GPU rental prices, not API-token costs or a measured ELM-hour.
-- The **implemented native SuperGenius escrow quote** above: a USD-per-estimated-FLOP proxy converted into GNUS at the current market quote. It is already used to pre-fund processing jobs, but it is **not** the proposed GCS API retail rate or a verified measure of actual work.
-
-The [GNUS pricing methodology and status](https://docs.gnus.ai/about-gnus.ai/features-and-benefits/pricing-methodology/) explains both historical comparisons and the cost normalizations. A binding retail price should be published only after the active unit, actual measurements, included costs, conversion rules, and customer-facing billing policy are decided.
+The ELM-hour rate **does not override** the implemented general-processing price formula above, and it is distinct from older **$0.005/node-hour** sales scenarios and the separate modeled [TFLOPS-per-$1-hour comparison](https://github.com/GeniusVentures/gnus-ai-pricing). A binding *API retail tariff* still requires a decision on what the customer buys (requests, tokens, subscriptions, or reserved hours), included memory/network/verification costs, and operating margin. See the canonical [pricing methodology](https://docs.gnus.ai/about-gnus.ai/features-and-benefits/pricing-methodology/).
 
 ## Delivery and validation
 
