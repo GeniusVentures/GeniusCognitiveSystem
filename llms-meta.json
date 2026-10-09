@@ -3805,6 +3805,16 @@
       "nav_section": "Architecture",
       "pinned": false,
       "stale": false
+    },
+    "docs:./PRODUCTION-COMMERCIAL-EVIDENCE.md": {
+      "hash": "b39928caccc4602c",
+      "description": "Dated release workflow results, unresolved CI failures and primary evidence requirements for revenue, margins, nodes and financing claims.",
+      "category": "technical",
+      "optional": false,
+      "exclude": false,
+      "nav_section": "Architecture",
+      "pinned": false,
+      "stale": false
     }
   }
 }
