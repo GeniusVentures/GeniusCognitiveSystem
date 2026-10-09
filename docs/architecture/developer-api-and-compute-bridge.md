@@ -54,6 +54,26 @@ The existing [OpenAI-compatible API router specification](openai-compatible-api-
 
 The API can expose commodity-style inference, differentiated multi-expert GCS cognition, or tenant-private workloads **without forcing the customer to learn the underlying network architecture**. Standard clients should not unknowingly opt into persistent memory, public worker execution, or disclosure of sensitive prompt content.
 
+## Implemented native job funding: GNUS-priced escrow
+
+Unlike the future GCS API gateway, **SuperGenius already implements job pre-funding** for its processing-job path. In [`GeniusNode::ProcessImage`](https://github.com/GeniusVentures/SuperGenius/blob/develop/src/account/GeniusNode.cpp#L3121-L3210), the requester computes a GNUS amount, checks spendable UTXOs, invokes `HoldEscrow()`, and enqueues the task. [`GetProcessCost`](https://github.com/GeniusVentures/SuperGenius/blob/develop/src/account/GeniusNode.cpp#L3252-L3299) obtains the live or recently cached GNUS/USD quote (CoinGecko token id `genius-ai`) and converts the dollar-denominated estimate into GNUS minions (10^-6 GNUS). The network later processes escrow payout using recorded subtask results and the network's burn configuration; see [`TransactionManager`](https://github.com/GeniusVentures/SuperGenius/blob/develop/src/transaction/TransactionManager.cpp#L1087-L1315).
+
+The current [`TokenAmount` constants](https://github.com/GeniusVentures/SuperGenius/blob/develop/src/account/TokenAmount.hpp#L24-L33) and unit tests yield this **implemented estimate**, before fixed-point rounding and a minimum of one minion:
+
+```text
+estimated_USD = L * FLOPS_PER_BYTE * PRICE_PER_FLOP / 10^15
+              = L * 20 * 500 / 10^15
+              = L * 0.00000000001
+
+GNUS_to_escrow (approx.) = estimated_USD / current_USD_per_GNUS
+```
+
+At the configured rate this is **$0.005 per 10 billion *estimated* FLOPs** ($0.50 per trillion), equivalent to **$0.005 per 500 million *assumed byte-like units***. It is **not $0.005 per hour**, and there is no fixed `$0.005` hourly multiplier in the implementation. The `token_amount_test.cpp` 500 MiB case expects 5,242 minions at $1/GNUS, reflecting truncation to six decimals.
+
+**Implementation caveat requiring follow-up:** `L` comes from `SGProcessingManager::ParseBlockSize()`, which sums input `dimensions.block_len` values per model input rather than measuring actual FLOPs, elapsed seconds, or total file bytes. The [processing schema guide](https://github.com/GeniusVentures/SGProcessingManager/blob/91021875491925e08c26e1d3ffedbe5815f3871d/doc/processing-json-guide.md) uses `block_len` for a *patch depth* in a texture3D example. Therefore treating `L` as bytes can be dimensionally inconsistent for some processing formats. The implemented estimator needs **unit normalization and matched-workload tests before publication as a guaranteed per-work cost**.
+
+This existing native escrow estimate must be integrated or intentionally superseded by the proposed GCS signed API-job/metering layer. **OpenAI-compatible GCS calls are not yet wired to a deployed public API that automatically bills through this mechanism**.
+
 ## Compute-cost planning, not a confirmed API price
 
 The latest lightweight-ELM **planning assumption** is **$0.0003 per active external ELM-hour**. It is a compute-cost input for analysis, **not an approved node payout, public service tariff, production benchmark, or price per API request**.
@@ -66,7 +86,7 @@ external ELM compute estimate (USD)
     * sum(active hours of each externally executed ELM)
 ```
 
-The expected small-model workload typically needs zero to about **three external experts** rather than three always-on workers. That is a planning expectation, not a contractual hard cap on model calls or compute usage. Three external ELMs each active for one minute would cost **$0.000015 in this hypothetical model**. Three active for a full hour each would cost **$0.0009**. An intermittent request is not a 24/7 rental.
+The expected small-model workload typically needs zero to about **three external ELMs** rather than three always-on workers. That is a planning expectation, not a contractual hard cap on model calls or compute usage. Three external ELMs each active for one minute would cost **$0.000015 in this hypothetical model**. Three active for a full hour each would cost **$0.0009**. An intermittent request is not a 24/7 rental.
 
 This compute-only estimate **excludes** any unmeasured Semantic Core work, network ingress, memory retrieval and storage, trust/verification, bandwidth, retries, token conversion, accounting, operations, and margins. Actual metering can record individual expert durations, model classes, privacy modes, input/output tokens, and network resource usage without prematurely choosing a customer tariff.
 
@@ -74,7 +94,7 @@ Do **not** equate this active-ELM-hour estimate with either:
 
 - The historical **$0.005 per node-hour** assumed in earlier GNUS network and AI Boss comparisons; hardware, available FLOPs, utilization, and billing intent are different.
 - The **TFLOPS per $1 per hour** comparison in [GNUS AI Pricing Comparison](https://github.com/GeniusVentures/gnus-ai-pricing); that uses assumed effective throughput and GPU rental prices, not API-token costs or a measured ELM-hour.
-- The USD-per-FLOP / processed-byte estimation constants in [SuperGenius `TokenAmount`](https://github.com/GeniusVentures/SuperGenius/blob/develop/src/account/TokenAmount.hpp), which are yet another unit and not a GCS public tariff.
+- The **implemented native SuperGenius escrow quote** above: a USD-per-estimated-FLOP proxy converted into GNUS at the current market quote. It is already used to pre-fund processing jobs, but it is **not** the proposed GCS API retail rate or a verified measure of actual work.
 
 The [GNUS pricing methodology and status](https://docs.gnus.ai/about-gnus.ai/features-and-benefits/pricing-methodology/) explains both historical comparisons and the cost normalizations. A binding retail price should be published only after the active unit, actual measurements, included costs, conversion rules, and customer-facing billing policy are decided.
 
