@@ -153,7 +153,7 @@ Plans:
   4. Super Admin cannot be demoted by other admins
   5. When 2+ admins exist, destructive actions require Super Admin approval
 
-**Plans:** 4/7 plans executed
+**Plans:** 6/7 plans executed
 
 Plans:
 **Wave 1**
@@ -168,8 +168,8 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 04-03-PLAN.md — Wave 3 (depends: 04-01, 04-02, 04-04) — gcs::Membership component (mint/redeem/role/remove/leave/delete/approve + D-03/D-07/D-08 guards) + unit/multinode tests
-- [ ] 04-07-PLAN.md — Wave 3 (depends: 04-06) — Membership UI (members dialog, join dialog, rail affordances, MembersCubit wiring)
+- [x] 04-03-PLAN.md — Wave 3 (depends: 04-01, 04-02, 04-04) — gcs::Membership component (mint/redeem/role/remove/leave/delete/approve + D-03/D-07/D-08 guards) + unit/multinode tests
+- [x] 04-07-PLAN.md — Wave 3 (depends: 04-06) — Membership UI (members dialog, join dialog, rail affordances, MembersCubit wiring)
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
@@ -232,7 +232,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 1. Foundation | 11/11 | Complete | 2026-09-16 |
 | 2. Spaces & Rooms | 5/5 | Complete   | 2026-09-19 |
 | 3. Messaging | 6/6 | Complete   | 2026-09-24 |
-| 4. Membership & Invites | 4/7 | In Progress|  |
+| 4. Membership & Invites | 6/7 | In Progress|  |
 | 5. Moderation | 0/TBD | Not started | - |
 | 6. GCS Bot | 0/TBD | Not started | - |
 | 7. Discovery | 0/TBD | Not started | - |
