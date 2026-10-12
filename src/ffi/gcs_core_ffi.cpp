@@ -23,6 +23,7 @@
 #include "lib/gcs_messaging.hpp"
 #include "lib/gcs_crypto.hpp"
 #include "lib/gcs_entity_store.hpp"
+#include "lib/gcs_membership.hpp"
 #include "gcs_storage/common/logging.hpp"
 #include "gcs_storage/common/test_env.hpp"
 
@@ -97,10 +98,11 @@ namespace
      }
     )";
 
-    std::mutex g_mutex;                            // guards g_session + g_entities + g_messaging + topic sets
+    std::mutex g_mutex;                            // guards g_session + g_entities + g_messaging + g_membership + topic sets
     std::unique_ptr<gcs::CoreSession> g_session;   // Phase 1: single global session
     std::unique_ptr<gcs::EntityStore> g_entities;  // Phase 2: entity catalog over g_session
     std::unique_ptr<gcs::Messaging> g_messaging;   // Phase 3: messaging over g_session (D-03/D-08)
+    std::unique_ptr<gcs::Membership> g_membership; // Phase 4: membership over g_session + g_entities (D-01..D-08)
     std::vector<std::string> g_roomTopics;         // joined topic set (guarded by g_mutex)
     std::vector<std::string> g_derivedTopics;      // autoJoin-derived subset of g_roomTopics (D-04)
     std::vector<std::string> g_explicitTopics;     // join_topic-joined subset (WR-03: survives derived
@@ -554,6 +556,52 @@ namespace
     }
 
     /**
+     * \brief Builds a MemberList event for one scope (D-04).
+     *
+     * Flat, full-replacement roster — the SpaceTree push pattern. The event
+     * already carries self_address because Membership::MembersFor stamps it
+     * from the injected sender address; the FFI never re-stamps or overwrites
+     * it here, so Dart derives the "You" marker from authority. Callers must
+     * hold g_mutex (reads g_membership); MembersFor is a converged local
+     * prefix scan that never pushes through the sink, so it is the sanctioned
+     * under-mutex Membership read (the kSendText-window rule applies only to
+     * mutators that push).
+     *
+     * \param[in] scopeId Space id or standalone room id.
+     * \return A GcsEvent envelope carrying the scope's MemberList.
+     */
+    gcs::chat::GcsEvent BuildMemberListEvent( const std::string &scopeId )
+    {
+        gcs::chat::GcsEvent event;
+        gcs::chat::MemberList* list = event.mutable_member_list();
+        auto members = g_membership->MembersFor( scopeId );
+        if ( members.has_value() )
+        {
+            *list = std::move( members.value() );
+        }
+        else
+        {
+            // An unreachable scan (no stored record yet) still emits a scoped
+            // list so Dart never renders another scope's roster by accident.
+            list->set_scope_id( scopeId );
+        }
+        return event;
+    }
+
+    /**
+     * \brief Builds an InviteLink event carrying a minted invite URL (D-05).
+     *
+     * \param[in] url The `gcs://invite/...` URL returned by MintInvite.
+     * \return A GcsEvent envelope carrying the InviteLink.
+     */
+    gcs::chat::GcsEvent BuildInviteLinkEvent( const std::string &url )
+    {
+        gcs::chat::GcsEvent event;
+        event.mutable_invite_link()->set_url( url );
+        return event;
+    }
+
+    /**
      * \brief Pushes the room's converged history as a MessageHistory batch.
      *
      * Callers must hold g_mutex (the sink serializes under it). This is the
@@ -932,6 +980,50 @@ extern "C"
             spdlog::error( "gcs_ffi: message receive-callback registration failed" );
         }
 
+        // Bridge CRDT-synced member arrivals into the Membership receive funnel
+        // (D-01/D-04 heal path, P6). Identical discipline to the messages
+        // callback above: the DagWorker thread checks the teardown intake gate
+        // ATOMICALLY (CR-02), takes g_mutex ONLY to copy the Membership pointer,
+        // and calls OnMemberArrived OUTSIDE the lock — holding g_mutex across a
+        // Membership call can deadlock against a command thread blocked in a
+        // Membership Put's WaitForJob (ABBA fix, 03-06; T-04-05-DoS). The
+        // registration precedes the g_membership construction below; the lambda
+        // reads the global lazily, so an arrival before construction is a safe
+        // no-op. Hostile/forged member records are skip-and-logged inside
+        // OnMemberArrived, never trusted.
+        if ( !g_session->RegisterNewElementCallback(
+                   gcs::Membership::kMembersKeyCallbackPattern,
+                   []( const std::string &key, const std::string &value )
+                   {
+                       if ( g_receivingDisabled.load() )
+                       {
+                           return; // teardown intake gate (CR-02)
+                       }
+                       gcs::Membership* membership = nullptr;
+                       {
+                           std::lock_guard<std::mutex> lock( g_mutex );
+                           membership = g_membership.get();
+                           if ( membership != nullptr )
+                           {
+                               g_inFlight += 1; // counted until the funnel returns (WR-02)
+                           }
+                       }
+                       if ( membership == nullptr )
+                       {
+                           return;
+                       }
+                       membership->OnMemberArrived( key, value );
+                       {
+                           std::lock_guard<std::mutex> lock( g_mutex );
+                           g_inFlight -= 1;
+                       }
+                       g_idleCond.notify_all();
+                   } )
+                  .has_value() )
+        {
+            spdlog::error( "gcs_ffi: member receive-callback registration failed" );
+        }
+
         // Phase 2: replay the persisted entity catalog (D-02). Construct the
         // store ONLY after the g_session move — RefreshDerivedJoins uses the
         // g_session global. A load failure is logged and never fails init:
@@ -940,10 +1032,40 @@ extern "C"
         // pushes in this block — the Dart port is not yet registered, so posts
         // would be silent no-ops (Pitfall 9: SpaceTree pushes live in
         // gcs_subscribe and after mutations).
-        g_entities = std::make_unique<gcs::EntityStore>( *g_session );
+        // D-03: stamp the real local wallet address into `creator` on every
+        // new space / standalone room (the Super Admin authority). The same
+        // address is the Membership identity below.
+        g_entities = std::make_unique<gcs::EntityStore>( *g_session,
+                                                         std::string( GeniusSDKGetAddress().address ) );
         if ( g_entities->LoadFromStore().has_error() )
         {
             spdlog::error( "gcs_ffi: entity catalog load failed — continuing with an empty catalog" );
+        }
+
+        // Phase 4: construct the membership component with the REAL vendored
+        // D-06 key-wrap seam injected and the D-06 path enabled by default.
+        // The EventSink self-locks g_mutex around PostToDart (exact ABBA rule,
+        // 03-06/IN-01): no Membership mutator that PUSHES via the sink may run
+        // under g_mutex, so the sink must provide its own serialization (see
+        // the membership dispatch arms, which copy the pointer under the lock
+        // and call the mutator outside it — same as kSendText). Constructed
+        // AFTER the entity load so RefreshDerivedJoins (which consults
+        // HasExplicitLeave, D-02) always sees a live g_membership. The seam is
+        // built by member assignment, NOT brace-init (KeyWrapSeam has a
+        // user-provided default ctor — same reason as the CryptoSeam above).
+        {
+            gcs::Membership::KeyWrapSeam keyWrapSeam;
+            keyWrapSeam.wrap = &gcs::crypto::WrapRoomKey;
+            keyWrapSeam.unwrap = &gcs::crypto::UnwrapRoomKey;
+            keyWrapSeam.enabled = true;
+            g_membership = std::make_unique<gcs::Membership>(
+                *g_session, *g_entities, std::string( GeniusSDKGetAddress().address ),
+                []( const gcs::chat::GcsEvent &event )
+                {
+                    std::lock_guard<std::mutex> lock( g_mutex );
+                    PostToDart( event );
+                },
+                keyWrapSeam );
         }
         RefreshDerivedJoins( lock );
 
@@ -1150,13 +1272,39 @@ extern "C"
             // C++ mints the id and stamps every authority field (D-01/D-27);
             // Dart's command is data-only. A new space has no rooms yet, so
             // the derived-join set — and the RoomList — cannot change here.
-            if ( !g_entities->CreateSpace( createSpace.name(), createSpace.is_public(),
-                                           createSpace.auto_join_rooms() )
-                      .has_value() )
+            // D-08: anyone may create a space (the creator becomes its Super
+            // Admin), so no role guard applies here. MEMB-05: the creation-time
+            // invite gate is C++-persisted (never client-authoritative).
+            auto created = g_entities->CreateSpace( createSpace.name(), createSpace.is_public(),
+                                                    createSpace.auto_join_rooms(),
+                                                    createSpace.members_can_invite() );
+            if ( !created.has_value() )
             {
                 spdlog::error( "gcs_ffi: create_space store write failed for '{}'",
                                createSpace.name() );
                 PostErrorNotice( "create_space store write failed for '" + createSpace.name()
+                                 + "'" ); // D-29: raw error string on the push port
+                return GCS_ERROR_GENERIC;
+            }
+            // D-03: mint the creator's Super Admin record for the new scope.
+            // Membership pushes the scope's MemberList via the sink internally.
+            // Called WITHOUT g_mutex (the kSendText unlocked-window rule): the
+            // member-record Put blocks in WaitForJob while the DagWorker heal
+            // lambda waits on g_mutex (ABBA, 03-06); the raw pointer is safe
+            // across the window because the call is counted in g_inFlight and
+            // gcs_shutdown drains it (WR-02).
+            const std::string scopeId      = created.value().id();
+            gcs::Membership*  membership   = g_membership.get();
+            g_inFlight += 1;
+            lock.unlock();
+            const bool creatorOk = membership->OnScopeCreated( scopeId, "", /*isSpace=*/true ).has_value();
+            lock.lock();
+            g_inFlight -= 1;
+            g_idleCond.notify_all();
+            if ( !creatorOk )
+            {
+                spdlog::error( "gcs_ffi: create_space membership record write failed for '{}'", scopeId );
+                PostErrorNotice( "create_space membership write failed for '" + scopeId
                                  + "'" ); // D-29: raw error string on the push port
                 return GCS_ERROR_GENERIC;
             }
@@ -1269,6 +1417,23 @@ extern "C"
         // later-phase refinement.
         PostToDart( BuildSpaceTreeEvent() );
         PostToDart( BuildRoomListEvent() );
+        // D-04: replay every member scope's roster after CRDT replay so Dart
+        // renders roles without a per-scope pull. A space and a standalone room
+        // are member scopes; a nested room's roster is its parent space's, so it
+        // is never pushed here (standalone rooms are exactly the empty-parent
+        // ones). BuildMemberListEvent runs under the held lock — MembersFor is
+        // a converged local prefix scan that never pushes through the sink.
+        for ( const gcs::chat::SpaceRecord& space : g_entities->Spaces() )
+        {
+            PostToDart( BuildMemberListEvent( space.id() ) );
+        }
+        for ( const gcs::chat::RoomRecord& room : g_entities->Rooms() )
+        {
+            if ( room.parent_space_id().empty() )
+            {
+                PostToDart( BuildMemberListEvent( room.id() ) );
+            }
+        }
 
         gcs::chat::GcsEvent readyEvent;
         readyEvent.mutable_readiness()->set_ready( true );
