@@ -6,6 +6,7 @@ add_library(gcs_core
         lib/gcs_entity_store.cpp
         lib/gcs_crypto.cpp
         lib/gcs_messaging.cpp
+        lib/gcs_membership.cpp
 )
 
 target_include_directories(gcs_core PUBLIC
