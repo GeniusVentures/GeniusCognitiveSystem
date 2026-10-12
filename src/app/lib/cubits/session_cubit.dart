@@ -514,6 +514,12 @@ class SessionCubit extends Cubit<SessionState> implements GcsCommandTransport {
       // D-05: the pushed capability link is held for the invite view/queue
       // (plan 04-07) and opened on demand -- Dart never mints or re-signs it.
       _pendingInviteLink = event.inviteLink.url;
+      // The link lives beside the state, not in it, so the invite view needs
+      // an emission to rebuild on the push (plan 04-07: "the invite view
+      // renders whatever link the C++ pushed" -- a silent assignment would
+      // leave it showing its loading sub-state forever). A fresh copyWith()
+      // instance is never == the current state, so this always notifies.
+      emit(state.copyWith());
       return;
     }
     if (event.hasError()) {

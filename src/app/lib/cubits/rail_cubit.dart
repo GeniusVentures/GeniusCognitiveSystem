@@ -17,6 +17,7 @@ class RailRoom {
   const RailRoom({
     required this.id,
     required this.name,
+    this.membersCanInvite = false,
     this.approvedBy = '',
     this.pendingAction = PendingAction.PENDING_ACTION_UNSPECIFIED,
   });
@@ -26,6 +27,10 @@ class RailRoom {
 
   /// Human display name (mutable metadata on the record).
   final String name;
+
+  /// MEMB-05 pushed flag: a Member of this room may invite. Surfaced verbatim
+  /// -- the members dialog's invite-CTA gate reads it, never recomputes it.
+  final bool membersCanInvite;
 
   /// D-07 approver on the pushed record; empty means a dormant op (or none)
   /// awaits the Super Admin. Surfaced verbatim -- never recomputed in Dart.
@@ -46,6 +51,7 @@ class RailSpace {
     required this.name,
     required this.isPublic,
     required this.autoJoinRooms,
+    this.membersCanInvite = false,
     this.approvedBy = '',
     this.pendingAction = PendingAction.PENDING_ACTION_UNSPECIFIED,
     this.rooms = const <RailRoom>[],
@@ -62,6 +68,10 @@ class RailSpace {
 
   /// D-04 derived-join source of truth (edit surface toggles this).
   final bool autoJoinRooms;
+
+  /// MEMB-05 pushed flag: a Member of this space may invite. Surfaced verbatim
+  /// -- the members dialog's invite-CTA gate reads it, never recomputes it.
+  final bool membersCanInvite;
 
   /// D-07 approver on the pushed record; empty means a dormant op (or none)
   /// awaits the Super Admin. Surfaced verbatim -- never recomputed in Dart.
@@ -177,6 +187,7 @@ class RailCubit extends Cubit<RailState> {
           name: record.name,
           isPublic: record.isPublic,
           autoJoinRooms: record.autoJoinRooms,
+          membersCanInvite: record.membersCanInvite,
           approvedBy: record.approvedBy,
           pendingAction: record.pendingAction,
         ),
@@ -187,6 +198,7 @@ class RailCubit extends Cubit<RailState> {
       final RailRoom room = RailRoom(
         id: record.id,
         name: record.name,
+        membersCanInvite: record.membersCanInvite,
         approvedBy: record.approvedBy,
         pendingAction: record.pendingAction,
       );
@@ -217,6 +229,7 @@ class RailCubit extends Cubit<RailState> {
       name: space.name,
       isPublic: space.isPublic,
       autoJoinRooms: space.autoJoinRooms,
+      membersCanInvite: space.membersCanInvite,
       approvedBy: space.approvedBy,
       pendingAction: space.pendingAction,
       rooms: List<RailRoom>.unmodifiable(rooms),

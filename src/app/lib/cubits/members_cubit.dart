@@ -43,6 +43,11 @@ const String kPendingRemovalLabel = 'Pending removal';
 /// e.g. `Pending: Member`).
 const String kPendingRoleChangeLabelPrefix = 'Pending: ';
 
+/// D-07 pending badge text for a dormant scope deletion (UI-SPEC copy). A
+/// scope-level op is carried on the scope's own record, so its badge text has
+/// no member-scope counterpart.
+const String kPendingDeletionLabel = 'Pending deletion';
+
 /// D-07 badge text for a dormant member-scope op: the target role of a
 /// dormant role change makes the badge informative -- the record's own
 /// `role` still holds the pre-change tier until the approval lands.
@@ -118,6 +123,54 @@ class MemberInfo {
   /// Whether this row is the local user, per the pushed `selfAddress` (D-04).
   final bool self;
 }
+
+/// The local user's own row in a pushed [roster], or null when the roster is
+/// absent or carries no `self` row.
+///
+/// One home for the "who am I in this scope" read: the members dialog and the
+/// rail's viewer-role gates both call it, and a null result means the role is
+/// UNKNOWN (no roster pushed yet) -- gated affordances stay hidden rather than
+/// guessing a tier (D-08: presentation gating reads the pushed role only).
+MemberInfo? viewerOf(List<MemberInfo>? roster) {
+  if (roster == null) {
+    return null;
+  }
+  for (final MemberInfo member in roster) {
+    if (member.self) {
+      return member;
+    }
+  }
+  return null;
+}
+
+/// Whether a viewer whose pushed role label is [viewerRole] may manage the
+/// scope's membership (Super Admin or Admin; UI-SPEC roster anatomy).
+/// Presentation only (T-04-07-EoP) -- the C++ write guards are the
+/// enforcement, this decides which affordances the rail/roster render.
+///
+/// One home for the role->capability rule: the members dialog and the rail's
+/// Delete affordance both gate on it.
+bool viewerCanManageMembers(String? viewerRole) =>
+    viewerRole == kRoleLabelSuperAdmin || viewerRole == kRoleLabelAdmin;
+
+/// Whether a viewer whose pushed role label is [viewerRole] is the scope's
+/// Super Admin -- the single approver of dormant destructive ops (D-07).
+/// Presentation only (T-04-07-EoP). A null [viewerRole] (roster not pushed)
+/// is never the approver.
+bool viewerIsSuperAdmin(String? viewerRole) =>
+    viewerRole == kRoleLabelSuperAdmin;
+
+/// Whether a viewer whose pushed role label is [viewerRole] may START a
+/// deletion of a scope whose destructive op is [deletionPending].
+///
+/// One home for the "no second delete while one is in flight" rule: a dormant
+/// deletion offers the approve affordance, not another Delete (the same rule
+/// the member rows apply to a pending target). Presentation only
+/// (T-04-07-EoP) -- the C++ write guards are the enforcement.
+bool viewerCanDeleteScope(
+  String? viewerRole, {
+  required bool deletionPending,
+}) => viewerCanManageMembers(viewerRole) && !deletionPending;
 
 /// Immutable membership state: the per-scope rosters, each the full
 /// replacement pushed by the most recent `MemberList` for that scope (D-04).
