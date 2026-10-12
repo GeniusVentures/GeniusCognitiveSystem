@@ -708,6 +708,43 @@ namespace
     }
 
     /**
+     * \brief Whether a scope already carries a member roster (P5 gate).
+     *
+     * The P5 retroactive guards enforce the D-08 matrix only once a scope has
+     * member records — a pre-membership scope (no creator record, e.g. a
+     * Phase 2/3 catalog or a smoke topic) stays ungated so legacy flows keep
+     * working. Callers must hold g_mutex (reads g_membership).
+     *
+     * \param[in] scopeId Space id or standalone room id.
+     * \return true when the scope has at least one live member record.
+     */
+    bool ScopeHasRoster( const std::string &scopeId )
+    {
+        auto members = g_membership->MembersFor( scopeId );
+        return members.has_value() && members.value().member_size() > 0;
+    }
+
+    /**
+     * \brief Whether @p role's capability rank is at least @p minimum (D-08).
+     *
+     * The proto Role enum is ordered by DESCENDING privilege
+     * (ROLE_SUPER_ADMIN=1, ROLE_ADMIN=2, ROLE_MODERATOR=3, ROLE_MEMBER=4,
+     * ROLE_GUEST=5), so "at least @p minimum" is `role <= minimum`, NOT `>=`.
+     * ROLE_UNSPECIFIED (0) is never "at least" anything — it is excluded so a
+     * malformed role can never satisfy a write guard. The D-08 capability
+     * matrix (Admin+ config, Member+ write, Guest read-only) is expressed with
+     * this single rank predicate so no arm can invert the comparison.
+     *
+     * \param[in] role    The caller's resolved role.
+     * \param[in] minimum The minimum required role (e.g. ROLE_ADMIN).
+     * \return true when role is a concrete role of at least the minimum rank.
+     */
+    bool RoleAtLeast( gcs::chat::Role role, gcs::chat::Role minimum )
+    {
+        return role != gcs::chat::ROLE_UNSPECIFIED && role <= minimum;
+    }
+
+    /**
      * \brief Recomputes the derived-join topic set (D-04) and syncs it into the
      *        session registrations and the joined-topic projection.
      *
@@ -1233,6 +1270,33 @@ extern "C"
                 PostErrorNotice( "send_text rejected: text exceeds maximum length" ); // D-29: raw error string on the push port
                 return GCS_ERROR_INVALID_ARGUMENT;
             }
+            // D-08/P5: writing requires Member+ once the member scope has a
+            // roster (Guest is read-only). The member scope is the parent space
+            // for a nested room, else the standalone room itself; a smoke topic
+            // has no entity record, so the scope stays empty and the legacy
+            // path is ungated. A pre-membership scope (no roster) stays ungated.
+            {
+                const std::string roomId = sendText.room_topic().substr(
+                    std::string( kRoomTopicNamespace ).size() );
+                std::string scopeId;
+                for ( const gcs::chat::RoomRecord& room : g_entities->Rooms() )
+                {
+                    if ( room.id() != roomId )
+                    {
+                        continue;
+                    }
+                    scopeId = room.parent_space_id().empty() ? room.id() : room.parent_space_id();
+                    break;
+                }
+                if ( !scopeId.empty() && ScopeHasRoster( scopeId )
+                     && !RoleAtLeast( g_membership->LocalRoleFor( scopeId ),
+                                      gcs::chat::ROLE_MEMBER ) )
+                {
+                    PostErrorNotice( "send_text rejected: member permission required in scope '"
+                                     + scopeId + "'" ); // D-29: raw error string on the push port
+                    return GCS_ERROR_INVALID_ARGUMENT;
+                }
+            }
             // D-03/D-04/D-07/D-08: delegate to the Messaging component, which
             // mints the id, stamps the sender, pushes pending -> live publish +
             // archive -> complete, and encrypts the envelope (production seam).
@@ -1334,12 +1398,68 @@ extern "C"
                                  + "' not found" ); // D-29: raw error string on the push port
                 return GCS_ERROR_INVALID_ARGUMENT;
             }
-            if ( !g_entities->CreateRoom( createRoom.name(), createRoom.parent_space_id() ).has_value() )
+            // D-08/P5: a NESTED room requires Admin+ in the parent space once
+            // that space has a roster (a standalone room is its own scope —
+            // anyone may create it). A pre-membership parent (no member
+            // records yet) stays ungated so legacy catalogs keep working.
+            const bool isStandalone = createRoom.parent_space_id().empty();
+            if ( !isStandalone && ScopeHasRoster( createRoom.parent_space_id() )
+                 && !RoleAtLeast( g_membership->LocalRoleFor( createRoom.parent_space_id() ),
+                                  gcs::chat::ROLE_ADMIN ) )
+            {
+                PostErrorNotice( "create_room rejected: admin permission required in parent space '"
+                                 + createRoom.parent_space_id() + "'" ); // D-29: raw error string on the push port
+                return GCS_ERROR_INVALID_ARGUMENT;
+            }
+            auto created = g_entities->CreateRoom( createRoom.name(), createRoom.parent_space_id(),
+                                                   createRoom.members_can_invite() );
+            if ( !created.has_value() )
             {
                 spdlog::error( "gcs_ffi: create_room store write failed for '{}'", createRoom.name() );
                 PostErrorNotice( "create_room store write failed for '" + createRoom.name()
                                  + "'" ); // D-29: raw error string on the push port
                 return GCS_ERROR_GENERIC;
+            }
+            const std::string roomId = created.value().id();
+            if ( !isStandalone )
+            {
+                // D-06: a NESTED room gets its own random 32-byte room key at
+                // creation and stores it for the room's HKDF ikm. A standalone
+                // room mints + stores its key inside OnScopeCreated below — so
+                // never mint here for that branch. A mint failure (RAND_bytes)
+                // simply leaves no stored key, and DeriveRoomKey falls back to
+                // the pre-membership topic derivation (never a silent empty-key
+                // store).
+                std::vector<unsigned char> roomKey = gcs::crypto::MintRoomKey();
+                if ( !roomKey.empty() )
+                {
+                    gcs::crypto::StoreRoomKey( "gcs/chat/" + roomId, roomKey );
+                }
+            }
+            else
+            {
+                // D-03: a standalone room is its own Super Admin scope — mint
+                // the creator record (which also mints + stores the room key
+                // and pushes the MemberList via the sink). Called WITHOUT
+                // g_mutex (kSendText unlocked-window rule, ABBA 03-06; the
+                // pointer is safe via g_inFlight, WR-02).
+                gcs::Membership* membership = g_membership.get();
+                g_inFlight += 1;
+                lock.unlock();
+                const bool creatorOk = membership->OnScopeCreated( roomId, "gcs/chat/" + roomId,
+                                                                   /*isSpace=*/false )
+                                           .has_value();
+                lock.lock();
+                g_inFlight -= 1;
+                g_idleCond.notify_all();
+                if ( !creatorOk )
+                {
+                    spdlog::error( "gcs_ffi: create_room membership record write failed for '{}'", roomId );
+                    PostErrorNotice( "create_room membership write failed for '" + roomId
+                                     + "'" ); // D-29: raw error string on the push port
+                    return GCS_ERROR_GENERIC;
+                }
+                PostToDart( BuildMemberListEvent( roomId ) );
             }
             // The new room may be auto-joined (parent autoJoinRooms) — recompute
             // the derived set so RoomList reflects it (D-04, retroactive by
@@ -1362,14 +1482,27 @@ extern "C"
                 PostErrorNotice( "update_space rejected: name exceeds maximum length" ); // D-29: raw error string on the push port
                 return GCS_ERROR_INVALID_ARGUMENT;
             }
+            // D-08/P5: config changes require Super Admin/Admin once the space
+            // has a roster (a pre-membership space stays ungated).
+            if ( ScopeHasRoster( updateSpace.space_id() )
+                 && !RoleAtLeast( g_membership->LocalRoleFor( updateSpace.space_id() ),
+                                  gcs::chat::ROLE_ADMIN ) )
+            {
+                PostErrorNotice( "update_space rejected: admin permission required for '"
+                                 + updateSpace.space_id() + "'" ); // D-29: raw error string on the push port
+                return GCS_ERROR_INVALID_ARGUMENT;
+            }
             // Full desired state, never a patch (per-key LWW replaces the whole
             // value); EntityStore preserves the immutable fields from the stored
-            // record and re-stamps updated_at_ms.
+            // record and re-stamps updated_at_ms. D-08/MEMB-05: members_can_invite
+            // is desired state and applied as-is (the space owns the post-creation
+            // toggle).
             gcs::chat::SpaceRecord desired;
             desired.set_id( updateSpace.space_id() );
             desired.set_name( updateSpace.name() );
             desired.set_is_public( updateSpace.is_public() );
             desired.set_auto_join_rooms( updateSpace.auto_join_rooms() );
+            desired.set_members_can_invite( updateSpace.members_can_invite() );
             if ( !g_entities->UpdateSpace( desired ).has_value() )
             {
                 spdlog::error( "gcs_ffi: update_space failed for '{}'", updateSpace.space_id() );
@@ -1382,6 +1515,203 @@ extern "C"
             RefreshDerivedJoins( lock );
             PostToDart( BuildSpaceTreeEvent() );
             PostToDart( BuildRoomListEvent() );
+            return GCS_OK;
+        }
+        // === Phase 4: membership & invites (D-02/D-03/D-05/D-07/D-08) ===
+        // Each arm below validates the command shape (V5) and delegates to the
+        // Membership write guard — the D-08 permission matrix and the D-03/D-07
+        // Super Admin invariants are C++-owned, never client-side. Every
+        // mutator runs WITHOUT g_mutex (the kSendText unlocked-window rule):
+        // the mutator pushes via the sink, which self-locks g_mutex, and its
+        // member-record Put blocks in WaitForJob while the DagWorker heal
+        // lambda waits on g_mutex — holding g_mutex across it is the 03-06 ABBA
+        // deadlock. The raw pointer is safe across the window because the call
+        // is counted in g_inFlight and gcs_shutdown drains that count (WR-02).
+        case gcs::chat::GcsCommand::kInvite:
+        {
+            // D-05 (MEMB-01): mint a capability-token invite link for a scope.
+            const std::string scopeId = command.invite().scope_id();
+            if ( scopeId.empty() )
+            {
+                PostErrorNotice( "invite rejected: scope_id is empty" ); // D-29: raw error string on the push port
+                return GCS_ERROR_INVALID_ARGUMENT;
+            }
+            gcs::Membership* membership = g_membership.get();
+            g_inFlight += 1;
+            lock.unlock();
+            const auto mintResult = membership->MintInvite( scopeId );
+            lock.lock();
+            g_inFlight -= 1;
+            g_idleCond.notify_all();
+            if ( !mintResult.has_value() )
+            {
+                PostErrorNotice( "invite failed for '" + scopeId
+                                 + "'" ); // D-29: raw error string on the push port
+                return GCS_ERROR_GENERIC;
+            }
+            PostToDart( BuildInviteLinkEvent( mintResult.value() ) );
+            return GCS_OK;
+        }
+        case gcs::chat::GcsCommand::kRedeem:
+        {
+            // D-05: redeem an invite link — the redeemer unwraps the room keys
+            // and writes their OWN wallet-keyed member record. Membership pushes
+            // the redeemed scope's MemberList via the sink internally (the scope
+            // id lives in the invite record, NOT the URL), so this arm only
+            // re-pushes the SpaceTree (a join may surface a new space in the
+            // rail) — it must never derive the scope id from the URL itself.
+            const std::string inviteUrl = command.redeem().invite_url();
+            if ( inviteUrl.empty() )
+            {
+                PostErrorNotice( "redeem rejected: invite_url is empty" ); // D-29: raw error string on the push port
+                return GCS_ERROR_INVALID_ARGUMENT;
+            }
+            gcs::Membership* membership = g_membership.get();
+            g_inFlight += 1;
+            lock.unlock();
+            const auto redeemResult = membership->RedeemInvite( inviteUrl );
+            lock.lock();
+            g_inFlight -= 1;
+            g_idleCond.notify_all();
+            if ( !redeemResult.has_value() )
+            {
+                PostErrorNotice( "redeem failed: invite link wasn't accepted" ); // D-29: raw error string on the push port
+                return GCS_ERROR_INVALID_ARGUMENT;
+            }
+            PostToDart( BuildSpaceTreeEvent() );
+            return GCS_OK;
+        }
+        case gcs::chat::GcsCommand::kChangeRole:
+        {
+            // D-03/D-08 (MEMB-02/MEMB-03): full-state role change; the Super
+            // Admin (creator) is never demotable — a Membership write guard,
+            // never CRDT semantics.
+            const gcs::chat::ChangeRoleCommand& changeRole = command.change_role();
+            if ( changeRole.scope_id().empty() || changeRole.target().empty() )
+            {
+                PostErrorNotice( "change_role rejected: scope_id and target must be non-empty" ); // D-29: raw error string on the push port
+                return GCS_ERROR_INVALID_ARGUMENT;
+            }
+            gcs::Membership* membership = g_membership.get();
+            g_inFlight += 1;
+            lock.unlock();
+            const auto changeResult = membership->ChangeRole( changeRole.scope_id(), changeRole.target(),
+                                                              changeRole.role() );
+            lock.lock();
+            g_inFlight -= 1;
+            g_idleCond.notify_all();
+            if ( !changeResult.has_value() )
+            {
+                PostErrorNotice( "change_role rejected: permission denied" ); // D-29: raw error string on the push port
+                return GCS_ERROR_INVALID_ARGUMENT;
+            }
+            PostToDart( BuildMemberListEvent( changeRole.scope_id() ) );
+            return GCS_OK;
+        }
+        case gcs::chat::GcsCommand::kRemoveMember:
+        {
+            // D-07 (MEMB-04): member removal — dormant (awaiting Super Admin
+            // approval) when 2+ admins exist, else tombstoned.
+            const gcs::chat::RemoveMemberCommand& removeMember = command.remove_member();
+            if ( removeMember.scope_id().empty() || removeMember.target().empty() )
+            {
+                PostErrorNotice( "remove_member rejected: scope_id and target must be non-empty" ); // D-29: raw error string on the push port
+                return GCS_ERROR_INVALID_ARGUMENT;
+            }
+            gcs::Membership* membership = g_membership.get();
+            g_inFlight += 1;
+            lock.unlock();
+            const auto removeResult = membership->RemoveMember( removeMember.scope_id(),
+                                                                removeMember.target() );
+            lock.lock();
+            g_inFlight -= 1;
+            g_idleCond.notify_all();
+            if ( !removeResult.has_value() )
+            {
+                PostErrorNotice( "remove_member rejected: permission denied" ); // D-29: raw error string on the push port
+                return GCS_ERROR_INVALID_ARGUMENT;
+            }
+            PostToDart( BuildMemberListEvent( removeMember.scope_id() ) );
+            return GCS_OK;
+        }
+        case gcs::chat::GcsCommand::kLeave:
+        {
+            // D-02: the caller explicitly leaves a scope — writes explicit_leave
+            // on their own record (never a tombstone). The Super Admin cannot
+            // leave (Membership guard rejects).
+            const std::string scopeId = command.leave().scope_id();
+            if ( scopeId.empty() )
+            {
+                PostErrorNotice( "leave rejected: scope_id is empty" ); // D-29: raw error string on the push port
+                return GCS_ERROR_INVALID_ARGUMENT;
+            }
+            gcs::Membership* membership = g_membership.get();
+            g_inFlight += 1;
+            lock.unlock();
+            const auto leaveResult = membership->Leave( scopeId );
+            lock.lock();
+            g_inFlight -= 1;
+            g_idleCond.notify_all();
+            if ( !leaveResult.has_value() )
+            {
+                PostErrorNotice( "leave rejected: not permitted for '" + scopeId
+                                 + "'" ); // D-29: raw error string on the push port
+                return GCS_ERROR_INVALID_ARGUMENT;
+            }
+            PostToDart( BuildMemberListEvent( scopeId ) );
+            return GCS_OK;
+        }
+        case gcs::chat::GcsCommand::kDeleteScope:
+        {
+            // D-07 (MEMB-04): scope deletion — dormant (the entity record is
+            // rewritten, not tombstoned, until approved) when 2+ admins exist.
+            const std::string scopeId = command.delete_scope().scope_id();
+            if ( scopeId.empty() )
+            {
+                PostErrorNotice( "delete_scope rejected: scope_id is empty" ); // D-29: raw error string on the push port
+                return GCS_ERROR_INVALID_ARGUMENT;
+            }
+            gcs::Membership* membership = g_membership.get();
+            g_inFlight += 1;
+            lock.unlock();
+            const auto deleteResult = membership->DeleteScope( scopeId );
+            lock.lock();
+            g_inFlight -= 1;
+            g_idleCond.notify_all();
+            if ( !deleteResult.has_value() )
+            {
+                PostErrorNotice( "delete_scope rejected: permission denied" ); // D-29: raw error string on the push port
+                return GCS_ERROR_INVALID_ARGUMENT;
+            }
+            PostToDart( BuildSpaceTreeEvent() );
+            PostToDart( BuildMemberListEvent( scopeId ) );
+            return GCS_OK;
+        }
+        case gcs::chat::GcsCommand::kApprove:
+        {
+            // D-07 (MEMB-04): the Super Admin activates a dormant destructive op
+            // by overwriting the same key's approved_by — single-signer approval
+            // survives per-key LWW (never a cross-key join).
+            const gcs::chat::ApproveCommand& approve = command.approve();
+            if ( approve.scope_id().empty() || approve.target().empty() )
+            {
+                PostErrorNotice( "approve rejected: scope_id and target must be non-empty" ); // D-29: raw error string on the push port
+                return GCS_ERROR_INVALID_ARGUMENT;
+            }
+            gcs::Membership* membership = g_membership.get();
+            g_inFlight += 1;
+            lock.unlock();
+            const auto approveResult = membership->Approve( approve.scope_id(), approve.target() );
+            lock.lock();
+            g_inFlight -= 1;
+            g_idleCond.notify_all();
+            if ( !approveResult.has_value() )
+            {
+                PostErrorNotice( "approve rejected: permission denied" ); // D-29: raw error string on the push port
+                return GCS_ERROR_INVALID_ARGUMENT;
+            }
+            PostToDart( BuildMemberListEvent( approve.scope_id() ) );
+            PostToDart( BuildSpaceTreeEvent() );
             return GCS_OK;
         }
         case gcs::chat::GcsCommand::PAYLOAD_NOT_SET:

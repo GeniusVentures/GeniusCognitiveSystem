@@ -555,4 +555,118 @@ namespace gcs::test
         ASSERT_GE( roster->member_size(), 1 );
     }
 
+    // === Phase 4 (04-05 Task 2): membership command arms + P5 guards ===
+    // Each arm re-validates the hostile command shape C++-side (V5) and
+    // delegates the D-08 permission decision to the Membership write guard; a
+    // rejection pushes a raw ErrorNotice and returns GCS_ERROR_INVALID_ARGUMENT.
+
+    /**
+     * @brief kInvite with an empty scope_id is rejected at the ABI boundary:
+     *        INVALID_ARGUMENT plus an ErrorNotice, never a Membership call.
+     */
+    TEST_F( GcsFFI, InviteRejectsEmptyScopeId )
+    {
+        m_handle = InitSubscribedSession();
+        ASSERT_NE( m_handle, nullptr );
+
+        gcs::chat::GcsCommand invite;
+        invite.mutable_invite()->set_scope_id( "" );
+        EXPECT_EQ( PublishCommand( m_handle, invite ), GCS_ERROR_INVALID_ARGUMENT );
+
+        EXPECT_TRUE( HasErrorNotice( g_pushedEvents.Take() ) );
+    }
+
+    /**
+     * @brief A space creator (Super Admin) mints a D-05 capability invite link:
+     *        the pushed InviteLink carries the exact
+     *        `gcs://invite/space/<inviteId>?key=<IK>` shape.
+     */
+    TEST_F( GcsFFI, InviteMintsSpaceInviteLinkWithCapabilityShape )
+    {
+        m_handle = InitSubscribedSession();
+        ASSERT_NE( m_handle, nullptr );
+
+        gcs::chat::GcsCommand createSpace;
+        createSpace.mutable_create_space()->set_name( "ops" );
+        ASSERT_EQ( PublishCommand( m_handle, createSpace ), GCS_OK );
+        const auto tree = FindLatestSpaceTree( g_pushedEvents.Take() );
+        ASSERT_TRUE( tree.has_value() );
+        ASSERT_EQ( tree->space_size(), 1 );
+        const std::string spaceId = tree->space( 0 ).id();
+
+        gcs::chat::GcsCommand invite;
+        invite.mutable_invite()->set_scope_id( spaceId );
+        ASSERT_EQ( PublishCommand( m_handle, invite ), GCS_OK );
+
+        const auto link = FindLatestInviteLink( g_pushedEvents.Take() );
+        ASSERT_TRUE( link.has_value() );
+        EXPECT_EQ( link->url().rfind( "gcs://invite/space/", 0 ), 0u );
+        EXPECT_NE( link->url().find( "?key=" ), std::string::npos );
+    }
+
+    /**
+     * @brief kRedeem re-parses the URL C++-side (P8): a non-`gcs://invite/`
+     *        string is rejected with INVALID_ARGUMENT plus an ErrorNotice.
+     */
+    TEST_F( GcsFFI, RedeemRejectsMalformedUrl )
+    {
+        m_handle = InitSubscribedSession();
+        ASSERT_NE( m_handle, nullptr );
+
+        gcs::chat::GcsCommand redeem;
+        redeem.mutable_redeem()->set_invite_url( "not-an-invite-url" );
+        EXPECT_EQ( PublishCommand( m_handle, redeem ), GCS_ERROR_INVALID_ARGUMENT );
+
+        EXPECT_TRUE( HasErrorNotice( g_pushedEvents.Take() ) );
+    }
+
+    /**
+     * @brief D-03/MEMB-03: demoting the scope creator (Super Admin) is rejected
+     *        by the Membership guard — INVALID_ARGUMENT plus an ErrorNotice.
+     */
+    TEST_F( GcsFFI, ChangeRoleRejectsDemotingCreator )
+    {
+        m_handle = InitSubscribedSession();
+        ASSERT_NE( m_handle, nullptr );
+
+        gcs::chat::GcsCommand createSpace;
+        createSpace.mutable_create_space()->set_name( "ops" );
+        ASSERT_EQ( PublishCommand( m_handle, createSpace ), GCS_OK );
+        const auto events = g_pushedEvents.Take();
+        const auto tree   = FindLatestSpaceTree( events );
+        ASSERT_TRUE( tree.has_value() );
+        ASSERT_EQ( tree->space_size(), 1 );
+        const std::string spaceId = tree->space( 0 ).id();
+        const auto        roster  = FindLatestMemberList( events, spaceId );
+        ASSERT_TRUE( roster.has_value() );
+        ASSERT_EQ( roster->member_size(), 1 );
+        const std::string creator = roster->member( 0 ).address();
+        ASSERT_FALSE( creator.empty() );
+
+        gcs::chat::GcsCommand changeRole;
+        changeRole.mutable_change_role()->set_scope_id( spaceId );
+        changeRole.mutable_change_role()->set_target( creator );
+        changeRole.mutable_change_role()->set_role( gcs::chat::ROLE_MEMBER );
+        EXPECT_EQ( PublishCommand( m_handle, changeRole ), GCS_ERROR_INVALID_ARGUMENT );
+
+        EXPECT_TRUE( HasErrorNotice( g_pushedEvents.Take() ) );
+    }
+
+    /**
+     * @brief kApprove with an empty target is rejected at the ABI boundary:
+     *        INVALID_ARGUMENT plus an ErrorNotice, never a Membership call.
+     */
+    TEST_F( GcsFFI, ApproveRejectsEmptyTarget )
+    {
+        m_handle = InitSubscribedSession();
+        ASSERT_NE( m_handle, nullptr );
+
+        gcs::chat::GcsCommand approve;
+        approve.mutable_approve()->set_scope_id( "space-missing" );
+        approve.mutable_approve()->set_target( "" );
+        EXPECT_EQ( PublishCommand( m_handle, approve ), GCS_ERROR_INVALID_ARGUMENT );
+
+        EXPECT_TRUE( HasErrorNotice( g_pushedEvents.Take() ) );
+    }
+
 } // namespace gcs::test
