@@ -767,7 +767,36 @@ namespace
      */
     void RefreshDerivedJoins( std::unique_lock<std::mutex> &lock )
     {
-        const std::vector<std::string> derived = g_entities->DerivedJoinedTopics();
+        // D-02: room access stays derived — joined(room) = parentSpace.
+        // autoJoinRooms && !member.explicitLeave. A derived room whose parent
+        // space the LOCAL member has explicitly left is filtered out before
+        // registration so it never (re)enters the projection. EntityStore
+        // already excludes standalone rooms from DerivedJoinedTopics, so only
+        // nested rooms (non-empty parent) can be filtered here.
+        const std::vector<gcs::chat::RoomRecord> rooms = g_entities->Rooms();
+        std::vector<std::string>                 derived;
+        for ( const std::string& topic : g_entities->DerivedJoinedTopics() )
+        {
+            const std::string roomId = topic.substr( std::string( kRoomTopicNamespace ).size() );
+            bool              explicitlyLeft = false;
+            for ( const gcs::chat::RoomRecord& room : rooms )
+            {
+                if ( room.id() != roomId )
+                {
+                    continue;
+                }
+                if ( !room.parent_space_id().empty()
+                     && g_membership->HasExplicitLeave( room.parent_space_id() ) )
+                {
+                    explicitlyLeft = true;
+                }
+                break;
+            }
+            if ( !explicitlyLeft )
+            {
+                derived.push_back( topic );
+            }
+        }
 
         // Register newly derived topics (listen first, then broadcast — D-07,
         // the same ordering GcsGlobalDb::Initialize and join_topic use).

@@ -342,7 +342,7 @@ namespace gcs::test
          * Dart_PostCObject_DL resolves into g_pushedEvents instead of no-op'ing.
          * gcs_publish/gcs_subscribe are synchronous under g_mutex and post their
          * events before returning, so the capture log is complete with no
-         * thread-wait (no std::this_thread::sleep_for anywhere in this file).
+         * thread-wait: this file performs no sleeping of any kind.
          *
          * @return The session handle, or nullptr when the embedded boot failed.
          */
@@ -667,6 +667,55 @@ namespace gcs::test
         EXPECT_EQ( PublishCommand( m_handle, approve ), GCS_ERROR_INVALID_ARGUMENT );
 
         EXPECT_TRUE( HasErrorNotice( g_pushedEvents.Take() ) );
+    }
+
+    // === Phase 4 (04-05 Task 3): D-02 explicit_leave term on derived joins ===
+    // joined(room) = parentSpace.autoJoinRooms && !member.explicit_leave. The
+    // leave arm cannot produce the explicit_leave==true case from the FFI: the
+    // local wallet is always the space creator (Super Admin), and
+    // Membership::Leave rejects the Super Admin, so a single-wallet FFI test can
+    // never make HasExplicitLeave() true. That branch is covered at the owning
+    // module's boundary in test_gcs_membership.cpp (MembershipTest explicit-
+    // leave cases). What the FFI can prove is the non-filtered branch: a room
+    // derived from an autoJoinRooms parent with no explicit leave still enters
+    // the derived set, so the D-02 filter never over-evicts.
+
+    /**
+     * @brief A room derived from an autoJoinRooms parent (no explicit leave)
+     *        still joins: its derived topic reaches the pushed RoomList, i.e.
+     *        the D-02 explicit_leave filter keeps the room.
+     */
+    TEST_F( GcsFFI, DerivedAutoJoinedRoomSurvivesExplicitLeaveFilter )
+    {
+        m_handle = InitSubscribedSession();
+        ASSERT_NE( m_handle, nullptr );
+
+        gcs::chat::GcsCommand createSpace;
+        createSpace.mutable_create_space()->set_name( "ops" );
+        createSpace.mutable_create_space()->set_is_public( true );
+        createSpace.mutable_create_space()->set_auto_join_rooms( true );
+        ASSERT_EQ( PublishCommand( m_handle, createSpace ), GCS_OK );
+        const auto tree = FindLatestSpaceTree( g_pushedEvents.Take() );
+        ASSERT_TRUE( tree.has_value() );
+        ASSERT_EQ( tree->space_size(), 1 );
+        const std::string spaceId = tree->space( 0 ).id();
+
+        gcs::chat::GcsCommand createRoom;
+        createRoom.mutable_create_room()->set_name( "general" );
+        createRoom.mutable_create_room()->set_parent_space_id( spaceId );
+        ASSERT_EQ( PublishCommand( m_handle, createRoom ), GCS_OK );
+
+        const auto        events = g_pushedEvents.Take();
+        const auto        roomTree = FindLatestSpaceTree( events );
+        ASSERT_TRUE( roomTree.has_value() );
+        ASSERT_EQ( roomTree->room_size(), 1 );
+        const std::string roomId = roomTree->room( 0 ).id();
+        EXPECT_EQ( roomTree->room( 0 ).parent_space_id(), spaceId );
+
+        // The derived topic reaches the RoomList — the explicit_leave term is
+        // false for a local creator with no leave, so D-02 keeps it joined.
+        const std::string roomTopic = std::string( "gcs/chat/" ) + roomId;
+        EXPECT_TRUE( RoomListCarriesTopic( events, roomTopic ) );
     }
 
 } // namespace gcs::test
