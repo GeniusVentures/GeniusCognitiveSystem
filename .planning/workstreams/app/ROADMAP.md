@@ -153,7 +153,7 @@ Plans:
   4. Super Admin cannot be demoted by other admins
   5. When 2+ admins exist, destructive actions require Super Admin approval
 
-**Plans:** 7/7 plans complete
+**Plans:** 12 (7 executed + 5 gap-closure)
 
 Plans:
 **Wave 1**
@@ -174,6 +174,18 @@ Plans:
 **Wave 4** *(blocked on Wave 3 completion)*
 
 - [x] 04-05-PLAN.md — Wave 4 (depends: 04-03, 04-04) — FFI wiring (membership arms + /gcs/members/ heal callback + P5 retroactive guards + D-02 explicit_leave)
+
+**Wave 5** *(blocked on Wave 4 completion — gap closure)*
+
+- [ ] 04-08-PLAN.md — Wave 5 (gap CR-01) — EntityStore catalog synchronization (mutex-guarded maps, never held across a Put) + concurrent reader/writer stress test
+- [ ] 04-09-PLAN.md — Wave 5 (gaps WR-02/03/04/05/06) — Membership rank guards, every-invite bearer authenticator (HKDF/AES-GCM + seam callables) with kind cross-check and collision rejection, tombstone-arrival roster push, well-known replication topic + appended proto fields, and the multinode fixture moved onto that topic
+
+**Wave 6** *(blocked on Wave 5 completion — gap closure)*
+
+- [ ] 04-10-PLAN.md — Wave 6 (gap WR-07) — Dart: scope-keyed pending invite link + pinned 22.5.0 pb regen
+- [ ] 04-11-PLAN.md — Wave 6 (gaps WR-01/06/07) — FFI: g_membership teardown eviction, membership-topic registration at init before the session global is installed, production invite-auth seam wiring, scope-stamped InviteLink push
+- [ ] 04-12-PLAN.md — Wave 6 (gaps WR-06/04/05) — Multinode cases only (fixture lives in 04-09): space-invite convergence with no per-scope registration, wire-level every-invite bearer-gate proof, remote-removal push
+
 **UI hint**: yes
 
 ### Phase 5: Moderation
@@ -232,7 +244,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 1. Foundation | 11/11 | Complete | 2026-09-16 |
 | 2. Spaces & Rooms | 5/5 | Complete   | 2026-09-19 |
 | 3. Messaging | 6/6 | Complete   | 2026-09-24 |
-| 4. Membership & Invites | 7/7 | Complete   | 2026-10-12 |
+| 4. Membership & Invites | 7/12 | Gap closure planned | verified 2026-10-12 |
 | 5. Moderation | 0/TBD | Not started | - |
 | 6. GCS Bot | 0/TBD | Not started | - |
 | 7. Discovery | 0/TBD | Not started | - |
