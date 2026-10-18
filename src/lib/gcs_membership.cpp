@@ -380,8 +380,7 @@ unsigned int Membership::AdminCount( const std::string &scopeId ) const
         {
             continue;
         }
-        if ( record.role() == chat::ROLE_SUPER_ADMIN
-             || record.role() == chat::ROLE_ADMIN )
+        if ( PrivilegeRank( record.role() ) >= PrivilegeRank( chat::ROLE_ADMIN ) )
         {
             ++count;
         }
@@ -565,7 +564,20 @@ bool Membership::CanRemoveMember( const std::string &scopeId,
     {
         return false; // the Super Admin is never removable (D-03)
     }
-    const chat::Role author = LocalRoleFor( scopeId );
+    const chat::Role  author = LocalRoleFor( scopeId );
+    chat::MemberRecord targetRecord;
+    if ( !TryReadMember( scopeId, target, targetRecord )
+         || targetRecord.deleted() )
+    {
+        return false;
+    }
+    // WR-02/D-08: a role governs which members its holder may act on — the
+    // author must STRICTLY outrank the target (a Moderator cannot remove an
+    // Admin, an Admin cannot remove a non-creator Super Admin).
+    if ( PrivilegeRank( author ) <= PrivilegeRank( targetRecord.role() ) )
+    {
+        return false;
+    }
     return author == chat::ROLE_SUPER_ADMIN || author == chat::ROLE_ADMIN
            || author == chat::ROLE_MODERATOR;
 }
@@ -875,10 +887,12 @@ outcome::result<void> Membership::ChangeRole( const std::string &scopeId,
         return outcome::failure( sgns::gcs::Error::GcsDbError );
     }
 
-    // D-07: an admin demotion with 2+ admins goes dormant (empty approved_by).
-    const bool isAdminDemotion = record.role() == chat::ROLE_ADMIN
-                                 && PrivilegeRank( role )
-                                        < PrivilegeRank( chat::ROLE_ADMIN );
+    // D-07/WR-03: demoting any admin-tier-or-above target (Admin or Super
+    // Admin) to a lower rank is destructive; with 2+ admins it goes dormant
+    // (empty approved_by). A Member/Guest demotion stays non-destructive.
+    const bool isAdminDemotion =
+        PrivilegeRank( record.role() ) >= PrivilegeRank( chat::ROLE_ADMIN )
+        && PrivilegeRank( role ) < PrivilegeRank( record.role() );
     if ( isAdminDemotion && AdminCount( scopeId ) > 1 )
     {
         record.set_approved_by( "" );

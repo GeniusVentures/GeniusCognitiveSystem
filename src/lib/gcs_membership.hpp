@@ -337,6 +337,9 @@ private:
                      chat::Role role) const;
 
   /// @brief Whether the local sender may remove the target member.
+  ///
+  /// Requires the author to hold a destructive tier AND to strictly outrank
+  /// the target's current role (WR-02/D-08); the creator is never removable.
   bool CanRemoveMember(const std::string &scopeId,
                        const std::string &target) const;
 

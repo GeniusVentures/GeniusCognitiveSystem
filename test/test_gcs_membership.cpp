@@ -50,6 +50,7 @@ namespace
 
     /// Distinct member wallets exercised by the permission/invite tests.
     constexpr const char *kAdminAddress  = "5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty";
+    constexpr const char *kModeratorAddress = "5E9oDs9PjpsBbxXxRE9uMaZZhnBAV38n2oiVspkzJTshyzC2";
     constexpr const char *kMemberAddress = "5FLSigC9HGRKVhB9FiEo4Y3koPsNmBmLJbpXg2mp1hXcS59Y";
     constexpr const char *kGuestAddress  = "5DAAnrj7VHTznn2AWBemMuyBwZWs6FNFjdyVXUeYum3PTXFy";
     constexpr const char *kJoinerAddress = "5HGjWAeFDfFCWPsjFQdVV2Msvz2XtMktvgocEZcCj68kUMaw";
@@ -729,6 +730,121 @@ namespace gcs::test
         ASSERT_TRUE( tomb.ParseFromString( tombBytes.value() ) );
         EXPECT_TRUE( tomb.deleted() );
         EXPECT_GT( tomb.deleted_at_ms(), 0 );
+    }
+
+    /**
+     * @brief Test (WR-02/D-08): a role governs which members its holder may act
+     *        on — a Moderator cannot remove an Admin and an Admin cannot remove
+     *        a non-creator Super Admin, while a Moderator may remove a Member.
+     */
+    TEST_F( GcsMembershipTest, ModeratorCannotRemoveAdminAndAdminCannotRemoveSuperAdmin )
+    {
+        StartRig( kTestCreatorAddress );
+
+        auto space = m_rig.store->CreateSpace( "ops", true, true, true );
+        ASSERT_TRUE( space.has_value() );
+        const std::string spaceId = space.value().id();
+        SeedMember( spaceId, kModeratorAddress, chat::ROLE_MODERATOR );
+        SeedMember( spaceId, kAdminAddress, chat::ROLE_ADMIN );
+        SeedMember( spaceId, kMemberAddress, chat::ROLE_MEMBER );
+
+        std::vector<chat::GcsEvent> events;
+        gcs::Membership creator( *m_rig.session, *m_rig.store, kTestCreatorAddress,
+                                 CapturingSink( &events ), MakeSeam() );
+        ASSERT_TRUE( creator.OnScopeCreated( spaceId, "", true ).has_value() );
+
+        // Rank 3 > 2: a Moderator may remove a plain Member.
+        gcs::Membership moderator( *m_rig.session, *m_rig.store, kModeratorAddress,
+                                   CapturingSink( &events ), MakeSeam() );
+        ASSERT_TRUE( moderator.RemoveMember( spaceId, kMemberAddress ).has_value() );
+
+        // Rank 3 is not > 4: a Moderator may NOT remove an Admin.
+        EXPECT_FALSE( moderator.RemoveMember( spaceId, kAdminAddress ).has_value() );
+        chat::MemberRecord adminRecord;
+        ASSERT_TRUE( ReadMemberRecord( *m_rig.session, spaceId, kAdminAddress, adminRecord ) );
+        EXPECT_EQ( adminRecord.role(), chat::ROLE_ADMIN );
+        EXPECT_FALSE( adminRecord.deleted() );
+        EXPECT_EQ( adminRecord.pending_action(), chat::PENDING_ACTION_UNSPECIFIED );
+
+        // A second, non-creator Super Admin target.
+        SeedMember( spaceId, kTargetAddress, chat::ROLE_SUPER_ADMIN );
+        gcs::Membership admin( *m_rig.session, *m_rig.store, kAdminAddress,
+                               CapturingSink( &events ), MakeSeam() );
+
+        // Rank 4 is not > 5: an Admin may NOT remove the Super Admin directly.
+        EXPECT_FALSE( admin.RemoveMember( spaceId, kTargetAddress ).has_value() );
+        chat::MemberRecord superAdminRecord;
+        ASSERT_TRUE( ReadMemberRecord( *m_rig.session, spaceId, kTargetAddress,
+                                       superAdminRecord ) );
+        EXPECT_FALSE( superAdminRecord.deleted() );
+        EXPECT_EQ( superAdminRecord.role(), chat::ROLE_SUPER_ADMIN );
+
+        // CanChangeRole is not a removal guard: the demotion is accepted, but
+        // WR-03 dormancy keeps the Super Admin's role until approval.
+        ASSERT_TRUE( admin.ChangeRole( spaceId, kTargetAddress, chat::ROLE_ADMIN ).has_value() );
+        chat::MemberRecord dormant;
+        ASSERT_TRUE( ReadMemberRecord( *m_rig.session, spaceId, kTargetAddress, dormant ) );
+        EXPECT_EQ( dormant.role(), chat::ROLE_SUPER_ADMIN );
+        EXPECT_TRUE( dormant.approved_by().empty() );
+        EXPECT_EQ( dormant.pending_action(), chat::PENDING_ACTION_ROLE_CHANGE );
+        EXPECT_EQ( dormant.pending_role(), chat::ROLE_ADMIN );
+    }
+
+    /**
+     * @brief Test (WR-03): demoting a non-creator Super Admin with 2+ admins
+     *        writes a dormant ROLE_CHANGE record instead of applying it.
+     */
+    TEST_F( GcsMembershipTest, SuperAdminDemotionIsDormantWhenTwoAdmins )
+    {
+        StartRig( kTestCreatorAddress );
+
+        auto space = m_rig.store->CreateSpace( "ops", true, true, true );
+        ASSERT_TRUE( space.has_value() );
+        const std::string spaceId = space.value().id();
+        SeedMember( spaceId, kTargetAddress, chat::ROLE_SUPER_ADMIN );
+
+        std::vector<chat::GcsEvent> events;
+        gcs::Membership membership( *m_rig.session, *m_rig.store, kTestCreatorAddress,
+                                    CapturingSink( &events ), MakeSeam() );
+        ASSERT_TRUE( membership.OnScopeCreated( spaceId, "", true ).has_value() );
+
+        // Two admins (creator + target) -> the demotion is dormant, not applied.
+        ASSERT_TRUE( membership.ChangeRole( spaceId, kTargetAddress, chat::ROLE_ADMIN ).has_value() );
+
+        chat::MemberRecord record;
+        ASSERT_TRUE( ReadMemberRecord( *m_rig.session, spaceId, kTargetAddress, record ) );
+        EXPECT_EQ( record.role(), chat::ROLE_SUPER_ADMIN );
+        EXPECT_TRUE( record.approved_by().empty() );
+        EXPECT_EQ( record.pending_action(), chat::PENDING_ACTION_ROLE_CHANGE );
+        EXPECT_EQ( record.pending_role(), chat::ROLE_ADMIN );
+    }
+
+    /**
+     * @brief Test (WR-03 boundary): a Member -> Guest demotion is not in the
+     *        D-07 destructive set, so it applies even with 2+ admins.
+     */
+    TEST_F( GcsMembershipTest, MemberDemotionIsNotDormant )
+    {
+        StartRig( kTestCreatorAddress );
+
+        auto space = m_rig.store->CreateSpace( "ops", true, true, true );
+        ASSERT_TRUE( space.has_value() );
+        const std::string spaceId = space.value().id();
+        SeedMember( spaceId, kAdminAddress, chat::ROLE_ADMIN );
+        SeedMember( spaceId, kTargetAddress, chat::ROLE_MEMBER );
+
+        std::vector<chat::GcsEvent> events;
+        gcs::Membership membership( *m_rig.session, *m_rig.store, kTestCreatorAddress,
+                                    CapturingSink( &events ), MakeSeam() );
+        ASSERT_TRUE( membership.OnScopeCreated( spaceId, "", true ).has_value() );
+
+        ASSERT_TRUE( membership.ChangeRole( spaceId, kTargetAddress, chat::ROLE_GUEST ).has_value() );
+
+        chat::MemberRecord record;
+        ASSERT_TRUE( ReadMemberRecord( *m_rig.session, spaceId, kTargetAddress, record ) );
+        EXPECT_EQ( record.role(), chat::ROLE_GUEST );
+        EXPECT_EQ( record.pending_action(), chat::PENDING_ACTION_UNSPECIFIED );
+        EXPECT_EQ( record.pending_role(), chat::ROLE_UNSPECIFIED );
     }
 
 } // namespace gcs::test
