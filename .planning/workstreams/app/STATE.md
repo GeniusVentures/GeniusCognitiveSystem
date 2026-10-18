@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: GCS Chat
 status: executing
-stopped_at: Completed 04-12 plan (network-boundary convergence proofs)
-last_updated: "2026-10-18T23:26:38.991Z"
+stopped_at: Completed 04-14 plan (catalog-consistent destructive entity writes)
+last_updated: "2026-10-18T23:38:17.642Z"
 last_activity: 2026-10-18
 progress:
   total_phases: 7
   completed_phases: 3
   total_plans: 40
-  completed_plans: 35
+  completed_plans: 36
   percent: 43
 ---
 
@@ -26,11 +26,11 @@ See: .planning/workstreams/app/PROJECT.md (updated 2026-09-22)
 ## Current Position
 
 Phase: 04 (membership-invites) — EXECUTING
-Plan: 2 of 18
+Plan: 15 of 18
 Status: Ready to execute
 Last activity: 2026-10-18
 
-Progress: [█████████░] 88%
+Progress: [█████████░] 90%
 
 ## Performance Metrics
 
@@ -69,6 +69,7 @@ Progress: [█████████░] 88%
 | Phase 04 P11 | 6min | 3 tasks | 2 files |
 | Phase 04 P12 | 6min | 3 tasks | 1 files |
 | Phase 04 P13 | 10min | 2 tasks | 3 files |
+| Phase 04 P14 | 15min | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -127,6 +128,9 @@ Recent decisions affecting current work:
 - [Phase 04]: Remote-removal convergence is asserted on the pushed member_list sink after draining B's events, pinning OnMemberArrived rather than the local CRDT scan
 - [Phase 04]: RedeemInvite delivers key material only: an existing live member keeps its stored role and dormant state, and a fresh record is always ROLE_GUEST
 - [Phase 04]: A tombstoned wallet redeem is rejected after the authenticator gate and before the unwrap loop so no member record or room key is written
+- [Phase 04]: ApplySpaceState/ApplyRoomState are full-state entity writes: the session is authoritative, so no immutable preservation or timestamp restamp; the catalog mirrors the stored record and tombstoned entries stay in the map
+- [Phase 04]: Approve's entity branch learns only the record kind from the catalog, then evaluates the dormancy predicate on the freshly re-read authoritative bytes
+- [Phase 04]: AdminCount fails closed (Error::GcsDbError) because it gates the D-07 immediate-destructive branch; ChangeRole, RemoveMember, and DeleteScope propagate it
 
 ### Pending Todos
 
@@ -152,6 +156,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-10-18T23:26:38.984Z
-Stopped at: Completed 04-12 plan (network-boundary convergence proofs)
+Last session: 2026-10-18T23:38:17.635Z
+Stopped at: Completed 04-14 plan (catalog-consistent destructive entity writes)
 Resume file: 
+None

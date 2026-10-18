@@ -153,7 +153,7 @@ Plans:
   4. Super Admin cannot be demoted by other admins
   5. When 2+ admins exist, destructive actions require Super Admin approval
 
-**Plans:** 13/18 plans executed
+**Plans:** 14/18 plans executed
 
 Plans:
 **Wave 1**
@@ -192,7 +192,7 @@ Plans:
 
 **Wave 8** *(blocked on Wave 7 completion — gap closure)*
 
-- [ ] 04-14-PLAN.md — Wave 8 (gaps CR-06/CR-05) — EntityStore ApplySpaceState/ApplyRoomState deletion mutators (catalog-synchronized, Put outside the mutex) + DeleteScope/Approve routed through them + AdminCount fail-closed with an injected-scan regression test
+- [x] 04-14-PLAN.md — Wave 8 (gaps CR-06/CR-05) — EntityStore ApplySpaceState/ApplyRoomState deletion mutators (catalog-synchronized, Put outside the mutex) + DeleteScope/Approve routed through them + AdminCount fail-closed with an injected-scan regression test
 
 **Wave 9** *(blocked on Wave 8 completion — gap closure)*
 
@@ -267,7 +267,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 1. Foundation | 11/11 | Complete | 2026-09-16 |
 | 2. Spaces & Rooms | 5/5 | Complete   | 2026-09-19 |
 | 3. Messaging | 6/6 | Complete   | 2026-09-24 |
-| 4. Membership & Invites | 13/18 | In Progress|  |
+| 4. Membership & Invites | 14/18 | In Progress|  |
 | 5. Moderation | 0/TBD | Not started | - |
 | 6. GCS Bot | 0/TBD | Not started | - |
 | 7. Discovery | 0/TBD | Not started | - |
