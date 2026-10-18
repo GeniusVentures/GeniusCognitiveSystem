@@ -2182,9 +2182,11 @@ class MemberList extends $pb.GeneratedMessage {
 class InviteLink extends $pb.GeneratedMessage {
   factory InviteLink({
     $core.String? url,
+    $core.String? scopeId,
   }) {
     final result = create();
     if (url != null) result.url = url;
+    if (scopeId != null) result.scopeId = scopeId;
     return result;
   }
 
@@ -2202,6 +2204,7 @@ class InviteLink extends $pb.GeneratedMessage {
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gcs.chat'),
       createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'url')
+    ..aOS(2, _omitFieldNames ? '' : 'scopeId')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -2231,6 +2234,15 @@ class InviteLink extends $pb.GeneratedMessage {
   $core.bool hasUrl() => $_has(0);
   @$pb.TagNumber(1)
   void clearUrl() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get scopeId => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set scopeId($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasScopeId() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearScopeId() => $_clearField(2);
 }
 
 /// Write-at-redeem invite grant, persisted under `gcs/invites/<scopeId>/<inviteId>`
@@ -2241,11 +2253,15 @@ class InviteRecord extends $pb.GeneratedMessage {
     $core.String? scopeId,
     Role? role,
     $core.Iterable<WrappedRoomKey>? wrappedRoomKey,
+    $core.bool? isSpace,
+    $core.String? authenticator,
   }) {
     final result = create();
     if (scopeId != null) result.scopeId = scopeId;
     if (role != null) result.role = role;
     if (wrappedRoomKey != null) result.wrappedRoomKey.addAll(wrappedRoomKey);
+    if (isSpace != null) result.isSpace = isSpace;
+    if (authenticator != null) result.authenticator = authenticator;
     return result;
   }
 
@@ -2270,6 +2286,8 @@ class InviteRecord extends $pb.GeneratedMessage {
     ..pc<WrappedRoomKey>(
         3, _omitFieldNames ? '' : 'wrappedRoomKey', $pb.PbFieldType.PM,
         subBuilder: WrappedRoomKey.create)
+    ..aOB(4, _omitFieldNames ? '' : 'isSpace')
+    ..aOS(5, _omitFieldNames ? '' : 'authenticator')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -2313,6 +2331,28 @@ class InviteRecord extends $pb.GeneratedMessage {
 
   @$pb.TagNumber(3)
   $pb.PbList<WrappedRoomKey> get wrappedRoomKey => $_getList(2);
+
+  @$pb.TagNumber(4)
+  $core.bool get isSpace => $_getBF(3);
+  @$pb.TagNumber(4)
+  set isSpace($core.bool value) => $_setBool(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasIsSpace() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearIsSpace() => $_clearField(4);
+
+  /// against the URL's `{space|room}` segment
+  /// at redeem (an entity-catalog lookup
+  /// cannot be used — the redeemer may not
+  /// hold the scope record)
+  @$pb.TagNumber(5)
+  $core.String get authenticator => $_getSZ(4);
+  @$pb.TagNumber(5)
+  set authenticator($core.String value) => $_setString(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasAuthenticator() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearAuthenticator() => $_clearField(5);
 }
 
 class InviteCommand extends $pb.GeneratedMessage {

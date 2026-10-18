@@ -766,12 +766,14 @@ const InviteLink$json = {
   '1': 'InviteLink',
   '2': [
     {'1': 'url', '3': 1, '4': 1, '5': 9, '10': 'url'},
+    {'1': 'scope_id', '3': 2, '4': 1, '5': 9, '10': 'scopeId'},
   ],
 };
 
 /// Descriptor for `InviteLink`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List inviteLinkDescriptor =
-    $convert.base64Decode('CgpJbnZpdGVMaW5rEhAKA3VybBgBIAEoCVIDdXJs');
+final $typed_data.Uint8List inviteLinkDescriptor = $convert.base64Decode(
+    'CgpJbnZpdGVMaW5rEhAKA3VybBgBIAEoCVIDdXJsEhkKCHNjb3BlX2lkGAIgASgJUgdzY29wZU'
+    'lk');
 
 @$core.Deprecated('Use inviteRecordDescriptor instead')
 const InviteRecord$json = {
@@ -787,6 +789,8 @@ const InviteRecord$json = {
       '6': '.gcs.chat.WrappedRoomKey',
       '10': 'wrappedRoomKey'
     },
+    {'1': 'is_space', '3': 4, '4': 1, '5': 8, '10': 'isSpace'},
+    {'1': 'authenticator', '3': 5, '4': 1, '5': 9, '10': 'authenticator'},
   ],
 };
 
@@ -794,7 +798,8 @@ const InviteRecord$json = {
 final $typed_data.Uint8List inviteRecordDescriptor = $convert.base64Decode(
     'CgxJbnZpdGVSZWNvcmQSGQoIc2NvcGVfaWQYASABKAlSB3Njb3BlSWQSIgoEcm9sZRgCIAEoDj'
     'IOLmdjcy5jaGF0LlJvbGVSBHJvbGUSQgoQd3JhcHBlZF9yb29tX2tleRgDIAMoCzIYLmdjcy5j'
-    'aGF0LldyYXBwZWRSb29tS2V5Ug53cmFwcGVkUm9vbUtleQ==');
+    'aGF0LldyYXBwZWRSb29tS2V5Ug53cmFwcGVkUm9vbUtleRIZCghpc19zcGFjZRgEIAEoCFIHaX'
+    'NTcGFjZRIkCg1hdXRoZW50aWNhdG9yGAUgASgJUg1hdXRoZW50aWNhdG9y');
 
 @$core.Deprecated('Use inviteCommandDescriptor instead')
 const InviteCommand$json = {
