@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: GCS Chat
 status: executing
-stopped_at: Completed 04-11 plan (FFI lifecycle, membership topic, scoped invite push)
-last_updated: "2026-10-18T21:25:06.926Z"
+stopped_at: Completed 04-12 plan (network-boundary convergence proofs)
+last_updated: "2026-10-18T21:35:02.244Z"
 last_activity: 2026-10-18
 progress:
   total_phases: 7
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 34
-  completed_plans: 33
-  percent: 43
+  completed_plans: 34
+  percent: 57
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/workstreams/app/PROJECT.md (updated 2026-09-22)
 ## Current Position
 
 Phase: 04 (membership-invites) — EXECUTING
-Plan: 11 of 12
+Plan: 12 of 12
 Status: Ready to execute
 Last activity: 2026-10-18
 
-Progress: [██████████] 97%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -67,6 +67,7 @@ Progress: [██████████] 97%
 | Phase 04 P09 | 22min | 4 tasks | 7 files |
 | Phase 04 P10 | 2min | 3 tasks | 6 files |
 | Phase 04 P11 | 6min | 3 tasks | 2 files |
+| Phase 04 P12 | 6min | 3 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -120,6 +121,9 @@ Recent decisions affecting current work:
 - [Phase 04]: kMembershipTopic is infrastructure and never enters g_roomTopics, so no phantom room reaches pushed lists
 - [Phase 04]: Production KeyWrapSeam assigns mintAuth/verifyAuth beside wrap/unwrap so InviteAuthEnabled() is true
 - [Phase 04]: BuildInviteLinkEvent stamps the command scope_id onto the pushed InviteLink; Dart never parses the URL
+- [Phase 04]: Negative multinode convergence assertions compare against a baseline captured AFTER the positive sub-case; the invariant is record count/bytes unchanged, never 'only the creator'
+- [Phase 04]: Wire-level forged invites are written through session->Put on kMembershipTopic; no test-only malformed-invite helper exists
+- [Phase 04]: Remote-removal convergence is asserted on the pushed member_list sink after draining B's events, pinning OnMemberArrived rather than the local CRDT scan
 
 ### Pending Todos
 
@@ -145,6 +149,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-10-18T21:25:06.919Z
-Stopped at: Completed 04-11 plan (FFI lifecycle, membership topic, scoped invite push)
+Last session: 2026-10-18T21:35:02.237Z
+Stopped at: Completed 04-12 plan (network-boundary convergence proofs)
 Resume file: 
+None

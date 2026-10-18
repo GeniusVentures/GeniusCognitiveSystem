@@ -153,7 +153,7 @@ Plans:
   4. Super Admin cannot be demoted by other admins
   5. When 2+ admins exist, destructive actions require Super Admin approval
 
-**Plans:** 11/12 plans executed
+**Plans:** 12/12 plans complete
 
 Plans:
 **Wave 1**
@@ -184,7 +184,7 @@ Plans:
 
 - [x] 04-10-PLAN.md — Wave 6 (gap WR-07) — Dart: scope-keyed pending invite link + pinned 22.5.0 pb regen
 - [x] 04-11-PLAN.md — Wave 6 (gaps WR-01/06/07) — FFI: g_membership teardown eviction, membership-topic registration at init before the session global is installed, production invite-auth seam wiring, scope-stamped InviteLink push
-- [ ] 04-12-PLAN.md — Wave 6 (gaps WR-06/04/05) — Multinode cases only (fixture lives in 04-09): space-invite convergence with no per-scope registration, wire-level every-invite bearer-gate proof, remote-removal push
+- [x] 04-12-PLAN.md — Wave 6 (gaps WR-06/04/05) — Multinode cases only (fixture lives in 04-09): space-invite convergence with no per-scope registration, wire-level every-invite bearer-gate proof, remote-removal push
 
 **UI hint**: yes
 
@@ -244,7 +244,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 1. Foundation | 11/11 | Complete | 2026-09-16 |
 | 2. Spaces & Rooms | 5/5 | Complete   | 2026-09-19 |
 | 3. Messaging | 6/6 | Complete   | 2026-09-24 |
-| 4. Membership & Invites | 11/12 | In Progress|  |
+| 4. Membership & Invites | 12/12 | Complete   | 2026-10-18 |
 | 5. Moderation | 0/TBD | Not started | - |
 | 6. GCS Bot | 0/TBD | Not started | - |
 | 7. Discovery | 0/TBD | Not started | - |
