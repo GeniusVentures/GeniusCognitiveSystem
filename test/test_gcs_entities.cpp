@@ -19,10 +19,12 @@
 #include "test_wait_condition.hpp"
 
 #include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <cstring>
 #include <filesystem>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -80,6 +82,12 @@ namespace
 
     /// Injected local wallet address used as the Super Admin creator (D-03).
     constexpr const char kTestCreatorAddress[] = "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY";
+
+    /// Writer-thread room count for the concurrent catalog stress case.
+    constexpr int kConcurrentWriterRoomCount = 40;
+
+    /// Reader-thread loop count for the concurrent catalog stress case.
+    constexpr int kConcurrentReaderIterations = 200;
 } // namespace
 
 namespace gcs::test
@@ -679,6 +687,124 @@ namespace gcs::test
         ASSERT_TRUE( created.has_value() );
         EXPECT_TRUE( created.value().creator().empty() );
         EXPECT_FALSE( created.value().members_can_invite() );
+
+        session.Shutdown();
+        pubsub->Stop();
+    }
+
+    /**
+     * @brief CR-01: one entity writer and concurrent catalog readers do not
+     *        race — Spaces()/Rooms()/DerivedJoinedTopics()/IsValidParentSpace()
+     *        hold the catalog mutex while CreateRoom inserts into the same maps
+     *        from the FFI's unlocked in-flight window.
+     */
+    TEST_F( GcsEntitiesTest, ConcurrentCatalogReadsAndRoomCreatesDoNotRace )
+    {
+        auto pubsub = MakeStartedPubSub( m_tempPath + "/key" );
+        ASSERT_NE( pubsub, nullptr );
+        auto graphsync = gcs::test::MakeGraphsyncContext( pubsub );
+
+        gcs::CoreSession::Config cfg{};
+        cfg.m_dbPath = m_tempPath + "/db";
+        gcs::CoreSession session( cfg );
+        ASSERT_TRUE( session.Initialize( pubsub, graphsync.network ).has_value() );
+
+        const auto dbPath = cfg.m_dbPath;
+        EXPECT_TRUE( gcs::test::WaitForCondition( [&dbPath]() { return std::filesystem::exists( dbPath ); },
+                                                  gcs::test::kWaitTimeout ) );
+
+        gcs::EntityStore store( session );
+        ASSERT_TRUE( store.LoadFromStore().has_value() );
+
+        auto space = store.CreateSpace( "ops", true, true, true );
+        ASSERT_TRUE( space.has_value() );
+        const std::string spaceId = space.value().id();
+
+        std::atomic<int> createdRooms{ 0 };
+        std::thread      writer(
+            [&store, &spaceId, &createdRooms]()
+            {
+                for ( int i = 0; i < kConcurrentWriterRoomCount; ++i )
+                {
+                    auto created = store.CreateRoom( "writer-room", spaceId, false );
+                    EXPECT_TRUE( created.has_value() );
+                    if ( created.has_value() )
+                    {
+                        createdRooms.fetch_add( 1 );
+                    }
+                }
+            } );
+
+        auto readerBody = [&store, &spaceId]()
+        {
+            for ( int i = 0; i < kConcurrentReaderIterations; ++i )
+            {
+                EXPECT_GE( store.Spaces().size(), 1U );
+                EXPECT_LE( store.Rooms().size(), static_cast<std::size_t>( kConcurrentWriterRoomCount ) );
+                EXPECT_LE( store.DerivedJoinedTopics().size(), static_cast<std::size_t>( kConcurrentWriterRoomCount ) );
+                EXPECT_TRUE( store.IsValidParentSpace( spaceId ) );
+            }
+        };
+        std::thread readerA( readerBody );
+        std::thread readerB( readerBody );
+
+        writer.join();
+        readerA.join();
+        readerB.join();
+
+        ASSERT_EQ( createdRooms.load(), kConcurrentWriterRoomCount );
+        EXPECT_EQ( store.Rooms().size(), static_cast<std::size_t>( kConcurrentWriterRoomCount ) );
+        EXPECT_EQ( store.Spaces().size(), 1U );
+
+        session.Shutdown();
+        pubsub->Stop();
+    }
+
+    /**
+     * @brief D-04: a tombstoned child room under a LIVE auto-join parent is
+     *        excluded from DerivedJoinedTopics() — the room-level tombstone
+     *        skip the direct m_rooms loop re-applies.
+     */
+    TEST_F( GcsEntitiesTest, DerivedJoinedTopicsSkipsTombstonedChildRoom )
+    {
+        auto pubsub = MakeStartedPubSub( m_tempPath + "/key" );
+        ASSERT_NE( pubsub, nullptr );
+        auto graphsync = gcs::test::MakeGraphsyncContext( pubsub );
+
+        gcs::CoreSession::Config cfg{};
+        cfg.m_dbPath = m_tempPath + "/db";
+        gcs::CoreSession session( cfg );
+        ASSERT_TRUE( session.Initialize( pubsub, graphsync.network ).has_value() );
+
+        const auto dbPath = cfg.m_dbPath;
+        EXPECT_TRUE( gcs::test::WaitForCondition( [&dbPath]() { return std::filesystem::exists( dbPath ); },
+                                                  gcs::test::kWaitTimeout ) );
+
+        gcs::EntityStore store( session );
+        ASSERT_TRUE( store.LoadFromStore().has_value() );
+
+        auto space = store.CreateSpace( "ops", true, true, false );
+        ASSERT_TRUE( space.has_value() );
+        auto child = store.CreateRoom( "child", space.value().id(), false );
+        ASSERT_TRUE( child.has_value() );
+
+        const std::string childId       = child.value().id();
+        const std::string expectedTopic = std::string( kRoomTopicPrefix ) + childId;
+        const auto        topicsBefore  = store.DerivedJoinedTopics();
+        ASSERT_EQ( topicsBefore.size(), 1U );
+        EXPECT_EQ( topicsBefore.front(), expectedTopic );
+
+        // No store deletion API: tombstone the child through the direct-write
+        // + reload pattern (tombstone bytes never come from a command — D-03).
+        gcs::chat::RoomRecord tombstoned = child.value();
+        tombstoned.set_deleted( true );
+        tombstoned.set_deleted_at_ms( kTombstoneAtMs );
+        ASSERT_TRUE(
+            session.Put( std::string( kRoomsKeyPrefix ) + childId, tombstoned.SerializeAsString() ).has_value() );
+        ASSERT_TRUE( store.LoadFromStore().has_value() );
+
+        EXPECT_TRUE( store.DerivedJoinedTopics().empty() );
+        EXPECT_EQ( store.Spaces().size(), 1U ); // parent space record stays live
 
         session.Shutdown();
         pubsub->Stop();
