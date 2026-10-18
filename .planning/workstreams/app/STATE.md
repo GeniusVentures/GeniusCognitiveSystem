@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: GCS Chat
 status: executing
-stopped_at: Completed 04-10 plan (scope-keyed invite links)
-last_updated: "2026-10-18T21:12:01.550Z"
+stopped_at: Completed 04-11 plan (FFI lifecycle, membership topic, scoped invite push)
+last_updated: "2026-10-18T21:25:06.926Z"
 last_activity: 2026-10-18
 progress:
   total_phases: 7
   completed_phases: 3
   total_plans: 34
-  completed_plans: 32
+  completed_plans: 33
   percent: 43
 ---
 
@@ -26,11 +26,11 @@ See: .planning/workstreams/app/PROJECT.md (updated 2026-09-22)
 ## Current Position
 
 Phase: 04 (membership-invites) — EXECUTING
-Plan: 10 of 12
+Plan: 11 of 12
 Status: Ready to execute
 Last activity: 2026-10-18
 
-Progress: [█████████░] 94%
+Progress: [██████████] 97%
 
 ## Performance Metrics
 
@@ -66,6 +66,7 @@ Progress: [█████████░] 94%
 | Phase 04 P08 | 11min | 3 tasks | 3 files |
 | Phase 04 P09 | 22min | 4 tasks | 7 files |
 | Phase 04 P10 | 2min | 3 tasks | 6 files |
+| Phase 04 P11 | 6min | 3 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -114,6 +115,11 @@ Recent decisions affecting current work:
 - [Phase 04]: PrivilegeRank is the single ordering authority for removal, demotion dormancy, and AdminCount
 - [Phase 04]: Pending invite links are keyed by InviteLink.scope_id in a per-scope map; the unkeyed accessor was removed
 - [Phase 04]: Invite pending links clear on drawer close, never on read, so the push emission still delivers the link
+- [Phase 04]: Membership resets beside Messaging before session->Shutdown; it borrows the session and catalog but owns no worker thread to drain
+- [Phase 04]: gcs_init joins Membership::kMembershipTopic listen-then-broadcast before installing g_session; join failure shuts the local session down and fails init
+- [Phase 04]: kMembershipTopic is infrastructure and never enters g_roomTopics, so no phantom room reaches pushed lists
+- [Phase 04]: Production KeyWrapSeam assigns mintAuth/verifyAuth beside wrap/unwrap so InviteAuthEnabled() is true
+- [Phase 04]: BuildInviteLinkEvent stamps the command scope_id onto the pushed InviteLink; Dart never parses the URL
 
 ### Pending Todos
 
@@ -139,6 +145,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-10-18T21:12:01.543Z
-Stopped at: Completed 04-10 plan (scope-keyed invite links)
-Resume file: None
+Last session: 2026-10-18T21:25:06.919Z
+Stopped at: Completed 04-11 plan (FFI lifecycle, membership topic, scoped invite push)
+Resume file: 
