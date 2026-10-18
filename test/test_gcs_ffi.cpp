@@ -602,6 +602,7 @@ namespace gcs::test
         ASSERT_TRUE( link.has_value() );
         EXPECT_EQ( link->url().rfind( "gcs://invite/space/", 0 ), 0u );
         EXPECT_NE( link->url().find( "?key=" ), std::string::npos );
+        EXPECT_EQ( link->scope_id(), spaceId );
     }
 
     /**

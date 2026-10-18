@@ -600,13 +600,21 @@ namespace
     /**
      * \brief Builds an InviteLink event carrying a minted invite URL (D-05).
      *
-     * \param[in] url The `gcs://invite/...` URL returned by MintInvite.
+     * The scope id is the authority Dart keys the pending link by — Dart
+     * never parses it out of the URL (WR-07). Membership::MintInvite returns
+     * only the URL, so the FFI supplies the scope from the originating
+     * command.
+     *
+     * \param[in] url     The `gcs://invite/...` URL returned by MintInvite.
+     * \param[in] scopeId The scope id the invite was minted for.
      * \return A GcsEvent envelope carrying the InviteLink.
      */
-    gcs::chat::GcsEvent BuildInviteLinkEvent( const std::string &url )
+    gcs::chat::GcsEvent BuildInviteLinkEvent( const std::string &url,
+                                              const std::string &scopeId )
     {
         gcs::chat::GcsEvent event;
         event.mutable_invite_link()->set_url( url );
+        event.mutable_invite_link()->set_scope_id( scopeId );
         return event;
     }
 
@@ -1615,7 +1623,7 @@ extern "C"
                                  + "'" ); // D-29: raw error string on the push port
                 return GCS_ERROR_GENERIC;
             }
-            PostToDart( BuildInviteLinkEvent( mintResult.value() ) );
+            PostToDart( BuildInviteLinkEvent( mintResult.value(), scopeId ) );
             return GCS_OK;
         }
         case gcs::chat::GcsCommand::kRedeem:
