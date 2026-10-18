@@ -17,6 +17,7 @@
 #include "lib/gcs_crypto.hpp"
 #include "lib/gcs_entity_store.hpp"
 #include "lib/gcs_membership.hpp"
+#include "test_gcs_invite_helpers.hpp"
 #include "test_graphsync_network.hpp"
 #include "test_wait_condition.hpp"
 
@@ -61,6 +62,102 @@ namespace
 
     /// Room chat topic prefix — the gcs/chat/<id> convention (D-01).
     constexpr const char *kRoomTopicPrefix = "gcs/chat/";
+
+    /**
+     * @brief Extract the invite id from a minted
+     *        gcs://invite/<kind>/<scope>/<invite>?key=... URL.
+     *
+     * @param[in] url The minted URL.
+     * @return The final path segment; empty when the URL is malformed.
+     */
+    std::string InviteIdFromUrl( const std::string &url )
+    {
+        const std::size_t queryPos = url.find( '?' );
+        if ( queryPos == std::string::npos )
+        {
+            return std::string();
+        }
+        const std::size_t inviteStart = url.rfind( '/', queryPos );
+        if ( inviteStart == std::string::npos )
+        {
+            return std::string();
+        }
+        return url.substr( inviteStart + 1, queryPos - inviteStart - 1 );
+    }
+
+    /**
+     * @brief The HEX-ENCODED deterministic signature the MakeSeam double
+     *        produces.
+     *
+     * Kept beside the double so every re-signing test case builds the SAME
+     * token (invariant 11). The token embeds the payload, which can contain
+     * binary wrapped-key envelopes, so — exactly like MintInvite — it must be
+     * hex-encoded before it is stored in the proto3 `string` field; a raw
+     * write would fail UTF-8 validation on parse. The real crypto is exercised
+     * in 04-18.
+     *
+     * @param[in] issuer  The claimed issuer address.
+     * @param[in] payload The canonical payload bytes.
+     * @return The double's signature token, hex-encoded for the proto field.
+     */
+    std::string TestIssuerSignatureHex( const std::string &issuer,
+                                        const std::string &payload )
+    {
+        return gcs::crypto::HexEncode( std::string( "testsig:" ) + issuer + ":"
+                                       + payload );
+    }
+
+    /**
+     * @brief Read an invite record straight from the CRDT store.
+     *
+     * @param[in]  session  Live session.
+     * @param[in]  scopeId  Scope id.
+     * @param[in]  inviteId Invite id.
+     * @param[out] out      Parsed record when present.
+     * @return true when a parseable record exists.
+     */
+    bool ReadInviteRecord( gcs::CoreSession &session, const std::string &scopeId,
+                           const std::string &inviteId, gcs::chat::InviteRecord &out )
+    {
+        const auto stored = session.Get(
+            std::string( gcs::Membership::kInvitesKeyPrefix ) + scopeId + "/" + inviteId );
+        return stored.has_value() && out.ParseFromString( stored.value() );
+    }
+
+    /**
+     * @brief Overwrite an invite record in the CRDT store (the hostile path).
+     *
+     * @param[in] session  Live session.
+     * @param[in] scopeId  Scope id.
+     * @param[in] inviteId Invite id.
+     * @param[in] record   The record bytes to write.
+     * @return true when the Put succeeded.
+     */
+    bool WriteInviteRecord( gcs::CoreSession &session, const std::string &scopeId,
+                            const std::string &inviteId,
+                            const gcs::chat::InviteRecord &record )
+    {
+        return session
+            .Put( std::string( gcs::Membership::kInvitesKeyPrefix ) + scopeId + "/"
+                      + inviteId,
+                  record.SerializeAsString() )
+            .has_value();
+    }
+
+    /**
+     * @brief Count the raw member keys in a scope (the no-write baseline).
+     *
+     * @param[in] session Live session.
+     * @param[in] scopeId Scope id.
+     * @return The key count; 0 on a scan failure.
+     */
+    std::size_t MemberScanCount( gcs::CoreSession &session,
+                                 const std::string &scopeId )
+    {
+        auto scan = session.QueryKeyValues(
+            std::string( gcs::Membership::kMembersKeyPrefix ) + scopeId + "/" );
+        return scan.has_value() ? scan.value().size() : 0;
+    }
 
     /// CRDT key prefix for space records (mirrors gcs_entity_store.cpp) —
     /// used to read the authoritative entity bytes in the delete/approve tests.
@@ -240,15 +337,44 @@ namespace gcs::test
             ASSERT_TRUE( m_rig.store->LoadFromStore().has_value() );
         }
 
-        /// @brief The production D-06 seam, enabled (built by member assignment).
-        static gcs::Membership::KeyWrapSeam MakeSeam()
+        /**
+         * @brief The D-06 seam, enabled (built by member assignment).
+         *
+         * The wrap/unwrap/authenticator callables are the REAL gcs::crypto
+         * adapters. The issuer pair is a TEST DOUBLE that models signer
+         * binding: `sign` emits a deterministic token over the signer address
+         * and payload, and `verifyIssuer` accepts it only for the CLAIMED
+         * issuer. The real secp256k1 path is exercised in 04-18's multinode
+         * proof. When @p issuerEnabled is false both callables stay empty, so
+         * IssuerAuthEnabled() is false and mint/redeem fail closed.
+         *
+         * @param[in] signerAddress The wallet the seam's signing key belongs to.
+         * @param[in] issuerEnabled Whether to install the issuer callables.
+         */
+        static gcs::Membership::KeyWrapSeam MakeSeam( const std::string &signerAddress,
+                                                      bool issuerEnabled = true )
         {
             gcs::Membership::KeyWrapSeam seam;
             seam.wrap      = &gcs::crypto::WrapRoomKey;
             seam.unwrap    = &gcs::crypto::UnwrapRoomKey;
             seam.mintAuth  = &gcs::crypto::MintInviteAuthenticator;
             seam.verifyAuth = &gcs::crypto::VerifyInviteAuthenticator;
-            seam.enabled   = true;
+            if ( issuerEnabled )
+            {
+                seam.sign = [ signerAddress ]( const std::string &payload,
+                                               const std::string &issuer )
+                    -> gcs::outcome::result<std::string> {
+                    return std::string( "testsig:" ) + signerAddress + ":" + payload;
+                };
+                seam.verifyIssuer = []( const std::string &issuer,
+                                        const std::string &payload,
+                                        const std::string &signature )
+                    -> gcs::outcome::result<bool> {
+                    return signature
+                           == std::string( "testsig:" ) + issuer + ":" + payload;
+                };
+            }
+            seam.enabled = true;
             return seam;
         }
 
@@ -296,7 +422,7 @@ namespace gcs::test
 
         std::vector<chat::GcsEvent> events;
         gcs::Membership membership( *m_rig.session, *m_rig.store, kTestCreatorAddress,
-                                    CapturingSink( &events ), MakeSeam() );
+                                    CapturingSink( &events ), MakeSeam( kTestCreatorAddress ) );
 
         ASSERT_TRUE( membership.OnScopeCreated( spaceId, "", true ).has_value() );
 
@@ -335,7 +461,7 @@ namespace gcs::test
 
         std::vector<chat::GcsEvent> events;
         gcs::Membership membership( *m_rig.session, *m_rig.store, kTestCreatorAddress,
-                                    CapturingSink( &events ), MakeSeam() );
+                                    CapturingSink( &events ), MakeSeam( kTestCreatorAddress ) );
         ASSERT_TRUE( membership.OnScopeCreated( spaceId, "", true ).has_value() );
 
         // The creator (Super Admin) is never demotable — any target role.
@@ -367,11 +493,11 @@ namespace gcs::test
 
         std::vector<chat::GcsEvent> creatorEvents;
         gcs::Membership             creator( *m_rig.session, *m_rig.store, kTestCreatorAddress,
-                                 CapturingSink( &creatorEvents ), MakeSeam() );
+                                 CapturingSink( &creatorEvents ), MakeSeam( kTestCreatorAddress ) );
 
         std::vector<chat::GcsEvent> memberEvents;
         gcs::Membership             member( *m_rig.session, *m_rig.store, kMemberAddress,
-                                CapturingSink( &memberEvents ), MakeSeam() );
+                                CapturingSink( &memberEvents ), MakeSeam( kMemberAddress ) );
 
         auto closed   = m_rig.store->CreateSpace( "closed", true, true, false );
         auto open     = m_rig.store->CreateSpace( "open", true, true, true );
@@ -416,7 +542,7 @@ namespace gcs::test
 
         std::vector<chat::GcsEvent> events;
         gcs::Membership membership( *m_rig.session, *m_rig.store, kTestCreatorAddress,
-                                    CapturingSink( &events ), MakeSeam() );
+                                    CapturingSink( &events ), MakeSeam( kTestCreatorAddress ) );
         ASSERT_TRUE( membership.OnScopeCreated( roomId, roomTopic, false ).has_value() );
 
         auto minted = membership.MintInvite( roomId );
@@ -461,7 +587,7 @@ namespace gcs::test
 
         std::vector<chat::GcsEvent> creatorEvents;
         gcs::Membership             creator( *m_rig.session, *m_rig.store, kTestCreatorAddress,
-                                 CapturingSink( &creatorEvents ), MakeSeam() );
+                                 CapturingSink( &creatorEvents ), MakeSeam( kTestCreatorAddress ) );
         ASSERT_TRUE( creator.OnScopeCreated( roomId, roomTopic, false ).has_value() );
 
         auto minted = creator.MintInvite( roomId );
@@ -474,7 +600,7 @@ namespace gcs::test
 
         std::vector<chat::GcsEvent> joinerEvents;
         gcs::Membership             joiner( *m_rig.session, *m_rig.store, kJoinerAddress,
-                                CapturingSink( &joinerEvents ), MakeSeam() );
+                                CapturingSink( &joinerEvents ), MakeSeam( kJoinerAddress ) );
         ASSERT_TRUE( joiner.RedeemInvite( minted.value() ).has_value() );
 
         chat::MemberRecord joinerRecord;
@@ -494,7 +620,7 @@ namespace gcs::test
         // Multi-use / no expiry: the invite record is never consumed.
         std::vector<chat::GcsEvent> joiner2Events;
         gcs::Membership             joiner2( *m_rig.session, *m_rig.store, kJoiner2Address,
-                                 CapturingSink( &joiner2Events ), MakeSeam() );
+                                 CapturingSink( &joiner2Events ), MakeSeam( kJoiner2Address ) );
         ASSERT_TRUE( joiner2.RedeemInvite( minted.value() ).has_value() );
 
         auto list = creator.MembersFor( roomId );
@@ -506,13 +632,9 @@ namespace gcs::test
     }
 
     /**
-     * @brief Test 6 (MEMB-04/WR-04): a malformed invite URL is rejected and a
-     *        forged invite record can no longer write a member record — the
-     *        bearer key is load-bearing for EVERY invite.
-     *
-     * The expectation changed intentionally with WR-04: a forged record whose
-     * envelope is not wrap output used to redeem (skip-and-log). The bearer key
-     * now has to authenticate the invite before any member-record write.
+     * @brief Test 6 (MEMB-04/WR-04): malformed invite URLs are rejected and a
+     *        post-mint record mutation no longer writes a member record — the
+     *        issuer signature covers the whole record.
      */
     TEST_F( GcsMembershipTest, RedeemRejectsMalformedUrlAndSkipsBadEnvelope )
     {
@@ -521,64 +643,47 @@ namespace gcs::test
         auto space = m_rig.store->CreateSpace( "ops", true, true, true );
         ASSERT_TRUE( space.has_value() );
         const std::string spaceId = space.value().id();
+        // Give the space a child room so a minted invite carries at least one
+        // wrapped room key (the sub-case mutates index 0).
+        ASSERT_TRUE( m_rig.store->CreateRoom( "lounge", spaceId, true ).has_value() );
 
         std::vector<chat::GcsEvent> events;
         gcs::Membership membership( *m_rig.session, *m_rig.store, kTestCreatorAddress,
-                                    CapturingSink( &events ), MakeSeam() );
+                                    CapturingSink( &events ), MakeSeam( kTestCreatorAddress ) );
         ASSERT_TRUE( membership.OnScopeCreated( spaceId, "", true ).has_value() );
 
         gcs::Membership joiner( *m_rig.session, *m_rig.store, kJoinerAddress,
-                               CapturingSink( &events ), MakeSeam() );
+                               CapturingSink( &events ), MakeSeam( kJoinerAddress ) );
+        // New shape: gcs://invite/<kind>/<scope>/<invite>?key=<key>.
         EXPECT_FALSE( joiner.RedeemInvite( "https://example.com/not-an-invite" ).has_value() );
         EXPECT_FALSE( joiner.RedeemInvite( "gcs://invite/space/" ).has_value() );
         EXPECT_FALSE( joiner.RedeemInvite( "gcs://invite/space/abc" ).has_value() );
-        EXPECT_FALSE( joiner.RedeemInvite( "gcs://invite/other/abc?key=AAAA" ).has_value() );
-        EXPECT_FALSE( joiner.RedeemInvite( "gcs://invite/space/nope?key=AAAA" ).has_value() );
+        EXPECT_FALSE( joiner.RedeemInvite( "gcs://invite/space/abc/def" ).has_value() );
+        EXPECT_FALSE( joiner.RedeemInvite( "gcs://invite/other/abc/def?key=AAAA" ).has_value() );
+        EXPECT_FALSE( joiner.RedeemInvite( "gcs://invite/space//invite?key=AAAA" ).has_value() );
+        EXPECT_FALSE(
+            joiner.RedeemInvite( "gcs://invite/space/scope/?key=AAAA" ).has_value() );
+        EXPECT_FALSE(
+            joiner.RedeemInvite( "gcs://invite/space/scope/invite?key=" ).has_value() );
+        EXPECT_FALSE(
+            joiner.RedeemInvite( "gcs://invite/space/scope/invite?key=!!!" ).has_value() );
 
-        const std::string forgedKey( kEncodedKeyLength, 'A' );
+        // A genuine mint, then a post-mint mutation of the wrapped envelope:
+        // the authenticator still covers only key/scope/id, but the issuer
+        // signature covers the record, so the redeem is rejected (assert the
+        // rejection, not the reason).
+        auto minted = membership.MintInvite( spaceId );
+        ASSERT_TRUE( minted.has_value() );
+        const std::string inviteId = InviteIdFromUrl( minted.value() );
+        ASSERT_FALSE( inviteId.empty() );
 
-        // (a) A forged record left at the default is_space = false is rejected
-        // by the URL-kind cross-check (the URL says "space").
-        chat::InviteRecord wrongKind;
-        wrongKind.set_scope_id( spaceId );
-        wrongKind.set_role( chat::ROLE_GUEST );
-        ASSERT_TRUE( m_rig.session
-                         ->Put( std::string( gcs::Membership::kInvitesKeyPrefix ) + spaceId
-                                    + "/invite-forged-kind",
-                                wrongKind.SerializeAsString() )
-                         .has_value() );
-        EXPECT_FALSE( joiner
-                          .RedeemInvite( "gcs://invite/space/invite-forged-kind?key="
-                                         + forgedKey )
-                          .has_value() );
+        chat::InviteRecord stored;
+        ASSERT_TRUE( ReadInviteRecord( *m_rig.session, spaceId, inviteId, stored ) );
+        ASSERT_GE( stored.wrapped_room_key_size(), 1 );
+        stored.mutable_wrapped_room_key( 0 )->set_envelope( "tampered-envelope" );
+        ASSERT_TRUE( WriteInviteRecord( *m_rig.session, spaceId, inviteId, stored ) );
 
-        // (b) A record with the right kind but an EMPTY authenticator is
-        // rejected by the every-invite bearer gate.
-        chat::InviteRecord noAuth = wrongKind;
-        noAuth.set_is_space( true );
-        ASSERT_TRUE( m_rig.session
-                         ->Put( std::string( gcs::Membership::kInvitesKeyPrefix ) + spaceId
-                                    + "/invite-forged-noauth",
-                                noAuth.SerializeAsString() )
-                         .has_value() );
-        EXPECT_FALSE( joiner
-                          .RedeemInvite( "gcs://invite/space/invite-forged-noauth?key="
-                                         + forgedKey )
-                          .has_value() );
-
-        // (c) A record with the right kind and a garbage authenticator is
-        // rejected by verification.
-        chat::InviteRecord badAuth = noAuth;
-        badAuth.set_authenticator( "not-a-real-authenticator" );
-        ASSERT_TRUE( m_rig.session
-                         ->Put( std::string( gcs::Membership::kInvitesKeyPrefix ) + spaceId
-                                    + "/invite-forged-badauth",
-                                badAuth.SerializeAsString() )
-                         .has_value() );
-        EXPECT_FALSE( joiner
-                          .RedeemInvite( "gcs://invite/space/invite-forged-badauth?key="
-                                         + forgedKey )
-                          .has_value() );
+        EXPECT_FALSE( joiner.RedeemInvite( minted.value() ).has_value() );
 
         // No rejected redeem wrote a member record.
         chat::MemberRecord joinerRecord;
@@ -587,10 +692,11 @@ namespace gcs::test
     }
 
     /**
-     * @brief Test (WR-04): two scopes carrying the same invite id make the
-     *        lookup ambiguous, so the redeem is rejected with no write.
+     * @brief Test (T-04-15-05): the URL's scope segment selects the lookup key,
+     *        so a link retargeted at another scope finds no record and writes
+     *        nothing.
      */
-    TEST_F( GcsMembershipTest, RedeemRejectsInviteIdCollisionAcrossScopes )
+    TEST_F( GcsMembershipTest, RedeemRejectsUrlScopeThatDoesNotOwnTheInvite )
     {
         StartRig( kTestCreatorAddress );
 
@@ -603,32 +709,26 @@ namespace gcs::test
 
         std::vector<chat::GcsEvent> events;
         gcs::Membership membership( *m_rig.session, *m_rig.store, kTestCreatorAddress,
-                                    CapturingSink( &events ), MakeSeam() );
+                                    CapturingSink( &events ), MakeSeam( kTestCreatorAddress ) );
         ASSERT_TRUE( membership.OnScopeCreated( firstId, "", true ).has_value() );
         ASSERT_TRUE( membership.OnScopeCreated( secondId, "", true ).has_value() );
 
-        // Same invite id under two scopes; both carry the matching space kind so
-        // the collision check (not the kind check) is the rejection under test.
-        for ( const std::string &scopeId : { firstId, secondId } )
-        {
-            chat::InviteRecord record;
-            record.set_scope_id( scopeId );
-            record.set_role( chat::ROLE_GUEST );
-            record.set_is_space( true );
-            ASSERT_TRUE( m_rig.session
-                             ->Put( std::string( gcs::Membership::kInvitesKeyPrefix )
-                                        + scopeId + "/invite-collision",
-                                    record.SerializeAsString() )
-                             .has_value() );
-        }
+        auto minted = membership.MintInvite( firstId );
+        ASSERT_TRUE( minted.has_value() );
+        const std::string inviteId = InviteIdFromUrl( minted.value() );
+        ASSERT_FALSE( inviteId.empty() );
+        const std::size_t keyPos = minted.value().find( "?key=" );
+        ASSERT_NE( keyPos, std::string::npos );
+
+        // Same invite key, but the URL names a scope that does not own the
+        // record: the exact-key Get finds nothing.
+        const std::string retargeted = std::string( "gcs://invite/space/" ) + secondId
+                                       + "/" + inviteId
+                                       + minted.value().substr( keyPos );
 
         gcs::Membership joiner( *m_rig.session, *m_rig.store, kJoinerAddress,
-                               CapturingSink( &events ), MakeSeam() );
-        const std::string collisionKey( kEncodedKeyLength, 'A' );
-        EXPECT_FALSE( joiner
-                          .RedeemInvite( "gcs://invite/space/invite-collision?key="
-                                         + collisionKey )
-                          .has_value() );
+                               CapturingSink( &events ), MakeSeam( kJoinerAddress ) );
+        EXPECT_FALSE( joiner.RedeemInvite( retargeted ).has_value() );
 
         chat::MemberRecord record;
         EXPECT_FALSE( ReadMemberRecord( *m_rig.session, firstId, kJoinerAddress, record ) );
@@ -650,7 +750,7 @@ namespace gcs::test
 
         std::vector<chat::GcsEvent> events;
         gcs::Membership creator( *m_rig.session, *m_rig.store, kTestCreatorAddress,
-                                 CapturingSink( &events ), MakeSeam() );
+                                 CapturingSink( &events ), MakeSeam( kTestCreatorAddress ) );
         ASSERT_TRUE( creator.OnScopeCreated( spaceId, "", true ).has_value() );
 
         auto minted = creator.MintInvite( spaceId );
@@ -668,7 +768,7 @@ namespace gcs::test
 
         // The minted bearer key redeems.
         gcs::Membership joiner( *m_rig.session, *m_rig.store, kJoinerAddress,
-                               CapturingSink( &events ), MakeSeam() );
+                               CapturingSink( &events ), MakeSeam( kJoinerAddress ) );
         ASSERT_TRUE( joiner.RedeemInvite( minted.value() ).has_value() );
         chat::MemberRecord joined;
         ASSERT_TRUE( ReadMemberRecord( *m_rig.session, spaceId, kJoinerAddress, joined ) );
@@ -676,20 +776,370 @@ namespace gcs::test
 
         // A wrong bearer key (same URL, replaced key) is rejected and writes
         // nothing — the every-invite gate, not room-key unwrapping.
-        const std::string prefix   = "gcs://invite/space/";
         const std::size_t queryPos = minted.value().find( "?key=" );
         ASSERT_NE( queryPos, std::string::npos );
-        const std::string inviteId =
-            minted.value().substr( prefix.size(), queryPos - prefix.size() );
         const std::string wrongKey( kEncodedKeyLength, 'B' );
-        const std::string wrongUrl = prefix + inviteId + "?key=" + wrongKey;
+        const std::string wrongUrl = minted.value().substr( 0, queryPos )
+                                     + "?key=" + wrongKey;
 
         gcs::Membership joiner2( *m_rig.session, *m_rig.store, kJoiner2Address,
-                                CapturingSink( &events ), MakeSeam() );
+                                CapturingSink( &events ), MakeSeam( kJoiner2Address ) );
         EXPECT_FALSE( joiner2.RedeemInvite( wrongUrl ).has_value() );
         chat::MemberRecord rejected;
         EXPECT_FALSE(
             ReadMemberRecord( *m_rig.session, spaceId, kJoiner2Address, rejected ) );
+    }
+
+    /**
+     * @brief Test (MEMB-01 fail-closed): without the issuer seam neither mint
+     *        nor redeem may proceed — no unsigned record is ever written or
+     *        accepted.
+     */
+    TEST_F( GcsMembershipTest, MintRejectedWhenIssuerSeamIsDisabled )
+    {
+        StartRig( kTestCreatorAddress );
+
+        auto space = m_rig.store->CreateSpace( "ops", true, true, true );
+        ASSERT_TRUE( space.has_value() );
+        const std::string spaceId = space.value().id();
+
+        std::vector<chat::GcsEvent> events;
+        gcs::Membership noIssuer( *m_rig.session, *m_rig.store, kTestCreatorAddress,
+                                  CapturingSink( &events ),
+                                  MakeSeam( kTestCreatorAddress, /*issuerEnabled=*/false ) );
+        ASSERT_TRUE( noIssuer.OnScopeCreated( spaceId, "", true ).has_value() );
+
+        EXPECT_FALSE( noIssuer.MintInvite( spaceId ).has_value() );
+
+        auto invites = m_rig.session->QueryKeyValues(
+            std::string( gcs::Membership::kInvitesKeyPrefix ) + spaceId + "/" );
+        ASSERT_TRUE( invites.has_value() );
+        EXPECT_TRUE( invites.value().empty() );
+
+        // A genuinely minted invite is still rejected by the disabled seam.
+        gcs::Membership creator( *m_rig.session, *m_rig.store, kTestCreatorAddress,
+                                 CapturingSink( &events ), MakeSeam( kTestCreatorAddress ) );
+        auto minted = creator.MintInvite( spaceId );
+        ASSERT_TRUE( minted.has_value() );
+
+        const std::string creatorKey = std::string( gcs::Membership::kMembersKeyPrefix )
+                                       + spaceId + "/" + kTestCreatorAddress;
+        auto baseline = m_rig.session->Get( creatorKey );
+        ASSERT_TRUE( baseline.has_value() );
+
+        EXPECT_FALSE( noIssuer.RedeemInvite( minted.value() ).has_value() );
+
+        auto after = m_rig.session->Get( creatorKey );
+        ASSERT_TRUE( after.has_value() );
+        EXPECT_EQ( after.value(), baseline.value() );
+    }
+
+    /**
+     * @brief Test (MEMB-01): a minted invite carries its issuer, its signature,
+     *        and a scope-bearing URL.
+     */
+    TEST_F( GcsMembershipTest, MintStampsIssuerAndSignatureAndScopedUrl )
+    {
+        StartRig( kTestCreatorAddress );
+
+        auto space = m_rig.store->CreateSpace( "ops", true, true, true );
+        ASSERT_TRUE( space.has_value() );
+        const std::string spaceId = space.value().id();
+
+        std::vector<chat::GcsEvent> events;
+        gcs::Membership creator( *m_rig.session, *m_rig.store, kTestCreatorAddress,
+                                 CapturingSink( &events ), MakeSeam( kTestCreatorAddress ) );
+        ASSERT_TRUE( creator.OnScopeCreated( spaceId, "", true ).has_value() );
+
+        auto minted = creator.MintInvite( spaceId );
+        ASSERT_TRUE( minted.has_value() );
+        const std::string expectedPrefix = "gcs://invite/space/" + spaceId + "/";
+        EXPECT_EQ( minted.value().rfind( expectedPrefix, 0 ), 0 );
+
+        const std::string inviteId = InviteIdFromUrl( minted.value() );
+        ASSERT_FALSE( inviteId.empty() );
+
+        chat::InviteRecord stored;
+        ASSERT_TRUE( ReadInviteRecord( *m_rig.session, spaceId, inviteId, stored ) );
+        EXPECT_EQ( stored.created_by(), kTestCreatorAddress );
+        EXPECT_FALSE( stored.issuer_signature().empty() );
+    }
+
+    /**
+     * @brief Test (T-04-15-01): a record whose role was raised after signing
+     *        and then RE-SIGNED by the issuer is rejected by the D-05 GUEST
+     *        role cap — the signature verifies, so the cap is what fires.
+     */
+    TEST_F( GcsMembershipTest, RedeemRejectsRecordWithTamperedRole )
+    {
+        StartRig( kTestCreatorAddress );
+
+        auto space = m_rig.store->CreateSpace( "ops", true, true, true );
+        ASSERT_TRUE( space.has_value() );
+        const std::string spaceId = space.value().id();
+
+        std::vector<chat::GcsEvent> events;
+        gcs::Membership creator( *m_rig.session, *m_rig.store, kTestCreatorAddress,
+                                 CapturingSink( &events ), MakeSeam( kTestCreatorAddress ) );
+        ASSERT_TRUE( creator.OnScopeCreated( spaceId, "", true ).has_value() );
+
+        auto minted = creator.MintInvite( spaceId );
+        ASSERT_TRUE( minted.has_value() );
+        const std::string inviteId = InviteIdFromUrl( minted.value() );
+        ASSERT_FALSE( inviteId.empty() );
+
+        chat::InviteRecord stored;
+        ASSERT_TRUE( ReadInviteRecord( *m_rig.session, spaceId, inviteId, stored ) );
+        stored.set_role( chat::ROLE_SUPER_ADMIN );
+        const std::string payload = gcs::test::BuildInviteIssuerPayload( inviteId, stored );
+        stored.set_issuer_signature(
+            TestIssuerSignatureHex( kTestCreatorAddress, payload ) );
+        ASSERT_TRUE( WriteInviteRecord( *m_rig.session, spaceId, inviteId, stored ) );
+
+        const std::size_t baselineCount = MemberScanCount( *m_rig.session, spaceId );
+
+        gcs::Membership joiner( *m_rig.session, *m_rig.store, kJoinerAddress,
+                               CapturingSink( &events ), MakeSeam( kJoinerAddress ) );
+        // The signature was recomputed by the creator, so it verifies; the
+        // GUEST role cap is the rejection under test.
+        EXPECT_FALSE( joiner.RedeemInvite( minted.value() ).has_value() );
+
+        EXPECT_EQ( MemberScanCount( *m_rig.session, spaceId ), baselineCount );
+        chat::MemberRecord joinerRecord;
+        EXPECT_FALSE(
+            ReadMemberRecord( *m_rig.session, spaceId, kJoinerAddress, joinerRecord ) );
+    }
+
+    /**
+     * @brief Test (T-04-15-02): a record signed by X but claiming
+     *        created_by = Y fails — verification binds the CLAIMED issuer.
+     */
+    TEST_F( GcsMembershipTest, RedeemRejectsForgedIssuerIdentity )
+    {
+        StartRig( kTestCreatorAddress );
+
+        auto space = m_rig.store->CreateSpace( "ops", true, true, true );
+        ASSERT_TRUE( space.has_value() );
+        const std::string spaceId = space.value().id();
+
+        std::vector<chat::GcsEvent> events;
+        gcs::Membership creator( *m_rig.session, *m_rig.store, kTestCreatorAddress,
+                                 CapturingSink( &events ), MakeSeam( kTestCreatorAddress ) );
+        ASSERT_TRUE( creator.OnScopeCreated( spaceId, "", true ).has_value() );
+
+        auto minted = creator.MintInvite( spaceId );
+        ASSERT_TRUE( minted.has_value() );
+        const std::string inviteId = InviteIdFromUrl( minted.value() );
+        ASSERT_FALSE( inviteId.empty() );
+
+        // Keep the creator's signature bytes but claim another identity.
+        chat::InviteRecord stored;
+        ASSERT_TRUE( ReadInviteRecord( *m_rig.session, spaceId, inviteId, stored ) );
+        stored.set_created_by( kMemberAddress );
+        ASSERT_TRUE( WriteInviteRecord( *m_rig.session, spaceId, inviteId, stored ) );
+
+        const std::size_t baselineCount = MemberScanCount( *m_rig.session, spaceId );
+
+        gcs::Membership joiner( *m_rig.session, *m_rig.store, kJoinerAddress,
+                               CapturingSink( &events ), MakeSeam( kJoinerAddress ) );
+        EXPECT_FALSE( joiner.RedeemInvite( minted.value() ).has_value() );
+
+        EXPECT_EQ( MemberScanCount( *m_rig.session, spaceId ), baselineCount );
+        chat::MemberRecord joinerRecord;
+        EXPECT_FALSE(
+            ReadMemberRecord( *m_rig.session, spaceId, kJoinerAddress, joinerRecord ) );
+    }
+
+    /**
+     * @brief Test (MEMB-01 authority): a genuine invite minted by a
+     *        membersCanInvite MEMBER whose membership is then revoked no longer
+     *        redeems — the signature still verifies, so the AUTHORITY check is
+     *        what rejects.
+     */
+    TEST_F( GcsMembershipTest, RedeemRejectsIssuerWhoseAuthorityWasRevoked )
+    {
+        StartRig( kTestCreatorAddress );
+
+        auto space = m_rig.store->CreateSpace( "ops", true, true,
+                                              /*membersCanInvite=*/true );
+        ASSERT_TRUE( space.has_value() );
+        const std::string spaceId = space.value().id();
+        SeedMember( spaceId, kMemberAddress, chat::ROLE_MEMBER );
+
+        std::vector<chat::GcsEvent> creatorEvents;
+        gcs::Membership creator( *m_rig.session, *m_rig.store, kTestCreatorAddress,
+                                 CapturingSink( &creatorEvents ),
+                                 MakeSeam( kTestCreatorAddress ) );
+        ASSERT_TRUE( creator.OnScopeCreated( spaceId, "", true ).has_value() );
+
+        std::vector<chat::GcsEvent> issuerEvents;
+        gcs::Membership issuer( *m_rig.session, *m_rig.store, kMemberAddress,
+                                CapturingSink( &issuerEvents ),
+                                MakeSeam( kMemberAddress ) );
+        // Legitimate mint: the MEMBER holds invite authority via the gate.
+        auto minted = issuer.MintInvite( spaceId );
+        ASSERT_TRUE( minted.has_value() );
+
+        // The creator is the ONLY admin (AdminCount 1) — immediate tombstone.
+        ASSERT_TRUE( creator.RemoveMember( spaceId, kMemberAddress ).has_value() );
+        chat::MemberRecord revoked;
+        ASSERT_TRUE( ReadMemberRecord( *m_rig.session, spaceId, kMemberAddress, revoked ) );
+        ASSERT_TRUE( revoked.deleted() );
+
+        const std::size_t baselineCount = MemberScanCount( *m_rig.session, spaceId );
+
+        gcs::Membership joiner( *m_rig.session, *m_rig.store, kJoinerAddress,
+                               CapturingSink( &creatorEvents ),
+                               MakeSeam( kJoinerAddress ) );
+        // The signature still verifies against the claimed issuer; the issuer's
+        // tombstoned record resolves to GUEST, so authority fails.
+        EXPECT_FALSE( joiner.RedeemInvite( minted.value() ).has_value() );
+
+        EXPECT_EQ( MemberScanCount( *m_rig.session, spaceId ), baselineCount );
+        chat::MemberRecord joinerRecord;
+        EXPECT_FALSE(
+            ReadMemberRecord( *m_rig.session, spaceId, kJoinerAddress, joinerRecord ) );
+    }
+
+    /**
+     * @brief Test (T-04-15-08): an authorized membersCanInvite issuer re-signing
+     *        a ROLE_SUPER_ADMIN record under its OWN identity is stopped by the
+     *        GUEST role cap — signature and authority both pass.
+     */
+    TEST_F( GcsMembershipTest, RedeemRejectsSuperAdminGrantFromAuthorizedIssuer )
+    {
+        StartRig( kTestCreatorAddress );
+
+        auto space = m_rig.store->CreateSpace( "ops", true, true,
+                                              /*membersCanInvite=*/true );
+        ASSERT_TRUE( space.has_value() );
+        const std::string spaceId = space.value().id();
+        SeedMember( spaceId, kMemberAddress, chat::ROLE_MEMBER );
+
+        std::vector<chat::GcsEvent> creatorEvents;
+        gcs::Membership creator( *m_rig.session, *m_rig.store, kTestCreatorAddress,
+                                 CapturingSink( &creatorEvents ),
+                                 MakeSeam( kTestCreatorAddress ) );
+        ASSERT_TRUE( creator.OnScopeCreated( spaceId, "", true ).has_value() );
+
+        std::vector<chat::GcsEvent> issuerEvents;
+        gcs::Membership issuer( *m_rig.session, *m_rig.store, kMemberAddress,
+                                CapturingSink( &issuerEvents ),
+                                MakeSeam( kMemberAddress ) );
+        auto minted = issuer.MintInvite( spaceId );
+        ASSERT_TRUE( minted.has_value() );
+        const std::string inviteId = InviteIdFromUrl( minted.value() );
+        ASSERT_FALSE( inviteId.empty() );
+
+        // The authorized Member raises the role and re-signs with its OWN
+        // identity: created_by is unchanged and the authenticator is untouched.
+        chat::InviteRecord stored;
+        ASSERT_TRUE( ReadInviteRecord( *m_rig.session, spaceId, inviteId, stored ) );
+        stored.set_role( chat::ROLE_SUPER_ADMIN );
+        const std::string payload = gcs::test::BuildInviteIssuerPayload( inviteId, stored );
+        stored.set_issuer_signature( TestIssuerSignatureHex( kMemberAddress, payload ) );
+        ASSERT_TRUE( WriteInviteRecord( *m_rig.session, spaceId, inviteId, stored ) );
+
+        const std::size_t baselineCount = MemberScanCount( *m_rig.session, spaceId );
+
+        gcs::Membership joiner( *m_rig.session, *m_rig.store, kJoinerAddress,
+                               CapturingSink( &creatorEvents ),
+                               MakeSeam( kJoinerAddress ) );
+        // Signature verifies against created_by and CanInviteFor passes (the
+        // gate is on), so ONLY the GUEST cap prevents a second Super Admin.
+        EXPECT_FALSE( joiner.RedeemInvite( minted.value() ).has_value() );
+
+        EXPECT_EQ( MemberScanCount( *m_rig.session, spaceId ), baselineCount );
+        chat::MemberRecord joinerRecord;
+        EXPECT_FALSE(
+            ReadMemberRecord( *m_rig.session, spaceId, kJoinerAddress, joinerRecord ) );
+    }
+
+    /**
+     * @brief Test (T-04-15-07): wrapped room keys naming another scope are
+     *        rejected even when the record is validly re-signed — the scope
+     *        check, not the signature, is what fires.
+     */
+    TEST_F( GcsMembershipTest, RedeemRejectsWrappedRoomKeyOutsideScope )
+    {
+        StartRig( kTestCreatorAddress );
+
+        auto roomA = m_rig.store->CreateRoom( "a", "", true );
+        auto roomB = m_rig.store->CreateRoom( "b", "", true );
+        ASSERT_TRUE( roomA.has_value() );
+        ASSERT_TRUE( roomB.has_value() );
+        const std::string roomAId = roomA.value().id();
+        const std::string roomBId = roomB.value().id();
+        const std::string roomATopic = std::string( kRoomTopicPrefix ) + roomAId;
+        const std::string roomBTopic = std::string( kRoomTopicPrefix ) + roomBId;
+
+        std::vector<chat::GcsEvent> events;
+        gcs::Membership creator( *m_rig.session, *m_rig.store, kTestCreatorAddress,
+                                 CapturingSink( &events ), MakeSeam( kTestCreatorAddress ) );
+        ASSERT_TRUE( creator.OnScopeCreated( roomAId, roomATopic, false ).has_value() );
+        ASSERT_TRUE( creator.OnScopeCreated( roomBId, roomBTopic, false ).has_value() );
+
+        auto minted = creator.MintInvite( roomAId );
+        ASSERT_TRUE( minted.has_value() );
+        const std::string inviteId = InviteIdFromUrl( minted.value() );
+        ASSERT_FALSE( inviteId.empty() );
+
+        // Append a wrapped key that belongs to room B and re-sign so the
+        // signature verifies — the scope check must be what rejects.
+        chat::InviteRecord stored;
+        ASSERT_TRUE( ReadInviteRecord( *m_rig.session, roomAId, inviteId, stored ) );
+        chat::WrappedRoomKey *foreign = stored.add_wrapped_room_key();
+        foreign->set_room_id( roomBId );
+        foreign->set_envelope( "not-a-real-envelope" );
+        const std::string payload = gcs::test::BuildInviteIssuerPayload( inviteId, stored );
+        stored.set_issuer_signature(
+            TestIssuerSignatureHex( kTestCreatorAddress, payload ) );
+        ASSERT_TRUE( WriteInviteRecord( *m_rig.session, roomAId, inviteId, stored ) );
+
+        const auto roomBKeyBefore = gcs::crypto::RoomKeyFor( roomBTopic );
+
+        gcs::Membership joiner( *m_rig.session, *m_rig.store, kJoinerAddress,
+                               CapturingSink( &events ), MakeSeam( kJoinerAddress ) );
+        EXPECT_FALSE( joiner.RedeemInvite( minted.value() ).has_value() );
+
+        chat::MemberRecord joinerRecord;
+        EXPECT_FALSE(
+            ReadMemberRecord( *m_rig.session, roomAId, kJoinerAddress, joinerRecord ) );
+        // Room B's local key is untouched (it exists because OnScopeCreated
+        // stored it, so compare BEFORE/AFTER rather than asserting absence).
+        EXPECT_EQ( gcs::crypto::RoomKeyFor( roomBTopic ), roomBKeyBefore );
+
+        // Space-invite twin: a space invite carrying its own scope as a room.
+        auto space = m_rig.store->CreateSpace( "ops", true, true, true );
+        ASSERT_TRUE( space.has_value() );
+        const std::string spaceId = space.value().id();
+        ASSERT_TRUE( creator.OnScopeCreated( spaceId, "", true ).has_value() );
+
+        auto spaceMinted = creator.MintInvite( spaceId );
+        ASSERT_TRUE( spaceMinted.has_value() );
+        const std::string spaceInviteId = InviteIdFromUrl( spaceMinted.value() );
+        ASSERT_FALSE( spaceInviteId.empty() );
+
+        chat::InviteRecord spaceRecord;
+        ASSERT_TRUE(
+            ReadInviteRecord( *m_rig.session, spaceId, spaceInviteId, spaceRecord ) );
+        chat::WrappedRoomKey *selfRef = spaceRecord.add_wrapped_room_key();
+        selfRef->set_room_id( spaceId );
+        selfRef->set_envelope( "not-a-real-envelope" );
+        const std::string spacePayload =
+            gcs::test::BuildInviteIssuerPayload( spaceInviteId, spaceRecord );
+        spaceRecord.set_issuer_signature(
+            TestIssuerSignatureHex( kTestCreatorAddress, spacePayload ) );
+        ASSERT_TRUE(
+            WriteInviteRecord( *m_rig.session, spaceId, spaceInviteId, spaceRecord ) );
+
+        gcs::Membership joiner2( *m_rig.session, *m_rig.store, kJoiner2Address,
+                                CapturingSink( &events ), MakeSeam( kJoiner2Address ) );
+        EXPECT_FALSE( joiner2.RedeemInvite( spaceMinted.value() ).has_value() );
+
+        chat::MemberRecord spaceJoinerRecord;
+        EXPECT_FALSE( ReadMemberRecord( *m_rig.session, spaceId, kJoiner2Address,
+                                        spaceJoinerRecord ) );
     }
 
     /**
@@ -709,7 +1159,7 @@ namespace gcs::test
 
         std::vector<chat::GcsEvent> events;
         gcs::Membership membership( *m_rig.session, *m_rig.store, kTestCreatorAddress,
-                                    CapturingSink( &events ), MakeSeam() );
+                                    CapturingSink( &events ), MakeSeam( kTestCreatorAddress ) );
         ASSERT_TRUE( membership.OnScopeCreated( spaceId, "", true ).has_value() );
 
         ASSERT_TRUE( membership.RemoveMember( spaceId, kTargetAddress ).has_value() );
@@ -730,7 +1180,7 @@ namespace gcs::test
         // A guest cannot activate the dormant op (Super Admin only).
         SeedMember( spaceId, kGuestAddress, chat::ROLE_GUEST );
         gcs::Membership guest( *m_rig.session, *m_rig.store, kGuestAddress,
-                               CapturingSink( &events ), MakeSeam() );
+                               CapturingSink( &events ), MakeSeam( kGuestAddress ) );
         EXPECT_FALSE( guest.Approve( spaceId, kAdminAddress ).has_value() );
     }
 
@@ -754,7 +1204,7 @@ namespace gcs::test
 
         std::vector<chat::GcsEvent> events;
         gcs::Membership creator( *m_rig.session, *m_rig.store, kTestCreatorAddress,
-                                 CapturingSink( &events ), MakeSeam() );
+                                 CapturingSink( &events ), MakeSeam( kTestCreatorAddress ) );
         ASSERT_TRUE( creator.OnScopeCreated( spaceId, "", true ).has_value() );
         auto minted = creator.MintInvite( spaceId );
         ASSERT_TRUE( minted.has_value() );
@@ -770,7 +1220,7 @@ namespace gcs::test
         // The target redeems the invite: the stored role and dormant state must
         // survive; only the carried key material may change.
         gcs::Membership target( *m_rig.session, *m_rig.store, kTargetAddress,
-                                CapturingSink( &events ), MakeSeam() );
+                                CapturingSink( &events ), MakeSeam( kTargetAddress ) );
         ASSERT_TRUE( target.RedeemInvite( minted.value() ).has_value() );
 
         chat::MemberRecord redeemed;
@@ -809,7 +1259,7 @@ namespace gcs::test
 
         std::vector<chat::GcsEvent> events;
         gcs::Membership creator( *m_rig.session, *m_rig.store, kTestCreatorAddress,
-                                 CapturingSink( &events ), MakeSeam() );
+                                 CapturingSink( &events ), MakeSeam( kTestCreatorAddress ) );
         ASSERT_TRUE( creator.OnScopeCreated( spaceId, "", true ).has_value() );
 
         // Mint BEFORE the removal so a stale link exists at redeem time.
@@ -836,7 +1286,7 @@ namespace gcs::test
         const std::size_t baselineCount = baselineScan.value().size();
 
         gcs::Membership joiner( *m_rig.session, *m_rig.store, kJoinerAddress,
-                                CapturingSink( &events ), MakeSeam() );
+                                CapturingSink( &events ), MakeSeam( kJoinerAddress ) );
         EXPECT_FALSE( joiner.RedeemInvite( minted.value() ).has_value() );
 
         // A rejected redeem writes nothing at all.
@@ -873,7 +1323,7 @@ namespace gcs::test
 
         std::vector<chat::GcsEvent> events;
         gcs::Membership creator( *m_rig.session, *m_rig.store, kTestCreatorAddress,
-                                 CapturingSink( &events ), MakeSeam() );
+                                 CapturingSink( &events ), MakeSeam( kTestCreatorAddress ) );
         ASSERT_TRUE( creator.OnScopeCreated( spaceId, "", true ).has_value() );
 
         // Sole admin (the creator): the removal applies at once.
@@ -885,7 +1335,7 @@ namespace gcs::test
 
         // Guest: read-only across every mutator (D-08).
         gcs::Membership guest( *m_rig.session, *m_rig.store, kGuestAddress,
-                               CapturingSink( &events ), MakeSeam() );
+                               CapturingSink( &events ), MakeSeam( kGuestAddress ) );
         EXPECT_FALSE( guest.ChangeRole( spaceId, kTargetAddress, chat::ROLE_MEMBER ).has_value() );
         EXPECT_FALSE( guest.RemoveMember( spaceId, kTargetAddress ).has_value() );
         EXPECT_FALSE( guest.DeleteScope( spaceId ).has_value() );
@@ -917,7 +1367,7 @@ namespace gcs::test
 
         std::vector<chat::GcsEvent> events;
         gcs::Membership membership( *m_rig.session, *m_rig.store, kTestCreatorAddress,
-                                    CapturingSink( &events ), MakeSeam() );
+                                    CapturingSink( &events ), MakeSeam( kTestCreatorAddress ) );
         ASSERT_TRUE( membership.OnScopeCreated( spaceId, "", true ).has_value() );
 
         auto list = membership.MembersFor( spaceId );
@@ -934,7 +1384,7 @@ namespace gcs::test
 
         // D-02: explicit leave is a bool on the caller's OWN record (no tombstone).
         gcs::Membership memberSelf( *m_rig.session, *m_rig.store, kMemberAddress,
-                                    CapturingSink( &events ), MakeSeam() );
+                                    CapturingSink( &events ), MakeSeam( kMemberAddress ) );
         ASSERT_TRUE( memberSelf.Leave( spaceId ).has_value() );
         EXPECT_TRUE( memberSelf.HasExplicitLeave( spaceId ) );
         chat::MemberRecord left;
@@ -963,7 +1413,7 @@ namespace gcs::test
 
         std::vector<chat::GcsEvent> events;
         gcs::Membership membership( *m_rig.session, *m_rig.store, kTestCreatorAddress,
-                                    CapturingSink( &events ), MakeSeam() );
+                                    CapturingSink( &events ), MakeSeam( kTestCreatorAddress ) );
         ASSERT_TRUE( membership.OnScopeCreated( spaceId, "", true ).has_value() );
 
         // Heal delivery: the callback derives the scope and pushes the roster.
@@ -1023,7 +1473,7 @@ namespace gcs::test
 
         std::vector<chat::GcsEvent> events;
         gcs::Membership creator( *m_rig.session, *m_rig.store, kTestCreatorAddress,
-                                 CapturingSink( &events ), MakeSeam() );
+                                 CapturingSink( &events ), MakeSeam( kTestCreatorAddress ) );
         ASSERT_TRUE( creator.OnScopeCreated( spaceId, "", true ).has_value() );
 
         // Two admins: the delete is dormant, not applied.
@@ -1078,7 +1528,7 @@ namespace gcs::test
 
         std::vector<chat::GcsEvent> events;
         gcs::Membership creator( *m_rig.session, *m_rig.store, kTestCreatorAddress,
-                                 CapturingSink( &events ), MakeSeam() );
+                                 CapturingSink( &events ), MakeSeam( kTestCreatorAddress ) );
         ASSERT_TRUE( creator.OnScopeCreated( spaceId, "", true ).has_value() );
 
         const auto beforeBytes = m_rig.session->Get( std::string( kSpacesKeyPrefix ) + spaceId );
@@ -1109,7 +1559,7 @@ namespace gcs::test
 
         std::vector<chat::GcsEvent> events;
         gcs::Membership creator( *m_rig.session, *m_rig.store, kTestCreatorAddress,
-                                 CapturingSink( &events ), MakeSeam() );
+                                 CapturingSink( &events ), MakeSeam( kTestCreatorAddress ) );
         ASSERT_TRUE( creator.OnScopeCreated( spaceId, "", true ).has_value() );
 
         gcs::Membership::ScanFn failingScan =
@@ -1118,7 +1568,7 @@ namespace gcs::test
             return outcome::failure( sgns::gcs::Error::GcsDbError );
         };
         gcs::Membership failing( *m_rig.session, *m_rig.store, kTestCreatorAddress,
-                                 CapturingSink( &events ), MakeSeam(), failingScan );
+                                 CapturingSink( &events ), MakeSeam( kTestCreatorAddress ), failingScan );
 
         const std::string targetKey = std::string( gcs::Membership::kMembersKeyPrefix )
                                       + spaceId + "/" + kTargetAddress;
@@ -1169,12 +1619,12 @@ namespace gcs::test
 
         std::vector<chat::GcsEvent> events;
         gcs::Membership creator( *m_rig.session, *m_rig.store, kTestCreatorAddress,
-                                 CapturingSink( &events ), MakeSeam() );
+                                 CapturingSink( &events ), MakeSeam( kTestCreatorAddress ) );
         ASSERT_TRUE( creator.OnScopeCreated( spaceId, "", true ).has_value() );
 
         // Rank 3 > 2: a Moderator may remove a plain Member.
         gcs::Membership moderator( *m_rig.session, *m_rig.store, kModeratorAddress,
-                                   CapturingSink( &events ), MakeSeam() );
+                                   CapturingSink( &events ), MakeSeam( kModeratorAddress ) );
         ASSERT_TRUE( moderator.RemoveMember( spaceId, kMemberAddress ).has_value() );
 
         // Rank 3 is not > 4: a Moderator may NOT remove an Admin.
@@ -1188,7 +1638,7 @@ namespace gcs::test
         // A second, non-creator Super Admin target.
         SeedMember( spaceId, kTargetAddress, chat::ROLE_SUPER_ADMIN );
         gcs::Membership admin( *m_rig.session, *m_rig.store, kAdminAddress,
-                               CapturingSink( &events ), MakeSeam() );
+                               CapturingSink( &events ), MakeSeam( kAdminAddress ) );
 
         // Rank 4 is not > 5: an Admin may NOT remove the Super Admin directly.
         EXPECT_FALSE( admin.RemoveMember( spaceId, kTargetAddress ).has_value() );
@@ -1224,7 +1674,7 @@ namespace gcs::test
 
         std::vector<chat::GcsEvent> events;
         gcs::Membership membership( *m_rig.session, *m_rig.store, kTestCreatorAddress,
-                                    CapturingSink( &events ), MakeSeam() );
+                                    CapturingSink( &events ), MakeSeam( kTestCreatorAddress ) );
         ASSERT_TRUE( membership.OnScopeCreated( spaceId, "", true ).has_value() );
 
         // Two admins (creator + target) -> the demotion is dormant, not applied.
@@ -1254,7 +1704,7 @@ namespace gcs::test
 
         std::vector<chat::GcsEvent> events;
         gcs::Membership membership( *m_rig.session, *m_rig.store, kTestCreatorAddress,
-                                    CapturingSink( &events ), MakeSeam() );
+                                    CapturingSink( &events ), MakeSeam( kTestCreatorAddress ) );
         ASSERT_TRUE( membership.OnScopeCreated( spaceId, "", true ).has_value() );
 
         ASSERT_TRUE( membership.ChangeRole( spaceId, kTargetAddress, chat::ROLE_GUEST ).has_value() );
