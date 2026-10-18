@@ -122,8 +122,11 @@ std::string EntityStore::NextEntityId( const char *prefix )
 
 outcome::result<void> EntityStore::LoadFromStore()
 {
-    m_spaces.clear();
-    m_rooms.clear();
+    {
+        std::lock_guard<std::mutex> catalogLock( m_catalogMutex );
+        m_spaces.clear();
+        m_rooms.clear();
+    }
 
     auto manifestBytes = m_session.Get( kManifestKey );
     if ( !manifestBytes.has_value() )
@@ -161,6 +164,7 @@ outcome::result<void> EntityStore::LoadFromStore()
         }
         // Tombstoned records stay in the map (hidden by Spaces()) so
         // IsValidParentSpace() keeps returning false for them (D-03).
+        std::lock_guard<std::mutex> catalogLock( m_catalogMutex );
         m_spaces.emplace( record.id(), record );
     }
 
@@ -182,6 +186,7 @@ outcome::result<void> EntityStore::LoadFromStore()
                           roomId );
             continue;
         }
+        std::lock_guard<std::mutex> catalogLock( m_catalogMutex );
         m_rooms.emplace( record.id(), record );
     }
     return outcome::success();
@@ -210,6 +215,8 @@ outcome::result<SpaceRecord> EntityStore::CreateSpace( const std::string &name,
     // manifest id LoadFromStore skips gracefully ("record read failed"),
     // never unreachable orphan record bytes the manifest-less order left
     // behind (GlobalDB has no enumeration, so the manifest is the only index).
+    // AppendToManifest is intentionally outside m_catalogMutex: entity
+    // creation is already serialized by the FFI's g_mutex.
     auto manifestResult = AppendToManifest( m_session, true, id );
     if ( !manifestResult.has_value() )
     {
@@ -221,7 +228,10 @@ outcome::result<SpaceRecord> EntityStore::CreateSpace( const std::string &name,
     {
         return putResult.error();
     }
-    m_spaces.emplace( id, record );
+    {
+        std::lock_guard<std::mutex> catalogLock( m_catalogMutex );
+        m_spaces.emplace( id, record );
+    }
     return record;
 }
 
@@ -260,7 +270,8 @@ outcome::result<RoomRecord> EntityStore::CreateRoom( const std::string &name,
 
     // Manifest first, then the record (WR-02 — same rationale as CreateSpace:
     // a failed record Put degrades to a skipped manifest id on reload, never
-    // an unreachable orphan record).
+    // an unreachable orphan record). AppendToManifest is intentionally
+    // outside m_catalogMutex (already serialized by the FFI's g_mutex).
     auto manifestResult = AppendToManifest( m_session, false, id );
     if ( !manifestResult.has_value() )
     {
@@ -272,14 +283,36 @@ outcome::result<RoomRecord> EntityStore::CreateRoom( const std::string &name,
     {
         return putResult.error();
     }
-    m_rooms.emplace( id, record );
+    {
+        std::lock_guard<std::mutex> catalogLock( m_catalogMutex );
+        m_rooms.emplace( id, record );
+    }
     return record;
 }
 
 outcome::result<SpaceRecord> EntityStore::UpdateSpace( const SpaceRecord &desired )
 {
-    const auto existingIt = m_spaces.find( desired.id() );
-    if ( existingIt == m_spaces.end() || existingIt->second.deleted() )
+    // Phase 1: copy the immutable authority fields out under the catalog lock.
+    // Only scalars/values leave the locked scope — no iterator survives into
+    // the unlocked Put below.
+    bool        found             = false;
+    int64_t     createdAtMs       = 0;
+    bool        storedDeleted     = false;
+    int64_t     storedDeletedAtMs = 0;
+    std::string storedCreator;
+    {
+        std::lock_guard<std::mutex> catalogLock( m_catalogMutex );
+        const auto                  existingIt = m_spaces.find( desired.id() );
+        if ( existingIt != m_spaces.end() && !existingIt->second.deleted() )
+        {
+            found             = true;
+            createdAtMs       = existingIt->second.created_at_ms();
+            storedDeleted     = existingIt->second.deleted();
+            storedDeletedAtMs = existingIt->second.deleted_at_ms();
+            storedCreator     = existingIt->second.creator();
+        }
+    }
+    if ( !found )
     {
         spdlog::warn( "gcs_entity_store: update_space rejected — space '{}' not "
                       "found or deleted",
@@ -294,19 +327,25 @@ outcome::result<SpaceRecord> EntityStore::UpdateSpace( const SpaceRecord &desire
     // blank or overwrite the Super Admin) are preserved from the stored record.
     // members_can_invite is NOT preserved — it is desired state, applied as-is.
     SpaceRecord updated = desired;
-    updated.set_created_at_ms( existingIt->second.created_at_ms() );
-    updated.set_deleted( existingIt->second.deleted() );
-    updated.set_deleted_at_ms( existingIt->second.deleted_at_ms() );
-    updated.set_creator( existingIt->second.creator() );
+    updated.set_created_at_ms( createdAtMs );
+    updated.set_deleted( storedDeleted );
+    updated.set_deleted_at_ms( storedDeletedAtMs );
+    updated.set_creator( storedCreator );
     updated.set_updated_at_ms( NowMs() );
 
+    // Phase 2: the blocking Put stays outside the catalog lock (T-04-08-02 —
+    // holding it here would invert the FFI/DagWorker lock order).
     auto putResult = m_session.Put( std::string( kSpacesKeyPrefix ) + updated.id(),
                                     updated.SerializeAsString() );
     if ( !putResult.has_value() )
     {
         return putResult.error();
     }
-    m_spaces[updated.id()] = updated;
+    // Phase 3: publish the stored state to the in-memory catalog.
+    {
+        std::lock_guard<std::mutex> catalogLock( m_catalogMutex );
+        m_spaces[updated.id()] = updated;
+    }
     return updated;
 }
 
