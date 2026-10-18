@@ -153,7 +153,7 @@ Plans:
   4. Super Admin cannot be demoted by other admins
   5. When 2+ admins exist, destructive actions require Super Admin approval
 
-**Plans:** 15/18 plans executed
+**Plans:** 16/18 plans executed
 
 Plans:
 **Wave 1**
@@ -200,7 +200,7 @@ Plans:
 
 **Wave 10** *(blocked on Wave 9 completion — gap closure)*
 
-- [ ] 04-16-PLAN.md — Wave 10 (gap CR-08 production) — FFI account-backed issuer seam (fail closed) + scoped-link FFI tests + pinned Dart pb regen + two-segment join-link gate
+- [x] 04-16-PLAN.md — Wave 10 (gap CR-08 production) — FFI account-backed issuer seam (fail closed) + scoped-link FFI tests + pinned Dart pb regen + two-segment join-link gate
 
 **Wave 11** *(blocked on Wave 10 completion — gap closure)*
 
@@ -267,7 +267,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 1. Foundation | 11/11 | Complete | 2026-09-16 |
 | 2. Spaces & Rooms | 5/5 | Complete   | 2026-09-19 |
 | 3. Messaging | 6/6 | Complete   | 2026-09-24 |
-| 4. Membership & Invites | 15/18 | In Progress|  |
+| 4. Membership & Invites | 16/18 | In Progress|  |
 | 5. Moderation | 0/TBD | Not started | - |
 | 6. GCS Bot | 0/TBD | Not started | - |
 | 7. Discovery | 0/TBD | Not started | - |

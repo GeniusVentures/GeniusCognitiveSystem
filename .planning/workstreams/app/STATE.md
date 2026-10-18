@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: GCS Chat
 status: executing
-stopped_at: Completed 04-15-PLAN.md
-last_updated: "2026-10-18T23:49:30.878Z"
+stopped_at: Completed 04-16-PLAN.md
+last_updated: "2026-10-18T23:59:30.158Z"
 last_activity: 2026-10-18
 progress:
   total_phases: 7
   completed_phases: 3
   total_plans: 40
-  completed_plans: 37
+  completed_plans: 38
   percent: 43
 ---
 
@@ -26,11 +26,11 @@ See: .planning/workstreams/app/PROJECT.md (updated 2026-09-22)
 ## Current Position
 
 Phase: 04 (membership-invites) — EXECUTING
-Plan: 16 of 18
+Plan: 17 of 18
 Status: Ready to execute
 Last activity: 2026-10-18
 
-Progress: [█████████░] 93%
+Progress: [██████████] 95%
 
 ## Performance Metrics
 
@@ -71,6 +71,7 @@ Progress: [█████████░] 93%
 | Phase 04 P13 | 10min | 2 tasks | 3 files |
 | Phase 04 P14 | 15min | 3 tasks | 6 files |
 | Phase 04 P15 | 16min | 3 tasks | 7 files |
+| Phase 04 P16 | 25min | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -136,6 +137,10 @@ Recent decisions affecting current work:
 - [Phase 04]: The issuer signature covers domain + invite id + the record with issuer_signature cleared, and verification binds the CLAIMED created_by — a signature that does not name its signer can be replayed under a different issuer
 - [Phase 04]: The D-05 GUEST role cap applies on every redeem; issuer authority is checked only when the scope resolves locally — an authorized membersCanInvite member could otherwise self-sign an escalation, and a cold node cannot resolve remote roles (T-04-15-04)
 - [Phase 04]: Invite URLs carry kind/scope/invite and redeem does an exact InviteKey(scope, invite) lookup instead of a global scan — the URL scope must match the record scope or a colliding invite id could be redeemed across scopes
+- [Phase 04]: The FFI builds one GeniusAccount per session from the node's active mnemonic; an absent account leaves the issuer seam unset so mint/redeem fail closed
+- [Phase 04]: g_inviteAccount is a shared_ptr captured per seam lambda and reset after membership eviction, so no live callable dangles
+- [Phase 04]: verifyIssuer strips 0x, requires exactly kSignatureBytes, and reorders the seam to VerifySignature(address, signature, data)
+- [Phase 04]: The FFI fixture pins a deterministic BIP39 mnemonic so tests exercise the production issuer seam with no test-only override
 
 ### Pending Todos
 
@@ -161,7 +166,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-10-18T23:49:30.870Z
-Stopped at: Completed 04-15-PLAN.md
+Last session: 2026-10-18T23:59:30.150Z
+Stopped at: Completed 04-16-PLAN.md
 Resume file: 
 None
