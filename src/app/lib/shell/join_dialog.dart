@@ -1,12 +1,13 @@
 /// JoinDialog -- the Phase 4 paste-invite redeem flow (MEMB-01/T-04-07-I).
 ///
 /// One field, one shape validation, one data-only command. The pasted link is
-/// checked against the minted `gcs://invite/{space|room}/<id>?key=<key>` shape
-/// before the redeem command publishes, and C++ re-validates the same shape on
-/// receipt (defense in depth -- the C++ guard is the enforcement, this is the
-/// UX gate). A refused publish toasts and leaves the dialog open; success
-/// closes immediately and the rail/member-list update arrives as a pushed
-/// event -- NO local optimism, NO success toast (UI-SPEC join flow).
+/// checked against the minted
+/// `gcs://invite/{space|room}/<scopeId>/<inviteId>?key=<key>` shape before the
+/// redeem command publishes, and C++ re-validates the same shape on receipt
+/// (defense in depth -- the C++ guard is the enforcement, this is the UX
+/// gate). A refused publish toasts and leaves the dialog open; success closes
+/// immediately and the rail/member-list update arrives as a pushed event -- NO
+/// local optimism, NO success toast (UI-SPEC join flow).
 ///
 /// View-local state (the paste field and the one-shot submit guard) lives in a
 /// private [_JoinForm] ChangeNotifier -- never in Cubits (Phase 2 D-05
@@ -48,12 +49,12 @@ const String kJoinConfirmLabel = 'Join';
 /// Error-toast title when the transport refuses the redeem publish.
 const String kErrorCouldNotJoin = "Couldn't join";
 
-/// The minted invite-link shape (D-05, 04-RESEARCH P8): scheme `gcs`, the
-/// `invite` authority, a `space`/`room` scope segment, an opaque id, and the
-/// bearer key as the single query parameter. Dart's job is the UX gate; the
-/// C++ redeem path re-parses and re-validates the exact shape.
+/// The minted invite-link shape (D-05, 04-RESEARCH P8 / 04-15): scheme `gcs`,
+/// the `invite` authority, a `space`/`room` kind, the scope id, an opaque
+/// invite id, and the bearer key as the single query parameter. Dart's job is
+/// the UX gate; the C++ redeem path re-parses and re-validates the exact shape.
 final RegExp kInviteLinkPattern = RegExp(
-  r'^gcs://invite/(?:space|room)/[^/?#]+[?]key=[^&\s]+$',
+  r'^gcs://invite/(?:space|room)/[^/?#]+/[^/?#]+[?]key=[^&\s]+$',
 );
 
 // ---------------------------------------------------------------------------

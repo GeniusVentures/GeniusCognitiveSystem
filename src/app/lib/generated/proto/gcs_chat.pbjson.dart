@@ -791,6 +791,8 @@ const InviteRecord$json = {
     },
     {'1': 'is_space', '3': 4, '4': 1, '5': 8, '10': 'isSpace'},
     {'1': 'authenticator', '3': 5, '4': 1, '5': 9, '10': 'authenticator'},
+    {'1': 'created_by', '3': 6, '4': 1, '5': 9, '10': 'createdBy'},
+    {'1': 'issuer_signature', '3': 7, '4': 1, '5': 9, '10': 'issuerSignature'},
   ],
 };
 
@@ -799,7 +801,9 @@ final $typed_data.Uint8List inviteRecordDescriptor = $convert.base64Decode(
     'CgxJbnZpdGVSZWNvcmQSGQoIc2NvcGVfaWQYASABKAlSB3Njb3BlSWQSIgoEcm9sZRgCIAEoDj'
     'IOLmdjcy5jaGF0LlJvbGVSBHJvbGUSQgoQd3JhcHBlZF9yb29tX2tleRgDIAMoCzIYLmdjcy5j'
     'aGF0LldyYXBwZWRSb29tS2V5Ug53cmFwcGVkUm9vbUtleRIZCghpc19zcGFjZRgEIAEoCFIHaX'
-    'NTcGFjZRIkCg1hdXRoZW50aWNhdG9yGAUgASgJUg1hdXRoZW50aWNhdG9y');
+    'NTcGFjZRIkCg1hdXRoZW50aWNhdG9yGAUgASgJUg1hdXRoZW50aWNhdG9yEh0KCmNyZWF0ZWRf'
+    'YnkYBiABKAlSCWNyZWF0ZWRCeRIpChBpc3N1ZXJfc2lnbmF0dXJlGAcgASgJUg9pc3N1ZXJTaW'
+    'duYXR1cmU=');
 
 @$core.Deprecated('Use inviteCommandDescriptor instead')
 const InviteCommand$json = {

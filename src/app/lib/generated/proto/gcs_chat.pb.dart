@@ -2255,6 +2255,8 @@ class InviteRecord extends $pb.GeneratedMessage {
     $core.Iterable<WrappedRoomKey>? wrappedRoomKey,
     $core.bool? isSpace,
     $core.String? authenticator,
+    $core.String? createdBy,
+    $core.String? issuerSignature,
   }) {
     final result = create();
     if (scopeId != null) result.scopeId = scopeId;
@@ -2262,6 +2264,8 @@ class InviteRecord extends $pb.GeneratedMessage {
     if (wrappedRoomKey != null) result.wrappedRoomKey.addAll(wrappedRoomKey);
     if (isSpace != null) result.isSpace = isSpace;
     if (authenticator != null) result.authenticator = authenticator;
+    if (createdBy != null) result.createdBy = createdBy;
+    if (issuerSignature != null) result.issuerSignature = issuerSignature;
     return result;
   }
 
@@ -2288,6 +2292,8 @@ class InviteRecord extends $pb.GeneratedMessage {
         subBuilder: WrappedRoomKey.create)
     ..aOB(4, _omitFieldNames ? '' : 'isSpace')
     ..aOS(5, _omitFieldNames ? '' : 'authenticator')
+    ..aOS(6, _omitFieldNames ? '' : 'createdBy')
+    ..aOS(7, _omitFieldNames ? '' : 'issuerSignature')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -2353,6 +2359,28 @@ class InviteRecord extends $pb.GeneratedMessage {
   $core.bool hasAuthenticator() => $_has(4);
   @$pb.TagNumber(5)
   void clearAuthenticator() => $_clearField(5);
+
+  /// invite authority, verified at redeem
+  /// BEFORE any member-record write (it gates
+  /// invites that carry no room-key material)
+  @$pb.TagNumber(6)
+  $core.String get createdBy => $_getSZ(5);
+  @$pb.TagNumber(6)
+  set createdBy($core.String value) => $_setString(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasCreatedBy() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearCreatedBy() => $_clearField(6);
+
+  /// the minter's identity (MEMB-01/CR-08)
+  @$pb.TagNumber(7)
+  $core.String get issuerSignature => $_getSZ(6);
+  @$pb.TagNumber(7)
+  set issuerSignature($core.String value) => $_setString(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasIssuerSignature() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearIssuerSignature() => $_clearField(7);
 }
 
 class InviteCommand extends $pb.GeneratedMessage {

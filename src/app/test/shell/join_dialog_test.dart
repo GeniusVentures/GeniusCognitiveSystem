@@ -2,11 +2,11 @@
 ///
 /// Drives the frozen [showJoinDialog] entry point against a recording
 /// [GcsCommandTransport] double (no FFI): a value that does not parse as the
-/// `gcs://invite/{space|room}/<id>?key=<key>` shape shows the inline error
-/// and keeps the dialog open with NO publish, while a valid link publishes a
-/// data-only `RedeemCommand` carrying the pasted url and closes immediately
-/// (Phase 2 D-05 behavior contract). Bounded-frame pumping throughout -- never
-/// a sleep.
+/// `gcs://invite/{space|room}/<scopeId>/<inviteId>?key=<key>` shape shows the
+/// inline error and keeps the dialog open with NO publish, while a valid link
+/// publishes a data-only `RedeemCommand` carrying the pasted url and closes
+/// immediately (Phase 2 D-05 behavior contract). Bounded-frame pumping
+/// throughout -- never a sleep.
 library;
 
 import 'dart:async';
@@ -63,14 +63,28 @@ void main() {
     final _RecordingTransport transport = _RecordingTransport();
     await _openJoinDialog(tester, transport: transport);
 
-    await tester.enterText(find.byType(TextFormField), 'not-an-invite-link');
-    await tester.pump();
-    await tester.tap(_joinPill());
-    await tester.pump();
+    const List<String> invalidLinks = <String>[
+      'not-an-invite-link',
+      // Single path segment (the old unscoped shape).
+      'gcs://invite/space/space-2?key=abc',
+      // Empty scope segment.
+      'gcs://invite/space//invite-1?key=abc',
+      // Empty invite id.
+      'gcs://invite/space/space-1/?key=abc',
+      // Missing key parameter.
+      'gcs://invite/space/space-1/invite-1',
+    ];
 
-    expect(transport.commands, isEmpty);
-    expect(find.text(kJoinInvalidLinkMessage), findsOneWidget);
-    expect(find.byType(BottomDrawer), findsOneWidget);
+    for (final String link in invalidLinks) {
+      await tester.enterText(find.byType(TextFormField), link);
+      await tester.pump();
+      await tester.tap(_joinPill());
+      await tester.pump();
+
+      expect(transport.commands, isEmpty, reason: link);
+      expect(find.text(kJoinInvalidLinkMessage), findsOneWidget, reason: link);
+      expect(find.byType(BottomDrawer), findsOneWidget, reason: link);
+    }
   });
 
   testWidgets('valid link publishes the redeem command and closes', (
@@ -79,7 +93,7 @@ void main() {
     final _RecordingTransport transport = _RecordingTransport();
     await _openJoinDialog(tester, transport: transport);
 
-    const String link = 'gcs://invite/space/space-1?key=abc';
+    const String link = 'gcs://invite/space/space-1/invite-1?key=abc';
     await tester.enterText(find.byType(TextFormField), link);
     await tester.pump();
     await tester.tap(_joinPill());
