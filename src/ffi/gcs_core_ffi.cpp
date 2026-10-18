@@ -979,6 +979,26 @@ extern "C"
             return nullptr;
         }
 
+        // WR-06 (registration half): every node subscribes to the membership
+        // replication topic, so member and invite records for a scope this node
+        // has NOT joined still converge (a recipient by definition has not
+        // joined the invited scope). Listen first, then broadcast — the same
+        // D-07 ordering as the smoke topics and derived rooms. This topic is
+        // infrastructure, NOT a user-facing room, so it is deliberately kept
+        // out of g_roomTopics: the pushed RoomList/SpaceTree must never surface
+        // a phantom room (T-04-11-04). Registration precedes installing
+        // g_session so a failure can shut the LOCAL session down and fail init
+        // without leaving a half-initialized global (the smoke-topic contract;
+        // T-04-11-02).
+        if ( !session->AddListenTopic( gcs::Membership::kMembershipTopic ).has_value()
+             || !session->AddBroadcastTopic( gcs::Membership::kMembershipTopic ).has_value() )
+        {
+            spdlog::error( "gcs_ffi: membership topic '{}' failed to join during init",
+                           gcs::Membership::kMembershipTopic );
+            session->Shutdown();
+            return nullptr;
+        }
+
         g_session = std::move( session );
 
         // Re-arm receive intake: a prior gcs_shutdown latched the teardown
@@ -1128,10 +1148,18 @@ extern "C"
         // HasExplicitLeave, D-02) always sees a live g_membership. The seam is
         // built by member assignment, NOT brace-init (KeyWrapSeam has a
         // user-provided default ctor — same reason as the CryptoSeam above).
+        //
+        // All FOUR callables are required for a production invite to be
+        // bearer-gated (WR-04 parity with the 04-09 fixtures): leaving either
+        // auth callable empty makes InviteAuthEnabled() false and silently
+        // reverts production to ungated invites (T-04-11-05). No crypto is
+        // implemented here — the seam points at the crypto owner's functions.
         {
             gcs::Membership::KeyWrapSeam keyWrapSeam;
             keyWrapSeam.wrap = &gcs::crypto::WrapRoomKey;
             keyWrapSeam.unwrap = &gcs::crypto::UnwrapRoomKey;
+            keyWrapSeam.mintAuth = &gcs::crypto::MintInviteAuthenticator;
+            keyWrapSeam.verifyAuth = &gcs::crypto::VerifyInviteAuthenticator;
             keyWrapSeam.enabled = true;
             g_membership = std::make_unique<gcs::Membership>(
                 *g_session, *g_entities, std::string( GeniusSDKGetAddress().address ),
