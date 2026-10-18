@@ -55,10 +55,27 @@ created: 2026-09-27
 | 04-05 T1 | 04-05 | 4 | MEMB-02 | T-04-05-DoS | g_membership construction + members heal callback + MemberList/InviteLink builders | unit | `ctest -R test_gcs_ffi` | extends | ⬜ pending |
 | 04-05 T2 | 04-05 | 4 | MEMB-01..05 | T-04-05-EoP-1/2, T-04-05-I | Seven dispatch arms + P5 retroactive guards + creator/members_can_invite stamping | unit | `ctest -R test_gcs_ffi` | extends | ⬜ pending |
 | 04-05 T3 | 04-05 | 4 | MEMB-02 (D-02) | T-04-05-EoP-2 | RefreshDerivedJoins explicit_leave term | unit | `ctest -R "test_gcs_ffi|test_gcs_messaging"` | extends | ⬜ pending |
+| 04-13 T1 | 04-13 | 7 | MEMB-01, MEMB-04 | T-04-13-01/02/03 | Redeem merges into a live record; tombstone rejected after the authenticator gate and before the unwrap loop (no member or room-key write) | unit | `ninja -C build/OSX/Debug test_gcs_membership && ctest --test-dir build/OSX/Debug -R "^test_gcs_membership$" --output-on-failure` | extends | ⬜ pending |
+| 04-13 T2 | 04-13 | 7 | MEMB-01, MEMB-04 | T-04-13-01/02 | Dormant removal survives redeem; tombstoned redeem rejected with byte-identical stored record | unit | `ninja -C build/OSX/Debug test_gcs_membership && ctest --test-dir build/OSX/Debug -R "^test_gcs_membership$" --output-on-failure` | extends | ⬜ pending |
+| 04-14 T1 | 04-14 | 8 | MEMB-04 | T-04-14-01 | ApplySpaceState/ApplyRoomState persist then publish; Put never held under `m_catalogMutex` | unit | `ninja -C build/OSX/Debug gcs_core test_gcs_entities && ctest --test-dir build/OSX/Debug -R "^test_gcs_entities$" --output-on-failure` | extends | ⬜ pending |
+| 04-14 T2 | 04-14 | 8 | MEMB-04 | T-04-14-02/03/04 | DeleteScope/Approve routed through the entity mutators; AdminCount returns outcome and fails closed | unit | `ninja -C build/OSX/Debug gcs_core test_gcs_membership && ctest --test-dir build/OSX/Debug -R "^test_gcs_membership$" --output-on-failure` | extends | ⬜ pending |
+| 04-14 T3 | 04-14 | 8 | MEMB-04 | T-04-14-01/02/04/05 | Mutator catalog publish; dormant-delete-then-approve; AdminCount scan-failure abort | unit | `ninja -C build/OSX/Debug test_gcs_entities test_gcs_membership && ctest --test-dir build/OSX/Debug -R "^test_gcs_(entities|membership)$" --output-on-failure` | extends | ⬜ pending |
+| 04-15 T1 | 04-15 | 9 | MEMB-01, MEMB-02, MEMB-05 | T-04-15-01/02/03 | Append-only `created_by`/`issuer_signature`; public hex codec; sign/verify-issuer seam | build | `ninja -C build/OSX/Debug gcs_proto gcs_core` | extends | ⬜ pending |
+| 04-15 T2 | 04-15 | 9 | MEMB-01, MEMB-02, MEMB-05 | T-04-15-01/03/04/05/07 | Sign at mint; verify scope, signature, issuer authority, and wrapped-key scope at redeem | build | `ninja -C build/OSX/Debug gcs_core` | extends | ⬜ pending |
+| 04-15 T3 | 04-15 | 9 | MEMB-01, MEMB-02, MEMB-05 | T-04-15-02/03/06/07 | Tampered/forged/revoked/scope-mismatch unit rejections + shared payload builder | unit | `ninja -C build/OSX/Debug test_gcs_membership && ctest --test-dir build/OSX/Debug -R "^test_gcs_membership$" --output-on-failure` | extends | ⬜ pending |
+| 04-16 T1 | 04-16 | 10 | MEMB-01 | T-04-16-01/02/03/04 | Account-backed `shared_ptr` signer in the FFI seam; reordered VerifySignature; fail-closed teardown | build | `ninja -C build/OSX/Debug gcs_ffi` | extends | ⬜ pending |
+| 04-16 T2 | 04-16 | 10 | MEMB-01 | T-04-16-03/04 | Scoped link shape + in-process production signed mint/redeem proof | unit | `ninja -C build/OSX/Debug test_gcs_ffi && ctest --test-dir build/OSX/Debug -R "^test_gcs_ffi$" --output-on-failure` | extends | ⬜ pending |
+| 04-16 T3 | 04-16 | 10 | MEMB-01 | T-04-16-05 | Pinned Dart pb regen + two-segment join-link gate | analyze/widget | `cd src/app && flutter analyze && flutter test test/shell/join_dialog_test.dart` | extends | ⬜ pending |
+| 04-17 T1 | 04-17 | 10 | MEMB-02, MEMB-03 | T-04-17-01/02/03/04/05 | Concrete-role guard, target-liveness read, strict outrank in `CanChangeRole` | build | `ninja -C build/OSX/Debug gcs_core test_gcs_membership` | extends | ⬜ pending |
+| 04-17 T2 | 04-17 | 10 | MEMB-02, MEMB-03 | T-04-17-01/02/03 | Role/rank rejection matrix incl. flipped Admin→Super Admin demotion expectation | unit | `ninja -C build/OSX/Debug test_gcs_membership && ctest --test-dir build/OSX/Debug -R "^test_gcs_membership$" --output-on-failure` | extends | ⬜ pending |
+| 04-18 T1 | 04-18 | 10 | MEMB-01, MEMB-02 | T-04-18-03/04 | Real signer identities in the fixture + real-crypto issuer seam | build | `ninja -C build/OSX/Debug test_gcs_membership_multinode` | extends | ⬜ pending |
+| 04-18 T2 | 04-18 | 10 | MEMB-01, MEMB-02 | T-04-18-01/02/04 | Genuine cross-node signed redeem + forged-issuer wire rejection with baseline capture | integration | `ninja -C build/OSX/Debug test_gcs_membership_multinode && ctest --test-dir build/OSX/Debug -R "^test_gcs_membership_multinode$" --output-on-failure` | extends | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
 *File Exists: `extends` = an existing test file is extended this task; `new` = the test file is created this task (alongside the implementation).*
+
+*Expected intermediate reds after 04-15 (recorded in that plan, not regressions): `test_gcs_ffi` stays red until 04-16 wires the production seam; `test_gcs_membership_multinode` stays red until 04-18 supplies the issuer callables in `ArmMembership`. Wave-10 "full C++ suite" checks therefore exclude `test_gcs_membership_multinode`; its green is asserted by 04-18 T2.*
 
 ---
 
