@@ -28,6 +28,7 @@
 #include <filesystem>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <unordered_set>
 #include <utility>
@@ -251,6 +252,30 @@ namespace gcs::test
             }
         }
         return chat::ROLE_UNSPECIFIED;
+    }
+
+    /**
+     * @brief Snapshot the newest pushed MemberList for @p scopeId on @p node.
+     *
+     * Copies under the node's sink mutex and releases it before returning —
+     * never holds the mutex across a wait.
+     *
+     * @param[in] node    The node whose captured events are inspected.
+     * @param[in] scopeId The scope whose newest pushed roster is wanted.
+     * @return The newest pushed roster for the scope, or std::nullopt.
+     */
+    std::optional<chat::MemberList> LatestMemberListFor( MultinodeNode &node,
+                                                         const std::string &scopeId )
+    {
+        std::lock_guard<std::mutex> lock( node.sinkMutex );
+        for ( auto it = node.events.rbegin(); it != node.events.rend(); ++it )
+        {
+            if ( it->has_member_list() && it->member_list().scope_id() == scopeId )
+            {
+                return it->member_list();
+            }
+        }
+        return std::nullopt;
     }
 
     /**
@@ -626,6 +651,43 @@ namespace gcs::test
         EXPECT_EQ( RoleOf( afterForgedMembers.value(), kSenderA ),
                    chat::ROLE_SUPER_ADMIN );
         EXPECT_EQ( RoleOf( afterForgedMembers.value(), kSenderB ), chat::ROLE_GUEST );
+    }
+
+    /**
+     * @brief Test 5 (WR-05): a remote removal converges on the removed node as
+     *        a PUSHED MemberList, not merely in its local CRDT scan.
+     *
+     * Node A removes B after both rosters converge; B's captured events are
+     * drained first, so the only way the wait can pass is the arrival push that
+     * 04-09's OnMemberArrived fix restored.
+     */
+    TEST_F( MembershipMultinodeTest, RemovedMemberReceivesTheConvergedRoster )
+    {
+        std::string roomId;
+        CreateRoomAndJoin( roomId );
+
+        auto before = m_nodeB.membership->MembersFor( roomId );
+        ASSERT_TRUE( before.has_value() );
+        EXPECT_EQ( RoleOf( before.value(), kSenderB ), chat::ROLE_GUEST );
+
+        // The assertion must pin the POST-removal push: discard every event B
+        // has already captured, including the pre-removal rosters.
+        {
+            std::lock_guard<std::mutex> lock( m_nodeB.sinkMutex );
+            std::vector<chat::GcsEvent>().swap( m_nodeB.events );
+        }
+
+        // A is the creator (Super Admin rank > Guest) and acts alone.
+        ASSERT_TRUE( m_nodeA.membership->RemoveMember( roomId, kSenderB ).has_value() );
+
+        ASSERT_TRUE( WaitForCondition(
+            [ & ]() {
+                auto latest = LatestMemberListFor( m_nodeB, roomId );
+                return latest.has_value() &&
+                       RoleOf( latest.value(), kSenderB ) == chat::ROLE_UNSPECIFIED &&
+                       RoleOf( latest.value(), kSenderA ) == chat::ROLE_SUPER_ADMIN;
+            },
+            kWaitTimeout ) );
     }
 
 } // namespace gcs::test
