@@ -131,6 +131,48 @@ public:
   outcome::result<SpaceRecord> UpdateSpace(const SpaceRecord &desired);
 
   /**
+   * @brief Persist a caller-amended space record and publish it to the catalog.
+   *
+   * A full-state write of a record the caller already read and amended: the
+   * record is stored exactly as supplied — created_at_ms, creator, the
+   * tombstone fields, and updated_at_ms are NOT re-stamped or preserved from
+   * the catalog (unlike UpdateSpace). The session is authoritative and the
+   * catalog must mirror what was just written; an id absent from the catalog
+   * is inserted (it covers a record a concurrent LoadFromStore has not yet
+   * replayed). A tombstoned record is accepted and KEPT in the map so
+   * IsValidParentSpace() and DerivedJoinedTopics() keep excluding it.
+   *
+   * The blocking CoreSession Put happens OUTSIDE m_catalogMutex
+   * (T-04-14-01 lock-order): holding the catalog lock across a Put would
+   * invert the established FFI/DagWorker lock order. This mutator is the only
+   * sanctioned path for destructive entity-state writes
+   * (Membership::DeleteScope / Membership::Approve).
+   *
+   * @param[in] record Full space state already amended by the caller.
+   * @return outcome::success once the record is persisted and catalogued;
+   *         the propagated Error when the write fails (the catalog is
+   *         unchanged).
+   */
+  outcome::result<void> ApplySpaceState(const SpaceRecord &record);
+
+  /**
+   * @brief Persist a caller-amended room record and publish it to the catalog.
+   *
+   * Room twin of ApplySpaceState(): full-state persist of a caller-amended
+   * record, catalog published on success, and the blocking Put never held
+   * under m_catalogMutex (T-04-14-01 lock-order). A tombstoned record is
+   * accepted and kept in the map so Rooms() and DerivedJoinedTopics() keep
+   * excluding it. This mutator is the only sanctioned path for destructive
+   * room-state writes (Membership::DeleteScope / Membership::Approve).
+   *
+   * @param[in] record Full room state already amended by the caller.
+   * @return outcome::success once the record is persisted and catalogued;
+   *         the propagated Error when the write fails (the catalog is
+   *         unchanged).
+   */
+  outcome::result<void> ApplyRoomState(const RoomRecord &record);
+
+  /**
    * @brief All non-tombstoned spaces in id order.
    *
    * @return Id-sorted SpaceRecord list (std::map order).

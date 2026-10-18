@@ -349,6 +349,45 @@ outcome::result<SpaceRecord> EntityStore::UpdateSpace( const SpaceRecord &desire
     return updated;
 }
 
+outcome::result<void> EntityStore::ApplySpaceState( const SpaceRecord &record )
+{
+    // Phase 1: the blocking Put stays outside the catalog lock (T-04-14-01 —
+    // holding it here would invert the FFI/DagWorker lock order). Full-state
+    // write of the caller's amended record — no immutable preservation and no
+    // timestamp restamp: the session is authoritative.
+    auto putResult = m_session.Put( std::string( kSpacesKeyPrefix ) + record.id(),
+                                    record.SerializeAsString() );
+    if ( !putResult.has_value() )
+    {
+        return putResult.error();
+    }
+    // Phase 2: publish the exact stored state. Assignment (not emplace) inserts
+    // when absent and replaces when present; tombstoned records stay in the map
+    // so IsValidParentSpace()/DerivedJoinedTopics() keep excluding them.
+    {
+        std::lock_guard<std::mutex> catalogLock( m_catalogMutex );
+        m_spaces[record.id()] = record;
+    }
+    return outcome::success();
+}
+
+outcome::result<void> EntityStore::ApplyRoomState( const RoomRecord &record )
+{
+    // Room twin of ApplySpaceState(): Put outside the catalog lock
+    // (T-04-14-01), then publish the exact stored state under it.
+    auto putResult = m_session.Put( std::string( kRoomsKeyPrefix ) + record.id(),
+                                    record.SerializeAsString() );
+    if ( !putResult.has_value() )
+    {
+        return putResult.error();
+    }
+    {
+        std::lock_guard<std::mutex> catalogLock( m_catalogMutex );
+        m_rooms[record.id()] = record;
+    }
+    return outcome::success();
+}
+
 std::vector<SpaceRecord> EntityStore::Spaces() const
 {
     std::lock_guard<std::mutex> catalogLock( m_catalogMutex );
