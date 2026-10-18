@@ -29,6 +29,7 @@
 #include <memory>
 #include <mutex>
 #include <string>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -55,6 +56,11 @@ namespace
 
     /// Room chat topic prefix — the gcs/chat/<id> convention (D-01).
     constexpr const char *kRoomTopicPrefix = "gcs/chat/";
+
+    /// Syntactically valid base64url invite key (32 decoded bytes) used by the
+    /// negative redeem cases — never the minted bearer key.
+    constexpr const char *kWellFormedInviteKey =
+        "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
 
     /// Minimal soralog YAML — console sink only, error level (mirrors
     /// test_gcs_messaging_multinode.cpp).
@@ -496,6 +502,130 @@ namespace gcs::test
         EXPECT_EQ( RoleOf( listB.value(), kSenderA ), chat::ROLE_SUPER_ADMIN );
         EXPECT_EQ( RoleOf( listA.value(), kSenderB ), chat::ROLE_GUEST );
         EXPECT_EQ( RoleOf( listB.value(), kSenderB ), chat::ROLE_GUEST );
+    }
+
+    /**
+     * @brief Test 4 (WR-04): the bearer key gates EVERY redeem on the wire.
+     *
+     * A childless space invite carries no wrapped room-key material, so it is
+     * the case that exposes an invite gate conditioned on wrapped keys. After
+     * the authentic redeem establishes a two-member baseline, a wrong key and a
+     * forged record written straight through the session (empty authenticator)
+     * must each be rejected without writing or rewriting any member record.
+     */
+    TEST_F( MembershipMultinodeTest, ForgedOrKeylessSpaceInviteWritesNoMemberRecord )
+    {
+        auto space = m_nodeA.store->CreateSpace( "secure", true, false, true );
+        ASSERT_TRUE( space.has_value() );
+        const std::string spaceId = space.value().id();
+
+        ASSERT_TRUE(
+            m_nodeA.membership->OnScopeCreated( spaceId, "", /*isSpace=*/true ).has_value() );
+
+        auto minted = m_nodeA.membership->MintInvite( spaceId );
+        ASSERT_TRUE( minted.has_value() );
+        const std::string mintedUrl = minted.value();
+
+        // 1. Authentic baseline. The invite record reaches B and redeems.
+        ASSERT_TRUE( WaitForCondition(
+            [ & ]() {
+                auto invites = m_nodeB.session->QueryKeyValues(
+                    gcs::Membership::kInvitesKeyPrefix );
+                return invites.has_value() && invites.value().size() == 1;
+            },
+            kWaitTimeout ) );
+
+        // The zero-key-material space invite proves the gate is unconditional:
+        // the replicated record carries an authenticator but NO wrapped keys.
+        auto replicated = m_nodeB.session->QueryKeyValues(
+            gcs::Membership::kInvitesKeyPrefix );
+        ASSERT_TRUE( replicated.has_value() );
+        ASSERT_EQ( replicated.value().size(), 1U );
+        chat::InviteRecord authentic;
+        ASSERT_TRUE( authentic.ParseFromString( replicated.value().front().second ) );
+        EXPECT_FALSE( authentic.authenticator().empty() );
+        EXPECT_EQ( authentic.wrapped_room_key_size(), 0 );
+
+        ASSERT_TRUE( m_nodeB.membership->RedeemInvite( mintedUrl ).has_value() );
+        ASSERT_TRUE( WaitForCondition(
+            [ & ]() {
+                auto listA = m_nodeA.membership->MembersFor( spaceId );
+                auto listB = m_nodeB.membership->MembersFor( spaceId );
+                return listA.has_value() && listA.value().member_size() == 2 &&
+                       listB.has_value() && listB.value().member_size() == 2;
+            },
+            kWaitTimeout ) );
+
+        // Post-sub-case-1 baseline on the redeeming node: the creator plus B.
+        const auto baselineMembers = m_nodeB.membership->MembersFor( spaceId );
+        ASSERT_TRUE( baselineMembers.has_value() );
+        ASSERT_EQ( baselineMembers.value().member_size(), 2 );
+        const std::string memberPrefix =
+            std::string( gcs::Membership::kMembersKeyPrefix ) + spaceId + "/";
+        auto baselineScan = m_nodeB.session->QueryKeyValues( memberPrefix );
+        ASSERT_TRUE( baselineScan.has_value() );
+        const std::size_t baselineRecordCount = baselineScan.value().size();
+        ASSERT_EQ( baselineRecordCount, 2U );
+        const auto baselineRecord = m_nodeB.session->Get( memberPrefix + kSenderB );
+        ASSERT_TRUE( baselineRecord.has_value() );
+
+        // 2. Wrong key of the same base64url shape: parsed as a key, rejected
+        // by the authenticator — the member-record set must not change.
+        const std::string keyMarker = "?key=";
+        const std::size_t keyPos    = mintedUrl.find( keyMarker );
+        ASSERT_NE( keyPos, std::string::npos );
+        const std::string wrongKeyUrl =
+            mintedUrl.substr( 0, keyPos + keyMarker.size() ) + kWellFormedInviteKey;
+        EXPECT_FALSE( m_nodeB.membership->RedeemInvite( wrongKeyUrl ).has_value() );
+
+        auto afterWrongKeyScan = m_nodeB.session->QueryKeyValues( memberPrefix );
+        ASSERT_TRUE( afterWrongKeyScan.has_value() );
+        EXPECT_EQ( afterWrongKeyScan.value().size(), baselineRecordCount );
+        auto afterWrongKeyMembers = m_nodeB.membership->MembersFor( spaceId );
+        ASSERT_TRUE( afterWrongKeyMembers.has_value() );
+        EXPECT_EQ( afterWrongKeyMembers.value().member_size(),
+                   baselineMembers.value().member_size() );
+        EXPECT_EQ( RoleOf( afterWrongKeyMembers.value(), kSenderA ),
+                   chat::ROLE_SUPER_ADMIN );
+        EXPECT_EQ( RoleOf( afterWrongKeyMembers.value(), kSenderB ), chat::ROLE_GUEST );
+
+        // 3. Forged record with no authenticator, written at the WIRE level
+        // under a distinct invite id on the membership replication topic.
+        chat::InviteRecord forged = authentic;
+        forged.clear_authenticator();
+        const std::string forgedInviteId = "invite-forged-noauth";
+        ASSERT_TRUE( m_nodeA.session
+                         ->Put( std::string( gcs::Membership::kInvitesKeyPrefix ) + spaceId
+                                    + "/" + forgedInviteId,
+                                forged.SerializeAsString(),
+                                std::unordered_set<std::string>{
+                                    gcs::Membership::kMembershipTopic } )
+                         .has_value() );
+        ASSERT_TRUE( WaitForCondition(
+            [ & ]() {
+                auto seen = m_nodeB.session->QueryKeyValues(
+                    gcs::Membership::kInvitesKeyPrefix );
+                return seen.has_value() && seen.value().size() == 2;
+            },
+            kWaitTimeout ) );
+
+        const std::string forgedUrl = "gcs://invite/space/" + forgedInviteId + keyMarker
+                                      + kWellFormedInviteKey;
+        EXPECT_FALSE( m_nodeB.membership->RedeemInvite( forgedUrl ).has_value() );
+
+        auto afterForgedScan = m_nodeB.session->QueryKeyValues( memberPrefix );
+        ASSERT_TRUE( afterForgedScan.has_value() );
+        EXPECT_EQ( afterForgedScan.value().size(), baselineRecordCount );
+        const auto afterForgedRecord = m_nodeB.session->Get( memberPrefix + kSenderB );
+        ASSERT_TRUE( afterForgedRecord.has_value() );
+        EXPECT_EQ( afterForgedRecord.value(), baselineRecord.value() );
+        auto afterForgedMembers = m_nodeB.membership->MembersFor( spaceId );
+        ASSERT_TRUE( afterForgedMembers.has_value() );
+        EXPECT_EQ( afterForgedMembers.value().member_size(),
+                   baselineMembers.value().member_size() );
+        EXPECT_EQ( RoleOf( afterForgedMembers.value(), kSenderA ),
+                   chat::ROLE_SUPER_ADMIN );
+        EXPECT_EQ( RoleOf( afterForgedMembers.value(), kSenderB ), chat::ROLE_GUEST );
     }
 
 } // namespace gcs::test
