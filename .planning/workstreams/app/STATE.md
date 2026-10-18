@@ -4,13 +4,13 @@ milestone: v1.0
 milestone_name: GCS Chat
 status: executing
 stopped_at: Completed 04-12 plan (network-boundary convergence proofs)
-last_updated: "2026-10-18T22:56:57.564Z"
-last_activity: 2026-10-18 -- Phase 04 planning complete
+last_updated: "2026-10-18T23:26:38.991Z"
+last_activity: 2026-10-18
 progress:
   total_phases: 7
   completed_phases: 3
   total_plans: 40
-  completed_plans: 34
+  completed_plans: 35
   percent: 43
 ---
 
@@ -26,11 +26,11 @@ See: .planning/workstreams/app/PROJECT.md (updated 2026-09-22)
 ## Current Position
 
 Phase: 04 (membership-invites) — EXECUTING
-Plan: 12 of 12
+Plan: 2 of 18
 Status: Ready to execute
-Last activity: 2026-10-18 -- Phase 04 planning complete
+Last activity: 2026-10-18
 
-Progress: [██████████] 100%
+Progress: [█████████░] 88%
 
 ## Performance Metrics
 
@@ -68,6 +68,7 @@ Progress: [██████████] 100%
 | Phase 04 P10 | 2min | 3 tasks | 6 files |
 | Phase 04 P11 | 6min | 3 tasks | 2 files |
 | Phase 04 P12 | 6min | 3 tasks | 1 files |
+| Phase 04 P13 | 10min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -124,6 +125,8 @@ Recent decisions affecting current work:
 - [Phase 04]: Negative multinode convergence assertions compare against a baseline captured AFTER the positive sub-case; the invariant is record count/bytes unchanged, never 'only the creator'
 - [Phase 04]: Wire-level forged invites are written through session->Put on kMembershipTopic; no test-only malformed-invite helper exists
 - [Phase 04]: Remote-removal convergence is asserted on the pushed member_list sink after draining B's events, pinning OnMemberArrived rather than the local CRDT scan
+- [Phase 04]: RedeemInvite delivers key material only: an existing live member keeps its stored role and dormant state, and a fresh record is always ROLE_GUEST
+- [Phase 04]: A tombstoned wallet redeem is rejected after the authenticator gate and before the unwrap loop so no member record or room key is written
 
 ### Pending Todos
 
@@ -149,7 +152,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-10-18T21:35:02.237Z
+Last session: 2026-10-18T23:26:38.984Z
 Stopped at: Completed 04-12 plan (network-boundary convergence proofs)
 Resume file: 
-None
