@@ -852,14 +852,18 @@ namespace gcs::test
         EXPECT_TRUE( events.back().has_member_list() );
         EXPECT_EQ( events.back().member_list().scope_id(), spaceId );
 
-        // A tombstoned heal delivery must NOT push.
+        // WR-05: a tombstoned heal delivery still pushes the roster so a remote
+        // removal converges — the pushed list must exclude the dead member.
         chat::MemberRecord deadArrived = arrived;
         deadArrived.set_deleted( true );
         const std::size_t afterLive = events.size();
         membership.OnMemberArrived(
             std::string( gcs::Membership::kMembersKeyPrefix ) + spaceId + "/" + kDeadAddress,
             deadArrived.SerializeAsString() );
-        EXPECT_EQ( events.size(), afterLive );
+        ASSERT_GT( events.size(), afterLive );
+        EXPECT_TRUE( events.back().has_member_list() );
+        EXPECT_EQ( events.back().member_list().scope_id(), spaceId );
+        EXPECT_EQ( FindMember( events.back().member_list(), kDeadAddress ), nullptr );
 
         // Sole admin: DeleteScope tombstones the entity record immediately. The
         // tombstone is proven through a fresh catalog reload (the delete is a

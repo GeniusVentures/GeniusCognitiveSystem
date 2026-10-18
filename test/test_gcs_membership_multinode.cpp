@@ -166,15 +166,27 @@ namespace gcs::test
                           } )
                           .has_value() );
 
+        // WR-06: member and invite records replicate on the ONE well-known
+        // membership topic — never a per-scope room topic, which a recipient
+        // has by definition not joined. Listen first, then broadcast (D-07).
+        ASSERT_TRUE( node.session
+                         ->AddListenTopic( gcs::Membership::kMembershipTopic )
+                         .has_value() );
+        ASSERT_TRUE( node.session
+                         ->AddBroadcastTopic( gcs::Membership::kMembershipTopic )
+                         .has_value() );
+
         node.store = std::make_unique<gcs::EntityStore>( *node.session, sender );
         ASSERT_TRUE( node.store->LoadFromStore().has_value() );
 
         // Production D-06 posture: real vendored-OpenSSL seam, enabled. Built by
         // member assignment (KeyWrapSeam has a user-provided default ctor).
         gcs::Membership::KeyWrapSeam seam;
-        seam.wrap    = &gcs::crypto::WrapRoomKey;
-        seam.unwrap  = &gcs::crypto::UnwrapRoomKey;
-        seam.enabled = true;
+        seam.wrap       = &gcs::crypto::WrapRoomKey;
+        seam.unwrap     = &gcs::crypto::UnwrapRoomKey;
+        seam.mintAuth   = &gcs::crypto::MintInviteAuthenticator;
+        seam.verifyAuth = &gcs::crypto::VerifyInviteAuthenticator;
+        seam.enabled    = true;
 
         node.membership = std::make_unique<gcs::Membership>(
             *node.session, *node.store, sender,
@@ -323,15 +335,10 @@ namespace gcs::test
             roomIdOut = room.value().id();
             const std::string topic = std::string( kRoomTopicPrefix ) + roomIdOut;
 
-            // Both nodes register the room topic (listen first, then broadcast —
-            // D-07), exactly as the FFI join wiring does in production, so the
-            // CRDT records written on it replicate across the mesh.
-            for ( MultinodeNode *node : { &m_nodeA, &m_nodeB } )
-            {
-                ASSERT_TRUE( node->session->AddListenTopic( topic ).has_value() );
-                ASSERT_TRUE( node->session->AddBroadcastTopic( topic ).has_value() );
-            }
-
+            // WR-06: no per-room topic registration here — ArmMembership already
+            // registered the well-known membership replication topic on both
+            // nodes, exactly as production init wiring does (04-11). The room
+            // topic is still passed to OnScopeCreated for room-key storage.
             ASSERT_TRUE( m_nodeA.membership->OnScopeCreated( roomIdOut, topic, false ).has_value() );
             auto minted = m_nodeA.membership->MintInvite( roomIdOut );
             ASSERT_TRUE( minted.has_value() );

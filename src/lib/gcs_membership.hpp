@@ -111,6 +111,13 @@ public:
   /// "/gcs/members/<scopeId>/<wallet>".
   static constexpr const char *kMembersKeyCallbackPattern = "/gcs/members/.*";
 
+  /// Well-known membership replication topic (WR-06). A recipient by
+  /// definition has NOT joined the invited scope's room topic, so member and
+  /// invite records replicate on this one channel that every node registers at
+  /// init (production registration in 04-11, exercised in 04-12). The scope id
+  /// stays in the record KEY, never in the topic.
+  static constexpr const char *kMembershipTopic = "gcs/membership/replication";
+
   /**
    * @brief Construct the component, storing its dependencies only.
    *
@@ -272,8 +279,10 @@ public:
    * @brief Handle a CRDT heal delivery of a member record (D-01/D-04).
    *
    * Derives the scope id from the key, parses the value, skip-and-logs on
-   * failure or a tombstoned record, and pushes the affected scope's
-   * MemberList so remote joins/role changes converge live (never a restart).
+   * parse failure, and pushes the affected scope's MemberList so remote
+   * joins/role changes converge live (never a restart). A tombstoned arrival
+   * still pushes the tombstone-filtered roster so a remote removal converges
+   * instead of being silently dropped (WR-05).
    *
    * @param[in] key   The member key (logical or raw datastore form).
    * @param[in] value The serialized MemberRecord bytes.

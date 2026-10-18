@@ -51,19 +51,20 @@ constexpr const char *kScopeKindSpace  = "space";
 constexpr const char *kScopeKindRoom   = "room";
 
 /**
- * @brief Broadcast topic set for a scope's records.
+ * @brief Broadcast topic set for member and invite records (WR-06).
  *
- * Member and invite records replicate on the scope's room topic
- * (gcs/chat/<scopeId>) — the same D-02 per-room replication channel the
- * messaging archive uses. A space scope's id has no registered room topic
- * today, so its records land locally only.
+ * They replicate on the registered membership replication channel, NOT a
+ * per-scope room topic: a recipient by definition has not joined the invited
+ * scope's room topic, so no per-scope channel can carry the invite. The scope
+ * id stays in the record KEY (gcs/members/<scopeId>/<wallet>,
+ * gcs/invites/<scopeId>/<inviteId>), never in the topic.
  *
- * @param[in] scopeId The scope id.
  * @return The single-topic broadcast set for a Put.
  */
-std::unordered_set<std::string> ScopeTopics( const std::string &scopeId )
+std::unordered_set<std::string> ScopeTopics()
 {
-    return std::unordered_set<std::string>{ std::string( kRoomTopicPrefix ) + scopeId };
+    return std::unordered_set<std::string>{
+        std::string( Membership::kMembershipTopic ) };
 }
 
 /**
@@ -412,10 +413,10 @@ outcome::result<void> Membership::WriteMember( const chat::MemberRecord &record 
         updated.set_created_at_ms( NowMs() );
     }
     updated.set_updated_at_ms( NowMs() );
-    // Replicate on the scope's room topic so remote nodes converge (D-01/D-04).
+    // Replicate on the well-known membership topic so remote nodes converge
+    // even when they have not joined the scope (D-01/D-04/WR-06).
     return m_session.Put( MemberKey( updated.scope_id(), updated.address() ),
-                          updated.SerializeAsString(),
-                          ScopeTopics( updated.scope_id() ) );
+                          updated.SerializeAsString(), ScopeTopics() );
 }
 
 outcome::result<void> Membership::PushMemberList( const std::string &scopeId )
@@ -745,10 +746,10 @@ outcome::result<std::string> Membership::MintInvite( const std::string &scopeId 
                       inviteId );
     }
 
-    // Replicate on the scope's room topic so a remote redeemer can find it.
+    // Replicate on the well-known membership topic so a recipient that has not
+    // joined the scope can find it (WR-06).
     auto putResult = m_session.Put( InviteKey( scopeId, inviteId ),
-                                    record.SerializeAsString(),
-                                    ScopeTopics( scopeId ) );
+                                    record.SerializeAsString(), ScopeTopics() );
     if ( !putResult.has_value() )
     {
         return putResult.error();
@@ -1245,10 +1246,8 @@ void Membership::OnMemberArrived( const std::string &key,
                       key );
         return;
     }
-    if ( record.deleted() )
-    {
-        return;
-    }
+    // WR-05: a tombstone arrival still pushes the tombstone-filtered roster so
+    // a remote removal converges (the early return here dropped it silently).
     const auto pushResult = PushMemberList( scopeId );
     if ( !pushResult.has_value() )
     {
