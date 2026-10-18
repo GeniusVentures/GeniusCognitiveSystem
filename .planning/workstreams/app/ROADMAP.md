@@ -153,7 +153,7 @@ Plans:
   4. Super Admin cannot be demoted by other admins
   5. When 2+ admins exist, destructive actions require Super Admin approval
 
-**Plans:** 12/18 plans complete
+**Plans:** 13/18 plans executed
 
 Plans:
 **Wave 1**
@@ -188,7 +188,7 @@ Plans:
 
 **Wave 7** *(blocked on Wave 6 completion — re-verification gap closure)*
 
-- [ ] 04-13-PLAN.md — Wave 7 (gaps CR-01/CR-02) — RedeemInvite preserves live member state (role/pending/approved_by) and rejects tombstoned wallets, with dormant-removal and no-write regression tests
+- [x] 04-13-PLAN.md — Wave 7 (gaps CR-01/CR-02) — RedeemInvite preserves live member state (role/pending/approved_by) and rejects tombstoned wallets, with dormant-removal and no-write regression tests
 
 **Wave 8** *(blocked on Wave 7 completion — gap closure)*
 
@@ -267,7 +267,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 1. Foundation | 11/11 | Complete | 2026-09-16 |
 | 2. Spaces & Rooms | 5/5 | Complete   | 2026-09-19 |
 | 3. Messaging | 6/6 | Complete   | 2026-09-24 |
-| 4. Membership & Invites | 12/18 | Gap closure in progress | - |
+| 4. Membership & Invites | 13/18 | In Progress|  |
 | 5. Moderation | 0/TBD | Not started | - |
 | 6. GCS Bot | 0/TBD | Not started | - |
 | 7. Discovery | 0/TBD | Not started | - |
