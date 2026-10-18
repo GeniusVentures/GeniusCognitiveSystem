@@ -16,7 +16,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 1: Foundation** - C++ core scaffolding, GlobalDB CRDT integration, FFI bridge to Flutter, and cross-platform CI/CD (macOS, Linux, Windows, iOS, Android)
 - [x] **Phase 2: Spaces & Rooms** - Space and room creation with configurable inheritance (completed 2026-09-19)
 - [x] **Phase 3: Messaging** - Real-time text messaging with CRDT sync across participants (completed 2026-09-24)
-- [x] **Phase 4: Membership & Invites** - Roles, capability tokens, and permission model (completed 2026-10-12)
+- [ ] **Phase 4: Membership & Invites** - Roles, capability tokens, and permission model (gap closure in progress)
 - [ ] **Phase 5: Moderation** - Message tombstones, kick/ban, and admin approval flows
 - [ ] **Phase 6: GCS Bot** - Bot participant with auto-answer policies and Expert Model routing
 - [ ] **Phase 7: Discovery** - Public space lobby and private space isolation
@@ -153,7 +153,7 @@ Plans:
   4. Super Admin cannot be demoted by other admins
   5. When 2+ admins exist, destructive actions require Super Admin approval
 
-**Plans:** 12/12 plans complete
+**Plans:** 12/17 plans complete
 
 Plans:
 **Wave 1**
@@ -185,6 +185,23 @@ Plans:
 - [x] 04-10-PLAN.md — Wave 6 (gap WR-07) — Dart: scope-keyed pending invite link + pinned 22.5.0 pb regen
 - [x] 04-11-PLAN.md — Wave 6 (gaps WR-01/06/07) — FFI: g_membership teardown eviction, membership-topic registration at init before the session global is installed, production invite-auth seam wiring, scope-stamped InviteLink push
 - [x] 04-12-PLAN.md — Wave 6 (gaps WR-06/04/05) — Multinode cases only (fixture lives in 04-09): space-invite convergence with no per-scope registration, wire-level every-invite bearer-gate proof, remote-removal push
+
+**Wave 7** *(blocked on Wave 6 completion — re-verification gap closure)*
+
+- [ ] 04-13-PLAN.md — Wave 7 (gaps CR-01/CR-02) — RedeemInvite preserves live member state (role/pending/approved_by) and rejects tombstoned wallets, with dormant-removal and no-write regression tests
+
+**Wave 8** *(blocked on Wave 7 completion — gap closure)*
+
+- [ ] 04-14-PLAN.md — Wave 8 (gap CR-06) — EntityStore ApplySpaceState/ApplyRoomState deletion mutators (catalog-synchronized, Put outside the mutex) + DeleteScope/Approve routed through them + AdminCount fail-closed
+
+**Wave 9** *(blocked on Wave 8 completion — gap closure)*
+
+- [ ] 04-15-PLAN.md — Wave 9 (gap CR-08) — Issuer-signed invite records: append-only created_by/issuer_signature, public hex codec, sign/verify seam, scoped URL + exact-key lookup, redeem signature/authority/scope checks, unit + real-signer multinode forgery proof
+
+**Wave 10** *(blocked on Wave 9 completion — gap closure)*
+
+- [ ] 04-16-PLAN.md — Wave 10 (gap CR-08 production) — FFI account-backed issuer seam (fail closed) + scoped-link FFI tests + pinned Dart pb regen + two-segment join-link gate
+- [ ] 04-17-PLAN.md — Wave 10 (gaps CR-03/CR-04) — CanChangeRole concrete-role and strict-rank guards (creator exception preserved) + role/rank authorization tests
 
 **UI hint**: yes
 
@@ -244,7 +261,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 1. Foundation | 11/11 | Complete | 2026-09-16 |
 | 2. Spaces & Rooms | 5/5 | Complete   | 2026-09-19 |
 | 3. Messaging | 6/6 | Complete   | 2026-09-24 |
-| 4. Membership & Invites | 12/12 | Complete   | 2026-10-18 |
+| 4. Membership & Invites | 12/17 | Gap closure in progress | - |
 | 5. Moderation | 0/TBD | Not started | - |
 | 6. GCS Bot | 0/TBD | Not started | - |
 | 7. Discovery | 0/TBD | Not started | - |
