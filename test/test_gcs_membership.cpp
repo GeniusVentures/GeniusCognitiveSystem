@@ -61,6 +61,9 @@ namespace
     /// Room chat topic prefix — the gcs/chat/<id> convention (D-01).
     constexpr const char *kRoomTopicPrefix = "gcs/chat/";
 
+    /// Base64url characters encoding a 32-byte key without padding (D-05).
+    constexpr std::size_t kEncodedKeyLength = 43;
+
     /// Arbitrary persisted timestamp for the immutability check (D-03).
     constexpr int64_t kSeedCreatedAtMs = 4242;
 
@@ -236,9 +239,11 @@ namespace gcs::test
         static gcs::Membership::KeyWrapSeam MakeSeam()
         {
             gcs::Membership::KeyWrapSeam seam;
-            seam.wrap    = &gcs::crypto::WrapRoomKey;
-            seam.unwrap  = &gcs::crypto::UnwrapRoomKey;
-            seam.enabled = true;
+            seam.wrap      = &gcs::crypto::WrapRoomKey;
+            seam.unwrap    = &gcs::crypto::UnwrapRoomKey;
+            seam.mintAuth  = &gcs::crypto::MintInviteAuthenticator;
+            seam.verifyAuth = &gcs::crypto::VerifyInviteAuthenticator;
+            seam.enabled   = true;
             return seam;
         }
 
@@ -496,9 +501,13 @@ namespace gcs::test
     }
 
     /**
-     * @brief Test 6 (MEMB-04): a malformed invite URL is rejected and a forged
-     *        invite record with an unwrap-as-wrong-key envelope is skip-and-logged
-     *        without aborting the redeem.
+     * @brief Test 6 (MEMB-04/WR-04): a malformed invite URL is rejected and a
+     *        forged invite record can no longer write a member record — the
+     *        bearer key is load-bearing for EVERY invite.
+     *
+     * The expectation changed intentionally with WR-04: a forged record whose
+     * envelope is not wrap output used to redeem (skip-and-log). The bearer key
+     * now has to authenticate the invite before any member-record write.
      */
     TEST_F( GcsMembershipTest, RedeemRejectsMalformedUrlAndSkipsBadEnvelope )
     {
@@ -521,26 +530,161 @@ namespace gcs::test
         EXPECT_FALSE( joiner.RedeemInvite( "gcs://invite/other/abc?key=AAAA" ).has_value() );
         EXPECT_FALSE( joiner.RedeemInvite( "gcs://invite/space/nope?key=AAAA" ).has_value() );
 
-        // A forged invite record whose bytes are not wrap output: redeem still
-        // writes the member record (skip-and-log on the undecryptable key).
-        chat::InviteRecord forged;
-        forged.set_scope_id( spaceId );
-        forged.set_role( chat::ROLE_GUEST );
-        chat::WrappedRoomKey *bad = forged.add_wrapped_room_key();
-        bad->set_room_id( "room-forged" );
-        bad->set_envelope( "not-a-real-envelope" );
+        const std::string forgedKey( kEncodedKeyLength, 'A' );
+
+        // (a) A forged record left at the default is_space = false is rejected
+        // by the URL-kind cross-check (the URL says "space").
+        chat::InviteRecord wrongKind;
+        wrongKind.set_scope_id( spaceId );
+        wrongKind.set_role( chat::ROLE_GUEST );
         ASSERT_TRUE( m_rig.session
                          ->Put( std::string( gcs::Membership::kInvitesKeyPrefix ) + spaceId
-                                    + "/invite-forged",
-                                forged.SerializeAsString() )
+                                    + "/invite-forged-kind",
+                                wrongKind.SerializeAsString() )
                          .has_value() );
+        EXPECT_FALSE( joiner
+                          .RedeemInvite( "gcs://invite/space/invite-forged-kind?key="
+                                         + forgedKey )
+                          .has_value() );
 
-        ASSERT_TRUE( joiner.RedeemInvite( "gcs://invite/space/invite-forged?key=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" )
+        // (b) A record with the right kind but an EMPTY authenticator is
+        // rejected by the every-invite bearer gate.
+        chat::InviteRecord noAuth = wrongKind;
+        noAuth.set_is_space( true );
+        ASSERT_TRUE( m_rig.session
+                         ->Put( std::string( gcs::Membership::kInvitesKeyPrefix ) + spaceId
+                                    + "/invite-forged-noauth",
+                                noAuth.SerializeAsString() )
                          .has_value() );
+        EXPECT_FALSE( joiner
+                          .RedeemInvite( "gcs://invite/space/invite-forged-noauth?key="
+                                         + forgedKey )
+                          .has_value() );
+
+        // (c) A record with the right kind and a garbage authenticator is
+        // rejected by verification.
+        chat::InviteRecord badAuth = noAuth;
+        badAuth.set_authenticator( "not-a-real-authenticator" );
+        ASSERT_TRUE( m_rig.session
+                         ->Put( std::string( gcs::Membership::kInvitesKeyPrefix ) + spaceId
+                                    + "/invite-forged-badauth",
+                                badAuth.SerializeAsString() )
+                         .has_value() );
+        EXPECT_FALSE( joiner
+                          .RedeemInvite( "gcs://invite/space/invite-forged-badauth?key="
+                                         + forgedKey )
+                          .has_value() );
+
+        // No rejected redeem wrote a member record.
         chat::MemberRecord joinerRecord;
-        ASSERT_TRUE( ReadMemberRecord( *m_rig.session, spaceId, kJoinerAddress, joinerRecord ) );
-        EXPECT_EQ( joinerRecord.role(), chat::ROLE_GUEST );
-        EXPECT_FALSE( joinerRecord.deleted() );
+        EXPECT_FALSE(
+            ReadMemberRecord( *m_rig.session, spaceId, kJoinerAddress, joinerRecord ) );
+    }
+
+    /**
+     * @brief Test (WR-04): two scopes carrying the same invite id make the
+     *        lookup ambiguous, so the redeem is rejected with no write.
+     */
+    TEST_F( GcsMembershipTest, RedeemRejectsInviteIdCollisionAcrossScopes )
+    {
+        StartRig( kTestCreatorAddress );
+
+        auto first  = m_rig.store->CreateSpace( "first", true, true, true );
+        auto second = m_rig.store->CreateSpace( "second", true, true, true );
+        ASSERT_TRUE( first.has_value() );
+        ASSERT_TRUE( second.has_value() );
+        const std::string firstId  = first.value().id();
+        const std::string secondId = second.value().id();
+
+        std::vector<chat::GcsEvent> events;
+        gcs::Membership membership( *m_rig.session, *m_rig.store, kTestCreatorAddress,
+                                    CapturingSink( &events ), MakeSeam() );
+        ASSERT_TRUE( membership.OnScopeCreated( firstId, "", true ).has_value() );
+        ASSERT_TRUE( membership.OnScopeCreated( secondId, "", true ).has_value() );
+
+        // Same invite id under two scopes; both carry the matching space kind so
+        // the collision check (not the kind check) is the rejection under test.
+        for ( const std::string &scopeId : { firstId, secondId } )
+        {
+            chat::InviteRecord record;
+            record.set_scope_id( scopeId );
+            record.set_role( chat::ROLE_GUEST );
+            record.set_is_space( true );
+            ASSERT_TRUE( m_rig.session
+                             ->Put( std::string( gcs::Membership::kInvitesKeyPrefix )
+                                        + scopeId + "/invite-collision",
+                                    record.SerializeAsString() )
+                             .has_value() );
+        }
+
+        gcs::Membership joiner( *m_rig.session, *m_rig.store, kJoinerAddress,
+                               CapturingSink( &events ), MakeSeam() );
+        const std::string collisionKey( kEncodedKeyLength, 'A' );
+        EXPECT_FALSE( joiner
+                          .RedeemInvite( "gcs://invite/space/invite-collision?key="
+                                         + collisionKey )
+                          .has_value() );
+
+        chat::MemberRecord record;
+        EXPECT_FALSE( ReadMemberRecord( *m_rig.session, firstId, kJoinerAddress, record ) );
+        EXPECT_FALSE( ReadMemberRecord( *m_rig.session, secondId, kJoinerAddress, record ) );
+    }
+
+    /**
+     * @brief Test (WR-04 user decision): a space invite with NO child rooms
+     *        carries zero wrapped room keys but is still bearer-gated — the
+     *        correct key redeems, a wrong key writes nothing.
+     */
+    TEST_F( GcsMembershipTest, ChildlessSpaceInviteIsBearerGated )
+    {
+        StartRig( kTestCreatorAddress );
+
+        auto space = m_rig.store->CreateSpace( "empty", true, true, true );
+        ASSERT_TRUE( space.has_value() );
+        const std::string spaceId = space.value().id();
+
+        std::vector<chat::GcsEvent> events;
+        gcs::Membership creator( *m_rig.session, *m_rig.store, kTestCreatorAddress,
+                                 CapturingSink( &events ), MakeSeam() );
+        ASSERT_TRUE( creator.OnScopeCreated( spaceId, "", true ).has_value() );
+
+        auto minted = creator.MintInvite( spaceId );
+        ASSERT_TRUE( minted.has_value() );
+
+        // Zero wrapped room keys, yet a non-empty authenticator.
+        auto invites = m_rig.session->QueryKeyValues( gcs::Membership::kInvitesKeyPrefix );
+        ASSERT_TRUE( invites.has_value() );
+        ASSERT_EQ( invites.value().size(), 1U );
+        chat::InviteRecord invite;
+        ASSERT_TRUE( invite.ParseFromString( invites.value().front().second ) );
+        EXPECT_EQ( invite.wrapped_room_key_size(), 0 );
+        EXPECT_FALSE( invite.authenticator().empty() );
+        EXPECT_TRUE( invite.is_space() );
+
+        // The minted bearer key redeems.
+        gcs::Membership joiner( *m_rig.session, *m_rig.store, kJoinerAddress,
+                               CapturingSink( &events ), MakeSeam() );
+        ASSERT_TRUE( joiner.RedeemInvite( minted.value() ).has_value() );
+        chat::MemberRecord joined;
+        ASSERT_TRUE( ReadMemberRecord( *m_rig.session, spaceId, kJoinerAddress, joined ) );
+        EXPECT_EQ( joined.role(), chat::ROLE_GUEST );
+
+        // A wrong bearer key (same URL, replaced key) is rejected and writes
+        // nothing — the every-invite gate, not room-key unwrapping.
+        const std::string prefix   = "gcs://invite/space/";
+        const std::size_t queryPos = minted.value().find( "?key=" );
+        ASSERT_NE( queryPos, std::string::npos );
+        const std::string inviteId =
+            minted.value().substr( prefix.size(), queryPos - prefix.size() );
+        const std::string wrongKey( kEncodedKeyLength, 'B' );
+        const std::string wrongUrl = prefix + inviteId + "?key=" + wrongKey;
+
+        gcs::Membership joiner2( *m_rig.session, *m_rig.store, kJoiner2Address,
+                                CapturingSink( &events ), MakeSeam() );
+        EXPECT_FALSE( joiner2.RedeemInvite( wrongUrl ).has_value() );
+        chat::MemberRecord rejected;
+        EXPECT_FALSE(
+            ReadMemberRecord( *m_rig.session, spaceId, kJoiner2Address, rejected ) );
     }
 
     /**

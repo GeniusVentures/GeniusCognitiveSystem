@@ -345,6 +345,10 @@ private:
   /// @brief Whether the D-06 key-wrap seam is enabled AND both callables set.
   bool KeyWrapEnabled() const;
 
+  /// @brief Whether the invite-authenticator seam is enabled AND both callables
+  ///        set (WR-04 — every invite is bearer-gated when this holds).
+  bool InviteAuthEnabled() const;
+
   /// @brief Whether the local sender may mint an invite (MEMB-05/D-08).
   bool CanInvite(const std::string &scopeId) const;
 

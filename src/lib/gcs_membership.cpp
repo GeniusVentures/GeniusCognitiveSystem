@@ -303,6 +303,12 @@ bool Membership::KeyWrapEnabled() const
            && static_cast<bool>( m_keyWrap.unwrap );
 }
 
+bool Membership::InviteAuthEnabled() const
+{
+    return m_keyWrap.enabled && static_cast<bool>( m_keyWrap.mintAuth )
+           && static_cast<bool>( m_keyWrap.verifyAuth );
+}
+
 Membership::ScopeInfo Membership::ResolveScope( const std::string &scopeId ) const
 {
     ScopeInfo info;
@@ -621,10 +627,14 @@ outcome::result<std::string> Membership::MintInvite( const std::string &scopeId 
         return outcome::failure( sgns::gcs::Error::GcsDbError );
     }
 
-    // Role is C++-stamped (Guest default per D-05) — never client-supplied.
+    // Role and scope kind are C++-stamped (Guest default per D-05) — never
+    // client-supplied. The kind is stamped because a redeemer may not hold the
+    // scope's entity record (cross-node redeem), so the URL kind is
+    // cross-checked against this stamp instead (WR-04).
     chat::InviteRecord record;
     record.set_scope_id( scopeId );
     record.set_role( chat::ROLE_GUEST );
+    record.set_is_space( scope.isSpace );
 
     if ( scope.isSpace )
     {
@@ -713,6 +723,28 @@ outcome::result<std::string> Membership::MintInvite( const std::string &scopeId 
         }
     }
 
+    // WR-04: stamp the bearer-key-derived authenticator BEFORE the Put so the
+    // replicated record carries it. This gates EVERY invite, including a space
+    // invite that carries no wrapped room-key material.
+    if ( InviteAuthEnabled() )
+    {
+        auto authenticator = m_keyWrap.mintAuth( inviteKey, scopeId, inviteId );
+        if ( !authenticator.has_value() )
+        {
+            spdlog::warn( "gcs_membership: mint_invite could not mint an invite "
+                          "authenticator for scope '{}'",
+                          scopeId );
+            return authenticator.error();
+        }
+        record.set_authenticator( authenticator.value() );
+    }
+    else
+    {
+        spdlog::warn( "gcs_membership: mint_invite has no authenticator seam "
+                      "enabled; invite '{}' carries no authenticator",
+                      inviteId );
+    }
+
     // Replicate on the scope's room topic so a remote redeemer can find it.
     auto putResult = m_session.Put( InviteKey( scopeId, inviteId ),
                                     record.SerializeAsString(),
@@ -785,7 +817,7 @@ outcome::result<void> Membership::RedeemInvite( const std::string &inviteUrl )
         return scanResult.error();
     }
     chat::InviteRecord invite;
-    bool               found = false;
+    unsigned int       matchCount = 0;
     for ( const auto &entry : scanResult.value() )
     {
         if ( SegmentAfterMarker( entry.first, kInvitesKeyPrefix, 1 ) != inviteId )
@@ -800,13 +832,24 @@ outcome::result<void> Membership::RedeemInvite( const std::string &inviteUrl )
                           inviteId );
             continue;
         }
-        invite = candidate;
-        found  = true;
-        break;
+        if ( matchCount == 0 )
+        {
+            invite = candidate;
+        }
+        ++matchCount;
     }
-    if ( !found )
+    if ( matchCount == 0 )
     {
         spdlog::warn( "gcs_membership: redeem rejected — invite '{}' not found",
+                      inviteId );
+        return outcome::failure( sgns::gcs::Error::GcsDbError );
+    }
+    // WR-04: an invite id must be globally unambiguous; two scopes carrying the
+    // same id would let the lookup resolve an arbitrary scope.
+    if ( matchCount > 1 )
+    {
+        spdlog::warn( "gcs_membership: redeem rejected — invite id '{}' is "
+                      "ambiguous across scopes",
                       inviteId );
         return outcome::failure( sgns::gcs::Error::GcsDbError );
     }
@@ -817,6 +860,38 @@ outcome::result<void> Membership::RedeemInvite( const std::string &inviteUrl )
                       "scope",
                       inviteId );
         return outcome::failure( sgns::gcs::Error::GcsDbError );
+    }
+
+    // WR-04: the URL's {space|room} segment must agree with the C++-stamped
+    // scope kind on the record. An entity-catalog lookup cannot be used — the
+    // redeemer may not hold the scope record (cross-node redeem).
+    const bool urlIsSpace = scopeKind == kScopeKindSpace;
+    if ( urlIsSpace != invite.is_space() )
+    {
+        spdlog::warn( "gcs_membership: redeem rejected — invite '{}' scope kind "
+                      "does not match the URL",
+                      inviteId );
+        return outcome::failure( sgns::gcs::Error::GcsDbError );
+    }
+
+    // WR-04: the bearer key must authenticate EVERY invite before any write —
+    // never only when the invite happens to carry wrapped room keys.
+    if ( InviteAuthEnabled() )
+    {
+        bool authenticated = false;
+        if ( !invite.authenticator().empty() )
+        {
+            auto verifyResult = m_keyWrap.verifyAuth( inviteKey, scopeId, inviteId,
+                                                      invite.authenticator() );
+            authenticated = verifyResult.has_value() && verifyResult.value();
+        }
+        if ( !authenticated )
+        {
+            spdlog::warn( "gcs_membership: redeem rejected — the bearer key did "
+                          "not authenticate invite '{}'",
+                          inviteId );
+            return outcome::failure( sgns::gcs::Error::GcsDbError );
+        }
     }
 
     // Unwrap each room key and store it locally (wrong key = skip-and-log,

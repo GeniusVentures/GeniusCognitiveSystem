@@ -232,7 +232,8 @@ std::vector<unsigned char> InviteAuthMarker(const std::string &scopeId,
  * Derives an auth key from @p inviteKey through HKDF-SHA256 with the
  * invite-domain salt/info (D-06/D-08 derivation discipline), then seals
  * InviteAuthMarker(scopeId, inviteId) with the module's existing 32-byte
- * AES-256-GCM wrap. The returned std::string is binary-safe.
+ * AES-256-GCM wrap. The envelope is returned hex-encoded so it is valid UTF-8
+ * for the proto3 string field that stores it.
  *
  * @param[in] inviteKey The 32-byte bearer/invite key from the URL.
  * @param[in] scopeId   The invite's scope id.
@@ -247,9 +248,9 @@ outcome::result<std::string> MintInviteAuthenticator(
 /**
  * @brief Verify an invite authenticator against the bearer key (WR-04).
  *
- * Re-derives the auth key, unseals the authenticator, and constant-time
- * compares the result against InviteAuthMarker(scopeId, inviteId). Never
- * throws and never logs.
+ * Decodes the hex authenticator, re-derives the auth key, unseals the
+ * envelope, and constant-time compares the result against
+ * InviteAuthMarker(scopeId, inviteId). Never throws and never logs.
  *
  * @param[in] inviteKey     The bearer/invite key from the URL.
  * @param[in] scopeId       The invite's scope id.

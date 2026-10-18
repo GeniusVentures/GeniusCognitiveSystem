@@ -34,6 +34,89 @@ static_assert( kInviteAuthMarkerLengthBytes == kRoomKeyLengthBytes,
 
 namespace
 {
+    /// Hex alphabet for the ASCII-safe authenticator envelope (proto3 string
+    /// fields must hold valid UTF-8; the AES-GCM envelope is binary).
+    constexpr const char kHexDigits[] = "0123456789abcdef";
+    /// One hex digit encodes four bits.
+    constexpr unsigned int kHexBitsPerDigit = 4;
+    /// Mask selecting one hex digit's worth of bits.
+    constexpr unsigned int kHexDigitMask = 0x0F;
+    /// Hex characters emitted per input byte.
+    constexpr std::size_t kHexCharsPerByte = 2;
+    /// Decimal offset of the hex letter values ('a' -> 10).
+    constexpr int kHexLetterOffset = 10;
+
+    /**
+     * @brief Hex-encode binary bytes into an ASCII-safe string.
+     *
+     * @param[in] bytes The binary envelope bytes.
+     * @return The lowercase hex text.
+     */
+    std::string HexEncode( const std::string &bytes )
+    {
+        std::string out;
+        out.reserve( bytes.size() * kHexCharsPerByte );
+        for ( const unsigned char byte : bytes )
+        {
+            out.push_back(
+                kHexDigits[( byte >> kHexBitsPerDigit ) & kHexDigitMask] );
+            out.push_back( kHexDigits[byte & kHexDigitMask] );
+        }
+        return out;
+    }
+
+    /**
+     * @brief Decode one hex character.
+     *
+     * @param[in] c The character.
+     * @return Its 4-bit value; -1 when the character is not a hex digit.
+     */
+    int HexValue( char c )
+    {
+        if ( c >= '0' && c <= '9' )
+        {
+            return c - '0';
+        }
+        if ( c >= 'a' && c <= 'f' )
+        {
+            return c - 'a' + kHexLetterOffset;
+        }
+        if ( c >= 'A' && c <= 'F' )
+        {
+            return c - 'A' + kHexLetterOffset;
+        }
+        return -1;
+    }
+
+    /**
+     * @brief Decode ASCII hex text back to binary bytes.
+     *
+     * @param[in] text The hex text.
+     * @return outcome::success with the bytes; outcome::failure on an odd
+     *         length or an invalid character (a parse failure).
+     */
+    outcome::result<std::string> HexDecode( const std::string &text )
+    {
+        if ( text.size() % kHexCharsPerByte != 0 )
+        {
+            return outcome::failure( sgns::gcs::Error::GcsDbError );
+        }
+        std::string out;
+        out.reserve( text.size() / kHexCharsPerByte );
+        for ( std::size_t i = 0; i < text.size(); i += kHexCharsPerByte )
+        {
+            const int high = HexValue( text[i] );
+            const int low  = HexValue( text[i + 1] );
+            if ( high < 0 || low < 0 )
+            {
+                return outcome::failure( sgns::gcs::Error::GcsDbError );
+            }
+            out.push_back(
+                static_cast<char>( ( high << kHexBitsPerDigit ) | low ) );
+        }
+        return out;
+    }
+
     /**
      * @brief Derive a key with HKDF-SHA256 using an explicit salt and info.
      *
@@ -434,7 +517,14 @@ outcome::result<std::string> MintInviteAuthenticator(
     {
         return outcome::failure( sgns::gcs::Error::GcsDbError );
     }
-    return WrapRoomKey( authKey.value(), marker );
+    auto envelope = WrapRoomKey( authKey.value(), marker );
+    if ( !envelope.has_value() )
+    {
+        return envelope.error();
+    }
+    // ASCII-safe: InviteRecord.authenticator is a proto3 string field, which
+    // must hold valid UTF-8 (unlike the bytes-typed WrappedRoomKey.envelope).
+    return HexEncode( envelope.value() );
 }
 
 outcome::result<bool> VerifyInviteAuthenticator(
@@ -454,7 +544,12 @@ outcome::result<bool> VerifyInviteAuthenticator(
     {
         return authKey.error();
     }
-    const auto unwrapped = UnwrapRoomKey( authKey.value(), authenticator );
+    const auto decoded = HexDecode( authenticator );
+    if ( !decoded.has_value() )
+    {
+        return outcome::success( false ); // malformed encoding / parse failure
+    }
+    const auto unwrapped = UnwrapRoomKey( authKey.value(), decoded.value() );
     if ( !unwrapped.has_value() )
     {
         return outcome::success( false ); // wrong key, tampering, truncation
