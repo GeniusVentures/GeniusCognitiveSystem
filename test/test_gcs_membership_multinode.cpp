@@ -438,4 +438,64 @@ namespace gcs::test
         EXPECT_EQ( RoleOf( listB.value(), kSenderA ), chat::ROLE_SUPER_ADMIN );
     }
 
+    /**
+     * @brief Test 3 (WR-06): a SPACE invite reaches a recipient that never
+     *        joined the space and redeems there on the membership topic alone.
+     *
+     * Node B registers no topic derived from the space — the creator's member
+     * record and the invite record must arrive on the well-known membership
+     * replication topic, exactly as production init wiring does (04-11).
+     */
+    TEST_F( MembershipMultinodeTest, SpaceInviteConvergesWithoutTheRecipientJoiningTheSpace )
+    {
+        auto space = m_nodeA.store->CreateSpace( "ops", true, false, true );
+        ASSERT_TRUE( space.has_value() );
+        const std::string spaceId = space.value().id();
+
+        // The FFI's space path (04-11): a space has no room topic.
+        ASSERT_TRUE(
+            m_nodeA.membership->OnScopeCreated( spaceId, "", /*isSpace=*/true ).has_value() );
+
+        auto minted = m_nodeA.membership->MintInvite( spaceId );
+        ASSERT_TRUE( minted.has_value() );
+        EXPECT_EQ( minted.value().rfind( "gcs://invite/space/", 0 ), 0 );
+
+        // B registered nothing for this space: the creator's member record and
+        // the invite record must reach it on the membership replication topic.
+        ASSERT_TRUE( WaitForCondition(
+            [ & ]() {
+                auto invites = m_nodeB.session->QueryKeyValues(
+                    gcs::Membership::kInvitesKeyPrefix );
+                auto members = m_nodeB.session->QueryKeyValues(
+                    std::string( gcs::Membership::kMembersKeyPrefix ) + spaceId + "/" );
+                return invites.has_value() && invites.value().size() == 1 &&
+                       members.has_value() && members.value().size() == 1;
+            },
+            kWaitTimeout ) );
+
+        ASSERT_TRUE( m_nodeB.membership->RedeemInvite( minted.value() ).has_value() );
+
+        // Both rosters converge on B's freshly written member record.
+        ASSERT_TRUE( WaitForCondition(
+            [ & ]() {
+                auto listA = m_nodeA.membership->MembersFor( spaceId );
+                auto listB = m_nodeB.membership->MembersFor( spaceId );
+                return listA.has_value() && listA.value().member_size() == 2 &&
+                       listB.has_value() && listB.value().member_size() == 2;
+            },
+            kWaitTimeout ) );
+
+        auto listA = m_nodeA.membership->MembersFor( spaceId );
+        auto listB = m_nodeB.membership->MembersFor( spaceId );
+        ASSERT_TRUE( listA.has_value() );
+        ASSERT_TRUE( listB.has_value() );
+
+        // The creator is a Super Admin on both sides; B's grant is the Guest
+        // default stamped by MintInvite (D-05).
+        EXPECT_EQ( RoleOf( listA.value(), kSenderA ), chat::ROLE_SUPER_ADMIN );
+        EXPECT_EQ( RoleOf( listB.value(), kSenderA ), chat::ROLE_SUPER_ADMIN );
+        EXPECT_EQ( RoleOf( listA.value(), kSenderB ), chat::ROLE_GUEST );
+        EXPECT_EQ( RoleOf( listB.value(), kSenderB ), chat::ROLE_GUEST );
+    }
+
 } // namespace gcs::test
