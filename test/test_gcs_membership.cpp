@@ -730,6 +730,129 @@ namespace gcs::test
     }
 
     /**
+     * @brief Test (CR-01): redeeming an invite must not cancel a dormant
+     *        removal or rewrite the stored role — only key material changes.
+     *
+     * A live member with a pending removal keeps role, approved_by,
+     * pending_action, and pending_role across a redeem; the pending op remains
+     * activatable by the Super Admin's Approve.
+     */
+    TEST_F( GcsMembershipTest, DormantRemovalSurvivesRedeem )
+    {
+        StartRig( kTestCreatorAddress );
+
+        auto space = m_rig.store->CreateSpace( "ops", true, true, false );
+        ASSERT_TRUE( space.has_value() );
+        const std::string spaceId = space.value().id();
+        SeedMember( spaceId, kAdminAddress, chat::ROLE_ADMIN );
+        SeedMember( spaceId, kTargetAddress, chat::ROLE_MEMBER );
+
+        std::vector<chat::GcsEvent> events;
+        gcs::Membership creator( *m_rig.session, *m_rig.store, kTestCreatorAddress,
+                                 CapturingSink( &events ), MakeSeam() );
+        ASSERT_TRUE( creator.OnScopeCreated( spaceId, "", true ).has_value() );
+        auto minted = creator.MintInvite( spaceId );
+        ASSERT_TRUE( minted.has_value() );
+
+        // Two admins (creator + kAdminAddress): the removal goes dormant.
+        ASSERT_TRUE( creator.RemoveMember( spaceId, kTargetAddress ).has_value() );
+        chat::MemberRecord dormant;
+        ASSERT_TRUE( ReadMemberRecord( *m_rig.session, spaceId, kTargetAddress, dormant ) );
+        ASSERT_EQ( dormant.pending_action(), chat::PENDING_ACTION_REMOVE );
+        ASSERT_FALSE( dormant.deleted() );
+        ASSERT_TRUE( dormant.approved_by().empty() );
+
+        // The target redeems the invite: the stored role and dormant state must
+        // survive; only the carried key material may change.
+        gcs::Membership target( *m_rig.session, *m_rig.store, kTargetAddress,
+                                CapturingSink( &events ), MakeSeam() );
+        ASSERT_TRUE( target.RedeemInvite( minted.value() ).has_value() );
+
+        chat::MemberRecord redeemed;
+        ASSERT_TRUE( ReadMemberRecord( *m_rig.session, spaceId, kTargetAddress, redeemed ) );
+        EXPECT_EQ( redeemed.role(), chat::ROLE_MEMBER ); // not the invite's Guest
+        EXPECT_EQ( redeemed.pending_action(), chat::PENDING_ACTION_REMOVE );
+        EXPECT_TRUE( redeemed.approved_by().empty() );
+        EXPECT_FALSE( redeemed.deleted() );
+
+        auto list = creator.MembersFor( spaceId );
+        ASSERT_TRUE( list.has_value() );
+        const chat::MemberRecord *targetEntry = FindMember( list.value(), kTargetAddress );
+        ASSERT_NE( targetEntry, nullptr );
+        EXPECT_EQ( targetEntry->role(), chat::ROLE_MEMBER );
+
+        // The dormant removal is still activatable after the redeem.
+        ASSERT_TRUE( creator.Approve( spaceId, kTargetAddress ).has_value() );
+        chat::MemberRecord approved;
+        ASSERT_TRUE( ReadMemberRecord( *m_rig.session, spaceId, kTargetAddress, approved ) );
+        EXPECT_TRUE( approved.deleted() );
+    }
+
+    /**
+     * @brief Test (CR-02): a tombstoned wallet cannot rejoin by redeeming a
+     *        stale invite — the rejection precedes the unwrap loop, so neither
+     *        the stored record nor the roster changes at all.
+     */
+    TEST_F( GcsMembershipTest, TombstonedMemberCannotRedeemStaleInvite )
+    {
+        StartRig( kTestCreatorAddress );
+
+        auto space = m_rig.store->CreateSpace( "ops", true, true, false );
+        ASSERT_TRUE( space.has_value() );
+        const std::string spaceId = space.value().id();
+        SeedMember( spaceId, kJoinerAddress, chat::ROLE_MEMBER );
+
+        std::vector<chat::GcsEvent> events;
+        gcs::Membership creator( *m_rig.session, *m_rig.store, kTestCreatorAddress,
+                                 CapturingSink( &events ), MakeSeam() );
+        ASSERT_TRUE( creator.OnScopeCreated( spaceId, "", true ).has_value() );
+
+        // Mint BEFORE the removal so a stale link exists at redeem time.
+        auto minted = creator.MintInvite( spaceId );
+        ASSERT_TRUE( minted.has_value() );
+
+        // Sole admin (the creator): the removal tombstones immediately.
+        ASSERT_TRUE( creator.RemoveMember( spaceId, kJoinerAddress ).has_value() );
+        chat::MemberRecord removed;
+        ASSERT_TRUE( ReadMemberRecord( *m_rig.session, spaceId, kJoinerAddress, removed ) );
+        ASSERT_TRUE( removed.deleted() );
+        ASSERT_EQ( removed.pending_action(), chat::PENDING_ACTION_UNSPECIFIED );
+
+        // Baseline: stored bytes and scan count captured BEFORE the redeem.
+        const std::string memberKey = std::string( gcs::Membership::kMembersKeyPrefix )
+                                      + spaceId + "/" + kJoinerAddress;
+        const std::string memberPrefix = std::string( gcs::Membership::kMembersKeyPrefix )
+                                         + spaceId + "/";
+        auto baselineBytes = m_rig.session->Get( memberKey );
+        ASSERT_TRUE( baselineBytes.has_value() );
+        const std::string baselineRecord = baselineBytes.value();
+        auto baselineScan = m_rig.session->QueryKeyValues( memberPrefix );
+        ASSERT_TRUE( baselineScan.has_value() );
+        const std::size_t baselineCount = baselineScan.value().size();
+
+        gcs::Membership joiner( *m_rig.session, *m_rig.store, kJoinerAddress,
+                                CapturingSink( &events ), MakeSeam() );
+        EXPECT_FALSE( joiner.RedeemInvite( minted.value() ).has_value() );
+
+        // A rejected redeem writes nothing at all.
+        auto afterBytes = m_rig.session->Get( memberKey );
+        ASSERT_TRUE( afterBytes.has_value() );
+        EXPECT_EQ( afterBytes.value(), baselineRecord );
+        auto afterScan = m_rig.session->QueryKeyValues( memberPrefix );
+        ASSERT_TRUE( afterScan.has_value() );
+        EXPECT_EQ( afterScan.value().size(), baselineCount );
+
+        chat::MemberRecord stillRemoved;
+        ASSERT_TRUE( ReadMemberRecord( *m_rig.session, spaceId, kJoinerAddress,
+                                       stillRemoved ) );
+        EXPECT_TRUE( stillRemoved.deleted() );
+
+        auto list = creator.MembersFor( spaceId );
+        ASSERT_TRUE( list.has_value() );
+        EXPECT_EQ( FindMember( list.value(), kJoinerAddress ), nullptr );
+    }
+
+    /**
      * @brief Test 8 (MEMB-04/D-08): with a single admin a removal applies
      *        immediately, while a Guest's every mutator is rejected read-only.
      */
