@@ -153,7 +153,7 @@ Plans:
   4. Super Admin cannot be demoted by other admins
   5. When 2+ admins exist, destructive actions require Super Admin approval
 
-**Plans:** 12/17 plans complete
+**Plans:** 12/18 plans complete
 
 Plans:
 **Wave 1**
@@ -192,16 +192,19 @@ Plans:
 
 **Wave 8** *(blocked on Wave 7 completion — gap closure)*
 
-- [ ] 04-14-PLAN.md — Wave 8 (gap CR-06) — EntityStore ApplySpaceState/ApplyRoomState deletion mutators (catalog-synchronized, Put outside the mutex) + DeleteScope/Approve routed through them + AdminCount fail-closed
+- [ ] 04-14-PLAN.md — Wave 8 (gaps CR-06/CR-05) — EntityStore ApplySpaceState/ApplyRoomState deletion mutators (catalog-synchronized, Put outside the mutex) + DeleteScope/Approve routed through them + AdminCount fail-closed with an injected-scan regression test
 
 **Wave 9** *(blocked on Wave 8 completion — gap closure)*
 
-- [ ] 04-15-PLAN.md — Wave 9 (gap CR-08) — Issuer-signed invite records: append-only created_by/issuer_signature, public hex codec, sign/verify seam, scoped URL + exact-key lookup, redeem signature/authority/scope checks, unit + real-signer multinode forgery proof
+- [ ] 04-15-PLAN.md — Wave 9 (gap CR-08) — Issuer-signed invite records: append-only created_by/issuer_signature, public hex codec, sign/verify seam, scoped URL + exact-key lookup, redeem signature/authority/scope checks, unit forgery/authority/scope proofs
 
 **Wave 10** *(blocked on Wave 9 completion — gap closure)*
 
 - [ ] 04-16-PLAN.md — Wave 10 (gap CR-08 production) — FFI account-backed issuer seam (fail closed) + scoped-link FFI tests + pinned Dart pb regen + two-segment join-link gate
 - [ ] 04-17-PLAN.md — Wave 10 (gaps CR-03/CR-04) — CanChangeRole concrete-role and strict-rank guards (creator exception preserved) + role/rank authorization tests
+- [ ] 04-18-PLAN.md — Wave 10 (gap CR-08 wire proof) — Multinode real-signer fixture: genuine cross-node redeem accepted, forged issuer with a valid bearer authenticator rejected with baseline capture
+
+**Deferred (recorded, not in this gap-closure set):** CR-07 — room keys live in a process-local store, so a second application process (or a restart without the invite material) cannot decrypt a room's key material. Warning-level; no Phase 4 requirement depends on cross-process key persistence, and no plan in Waves 5-10 addresses it.
 
 **UI hint**: yes
 
@@ -261,7 +264,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 1. Foundation | 11/11 | Complete | 2026-09-16 |
 | 2. Spaces & Rooms | 5/5 | Complete   | 2026-09-19 |
 | 3. Messaging | 6/6 | Complete   | 2026-09-24 |
-| 4. Membership & Invites | 12/17 | Gap closure in progress | - |
+| 4. Membership & Invites | 12/18 | Gap closure in progress | - |
 | 5. Moderation | 0/TBD | Not started | - |
 | 6. GCS Bot | 0/TBD | Not started | - |
 | 7. Discovery | 0/TBD | Not started | - |
