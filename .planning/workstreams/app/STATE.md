@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: GCS Chat
 status: executing
-stopped_at: Completed 04-09 plan (every-invite bearer gate and membership replication)
-last_updated: "2026-10-18T21:05:32.092Z"
+stopped_at: Completed 04-10 plan (scope-keyed invite links)
+last_updated: "2026-10-18T21:12:01.550Z"
 last_activity: 2026-10-18
 progress:
   total_phases: 7
   completed_phases: 3
   total_plans: 34
-  completed_plans: 31
+  completed_plans: 32
   percent: 43
 ---
 
@@ -26,11 +26,11 @@ See: .planning/workstreams/app/PROJECT.md (updated 2026-09-22)
 ## Current Position
 
 Phase: 04 (membership-invites) — EXECUTING
-Plan: 9 of 12
+Plan: 10 of 12
 Status: Ready to execute
 Last activity: 2026-10-18
 
-Progress: [█████████░] 91%
+Progress: [█████████░] 94%
 
 ## Performance Metrics
 
@@ -65,6 +65,7 @@ Progress: [█████████░] 91%
 | Phase 03 P05 | 14min | 2 tasks | 3 files |
 | Phase 04 P08 | 11min | 3 tasks | 3 files |
 | Phase 04 P09 | 22min | 4 tasks | 7 files |
+| Phase 04 P10 | 2min | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -111,6 +112,8 @@ Recent decisions affecting current work:
 - [Phase 04]: InviteRecord.is_space is stamped at mint and cross-checked against the URL kind at redeem
 - [Phase 04]: Member and invite records replicate on Membership::kMembershipTopic; the scope id stays in the record key
 - [Phase 04]: PrivilegeRank is the single ordering authority for removal, demotion dormancy, and AdminCount
+- [Phase 04]: Pending invite links are keyed by InviteLink.scope_id in a per-scope map; the unkeyed accessor was removed
+- [Phase 04]: Invite pending links clear on drawer close, never on read, so the push emission still delivers the link
 
 ### Pending Todos
 
@@ -136,6 +139,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-10-18T21:05:32.085Z
-Stopped at: Completed 04-09 plan (every-invite bearer gate and membership replication)
+Last session: 2026-10-18T21:12:01.543Z
+Stopped at: Completed 04-10 plan (scope-keyed invite links)
 Resume file: None
