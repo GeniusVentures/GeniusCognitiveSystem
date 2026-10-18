@@ -60,8 +60,7 @@ namespace
 
     /// Syntactically valid base64url invite key (32 decoded bytes) used by the
     /// negative redeem cases — never the minted bearer key.
-    constexpr const char *kWellFormedInviteKey =
-        "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+    constexpr const char *kWellFormedInviteKey = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
 
     /// Minimal soralog YAML — console sink only, error level (mirrors
     /// test_gcs_messaging_multinode.cpp).
