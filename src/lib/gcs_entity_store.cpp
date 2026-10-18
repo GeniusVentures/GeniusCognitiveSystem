@@ -19,6 +19,7 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <mutex>
 #include <random>
 #include <utility>
 
@@ -311,7 +312,8 @@ outcome::result<SpaceRecord> EntityStore::UpdateSpace( const SpaceRecord &desire
 
 std::vector<SpaceRecord> EntityStore::Spaces() const
 {
-    std::vector<SpaceRecord> spaces;
+    std::lock_guard<std::mutex> catalogLock( m_catalogMutex );
+    std::vector<SpaceRecord>    spaces;
     for ( const auto &entry : m_spaces )
     {
         if ( !entry.second.deleted() )
@@ -324,7 +326,8 @@ std::vector<SpaceRecord> EntityStore::Spaces() const
 
 std::vector<RoomRecord> EntityStore::Rooms() const
 {
-    std::vector<RoomRecord> rooms;
+    std::lock_guard<std::mutex> catalogLock( m_catalogMutex );
+    std::vector<RoomRecord>     rooms;
     for ( const auto &entry : m_rooms )
     {
         if ( !entry.second.deleted() )
@@ -337,9 +340,19 @@ std::vector<RoomRecord> EntityStore::Rooms() const
 
 std::vector<std::string> EntityStore::DerivedJoinedTopics() const
 {
-    std::vector<std::string> topics;
-    for ( const RoomRecord &room : Rooms() )
+    // Lock once and iterate m_rooms directly: calling the now-locking Rooms()
+    // here would recursively acquire m_catalogMutex (non-recursive) and
+    // deadlock. The room-level deleted() skip is re-applied below because the
+    // filtering Rooms() call is gone.
+    std::lock_guard<std::mutex> catalogLock( m_catalogMutex );
+    std::vector<std::string>    topics;
+    for ( const auto &entry : m_rooms )
     {
+        if ( entry.second.deleted() )
+        {
+            continue; // tombstoned room — Rooms() supplied this skip before
+        }
+        const RoomRecord &room = entry.second;
         if ( room.parent_space_id().empty() )
         {
             continue; // standalone rooms never join via a space (D-04)
@@ -360,7 +373,8 @@ std::vector<std::string> EntityStore::DerivedJoinedTopics() const
 
 bool EntityStore::IsValidParentSpace( const std::string &id ) const
 {
-    const auto it = m_spaces.find( id );
+    std::lock_guard<std::mutex> catalogLock( m_catalogMutex );
+    const auto                  it = m_spaces.find( id );
     return it != m_spaces.end() && !it->second.deleted();
 }
 

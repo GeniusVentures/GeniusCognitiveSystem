@@ -17,6 +17,7 @@
 #define GCS_ENTITY_STORE_HPP
 
 #include <map>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -181,6 +182,16 @@ private:
   CoreSession &m_session; ///< Borrowed session (Put/Get pass-throughs)
 
   std::string m_localAddress; ///< Wallet address stamped into `creator` (D-03)
+
+  /**
+   * @brief Guards m_spaces and m_rooms only (catalog synchronization).
+   *
+   * NEVER held across a CoreSession Put/Get: the FFI holds g_mutex across
+   * entity Puts and the CRDT DagWorker heal lambda takes g_mutex, so nesting a
+   * store call under this mutex would invert the established lock order.
+   * `mutable` because the read accessors are const.
+   */
+  mutable std::mutex m_catalogMutex;
 
   std::map<std::string, SpaceRecord>
       m_spaces; ///< Known spaces by id (tombstoned records kept)
