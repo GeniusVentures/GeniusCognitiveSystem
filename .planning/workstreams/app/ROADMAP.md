@@ -201,10 +201,13 @@ Plans:
 **Wave 10** *(blocked on Wave 9 completion — gap closure)*
 
 - [ ] 04-16-PLAN.md — Wave 10 (gap CR-08 production) — FFI account-backed issuer seam (fail closed) + scoped-link FFI tests + pinned Dart pb regen + two-segment join-link gate
-- [ ] 04-17-PLAN.md — Wave 10 (gaps CR-03/CR-04) — CanChangeRole concrete-role and strict-rank guards (creator exception preserved) + role/rank authorization tests
-- [ ] 04-18-PLAN.md — Wave 10 (gap CR-08 wire proof) — Multinode real-signer fixture: genuine cross-node redeem accepted, forged issuer with a valid bearer authenticator rejected with baseline capture
 
-**Deferred (recorded, not in this gap-closure set):** CR-07 — room keys live in a process-local store, so a second application process (or a restart without the invite material) cannot decrypt a room's key material. Warning-level; no Phase 4 requirement depends on cross-process key persistence, and no plan in Waves 5-10 addresses it.
+**Wave 11** *(blocked on Wave 10 completion — gap closure)*
+
+- [ ] 04-17-PLAN.md — Wave 11 (gaps CR-03/CR-04) — CanChangeRole concrete-role and strict-rank guards (creator exception preserved) + role/rank authorization tests
+- [ ] 04-18-PLAN.md — Wave 11 (gap CR-08 wire proof) — Multinode real-signer fixture: genuine cross-node redeem accepted, forged issuer with a valid bearer authenticator rejected with baseline capture
+
+**Deferred (recorded, not in this gap-closure set):** CR-07 — room keys live in a process-local store, so a second application process (or a restart without the invite material) cannot decrypt a room's key material. Warning-level; no Phase 4 requirement depends on cross-process key persistence, and no plan in Waves 5-11 addresses it.
 
 **UI hint**: yes
 
