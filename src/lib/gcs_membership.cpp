@@ -49,6 +49,8 @@ constexpr const char *kInviteUrlScheme = "gcs://invite/";
 constexpr const char *kInviteKeyParam  = "key=";
 constexpr const char *kScopeKindSpace  = "space";
 constexpr const char *kScopeKindRoom   = "room";
+/// Domain separator for the canonical bytes an invite issuer signs.
+constexpr const char kInviteIssuerDomain[] = "gcs-invite-issuer-v1";
 
 /**
  * @brief Broadcast topic set for member and invite records (WR-06).
@@ -249,6 +251,26 @@ outcome::result<std::vector<unsigned char>> Base64UrlDecode( const std::string &
     }
     return out;
 }
+
+/**
+ * @brief Build the canonical bytes an invite issuer signs (MEMB-01/CR-08).
+ *
+ * The invite id is explicit because it is the record's KEY, not a record
+ * field — binding it stops a signature being lifted onto another invite. The
+ * issuer_signature field is cleared because a signature cannot cover itself.
+ *
+ * @param[in] inviteId The invite id (the record key's final segment).
+ * @param[in] record   The invite record to canonicalize.
+ * @return domain + '\n' + inviteId + '\n' + serialized record bytes.
+ */
+std::string InviteIssuerPayload( const std::string &inviteId,
+                                 const chat::InviteRecord &record )
+{
+    chat::InviteRecord canonical = record;
+    canonical.clear_issuer_signature();
+    return std::string( kInviteIssuerDomain ) + '\n' + inviteId + '\n'
+           + canonical.SerializeAsString();
+}
 } // namespace
 
 Membership::Membership( CoreSession &session, EntityStore &entities,
@@ -309,6 +331,12 @@ bool Membership::InviteAuthEnabled() const
 {
     return m_keyWrap.enabled && static_cast<bool>( m_keyWrap.mintAuth )
            && static_cast<bool>( m_keyWrap.verifyAuth );
+}
+
+bool Membership::IssuerAuthEnabled() const
+{
+    return m_keyWrap.enabled && static_cast<bool>( m_keyWrap.sign )
+           && static_cast<bool>( m_keyWrap.verifyIssuer );
 }
 
 Membership::ScopeInfo Membership::ResolveScope( const std::string &scopeId ) const
@@ -520,7 +548,19 @@ bool Membership::HasExplicitLeave( const std::string &spaceId ) const
 
 bool Membership::CanInvite( const std::string &scopeId ) const
 {
-    const chat::Role role = LocalRoleFor( scopeId );
+    return CanInviteFor( scopeId, m_sender );
+}
+
+bool Membership::CanInviteFor( const std::string &scopeId,
+                               const std::string &address ) const
+{
+    // Resolve the ADDRESS's stored role exactly as LocalRoleFor resolves the
+    // local sender's (tombstone/absent -> GUEST).
+    chat::MemberRecord record;
+    const chat::Role   role =
+        ( TryReadMember( scopeId, address, record ) && !record.deleted() )
+            ? record.role()
+            : chat::ROLE_GUEST;
     if ( role == chat::ROLE_SUPER_ADMIN || role == chat::ROLE_ADMIN )
     {
         return true;
@@ -625,6 +665,16 @@ outcome::result<std::string> Membership::MintInvite( const std::string &scopeId 
                       scopeId );
         return outcome::failure( sgns::gcs::Error::GcsDbError );
     }
+    // Fail closed (MEMB-01/CR-08): an invite must name and be signed by its
+    // issuer, so no record can be minted without a signing seam. Reject before
+    // the invite key is minted — nothing is written on this path.
+    if ( !IssuerAuthEnabled() )
+    {
+        spdlog::error( "gcs_membership: mint_invite rejected for scope '{}' — "
+                       "invite issuance requires an issuer-signing seam",
+                       scopeId );
+        return outcome::failure( sgns::gcs::Error::GcsDbError );
+    }
 
     const std::string          inviteId = NextInviteId();
     std::vector<unsigned char> inviteKey = crypto::MintRoomKey();
@@ -644,6 +694,9 @@ outcome::result<std::string> Membership::MintInvite( const std::string &scopeId 
     record.set_scope_id( scopeId );
     record.set_role( chat::ROLE_GUEST );
     record.set_is_space( scope.isSpace );
+    // MEMB-01/CR-08: the record names its issuer, C++-stamped from the
+    // minter's identity — never a client-supplied field.
+    record.set_created_by( m_sender );
 
     if ( scope.isSpace )
     {
@@ -754,6 +807,19 @@ outcome::result<std::string> Membership::MintInvite( const std::string &scopeId 
                       inviteId );
     }
 
+    // MEMB-01/CR-08: sign the canonical record BEFORE the Put. Never persist
+    // an unsigned invite — a permissionless-topic writer could otherwise forge
+    // one. The seam returns RAW bytes; hex-encode for the proto3 string field.
+    const std::string issuerPayload = InviteIssuerPayload( inviteId, record );
+    auto              signature     = m_keyWrap.sign( issuerPayload, m_sender );
+    if ( !signature.has_value() )
+    {
+        spdlog::warn( "gcs_membership: mint_invite could not sign invite '{}'",
+                      inviteId );
+        return signature.error();
+    }
+    record.set_issuer_signature( crypto::HexEncode( signature.value() ) );
+
     // Replicate on the well-known membership topic so a recipient that has not
     // joined the scope can find it (WR-06).
     auto putResult = m_session.Put( InviteKey( scopeId, inviteId ),
@@ -763,9 +829,11 @@ outcome::result<std::string> Membership::MintInvite( const std::string &scopeId 
         return putResult.error();
     }
 
+    // The scope segment makes the lookup key explicit and lets redeem verify
+    // the record belongs to the scope the link names (T-04-15-05).
     const std::string scopeKind = scope.isSpace ? kScopeKindSpace : kScopeKindRoom;
-    return std::string( kInviteUrlScheme ) + scopeKind + "/" + inviteId + "?"
-           + kInviteKeyParam + Base64UrlEncode( inviteKey );
+    return std::string( kInviteUrlScheme ) + scopeKind + "/" + scopeId + "/"
+           + inviteId + "?" + kInviteKeyParam + Base64UrlEncode( inviteKey );
 }
 
 outcome::result<void> Membership::RedeemInvite( const std::string &inviteUrl )
@@ -790,17 +858,33 @@ outcome::result<void> Membership::RedeemInvite( const std::string &inviteUrl )
                       scopeKind );
         return outcome::failure( sgns::gcs::Error::GcsDbError );
     }
-    const std::size_t queryPos = inviteUrl.find( '?', scopeKindEnd );
+    // The URL names BOTH the scope and the invite id, so the lookup key is
+    // unambiguous and a retargeted link cannot resolve another scope
+    // (T-04-15-05).
+    const std::size_t scopeIdEnd = inviteUrl.find( '/', scopeKindEnd + 1 );
+    if ( scopeIdEnd == std::string::npos )
+    {
+        spdlog::warn( "gcs_membership: redeem rejected — missing scope id" );
+        return outcome::failure( sgns::gcs::Error::GcsDbError );
+    }
+    const std::string urlScopeId = inviteUrl.substr( scopeKindEnd + 1,
+                                                     scopeIdEnd - scopeKindEnd - 1 );
+    if ( urlScopeId.empty() || urlScopeId.find( '/' ) != std::string::npos )
+    {
+        spdlog::warn( "gcs_membership: redeem rejected — empty or invalid scope id" );
+        return outcome::failure( sgns::gcs::Error::GcsDbError );
+    }
+    const std::size_t queryPos = inviteUrl.find( '?', scopeIdEnd );
     if ( queryPos == std::string::npos )
     {
         spdlog::warn( "gcs_membership: redeem rejected — missing key query" );
         return outcome::failure( sgns::gcs::Error::GcsDbError );
     }
-    const std::string inviteId = inviteUrl.substr( scopeKindEnd + 1,
-                                                   queryPos - scopeKindEnd - 1 );
-    if ( inviteId.empty() )
+    const std::string inviteId = inviteUrl.substr( scopeIdEnd + 1,
+                                                   queryPos - scopeIdEnd - 1 );
+    if ( inviteId.empty() || inviteId.find( '/' ) != std::string::npos )
     {
-        spdlog::warn( "gcs_membership: redeem rejected — empty invite id" );
+        spdlog::warn( "gcs_membership: redeem rejected — empty or invalid invite id" );
         return outcome::failure( sgns::gcs::Error::GcsDbError );
     }
     const std::string query = inviteUrl.substr( queryPos + 1 );
@@ -819,54 +903,39 @@ outcome::result<void> Membership::RedeemInvite( const std::string &inviteUrl )
     }
     const std::vector<unsigned char> inviteKey = decodedKey.value();
 
-    // Scan the invite records for the inviteId (the value carries the record).
-    auto scanResult = m_session.QueryKeyValues( kInvitesKeyPrefix );
-    if ( !scanResult.has_value() )
+    // Fail closed (MEMB-01): without an issuer-verification seam no record can
+    // be attributed, so an unsigned invite is never accepted.
+    if ( !IssuerAuthEnabled() )
     {
-        return scanResult.error();
+        spdlog::warn( "gcs_membership: redeem rejected — no issuer-verification "
+                      "seam is enabled for invite '{}'",
+                      inviteId );
+        return outcome::failure( sgns::gcs::Error::GcsDbError );
+    }
+
+    // Look the record up under the EXACT (scope, invite) key — the global scan
+    // is gone, so a colliding id can never resolve a different scope.
+    const auto storedInvite = m_session.Get( InviteKey( urlScopeId, inviteId ) );
+    if ( !storedInvite.has_value() )
+    {
+        spdlog::warn( "gcs_membership: redeem rejected — invite '{}' not found in "
+                      "scope '{}'",
+                      inviteId, urlScopeId );
+        return outcome::failure( sgns::gcs::Error::GcsDbError );
     }
     chat::InviteRecord invite;
-    unsigned int       matchCount = 0;
-    for ( const auto &entry : scanResult.value() )
+    if ( !invite.ParseFromString( storedInvite.value() ) )
     {
-        if ( SegmentAfterMarker( entry.first, kInvitesKeyPrefix, 1 ) != inviteId )
-        {
-            continue;
-        }
-        chat::InviteRecord candidate;
-        if ( !candidate.ParseFromString( entry.second ) )
-        {
-            spdlog::warn( "gcs_membership: redeem skipping unparseable invite "
-                          "record for '{}'",
-                          inviteId );
-            continue;
-        }
-        if ( matchCount == 0 )
-        {
-            invite = candidate;
-        }
-        ++matchCount;
-    }
-    if ( matchCount == 0 )
-    {
-        spdlog::warn( "gcs_membership: redeem rejected — invite '{}' not found",
+        spdlog::warn( "gcs_membership: redeem rejected — unparseable invite "
+                      "record for '{}'",
                       inviteId );
         return outcome::failure( sgns::gcs::Error::GcsDbError );
     }
-    // WR-04: an invite id must be globally unambiguous; two scopes carrying the
-    // same id would let the lookup resolve an arbitrary scope.
-    if ( matchCount > 1 )
+    // A record stored under a scope key that names another scope is hostile.
+    if ( invite.scope_id() != urlScopeId )
     {
-        spdlog::warn( "gcs_membership: redeem rejected — invite id '{}' is "
-                      "ambiguous across scopes",
-                      inviteId );
-        return outcome::failure( sgns::gcs::Error::GcsDbError );
-    }
-    const std::string scopeId = invite.scope_id();
-    if ( scopeId.empty() )
-    {
-        spdlog::warn( "gcs_membership: redeem rejected — invite '{}' carries no "
-                      "scope",
+        spdlog::warn( "gcs_membership: redeem rejected — invite '{}' scope does "
+                      "not match the URL",
                       inviteId );
         return outcome::failure( sgns::gcs::Error::GcsDbError );
     }
@@ -890,7 +959,7 @@ outcome::result<void> Membership::RedeemInvite( const std::string &inviteUrl )
         bool authenticated = false;
         if ( !invite.authenticator().empty() )
         {
-            auto verifyResult = m_keyWrap.verifyAuth( inviteKey, scopeId, inviteId,
+            auto verifyResult = m_keyWrap.verifyAuth( inviteKey, urlScopeId, inviteId,
                                                       invite.authenticator() );
             authenticated = verifyResult.has_value() && verifyResult.value();
         }
@@ -908,18 +977,135 @@ outcome::result<void> Membership::RedeemInvite( const std::string &inviteUrl )
     // placed at the write block would still have written process-local key
     // state. A removed wallet must not resurrect itself with a stale link.
     chat::MemberRecord existing;
-    const bool         hasExisting = TryReadMember( scopeId, m_sender, existing );
+    const bool         hasExisting = TryReadMember( urlScopeId, m_sender, existing );
     if ( hasExisting && existing.deleted() )
     {
         spdlog::warn( "gcs_membership: redeem rejected — wallet '{}' is tombstoned "
                       "in scope '{}' and cannot redeem invite '{}'",
-                      m_sender, scopeId, inviteId );
+                      m_sender, urlScopeId, inviteId );
         return outcome::failure( sgns::gcs::Error::GcsDbError );
+    }
+
+    // MEMB-01/CR-08: the record must name its issuer and carry a signature
+    // that verifies against that CLAIMED issuer only — a record signed by X
+    // while claiming created_by = Y fails here (T-04-15-02). Signatures are
+    // never logged (T-04-15-06).
+    if ( invite.created_by().empty() || invite.issuer_signature().empty() )
+    {
+        spdlog::warn( "gcs_membership: redeem rejected — invite '{}' is unsigned",
+                      inviteId );
+        return outcome::failure( sgns::gcs::Error::GcsDbError );
+    }
+    auto decodedSignature = crypto::HexDecode( invite.issuer_signature() );
+    if ( !decodedSignature.has_value() )
+    {
+        spdlog::warn( "gcs_membership: redeem rejected — invite '{}' issuer "
+                      "signature is not valid hex",
+                      inviteId );
+        return outcome::failure( sgns::gcs::Error::GcsDbError );
+    }
+    const std::string issuerPayload = InviteIssuerPayload( inviteId, invite );
+    auto              issuerOk      = m_keyWrap.verifyIssuer(
+        invite.created_by(), issuerPayload, decodedSignature.value() );
+    if ( !issuerOk.has_value() || !issuerOk.value() )
+    {
+        spdlog::warn( "gcs_membership: redeem rejected — invite '{}' issuer "
+                      "signature did not verify",
+                      inviteId );
+        return outcome::failure( sgns::gcs::Error::GcsDbError );
+    }
+
+    // D-05 role cap — applied on EVERY redeem, resolved or not, BEFORE the
+    // 04-13 merge. A membersCanInvite MEMBER is an authorized issuer, so
+    // signature verification plus the authority check CANNOT stop it from
+    // taking a genuine record, setting role = ROLE_SUPER_ADMIN, recomputing
+    // the authenticator and re-signing under its own identity: the signature
+    // verifies and the authority check passes. Only this cap prevents a second
+    // Super Admin (T-04-15-08). D-05 states invites grant Guest only.
+    //
+    // T-04-15-04 residual risk: on a cold cross-node redeem the scope may not
+    // resolve locally, so the issuer's roster membership cannot be checked.
+    // MintInvite always stamps GUEST, so any higher role in a signed-but-
+    // unresolvable record was written by a peer self-signing under an identity
+    // it controls; accept only a valid signature plus the GUEST cap, never a
+    // self-declared higher tier.
+    if ( invite.role() != chat::ROLE_GUEST
+         && invite.role() != chat::ROLE_UNSPECIFIED )
+    {
+        spdlog::warn( "gcs_membership: redeem rejected — invite '{}' grants a "
+                      "non-Guest role",
+                      inviteId );
+        return outcome::failure( sgns::gcs::Error::GcsDbError );
+    }
+
+    // Issuer authority, checked only when the scope resolves locally (the cold
+    // cross-node path has no roster to consult).
+    const ScopeInfo urlScope = ResolveScope( urlScopeId );
+    if ( urlScope.found && !CanInviteFor( urlScopeId, invite.created_by() ) )
+    {
+        spdlog::warn( "gcs_membership: redeem rejected — invite '{}' issuer '{}' "
+                      "lacks invite authority in scope '{}'",
+                      inviteId, invite.created_by(), urlScopeId );
+        return outcome::failure( sgns::gcs::Error::GcsDbError );
+    }
+
+    // Wrapped-key scope validation BEFORE any unwrap/store (T-04-15-07). A
+    // scope violation is a hard rejection of the whole redeem; an unresolved
+    // space-invite room id is dropped so StoreRoomKey is never called for an
+    // arbitrary room id.
+    std::vector<chat::WrappedRoomKey> keptWrappedKeys;
+    for ( const chat::WrappedRoomKey &wrapped : invite.wrapped_room_key() )
+    {
+        if ( invite.is_space() && wrapped.room_id() == urlScopeId )
+        {
+            spdlog::warn( "gcs_membership: redeem rejected — space invite '{}' "
+                          "carries its own scope '{}' as a room",
+                          inviteId, urlScopeId );
+            return outcome::failure( sgns::gcs::Error::GcsDbError );
+        }
+        if ( !invite.is_space() )
+        {
+            if ( wrapped.room_id() != urlScopeId )
+            {
+                spdlog::warn( "gcs_membership: redeem rejected — room invite '{}' "
+                              "carries a key for foreign room '{}'",
+                              inviteId, wrapped.room_id() );
+                return outcome::failure( sgns::gcs::Error::GcsDbError );
+            }
+            keptWrappedKeys.push_back( wrapped );
+            continue;
+        }
+        bool        resolved = false;
+        std::string parentSpace;
+        for ( const chat::RoomRecord &room : m_entities.Rooms() )
+        {
+            if ( room.id() == wrapped.room_id() )
+            {
+                resolved    = true;
+                parentSpace = room.parent_space_id();
+                break;
+            }
+        }
+        if ( !resolved )
+        {
+            spdlog::warn( "gcs_membership: redeem dropping a wrapped key for "
+                          "unresolved room '{}' in space invite '{}' (scope '{}')",
+                          wrapped.room_id(), inviteId, urlScopeId );
+            continue;
+        }
+        if ( parentSpace != urlScopeId )
+        {
+            spdlog::warn( "gcs_membership: redeem rejected — space invite '{}' "
+                          "carries a key for room '{}' outside scope '{}'",
+                          inviteId, wrapped.room_id(), urlScopeId );
+            return outcome::failure( sgns::gcs::Error::GcsDbError );
+        }
+        keptWrappedKeys.push_back( wrapped );
     }
 
     // Unwrap each room key and store it locally (wrong key = skip-and-log,
     // never abort the whole redeem — T-04-03-T-2).
-    for ( const chat::WrappedRoomKey &wrapped : invite.wrapped_room_key() )
+    for ( const chat::WrappedRoomKey &wrapped : keptWrappedKeys )
     {
         if ( !KeyWrapEnabled() )
         {
@@ -956,7 +1142,7 @@ outcome::result<void> Membership::RedeemInvite( const std::string &inviteUrl )
     {
         // A fresh member is always a Guest (D-05); the role is never copied
         // from the invite record.
-        mine.set_scope_id( scopeId );
+        mine.set_scope_id( urlScopeId );
         mine.set_address( m_sender );
         mine.set_role( chat::ROLE_GUEST );
         mine.set_deleted( false );
@@ -964,7 +1150,7 @@ outcome::result<void> Membership::RedeemInvite( const std::string &inviteUrl )
         mine.set_pending_action( chat::PENDING_ACTION_UNSPECIFIED );
         mine.set_pending_role( chat::ROLE_UNSPECIFIED );
     }
-    for ( const chat::WrappedRoomKey &wrapped : invite.wrapped_room_key() )
+    for ( const chat::WrappedRoomKey &wrapped : keptWrappedKeys )
     {
         *mine.add_wrapped_room_key() = wrapped;
     }
@@ -973,7 +1159,7 @@ outcome::result<void> Membership::RedeemInvite( const std::string &inviteUrl )
     {
         return writeResult;
     }
-    return PushMemberList( scopeId );
+    return PushMemberList( urlScopeId );
 }
 
 outcome::result<void> Membership::ChangeRole( const std::string &scopeId,
