@@ -33,6 +33,7 @@
 
 #include <functional>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "gcs_core.hpp"        // CoreSession + gcs::outcome alias
@@ -73,6 +74,13 @@ public:
   using VerifyAuthFn = std::function<outcome::result<bool>(
       const std::vector<unsigned char> &inviteKey, const std::string &scopeId,
       const std::string &inviteId, const std::string &authenticator)>;
+  /// Member-scan callable (key prefix -> raw key/value pairs) used by
+  /// AdminCount. Empty means CoreSession::QueryKeyValues (production); the
+  /// narrow seam exists so the fail-closed scan branch of the approval gate is
+  /// exercisable without a broken store, and must not replace any other
+  /// session call.
+  using ScanFn = std::function<outcome::result<
+      std::vector<std::pair<std::string, std::string>>>(const std::string &keyPrefix)>;
 
   /**
    * @brief D-06 injected key-wrap seam — injectable per Membership instance.
@@ -129,10 +137,13 @@ public:
    * @param[in] senderAddress The local wallet address (D-03 authority stamp).
    * @param[in] sink          Plaintext event sink (Dart push plane).
    * @param[in] keyWrap       The injected D-06 seam (defaults to disabled).
+   * @param[in] memberScan    AdminCount's member enumeration seam (defaults to
+   *                          CoreSession::QueryKeyValues). Tests inject a
+   *                          failing scan to exercise the fail-closed branch.
    */
   explicit Membership(CoreSession &session, EntityStore &entities,
                       std::string senderAddress, EventSink sink,
-                      KeyWrapSeam keyWrap = {});
+                      KeyWrapSeam keyWrap = {}, ScanFn memberScan = {});
 
   Membership(const Membership &) = delete;
   Membership &operator=(const Membership &) = delete;
@@ -398,8 +409,17 @@ private:
 
   /**
    * @brief Count live members with SUPER_ADMIN or ADMIN role (D-07 "2+ admins").
+   *
+   * Fails closed: the count gates the D-07 dormancy decision, so a failed member
+   * scan must abort the destructive op rather than read as zero admins (which
+   * would take the immediate-destructive branch). Unparseable or tombstoned
+   * records are still skipped.
+   *
+   * @param[in] scopeId Scope id.
+   * @return outcome::success with the admin-tier count; Error::GcsDbError when
+   *         the member scan fails.
    */
-  unsigned int AdminCount(const std::string &scopeId) const;
+  outcome::result<unsigned int> AdminCount(const std::string &scopeId) const;
 
   /**
    * @brief Resolve a scope id against the entity catalog (Spaces(), Rooms()).
@@ -444,6 +464,7 @@ private:
   std::string  m_sender;     ///< Injected local wallet address (D-03)
   EventSink    m_sink;       ///< Plaintext event sink
   KeyWrapSeam  m_keyWrap;    ///< D-06 injected seam (never called when disabled)
+  ScanFn       m_memberScan; ///< AdminCount member-scan seam (empty = session)
 };
 
 } // namespace gcs

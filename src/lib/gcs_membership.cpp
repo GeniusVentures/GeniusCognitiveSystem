@@ -253,12 +253,13 @@ outcome::result<std::vector<unsigned char>> Base64UrlDecode( const std::string &
 
 Membership::Membership( CoreSession &session, EntityStore &entities,
                         std::string senderAddress, EventSink sink,
-                        KeyWrapSeam keyWrap )
+                        KeyWrapSeam keyWrap, ScanFn memberScan )
     : m_session( session ),
       m_entities( entities ),
       m_sender( std::move( senderAddress ) ),
       m_sink( std::move( sink ) ),
-      m_keyWrap( std::move( keyWrap ) )
+      m_keyWrap( std::move( keyWrap ) ),
+      m_memberScan( std::move( memberScan ) )
 {
 }
 
@@ -367,13 +368,20 @@ bool Membership::IsSuperAdmin( const std::string &scopeId,
     return scope.found && !scope.creator.empty() && scope.creator == address;
 }
 
-unsigned int Membership::AdminCount( const std::string &scopeId ) const
+outcome::result<unsigned int> Membership::AdminCount(
+    const std::string &scopeId ) const
 {
     const std::string prefix = std::string( kMembersKeyPrefix ) + scopeId + "/";
-    auto              scanResult = m_session.QueryKeyValues( prefix );
+    // Fail closed (CR-05): the count gates the D-07 dormancy decision, so a
+    // failed scan must abort the destructive op — reading it as zero admins
+    // would take the immediate-destructive branch.
+    auto scanResult = m_memberScan ? m_memberScan( prefix )
+                                   : m_session.QueryKeyValues( prefix );
     if ( !scanResult.has_value() )
     {
-        return 0;
+        spdlog::warn( "gcs_membership: admin count failed closed for scope '{}'",
+                      scopeId );
+        return outcome::failure( sgns::gcs::Error::GcsDbError );
     }
     unsigned int count = 0;
     for ( const auto &entry : scanResult.value() )
@@ -392,7 +400,7 @@ unsigned int Membership::AdminCount( const std::string &scopeId ) const
             ++count;
         }
     }
-    return count;
+    return outcome::success( count );
 }
 
 outcome::result<void> Membership::WriteMember( const chat::MemberRecord &record )
@@ -990,11 +998,17 @@ outcome::result<void> Membership::ChangeRole( const std::string &scopeId,
 
     // D-07/WR-03: demoting any admin-tier-or-above target (Admin or Super
     // Admin) to a lower rank is destructive; with 2+ admins it goes dormant
-    // (empty approved_by). A Member/Guest demotion stays non-destructive.
+    // (empty approved_by). A Member/Guest demotion stays non-destructive. The
+    // count fails closed — a failed scan aborts rather than reading as zero.
+    const auto adminCount = AdminCount( scopeId );
+    if ( !adminCount.has_value() )
+    {
+        return adminCount.error();
+    }
     const bool isAdminDemotion =
         PrivilegeRank( record.role() ) >= PrivilegeRank( chat::ROLE_ADMIN )
         && PrivilegeRank( role ) < PrivilegeRank( record.role() );
-    if ( isAdminDemotion && AdminCount( scopeId ) > 1 )
+    if ( isAdminDemotion && adminCount.value() > 1 )
     {
         record.set_approved_by( "" );
         record.set_pending_action( chat::PENDING_ACTION_ROLE_CHANGE );
@@ -1035,7 +1049,13 @@ outcome::result<void> Membership::RemoveMember( const std::string &scopeId,
     }
 
     // D-07: dormant when 2+ admins (not tombstoned yet), sole-admin acts alone.
-    if ( AdminCount( scopeId ) > 1 )
+    // The count fails closed — a failed scan aborts rather than reading as zero.
+    const auto adminCount = AdminCount( scopeId );
+    if ( !adminCount.has_value() )
+    {
+        return adminCount.error();
+    }
+    if ( adminCount.value() > 1 )
     {
         record.set_approved_by( "" );
         record.set_pending_action( chat::PENDING_ACTION_REMOVE );
@@ -1089,7 +1109,14 @@ outcome::result<void> Membership::DeleteScope( const std::string &scopeId )
                       scopeId );
         return outcome::failure( sgns::gcs::Error::GcsDbError );
     }
-    const bool needsApproval = AdminCount( scopeId ) > 1;
+    // The count fails closed — a failed scan aborts rather than reading as zero
+    // admins and taking the immediate-destructive branch (CR-05).
+    const auto adminCount = AdminCount( scopeId );
+    if ( !adminCount.has_value() )
+    {
+        return adminCount.error();
+    }
+    const bool needsApproval = adminCount.value() > 1;
 
     for ( const chat::SpaceRecord &space : m_entities.Spaces() )
     {
@@ -1109,11 +1136,13 @@ outcome::result<void> Membership::DeleteScope( const std::string &scopeId )
             desired.set_deleted_at_ms( NowMs() );
         }
         desired.set_updated_at_ms( NowMs() );
-        auto putResult = m_session.Put( std::string( kSpacesKeyPrefix ) + scopeId,
-                                        desired.SerializeAsString() );
-        if ( !putResult.has_value() )
+        // Route the destructive write through the catalog mutator so the
+        // in-memory catalog is never stale when Approve or PushSpaceTree reads
+        // it (CR-06).
+        auto applyResult = m_entities.ApplySpaceState( desired );
+        if ( !applyResult.has_value() )
         {
-            return putResult.error();
+            return applyResult;
         }
         return PushSpaceTree();
     }
@@ -1135,11 +1164,10 @@ outcome::result<void> Membership::DeleteScope( const std::string &scopeId )
             desired.set_deleted_at_ms( NowMs() );
         }
         desired.set_updated_at_ms( NowMs() );
-        auto putResult = m_session.Put( std::string( kRoomsKeyPrefix ) + scopeId,
-                                        desired.SerializeAsString() );
-        if ( !putResult.has_value() )
+        auto applyResult = m_entities.ApplyRoomState( desired );
+        if ( !applyResult.has_value() )
         {
-            return putResult.error();
+            return applyResult;
         }
         return PushSpaceTree();
     }
@@ -1194,58 +1222,90 @@ outcome::result<void> Membership::Approve( const std::string &scopeId,
         }
     }
 
-    // Entity-level dormant DELETE — the target is the scope id itself.
+    // Entity-level dormant DELETE — the target is the scope id itself. The
+    // catalog is consulted ONLY to learn the record's kind; the dormancy
+    // predicate is then evaluated on the authoritative stored bytes so a remote
+    // write or replay cannot make Approve activate a non-dormant record
+    // (T-04-14-03).
     if ( target == scopeId )
     {
+        bool isSpace = false;
+        bool found   = false;
         for ( const chat::SpaceRecord &space : m_entities.Spaces() )
         {
-            if ( space.id() != scopeId )
+            if ( space.id() == scopeId )
             {
-                continue;
-            }
-            if ( !space.approved_by().empty()
-                 || space.pending_action() != chat::PENDING_ACTION_DELETE )
-            {
+                isSpace = true;
+                found   = true;
                 break;
             }
-            chat::SpaceRecord approved = space;
-            approved.set_approved_by( m_sender );
-            approved.set_deleted( true );
-            approved.set_deleted_at_ms( NowMs() );
-            approved.set_updated_at_ms( NowMs() );
-            auto putResult = m_session.Put(
-                std::string( kSpacesKeyPrefix ) + scopeId,
-                approved.SerializeAsString() );
-            if ( !putResult.has_value() )
-            {
-                return putResult.error();
-            }
-            return PushSpaceTree();
         }
-        for ( const chat::RoomRecord &room : m_entities.Rooms() )
+        if ( !found )
         {
-            if ( room.id() != scopeId )
+            for ( const chat::RoomRecord &room : m_entities.Rooms() )
             {
-                continue;
+                if ( room.id() == scopeId )
+                {
+                    isSpace = false;
+                    found   = true;
+                    break;
+                }
             }
-            if ( !room.approved_by().empty()
-                 || room.pending_action() != chat::PENDING_ACTION_DELETE )
+        }
+        if ( found )
+        {
+            // CoreSession::Get returns outcome::result<std::string>: an absent
+            // key and a failed read share the same rejection path.
+            auto getResult = m_session.Get(
+                std::string( isSpace ? kSpacesKeyPrefix : kRoomsKeyPrefix )
+                + scopeId );
+            if ( !getResult.has_value() )
             {
-                break;
+                spdlog::warn( "gcs_membership: approve rejected — record read "
+                              "failed for scope '{}'",
+                              scopeId );
+                return outcome::failure( sgns::gcs::Error::GcsDbError );
             }
-            chat::RoomRecord approved = room;
-            approved.set_approved_by( m_sender );
-            approved.set_deleted( true );
-            approved.set_deleted_at_ms( NowMs() );
-            approved.set_updated_at_ms( NowMs() );
-            auto putResult = m_session.Put(
-                std::string( kRoomsKeyPrefix ) + scopeId,
-                approved.SerializeAsString() );
-            if ( !putResult.has_value() )
+            if ( isSpace )
             {
-                return putResult.error();
+                chat::SpaceRecord approved;
+                if ( approved.ParseFromString( getResult.value() )
+                     && approved.approved_by().empty()
+                     && approved.pending_action()
+                            == chat::PENDING_ACTION_DELETE )
+                {
+                    approved.set_approved_by( m_sender );
+                    approved.set_deleted( true );
+                    approved.set_deleted_at_ms( NowMs() );
+                    approved.set_updated_at_ms( NowMs() );
+                    auto applyResult = m_entities.ApplySpaceState( approved );
+                    if ( !applyResult.has_value() )
+                    {
+                        return applyResult;
+                    }
+                    return PushSpaceTree();
+                }
             }
-            return PushSpaceTree();
+            else
+            {
+                chat::RoomRecord approved;
+                if ( approved.ParseFromString( getResult.value() )
+                     && approved.approved_by().empty()
+                     && approved.pending_action()
+                            == chat::PENDING_ACTION_DELETE )
+                {
+                    approved.set_approved_by( m_sender );
+                    approved.set_deleted( true );
+                    approved.set_deleted_at_ms( NowMs() );
+                    approved.set_updated_at_ms( NowMs() );
+                    auto applyResult = m_entities.ApplyRoomState( approved );
+                    if ( !applyResult.has_value() )
+                    {
+                        return applyResult;
+                    }
+                    return PushSpaceTree();
+                }
+            }
         }
     }
 
