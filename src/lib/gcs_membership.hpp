@@ -31,6 +31,7 @@
 #ifndef GCS_MEMBERSHIP_HPP
 #define GCS_MEMBERSHIP_HPP
 
+#include <cstddef>
 #include <functional>
 #include <string>
 #include <utility>
@@ -74,6 +75,20 @@ public:
   using VerifyAuthFn = std::function<outcome::result<bool>(
       const std::vector<unsigned char> &inviteKey, const std::string &scopeId,
       const std::string &inviteId, const std::string &authenticator)>;
+  /// Issuer-signing callable: (canonical payload bytes, issuer address) ->
+  /// the RAW secp256k1 signature bytes (a binary-safe string of exactly
+  /// kSignatureBytes bytes). Hex conversion happens at the proto boundary,
+  /// never inside the seam.
+  using SignFn = std::function<outcome::result<std::string>(
+      const std::string &payload, const std::string &issuer)>;
+  /// Issuer-verification callable: (issuer address, canonical payload bytes,
+  /// RAW signature bytes) -> verifies?. NOTE the seam order — issuer, payload,
+  /// signature. The adapter into `sgns::GeniusSigner::VerifySignature` MUST
+  /// reorder to (address, signature, data): the payload never occupies the
+  /// signature slot.
+  using VerifyIssuerFn = std::function<outcome::result<bool>(
+      const std::string &issuer, const std::string &payload,
+      const std::string &signature)>;
   /// Member-scan callable (key prefix -> raw key/value pairs) used by
   /// AdminCount. Empty means CoreSession::QueryKeyValues (production); the
   /// narrow seam exists so the fail-closed scan branch of the approval gate is
@@ -90,18 +105,24 @@ public:
    * wrap/unwrap callables are never called and invite records carry no wrapped
    * room keys (the same never-call-when-disabled posture as Messaging's
    * CryptoSeam). The invite authenticator is minted/verified only when the seam
-   * is enabled AND both mintAuth/verifyAuth are set.
+   * is enabled AND both mintAuth/verifyAuth are set. The issuer sign/verify
+   * pair is likewise only used when the seam is enabled AND both are set;
+   * invite minting and redeeming REQUIRE it (fail closed — an unsigned invite
+   * record is never accepted).
    */
   struct KeyWrapSeam {
-    WrapFn wrap;          ///< Wrap callable (empty = no wrapped keys)
-    UnwrapFn unwrap;      ///< Unwrap callable (empty = no wrapped keys)
-    MintAuthFn mintAuth;  ///< Authenticator mint callable (empty = auth off)
+    WrapFn wrap;             ///< Wrap callable (empty = no wrapped keys)
+    UnwrapFn unwrap;         ///< Unwrap callable (empty = no wrapped keys)
+    MintAuthFn mintAuth;     ///< Authenticator mint callable (empty = auth off)
     VerifyAuthFn verifyAuth; ///< Authenticator verify callable (empty = auth off)
-    bool   enabled;       ///< Master switch for the D-06 path
+    SignFn sign;             ///< Issuer sign callable (empty = issuer auth off)
+    VerifyIssuerFn verifyIssuer; ///< Issuer verify callable (empty = issuer auth off)
+    bool   enabled;          ///< Master switch for the D-06 path
 
     /// Default-constructs a disabled, empty seam (no wrapped keys, no auth).
     KeyWrapSeam()
-        : wrap(), unwrap(), mintAuth(), verifyAuth(), enabled( false )
+        : wrap(), unwrap(), mintAuth(), verifyAuth(), sign(), verifyIssuer(),
+          enabled( false )
     {
     }
   };
@@ -125,6 +146,11 @@ public:
   /// init (production registration in 04-11, exercised in 04-12). The scope id
   /// stays in the record KEY, never in the topic.
   static constexpr const char *kMembershipTopic = "gcs/membership/replication";
+
+  /// Raw secp256k1 signature length in bytes (64) — the ONE home for this
+  /// length. The FFI adapter (04-16) and the multinode fixture (04-18) MUST
+  /// reference this constant instead of a literal 64.
+  static constexpr std::size_t kSignatureBytes = 64;
 
   /**
    * @brief Construct the component, storing its dependencies only.
@@ -186,25 +212,33 @@ public:
    * @brief Mint a capability-token invite link (D-05/D-06/MEMB-01).
    *
    * Validates the scope is a live space or standalone room, enforces CanInvite
-   * (MEMB-05), mints an opaque invite id + a random bearer key IK, wraps the
-   * target room key(s) under IK, persists ONE InviteRecord under
+   * (MEMB-05), requires the issuer-signature seam (fail closed), mints an
+   * opaque invite id + a random bearer key IK, wraps the target room key(s)
+   * under IK, stamps the issuing wallet (created_by) and its signature over
+   * the canonical record, persists ONE InviteRecord under
    * gcs/invites/<scopeId>/<inviteId>, and writes NO member record (the
    * recipient wallet is unknown until redeem).
    *
    * @param[in] scopeId Space id or standalone room id.
    * @return outcome::success with the
-   *         gcs://invite/{space|room}/<inviteId>?key=<IK> URL; Error when the
-   *         scope is invalid, the sender lacks invite permission, key minting
-   *         fails, or the invite-record Put fails.
+   *         gcs://invite/{space|room}/<scopeId>/<inviteId>?key=<IK> URL; Error
+   *         when the scope is invalid, the sender lacks invite permission, the
+   *         issuer seam is unavailable, key minting/signing fails, or the
+   *         invite-record Put fails.
    */
   outcome::result<std::string> MintInvite(const std::string &scopeId);
 
   /**
    * @brief Redeem an invite link: unwrap keys, deliver key material (D-05).
    *
-   * Re-parses the exact gcs://invite/{space|room}/<inviteId>?key=<key> shape,
-   * scans for the invite record by inviteId, verifies the bearer authenticator,
-   * then unwraps each wrapped room key (skip-and-log on a wrong key — never
+   * Re-parses the exact
+   * gcs://invite/{space|room}/<scopeId>/<inviteId>?key=<key> shape, looks the
+   * record up under InviteKey(scopeId, inviteId), cross-checks the record's
+   * scope and kind, verifies the bearer authenticator and the issuer signature
+   * (rejecting an unsigned or foreign record and an issuer without invite
+   * authority when the scope resolves locally), enforces the D-05 GUEST role
+   * cap on every redeem, then unwraps each scope-validated wrapped room key
+   * (undecryptable envelopes of a kept entry are skipped and logged — never
    * aborting the whole redeem) and stores them in the per-room key store.
    *
    * The redeemer's own wallet-keyed member record is then merged, not
@@ -377,8 +411,29 @@ private:
   ///        set (WR-04 — every invite is bearer-gated when this holds).
   bool InviteAuthEnabled() const;
 
+  /// @brief Whether the issuer-signature seam is enabled AND both callables set.
+  ///
+  /// Invite minting and redeeming REQUIRE this (fail closed): without it no
+  /// record can be signed at mint and no record can be attributed at redeem,
+  /// so both operations are rejected rather than silently accepting an
+  /// unsigned record.
+  bool IssuerAuthEnabled() const;
+
   /// @brief Whether the local sender may mint an invite (MEMB-05/D-08).
   bool CanInvite(const std::string &scopeId) const;
+
+  /// @brief Whether @p address may mint an invite in @p scopeId (MEMB-05/D-08).
+  ///
+  /// Resolves the ADDRESS's stored role exactly as LocalRoleFor resolves the
+  /// local sender's (tombstone/absent -> ROLE_GUEST), then applies the
+  /// unchanged creator/admin/member-with-gate rule. Used at redeem to check a
+  /// third-party issuer's authority.
+  ///
+  /// @param[in] scopeId Scope id.
+  /// @param[in] address Candidate issuer wallet address.
+  /// @return true only when the address may mint an invite in the scope.
+  bool CanInviteFor(const std::string &scopeId,
+                    const std::string &address) const;
 
   /// @brief Whether the local sender may apply the requested role change.
   bool CanChangeRole(const std::string &scopeId, const std::string &target,

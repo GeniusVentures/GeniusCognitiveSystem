@@ -280,6 +280,15 @@ message InviteRecord {
                                                  // invite authority, verified at redeem
                                                  // BEFORE any member-record write (it gates
                                                  // invites that carry no room-key material)
+  string created_by = 6;                         // issuing wallet address, C++-stamped from
+                                                 // the minter's identity (MEMB-01/CR-08)
+  string issuer_signature = 7;                   // issuer's secp256k1 signature over the
+                                                 // canonical invite payload, hex-encoded
+                                                 // because this is a proto3 string field
+                                                 // (same rule as `authenticator`); a
+                                                 // signature cannot cover itself, so the
+                                                 // payload serializes the record with this
+                                                 // field cleared
 }
 
 // Data-only commands (D-27: data-only; C++ stamps authority — the id, invite

@@ -63,6 +63,32 @@ constexpr const char kInviteAuthMarkerPrefix[] = "gcs-invite-auth-marker-v1";
 /// to kRoomKeyLengthBytes so the marker seals with the existing 32-byte wrap.
 constexpr size_t kInviteAuthMarkerLengthBytes = 32;
 
+// === Hex codec (single implementation) ===
+//
+// Binary values travel in proto3 `string` fields as lowercase hex — the invite
+// `authenticator` and `issuer_signature` envelopes both need this, and a proto3
+// string field rejects raw binary on parse (UTF-8 validation). These two
+// functions are the ONE hex implementation in the codebase (invariant 11);
+// callers must not inline a second copy.
+
+/**
+ * @brief Hex-encode binary bytes into an ASCII-safe lowercase string.
+ *
+ * @param[in] bytes The binary bytes (e.g. an AES-GCM envelope or a raw
+ *                  secp256k1 signature).
+ * @return The lowercase hex text (two characters per input byte).
+ */
+std::string HexEncode(const std::string &bytes);
+
+/**
+ * @brief Decode ASCII hex text back to binary bytes.
+ *
+ * @param[in] hex The lowercase or uppercase hex text.
+ * @return outcome::success with the binary bytes; outcome::failure on an odd
+ *         length or a non-hex character (a parse failure, never an exception).
+ */
+outcome::result<std::string> HexDecode(const std::string &hex);
+
 /**
  * @brief Mint a fresh random 32-byte room key (D-06).
  *

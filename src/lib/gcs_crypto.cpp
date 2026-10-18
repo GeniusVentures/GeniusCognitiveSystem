@@ -47,25 +47,6 @@ namespace
     constexpr int kHexLetterOffset = 10;
 
     /**
-     * @brief Hex-encode binary bytes into an ASCII-safe string.
-     *
-     * @param[in] bytes The binary envelope bytes.
-     * @return The lowercase hex text.
-     */
-    std::string HexEncode( const std::string &bytes )
-    {
-        std::string out;
-        out.reserve( bytes.size() * kHexCharsPerByte );
-        for ( const unsigned char byte : bytes )
-        {
-            out.push_back(
-                kHexDigits[( byte >> kHexBitsPerDigit ) & kHexDigitMask] );
-            out.push_back( kHexDigits[byte & kHexDigitMask] );
-        }
-        return out;
-    }
-
-    /**
      * @brief Decode one hex character.
      *
      * @param[in] c The character.
@@ -86,35 +67,6 @@ namespace
             return c - 'A' + kHexLetterOffset;
         }
         return -1;
-    }
-
-    /**
-     * @brief Decode ASCII hex text back to binary bytes.
-     *
-     * @param[in] text The hex text.
-     * @return outcome::success with the bytes; outcome::failure on an odd
-     *         length or an invalid character (a parse failure).
-     */
-    outcome::result<std::string> HexDecode( const std::string &text )
-    {
-        if ( text.size() % kHexCharsPerByte != 0 )
-        {
-            return outcome::failure( sgns::gcs::Error::GcsDbError );
-        }
-        std::string out;
-        out.reserve( text.size() / kHexCharsPerByte );
-        for ( std::size_t i = 0; i < text.size(); i += kHexCharsPerByte )
-        {
-            const int high = HexValue( text[i] );
-            const int low  = HexValue( text[i + 1] );
-            if ( high < 0 || low < 0 )
-            {
-                return outcome::failure( sgns::gcs::Error::GcsDbError );
-            }
-            out.push_back(
-                static_cast<char>( ( high << kHexBitsPerDigit ) | low ) );
-        }
-        return out;
     }
 
     /**
@@ -200,6 +152,39 @@ namespace
         return store;
     }
 } // namespace
+
+std::string HexEncode( const std::string &bytes )
+{
+    std::string out;
+    out.reserve( bytes.size() * kHexCharsPerByte );
+    for ( const unsigned char byte : bytes )
+    {
+        out.push_back( kHexDigits[( byte >> kHexBitsPerDigit ) & kHexDigitMask] );
+        out.push_back( kHexDigits[byte & kHexDigitMask] );
+    }
+    return out;
+}
+
+outcome::result<std::string> HexDecode( const std::string &text )
+{
+    if ( text.size() % kHexCharsPerByte != 0 )
+    {
+        return outcome::failure( sgns::gcs::Error::GcsDbError );
+    }
+    std::string out;
+    out.reserve( text.size() / kHexCharsPerByte );
+    for ( std::size_t i = 0; i < text.size(); i += kHexCharsPerByte )
+    {
+        const int high = HexValue( text[i] );
+        const int low  = HexValue( text[i + 1] );
+        if ( high < 0 || low < 0 )
+        {
+            return outcome::failure( sgns::gcs::Error::GcsDbError );
+        }
+        out.push_back( static_cast<char>( ( high << kHexBitsPerDigit ) | low ) );
+    }
+    return out;
+}
 
 std::vector<unsigned char> MintRoomKey()
 {
