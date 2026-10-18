@@ -19,7 +19,7 @@
 ///                not wipe the room the user is reading)
 ///   memberList -> MembersCubit.setMembers(scopeId, members, selfAddress)
 ///                (D-04 full-replacement roster + pushed "You" marker)
-///   inviteLink -> pendingInviteLink (D-05 pushed capability link)
+///   inviteLink -> scope-keyed pending link (D-05 pushed capability link)
 ///   error    -> session error surface (raw string per D-29)
 ///
 /// Rail selection is watched too (review P1): the active-room gate above
@@ -160,11 +160,29 @@ class SessionCubit extends Cubit<SessionState> implements GcsCommandTransport {
   bool _nativeShutdownDone = false;
   StreamSubscription<RailState>? _railSubscription;
   String? _lastSeenActiveRoom;
-  String? _pendingInviteLink;
 
-  /// The most recently pushed `InviteLink.url`, if any (D-05). The invite
-  /// view/queue consumes it; null until C++ pushes a link.
-  String? get pendingInviteLink => _pendingInviteLink;
+  /// Pushed capability links, keyed by the scope they were minted for
+  /// (WR-07). The scope key comes from `InviteLink.scopeId` -- C++ owns the
+  /// authority; Dart never recovers a scope by parsing the URL.
+  final Map<String, String> _pendingInviteLinks = <String, String>{};
+
+  /// The most recently pushed `InviteLink.url` minted for [scopeId], if any
+  /// (D-05). The invite view consumes it; null until C++ pushes a link for
+  /// that scope.
+  String? pendingInviteLinkFor(String scopeId) => _pendingInviteLinks[scopeId];
+
+  /// Drops the pending link minted for [scopeId], emitting a fresh state so
+  /// an open invite view for that scope falls back to its loading sub-state.
+  ///
+  /// Called from the invite drawer's close path -- clear-on-close, never
+  /// clear-on-read: the push's own emission is what delivers the link to the
+  /// view, so clearing on read would blank the rebuild that carried it.
+  void clearPendingInviteLink(String scopeId) {
+    if (_pendingInviteLinks.remove(scopeId) == null) {
+      return;
+    }
+    emit(state.copyWith());
+  }
 
   /// Creates the production session, resolving the gcs_ffi shared library
   /// from [kFfiLibraryEnvVar], falling back to the packaged location next to
@@ -511,10 +529,16 @@ class SessionCubit extends Cubit<SessionState> implements GcsCommandTransport {
       return;
     }
     if (event.hasInviteLink()) {
-      // D-05: the pushed capability link is held for the invite view/queue
-      // (plan 04-07) and opened on demand -- Dart never mints or re-signs it.
-      _pendingInviteLink = event.inviteLink.url;
-      // The link lives beside the state, not in it, so the invite view needs
+      // D-05 + WR-07: the pushed capability link is held for the invite
+      // view, keyed by the scope C++ stamped on it. Dart never mints,
+      // re-signs, or URL-parses a link, and a link with no scope id is not
+      // actionable -- skip it rather than filing it under an empty key.
+      final String scopeId = event.inviteLink.scopeId;
+      if (scopeId.isEmpty) {
+        return;
+      }
+      _pendingInviteLinks[scopeId] = event.inviteLink.url;
+      // The links live beside the state, not in it, so the invite view needs
       // an emission to rebuild on the push (plan 04-07: "the invite view
       // renders whatever link the C++ pushed" -- a silent assignment would
       // leave it showing its loading sub-state forever). A fresh copyWith()

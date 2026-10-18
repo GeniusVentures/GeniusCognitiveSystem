@@ -1108,13 +1108,57 @@ void main() {
     test('pushed InviteLink is held for the invite view (D-05)', () {
       final SessionCubit cubit = SessionCubit();
       addTearDown(cubit.close);
-      expect(cubit.pendingInviteLink, isNull);
+      expect(cubit.pendingInviteLinkFor('space-1'), isNull);
 
       cubit.handlePushedBytes(
-        (GcsEvent()..inviteLink = (InviteLink()..url = 'gcs://invite/abc'))
+        (GcsEvent()
+              ..inviteLink = (InviteLink()
+                ..scopeId = 'space-1'
+                ..url = 'gcs://invite/abc'))
             .writeToBuffer(),
       );
-      expect(cubit.pendingInviteLink, 'gcs://invite/abc');
+      expect(cubit.pendingInviteLinkFor('space-1'), 'gcs://invite/abc');
+      expect(cubit.pendingInviteLinkFor('space-2'), isNull);
+    });
+
+    test('pushed InviteLink is not reachable from another scope (WR-07)', () {
+      final SessionCubit cubit = SessionCubit();
+      addTearDown(cubit.close);
+
+      cubit.handlePushedBytes(
+        (GcsEvent()
+              ..inviteLink = (InviteLink()
+                ..scopeId = 'space-1'
+                ..url = 'gcs://invite/space-1-token'))
+            .writeToBuffer(),
+      );
+
+      // T-04-10-01: the link minted for space-1 must never surface as
+      // space-2's capability token.
+      expect(
+        cubit.pendingInviteLinkFor('space-1'),
+        'gcs://invite/space-1-token',
+      );
+      expect(cubit.pendingInviteLinkFor('space-2'), isNull);
+    });
+
+    test('clearPendingInviteLink empties the scope entry (T-04-10-02)', () {
+      final SessionCubit cubit = SessionCubit();
+      addTearDown(cubit.close);
+
+      cubit.handlePushedBytes(
+        (GcsEvent()
+              ..inviteLink = (InviteLink()
+                ..scopeId = 'space-1'
+                ..url = 'gcs://invite/abc'))
+            .writeToBuffer(),
+      );
+      expect(cubit.pendingInviteLinkFor('space-1'), 'gcs://invite/abc');
+
+      cubit.clearPendingInviteLink('space-1');
+      expect(cubit.pendingInviteLinkFor('space-1'), isNull);
+      // A later read for another scope is still null (no fallback bucket).
+      expect(cubit.pendingInviteLinkFor('space-2'), isNull);
     });
 
     test(
