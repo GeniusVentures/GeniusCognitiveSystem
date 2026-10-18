@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: GCS Chat
 status: executing
-stopped_at: Completed 04-14 plan (catalog-consistent destructive entity writes)
-last_updated: "2026-10-18T23:38:17.642Z"
+stopped_at: Completed 04-15-PLAN.md
+last_updated: "2026-10-18T23:49:30.878Z"
 last_activity: 2026-10-18
 progress:
   total_phases: 7
   completed_phases: 3
   total_plans: 40
-  completed_plans: 36
+  completed_plans: 37
   percent: 43
 ---
 
@@ -26,11 +26,11 @@ See: .planning/workstreams/app/PROJECT.md (updated 2026-09-22)
 ## Current Position
 
 Phase: 04 (membership-invites) — EXECUTING
-Plan: 15 of 18
+Plan: 16 of 18
 Status: Ready to execute
 Last activity: 2026-10-18
 
-Progress: [█████████░] 90%
+Progress: [█████████░] 93%
 
 ## Performance Metrics
 
@@ -70,6 +70,7 @@ Progress: [█████████░] 90%
 | Phase 04 P12 | 6min | 3 tasks | 1 files |
 | Phase 04 P13 | 10min | 2 tasks | 3 files |
 | Phase 04 P14 | 15min | 3 tasks | 6 files |
+| Phase 04 P15 | 16min | 3 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -131,6 +132,10 @@ Recent decisions affecting current work:
 - [Phase 04]: ApplySpaceState/ApplyRoomState are full-state entity writes: the session is authoritative, so no immutable preservation or timestamp restamp; the catalog mirrors the stored record and tombstoned entries stay in the map
 - [Phase 04]: Approve's entity branch learns only the record kind from the catalog, then evaluates the dormancy predicate on the freshly re-read authoritative bytes
 - [Phase 04]: AdminCount fails closed (Error::GcsDbError) because it gates the D-07 immediate-destructive branch; ChangeRole, RemoveMember, and DeleteScope propagate it
+- [Phase 04]: Invite mint and redeem fail closed without the issuer seam (KeyWrapSeam sign + verifyIssuer) — an unsigned InviteRecord on a permissionless CRDT topic is forgeable by any writer (CR-08)
+- [Phase 04]: The issuer signature covers domain + invite id + the record with issuer_signature cleared, and verification binds the CLAIMED created_by — a signature that does not name its signer can be replayed under a different issuer
+- [Phase 04]: The D-05 GUEST role cap applies on every redeem; issuer authority is checked only when the scope resolves locally — an authorized membersCanInvite member could otherwise self-sign an escalation, and a cold node cannot resolve remote roles (T-04-15-04)
+- [Phase 04]: Invite URLs carry kind/scope/invite and redeem does an exact InviteKey(scope, invite) lookup instead of a global scan — the URL scope must match the record scope or a colliding invite id could be redeemed across scopes
 
 ### Pending Todos
 
@@ -156,7 +161,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-10-18T23:38:17.635Z
-Stopped at: Completed 04-14 plan (catalog-consistent destructive entity writes)
+Last session: 2026-10-18T23:49:30.870Z
+Stopped at: Completed 04-15-PLAN.md
 Resume file: 
 None

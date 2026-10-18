@@ -153,7 +153,7 @@ Plans:
   4. Super Admin cannot be demoted by other admins
   5. When 2+ admins exist, destructive actions require Super Admin approval
 
-**Plans:** 14/18 plans executed
+**Plans:** 15/18 plans executed
 
 Plans:
 **Wave 1**
@@ -196,7 +196,7 @@ Plans:
 
 **Wave 9** *(blocked on Wave 8 completion — gap closure)*
 
-- [ ] 04-15-PLAN.md — Wave 9 (gap CR-08) — Issuer-signed invite records: append-only created_by/issuer_signature, public hex codec, sign/verify seam, scoped URL + exact-key lookup, redeem signature/authority/scope checks, unit forgery/authority/scope proofs
+- [x] 04-15-PLAN.md — Wave 9 (gap CR-08) — Issuer-signed invite records: append-only created_by/issuer_signature, public hex codec, sign/verify seam, scoped URL + exact-key lookup, redeem signature/authority/scope checks, unit forgery/authority/scope proofs
 
 **Wave 10** *(blocked on Wave 9 completion — gap closure)*
 
@@ -267,7 +267,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 1. Foundation | 11/11 | Complete | 2026-09-16 |
 | 2. Spaces & Rooms | 5/5 | Complete   | 2026-09-19 |
 | 3. Messaging | 6/6 | Complete   | 2026-09-24 |
-| 4. Membership & Invites | 14/18 | In Progress|  |
+| 4. Membership & Invites | 15/18 | In Progress|  |
 | 5. Moderation | 0/TBD | Not started | - |
 | 6. GCS Bot | 0/TBD | Not started | - |
 | 7. Discovery | 0/TBD | Not started | - |
