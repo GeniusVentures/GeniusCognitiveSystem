@@ -189,19 +189,27 @@ public:
   outcome::result<std::string> MintInvite(const std::string &scopeId);
 
   /**
-   * @brief Redeem an invite link: unwrap keys, write the member record (D-05).
+   * @brief Redeem an invite link: unwrap keys, deliver key material (D-05).
    *
    * Re-parses the exact gcs://invite/{space|room}/<inviteId>?key=<key> shape,
-   * scans for the invite record by inviteId, unwraps each wrapped room key
-   * (skip-and-log on a wrong key — never aborting the whole redeem), stores
-   * them in the per-room key store, then writes the redeemer's own
-   * wallet-keyed member record with the invite record's C++-stamped role and
-   * pushes the roster. The invite record is never consumed (multi-use).
+   * scans for the invite record by inviteId, verifies the bearer authenticator,
+   * then unwraps each wrapped room key (skip-and-log on a wrong key — never
+   * aborting the whole redeem) and stores them in the per-room key store.
+   *
+   * The redeemer's own wallet-keyed member record is then merged, not
+   * overwritten: an existing LIVE member keeps its stored role, approved_by,
+   * pending_action, pending_role, deleted and explicit_leave — only the
+   * carried key material is refreshed, so a redeem can never grant a role or
+   * cancel a dormant destructive op (a pending removal is activated only by
+   * Approve). A record that does not yet exist is written as ROLE_GUEST. A
+   * TOMBSTONED record is rejected immediately after the authenticator gate and
+   * before the unwrap loop — neither a member record nor a room key is written
+   * (CR-01/CR-02). The invite record is never consumed (multi-use).
    *
    * @param[in] inviteUrl The full invite link to redeem.
    * @return outcome::success once the member record is written and the roster
-   *         pushed; Error on a malformed URL, an unknown invite, or a failed
-   *         write.
+   *         pushed; Error on a malformed URL, an unknown invite, an
+   *         unauthenticated bearer key, a tombstoned wallet, or a failed write.
    */
   outcome::result<void> RedeemInvite(const std::string &inviteUrl);
 

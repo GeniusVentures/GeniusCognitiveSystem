@@ -895,6 +895,20 @@ outcome::result<void> Membership::RedeemInvite( const std::string &inviteUrl )
         }
     }
 
+    // CR-02: reject a tombstoned redeemer BEFORE the unwrap loop. The ordering
+    // is deliberate — the unwrap loop calls crypto::StoreRoomKey, so a rejection
+    // placed at the write block would still have written process-local key
+    // state. A removed wallet must not resurrect itself with a stale link.
+    chat::MemberRecord existing;
+    const bool         hasExisting = TryReadMember( scopeId, m_sender, existing );
+    if ( hasExisting && existing.deleted() )
+    {
+        spdlog::warn( "gcs_membership: redeem rejected — wallet '{}' is tombstoned "
+                      "in scope '{}' and cannot redeem invite '{}'",
+                      m_sender, scopeId, inviteId );
+        return outcome::failure( sgns::gcs::Error::GcsDbError );
+    }
+
     // Unwrap each room key and store it locally (wrong key = skip-and-log,
     // never abort the whole redeem — T-04-03-T-2).
     for ( const chat::WrappedRoomKey &wrapped : invite.wrapped_room_key() )
@@ -915,22 +929,33 @@ outcome::result<void> Membership::RedeemInvite( const std::string &inviteUrl )
                               unwrapped.value() );
     }
 
-    // Write the redeemer's OWN wallet-keyed member record with the invite
-    // record's C++-stamped role (never client-supplied, D-05). The invite
-    // record is NOT consumed — N redeemers each write their own record.
-    chat::Role role = invite.role();
-    if ( role == chat::ROLE_UNSPECIFIED )
-    {
-        role = chat::ROLE_GUEST;
-    }
+    // Write the redeemer's OWN wallet-keyed member record. The invite record is
+    // NOT consumed — N redeemers each write their own record.
+    //
+    // CR-01: redeem delivers KEY MATERIAL only. It never grants or revokes a
+    // role, never cancels a pending destructive op, and never revives a
+    // tombstone. An existing live member keeps its stored role, approved_by,
+    // pending_action, pending_role, deleted and explicit_leave; only the
+    // carried key material is refreshed. A pending removal is activated only by
+    // Approve.
     chat::MemberRecord mine;
-    mine.set_scope_id( scopeId );
-    mine.set_address( m_sender );
-    mine.set_role( role );
-    mine.set_deleted( false );
-    mine.set_approved_by( "" );
-    mine.set_pending_action( chat::PENDING_ACTION_UNSPECIFIED );
-    mine.set_pending_role( chat::ROLE_UNSPECIFIED );
+    if ( hasExisting )
+    {
+        mine = existing;
+        mine.clear_wrapped_room_key();
+    }
+    else
+    {
+        // A fresh member is always a Guest (D-05); the role is never copied
+        // from the invite record.
+        mine.set_scope_id( scopeId );
+        mine.set_address( m_sender );
+        mine.set_role( chat::ROLE_GUEST );
+        mine.set_deleted( false );
+        mine.set_approved_by( "" );
+        mine.set_pending_action( chat::PENDING_ACTION_UNSPECIFIED );
+        mine.set_pending_role( chat::ROLE_UNSPECIFIED );
+    }
     for ( const chat::WrappedRoomKey &wrapped : invite.wrapped_room_key() )
     {
         *mine.add_wrapped_room_key() = wrapped;
