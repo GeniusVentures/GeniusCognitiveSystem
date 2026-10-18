@@ -338,12 +338,14 @@ namespace
         std::unique_ptr<gcs::CoreSession> session;
         std::unique_ptr<gcs::EntityStore> entities;
         std::unique_ptr<gcs::Messaging> messaging;
+        std::unique_ptr<gcs::Membership> membership;
         if ( g_session != nullptr )
         {
             g_dartPort = 0; // unregister the port BEFORE teardown
-            session   = std::move( g_session );
-            entities  = std::move( g_entities );
-            messaging = std::move( g_messaging );
+            session    = std::move( g_session );
+            entities   = std::move( g_entities );
+            messaging  = std::move( g_messaging );
+            membership = std::move( g_membership );
             g_roomTopics.clear();
             g_derivedTopics.clear();
             g_explicitTopics.clear();
@@ -381,7 +383,14 @@ namespace
             // failures are logged and never propagate to the Put result.
             // Queued records therefore land locally; the skipped announcement
             // is healed by the sender's own replication.
+            //
+            // WR-01: Membership borrows BOTH the session and the entity
+            // catalog by reference, so it must be destroyed while both are
+            // still alive. It owns no worker thread (unlike Messaging, whose
+            // archive drain is why it resets first), so it resets in the same
+            // phase as Messaging — before session->Shutdown().
             messaging.reset();
+            membership.reset();
             session->Shutdown();
             entities.reset();
             session.reset();
