@@ -53,6 +53,15 @@ constexpr size_t kRoomKeyLengthBytes = 32;
 constexpr const char kMessagesHkdfSalt[] = "gcs-messages-hkdf-v1";
 /// Fixed HKDF info string (domain separator) — pinned in 03-API-SIGNATURES §5.6.
 constexpr const char kMessagesHkdfInfo[] = "gcs-messages-v1";
+/// Fixed HKDF salt (domain separator) for the invite-authenticator key (WR-04).
+constexpr const char kInviteAuthHkdfSalt[] = "gcs-invite-auth-hkdf-v1";
+/// Fixed HKDF info string (domain separator) for the invite-authenticator key.
+constexpr const char kInviteAuthHkdfInfo[] = "gcs-invite-auth-v1";
+/// Fixed, domain-separating prefix for the invite-authenticator marker digest.
+constexpr const char kInviteAuthMarkerPrefix[] = "gcs-invite-auth-marker-v1";
+/// Invite-authenticator marker length in bytes — the SHA-256 digest size; equal
+/// to kRoomKeyLengthBytes so the marker seals with the existing 32-byte wrap.
+constexpr size_t kInviteAuthMarkerLengthBytes = 32;
 
 /**
  * @brief Mint a fresh random 32-byte room key (D-06).
@@ -200,6 +209,59 @@ outcome::result<std::string> WrapRoomKey(const std::vector<unsigned char> &membe
  */
 outcome::result<std::vector<unsigned char>> UnwrapRoomKey(
     const std::vector<unsigned char> &memberKey, const std::string &envelope);
+
+/**
+ * @brief Compute the deterministic invite-authenticator marker (WR-04).
+ *
+ * The marker is a SHA-256 digest over the domain-separated pair
+ * (`kInviteAuthMarkerPrefix`, scopeId, inviteId). Binding BOTH ids is
+ * mandatory: an authenticator lifted from one invite must not verify another
+ * (T-04-09-07).
+ *
+ * @param[in] scopeId  The invite's scope id.
+ * @param[in] inviteId The invite id.
+ * @return The kInviteAuthMarkerLengthBytes-byte marker; an EMPTY vector when
+ *         the digest fails (documented empty-on-failure contract).
+ */
+std::vector<unsigned char> InviteAuthMarker(const std::string &scopeId,
+                                            const std::string &inviteId);
+
+/**
+ * @brief Mint an invite authenticator bound to an invite (WR-04).
+ *
+ * Derives an auth key from @p inviteKey through HKDF-SHA256 with the
+ * invite-domain salt/info (D-06/D-08 derivation discipline), then seals
+ * InviteAuthMarker(scopeId, inviteId) with the module's existing 32-byte
+ * AES-256-GCM wrap. The returned std::string is binary-safe.
+ *
+ * @param[in] inviteKey The 32-byte bearer/invite key from the URL.
+ * @param[in] scopeId   The invite's scope id.
+ * @param[in] inviteId  The invite id.
+ * @return outcome::success with the binary authenticator envelope; Error on a
+ *         wrong key size or any interior HKDF/wrap failure.
+ */
+outcome::result<std::string> MintInviteAuthenticator(
+    const std::vector<unsigned char> &inviteKey, const std::string &scopeId,
+    const std::string &inviteId);
+
+/**
+ * @brief Verify an invite authenticator against the bearer key (WR-04).
+ *
+ * Re-derives the auth key, unseals the authenticator, and constant-time
+ * compares the result against InviteAuthMarker(scopeId, inviteId). Never
+ * throws and never logs.
+ *
+ * @param[in] inviteKey     The bearer/invite key from the URL.
+ * @param[in] scopeId       The invite's scope id.
+ * @param[in] inviteId      The invite id.
+ * @param[in] authenticator The stored authenticator envelope.
+ * @return outcome::success(true) only on an exact match;
+ *         outcome::success(false) for any mismatch or parse failure; Error
+ *         only for an interior failure.
+ */
+outcome::result<bool> VerifyInviteAuthenticator(
+    const std::vector<unsigned char> &inviteKey, const std::string &scopeId,
+    const std::string &inviteId, const std::string &authenticator);
 
 } // namespace gcs::crypto
 

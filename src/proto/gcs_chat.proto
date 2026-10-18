@@ -260,6 +260,8 @@ message MemberList {
 // Pushed `gcs://invite/...` capability link (D-05).
 message InviteLink {
   string url = 1;
+  string scope_id = 2; // scope authority for the pushed capability link (WR-07;
+                       // Dart keys the pending link by scope id, never parses it)
 }
 
 // Write-at-redeem invite grant, persisted under `gcs/invites/<scopeId>/<inviteId>`
@@ -269,6 +271,15 @@ message InviteRecord {
   string scope_id = 1;
   Role role = 2;                                 // C++-stamped grant (Guest default, D-05)
   repeated WrappedRoomKey wrapped_room_key = 3;  // room key(s) wrapped under the invite key IK
+  bool is_space = 4;                             // C++-stamped scope kind, cross-checked
+                                                 // against the URL's `{space|room}` segment
+                                                 // at redeem (an entity-catalog lookup
+                                                 // cannot be used — the redeemer may not
+                                                 // hold the scope record)
+  string authenticator = 5;                      // C++-stamped, bearer-key-derived proof of
+                                                 // invite authority, verified at redeem
+                                                 // BEFORE any member-record write (it gates
+                                                 // invites that carry no room-key material)
 }
 
 // Data-only commands (D-27: data-only; C++ stamps authority — the id, invite

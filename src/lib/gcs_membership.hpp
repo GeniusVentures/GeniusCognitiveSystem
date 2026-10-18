@@ -63,6 +63,16 @@ public:
   /// Key-unwrap callable of the D-06 seam (member key + envelope -> room key).
   using UnwrapFn = std::function<outcome::result<std::vector<unsigned char>>(
       const std::vector<unsigned char> &memberKey, const std::string &envelope)>;
+  /// Invite-authenticator mint callable (invite key + scope id + invite id ->
+  /// authenticator envelope).
+  using MintAuthFn = std::function<outcome::result<std::string>(
+      const std::vector<unsigned char> &inviteKey, const std::string &scopeId,
+      const std::string &inviteId)>;
+  /// Invite-authenticator verify callable (invite key + scope id + invite id +
+  /// authenticator -> authenticated?).
+  using VerifyAuthFn = std::function<outcome::result<bool>(
+      const std::vector<unsigned char> &inviteKey, const std::string &scopeId,
+      const std::string &inviteId, const std::string &authenticator)>;
 
   /**
    * @brief D-06 injected key-wrap seam — injectable per Membership instance.
@@ -71,15 +81,21 @@ public:
    * real adapter. When enabled is false (or either callable is empty) the
    * wrap/unwrap callables are never called and invite records carry no wrapped
    * room keys (the same never-call-when-disabled posture as Messaging's
-   * CryptoSeam).
+   * CryptoSeam). The invite authenticator is minted/verified only when the seam
+   * is enabled AND both mintAuth/verifyAuth are set.
    */
   struct KeyWrapSeam {
-    WrapFn wrap;      ///< Wrap callable (empty = no wrapped keys when disabled)
-    UnwrapFn unwrap;  ///< Unwrap callable (empty = no wrapped keys when disabled)
-    bool   enabled;   ///< Master switch for the D-06 path
+    WrapFn wrap;          ///< Wrap callable (empty = no wrapped keys)
+    UnwrapFn unwrap;      ///< Unwrap callable (empty = no wrapped keys)
+    MintAuthFn mintAuth;  ///< Authenticator mint callable (empty = auth off)
+    VerifyAuthFn verifyAuth; ///< Authenticator verify callable (empty = auth off)
+    bool   enabled;       ///< Master switch for the D-06 path
 
-    /// Default-constructs a disabled, empty seam (no wrapped room keys).
-    KeyWrapSeam() : wrap(), unwrap(), enabled( false ) {}
+    /// Default-constructs a disabled, empty seam (no wrapped keys, no auth).
+    KeyWrapSeam()
+        : wrap(), unwrap(), mintAuth(), verifyAuth(), enabled( false )
+    {
+    }
   };
 
   /// Member-record key prefix — one serialized MemberRecord per member per

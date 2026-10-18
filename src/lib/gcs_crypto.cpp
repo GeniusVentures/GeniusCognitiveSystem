@@ -20,6 +20,7 @@
 #include <optional>
 #include <unordered_map>
 
+#include <openssl/crypto.h>
 #include <openssl/evp.h>
 #include <openssl/kdf.h>
 #include <openssl/rand.h>
@@ -28,8 +29,65 @@
 
 namespace gcs::crypto
 {
+static_assert( kInviteAuthMarkerLengthBytes == kRoomKeyLengthBytes,
+               "invite-auth marker must seal with the 32-byte AES-GCM wrap" );
+
 namespace
 {
+    /**
+     * @brief Derive a key with HKDF-SHA256 using an explicit salt and info.
+     *
+     * The one HKDF implementation shared by DeriveRoomKey (message keys) and
+     * MintInviteAuthenticator (invite-auth keys); a fresh EVP_PKEY_CTX is
+     * created and freed on every call.
+     *
+     * @param[in] ikm         Input keying material bytes.
+     * @param[in] ikmSize     Input keying material length.
+     * @param[in] salt        HKDF salt bytes.
+     * @param[in] saltLength  HKDF salt length.
+     * @param[in] info        HKDF info bytes.
+     * @param[in] infoLength  HKDF info length.
+     * @param[in] length      Desired output key length in bytes.
+     * @return outcome::success with the derived key; outcome::failure on any
+     *         EVP/HKDF failure or a short derivation.
+     */
+    outcome::result<std::vector<unsigned char>> DeriveHkdfKey(
+        const unsigned char *ikm, int ikmSize, const char *salt,
+        std::size_t saltLength, const char *info, std::size_t infoLength,
+        std::size_t length )
+    {
+        EVP_PKEY_CTX *pctx = EVP_PKEY_CTX_new_id( EVP_PKEY_HKDF, nullptr );
+        if ( pctx == nullptr )
+        {
+            return outcome::failure( sgns::gcs::Error::GcsDbError );
+        }
+
+        std::vector<unsigned char> key( length, 0 );
+        size_t                     outLen = key.size();
+        const int                  ok =
+            ( EVP_PKEY_derive_init( pctx ) == 1 )
+            && ( EVP_PKEY_CTX_set_hkdf_md( pctx, EVP_sha256() ) == 1 )
+            && ( EVP_PKEY_CTX_set1_hkdf_salt(
+                     pctx, reinterpret_cast<const unsigned char *>( salt ),
+                     static_cast<int>( saltLength ) )
+                 == 1 )
+            && ( EVP_PKEY_CTX_set1_hkdf_key( pctx, ikm, ikmSize ) == 1 )
+            && ( EVP_PKEY_CTX_add1_hkdf_info(
+                     pctx, reinterpret_cast<const unsigned char *>( info ),
+                     static_cast<int>( infoLength ) )
+                 == 1 )
+            && ( EVP_PKEY_derive( pctx, key.data(), &outLen ) == 1 )
+            && ( outLen == length );
+
+        EVP_PKEY_CTX_free( pctx ); // always
+
+        if ( ok != 1 )
+        {
+            return outcome::failure( sgns::gcs::Error::GcsDbError );
+        }
+        return key;
+    }
+
     /**
      * @brief Returns the per-room key store's guarding mutex (D-06).
      *
@@ -95,12 +153,6 @@ void ClearRoomKey( const std::string &roomTopic )
 
 outcome::result<std::vector<unsigned char>> DeriveRoomKey( const std::string &roomTopic )
 {
-    EVP_PKEY_CTX *pctx = EVP_PKEY_CTX_new_id( EVP_PKEY_HKDF, nullptr );
-    if ( pctx == nullptr )
-    {
-        return outcome::failure( sgns::gcs::Error::GcsDbError );
-    }
-
     // WR-02/D-06: ikm is the member-distributed 32-byte room key when stored,
     // else the room topic string (pre-membership fallback).
     const std::optional<std::vector<unsigned char>> storedRoomKey = RoomKeyFor( roomTopic );
@@ -112,32 +164,9 @@ outcome::result<std::vector<unsigned char>> DeriveRoomKey( const std::string &ro
         ikmSize = static_cast<int>( storedRoomKey->size() );
     }
 
-    std::vector<unsigned char> key( kRoomKeyLengthBytes, 0 );
-    size_t                     outLen = key.size();
-    const int ok =
-        ( EVP_PKEY_derive_init( pctx ) == 1 )
-        && ( EVP_PKEY_CTX_set_hkdf_md( pctx, EVP_sha256() ) == 1 )
-        && ( EVP_PKEY_CTX_set1_hkdf_salt(
-                 pctx,
-                 reinterpret_cast<const unsigned char *>( kMessagesHkdfSalt ),
-                 static_cast<int>( sizeof( kMessagesHkdfSalt ) - 1 ) )
-             == 1 )
-        && ( EVP_PKEY_CTX_set1_hkdf_key( pctx, ikm, ikmSize ) == 1 )
-        && ( EVP_PKEY_CTX_add1_hkdf_info(
-                 pctx,
-                 reinterpret_cast<const unsigned char *>( kMessagesHkdfInfo ),
-                 static_cast<int>( sizeof( kMessagesHkdfInfo ) - 1 ) )
-             == 1 )
-        && ( EVP_PKEY_derive( pctx, key.data(), &outLen ) == 1 )
-        && ( outLen == kRoomKeyLengthBytes );
-
-    EVP_PKEY_CTX_free( pctx ); // always
-
-    if ( ok != 1 )
-    {
-        return outcome::failure( sgns::gcs::Error::GcsDbError );
-    }
-    return key;
+    return DeriveHkdfKey( ikm, ikmSize, kMessagesHkdfSalt,
+                          sizeof( kMessagesHkdfSalt ) - 1, kMessagesHkdfInfo,
+                          sizeof( kMessagesHkdfInfo ) - 1, kRoomKeyLengthBytes );
 }
 
 outcome::result<std::string> EncryptPayload( const std::string &roomTopic,
@@ -357,6 +386,91 @@ outcome::result<std::vector<unsigned char>> UnwrapRoomKey(
         return outcome::failure( sgns::gcs::Error::GcsDbError );
     }
     return plaintext;
+}
+
+std::vector<unsigned char> InviteAuthMarker( const std::string &scopeId,
+                                             const std::string &inviteId )
+{
+    // Bind BOTH ids, each NUL-separated from the domain prefix and from each
+    // other, so an authenticator lifted from one invite cannot verify another
+    // (T-04-09-07).
+    std::string bound{ kInviteAuthMarkerPrefix };
+    bound.push_back( '\0' );
+    bound.append( scopeId );
+    bound.push_back( '\0' );
+    bound.append( inviteId );
+
+    std::vector<unsigned char> marker( kInviteAuthMarkerLengthBytes, 0 );
+    unsigned int               outLen = 0;
+    if ( EVP_Digest( bound.data(), bound.size(), marker.data(), &outLen,
+                     EVP_sha256(), nullptr )
+             != 1
+         || outLen != kInviteAuthMarkerLengthBytes )
+    {
+        return {}; // documented empty-on-failure contract (header)
+    }
+    return marker;
+}
+
+outcome::result<std::string> MintInviteAuthenticator(
+    const std::vector<unsigned char> &inviteKey, const std::string &scopeId,
+    const std::string &inviteId )
+{
+    if ( inviteKey.size() != kRoomKeyLengthBytes )
+    {
+        return outcome::failure( sgns::gcs::Error::GcsDbError );
+    }
+    auto authKey = DeriveHkdfKey(
+        inviteKey.data(), static_cast<int>( inviteKey.size() ),
+        kInviteAuthHkdfSalt, sizeof( kInviteAuthHkdfSalt ) - 1,
+        kInviteAuthHkdfInfo, sizeof( kInviteAuthHkdfInfo ) - 1,
+        kRoomKeyLengthBytes );
+    if ( !authKey.has_value() )
+    {
+        return authKey.error();
+    }
+    const std::vector<unsigned char> marker = InviteAuthMarker( scopeId, inviteId );
+    if ( marker.size() != kInviteAuthMarkerLengthBytes )
+    {
+        return outcome::failure( sgns::gcs::Error::GcsDbError );
+    }
+    return WrapRoomKey( authKey.value(), marker );
+}
+
+outcome::result<bool> VerifyInviteAuthenticator(
+    const std::vector<unsigned char> &inviteKey, const std::string &scopeId,
+    const std::string &inviteId, const std::string &authenticator )
+{
+    if ( inviteKey.empty() )
+    {
+        return outcome::success( false ); // a malformed bearer key never verifies
+    }
+    auto authKey = DeriveHkdfKey(
+        inviteKey.data(), static_cast<int>( inviteKey.size() ),
+        kInviteAuthHkdfSalt, sizeof( kInviteAuthHkdfSalt ) - 1,
+        kInviteAuthHkdfInfo, sizeof( kInviteAuthHkdfInfo ) - 1,
+        kRoomKeyLengthBytes );
+    if ( !authKey.has_value() )
+    {
+        return authKey.error();
+    }
+    const auto unwrapped = UnwrapRoomKey( authKey.value(), authenticator );
+    if ( !unwrapped.has_value() )
+    {
+        return outcome::success( false ); // wrong key, tampering, truncation
+    }
+    const std::vector<unsigned char> expected = InviteAuthMarker( scopeId, inviteId );
+    if ( expected.size() != unwrapped.value().size() )
+    {
+        return outcome::success( false );
+    }
+    if ( CRYPTO_memcmp( expected.data(), unwrapped.value().data(),
+                        expected.size() )
+         != 0 )
+    {
+        return outcome::success( false );
+    }
+    return outcome::success( true );
 }
 
 } // namespace gcs::crypto
