@@ -73,6 +73,15 @@ namespace
     /// processes can collide on a derived port (observed in SuperGenius CI —
     /// child_registration.cpp); the pin sits OUTSIDE the derived range.
     constexpr uint16_t kPinnedPubsubPort = 41500;
+    /// Fixed valid BIP39 mnemonic booted by every fixture config. The embedded
+    /// node needs a deterministic active account so the production
+    /// issuer-signing seam can be built at gcs_init (04-15 makes mint/redeem
+    /// require it; an empty mnemonic would leave the seam unset and reject
+    /// every invite). Tests exercise the production wiring — there is no
+    /// test-only seam override.
+    constexpr const char kTestMnemonic[] =
+        "abandon abandon abandon abandon abandon abandon abandon abandon "
+        "abandon abandon abandon about";
     /// Arbitrary non-zero fake Dart NativePort id (pushed-event capture seam).
     constexpr int64_t kFakeDartPort = 7777;
 
@@ -311,6 +320,9 @@ namespace gcs::test
         /**
          * @brief Serializes a GcsConfig (D-29 codec-tagged init bytes).
          *
+         * The config pins kTestMnemonic so the embedded node always exposes a
+         * deterministic active account for the issuer-signing seam (04-16).
+         *
          * @param[in] dbPath RocksDB path carried by the config.
          * @param[in] codec  Wire codec bound to the store at creation.
          * @return The serialized protobuf bytes; the caller passes .data()/.size().
@@ -320,6 +332,7 @@ namespace gcs::test
             gcs::chat::GcsConfig config;
             config.set_db_path( dbPath );
             config.set_codec( codec );
+            config.set_mnemonic( kTestMnemonic );
             return config.SerializeAsString();
         }
 
@@ -381,9 +394,9 @@ namespace gcs::test
 
     /**
      * @brief A parseable PROTOBUF config with no externally booted node boots
-     *        the embedded GeniusSDK node inside gcs_init (empty mnemonic =
-     *        child-wallet contract) and returns a live session handle.
-     *        TearDown's gcs_shutdown pairs the internal boot with node
+     *        the embedded GeniusSDK node inside gcs_init (the fixture's pinned
+     *        mnemonic supplies the active account) and returns a live session
+     *        handle. TearDown's gcs_shutdown pairs the internal boot with node
      *        teardown.
      */
     TEST_F( GcsFFI, InitWithValidConfigBootsEmbeddedNode )
@@ -578,8 +591,9 @@ namespace gcs::test
 
     /**
      * @brief A space creator (Super Admin) mints a D-05 capability invite link:
-     *        the pushed InviteLink carries the exact
-     *        `gcs://invite/space/<inviteId>?key=<IK>` shape.
+     *        the pushed InviteLink carries the exact scoped
+     *        `gcs://invite/space/<spaceId>/<inviteId>?key=<IK>` shape and the
+     *        command's scope id.
      */
     TEST_F( GcsFFI, InviteMintsSpaceInviteLinkWithCapabilityShape )
     {
@@ -600,25 +614,84 @@ namespace gcs::test
 
         const auto link = FindLatestInviteLink( g_pushedEvents.Take() );
         ASSERT_TRUE( link.has_value() );
-        EXPECT_EQ( link->url().rfind( "gcs://invite/space/", 0 ), 0u );
-        EXPECT_NE( link->url().find( "?key=" ), std::string::npos );
+        const std::string url = link->url();
+        // The scope segment comes BEFORE the opaque invite id (T-04-15-05).
+        const std::string prefix = "gcs://invite/space/" + spaceId + "/";
+        EXPECT_EQ( url.rfind( prefix, 0 ), 0u );
+        EXPECT_NE( url.find( "?key=" ), std::string::npos );
+        const std::size_t keyPos = url.find( "?key=" );
+        ASSERT_NE( keyPos, std::string::npos );
+        // A non-empty invite id sits between the scope segment and the query.
+        EXPECT_GT( keyPos, prefix.size() );
+        EXPECT_FALSE( url.substr( prefix.size(), keyPos - prefix.size() ).empty() );
         EXPECT_EQ( link->scope_id(), spaceId );
     }
 
     /**
-     * @brief kRedeem re-parses the URL C++-side (P8): a non-`gcs://invite/`
-     *        string is rejected with INVALID_ARGUMENT plus an ErrorNotice.
+     * @brief The production wiring signs at mint and verifies at redeem: the
+     *        creator redeems their OWN minted link in the same session and the
+     *        call succeeds, with the creator's live record still SUPER_ADMIN
+     *        (04-13 preserves live state — this is a pure wiring proof that the
+     *        production verifier accepted the production signature over the
+     *        production payload).
+     */
+    TEST_F( GcsFFI, RedeemOwnInviteIsAcceptedByTheProductionIssuerCheck )
+    {
+        m_handle = InitSubscribedSession();
+        ASSERT_NE( m_handle, nullptr );
+
+        gcs::chat::GcsCommand createSpace;
+        createSpace.mutable_create_space()->set_name( "ops" );
+        ASSERT_EQ( PublishCommand( m_handle, createSpace ), GCS_OK );
+        const auto tree = FindLatestSpaceTree( g_pushedEvents.Take() );
+        ASSERT_TRUE( tree.has_value() );
+        ASSERT_EQ( tree->space_size(), 1 );
+        const std::string spaceId = tree->space( 0 ).id();
+
+        gcs::chat::GcsCommand invite;
+        invite.mutable_invite()->set_scope_id( spaceId );
+        ASSERT_EQ( PublishCommand( m_handle, invite ), GCS_OK );
+        const auto link = FindLatestInviteLink( g_pushedEvents.Take() );
+        ASSERT_TRUE( link.has_value() );
+
+        gcs::chat::GcsCommand redeem;
+        redeem.mutable_redeem()->set_invite_url( link->url() );
+        ASSERT_EQ( PublishCommand( m_handle, redeem ), GCS_OK );
+
+        const auto events = g_pushedEvents.Take();
+        EXPECT_FALSE( HasErrorNotice( events ) );
+        const auto roster = FindLatestMemberList( events, spaceId );
+        ASSERT_TRUE( roster.has_value() );
+        ASSERT_EQ( roster->member_size(), 1 );
+        EXPECT_EQ( roster->member( 0 ).role(), gcs::chat::ROLE_SUPER_ADMIN );
+    }
+
+    /**
+     * @brief kRedeem re-parses the scoped URL C++-side (P8/T-04-15-05): a
+     *        malformed kind/scope/invite/key shape is rejected with
+     *        INVALID_ARGUMENT plus an ErrorNotice.
      */
     TEST_F( GcsFFI, RedeemRejectsMalformedUrl )
     {
         m_handle = InitSubscribedSession();
         ASSERT_NE( m_handle, nullptr );
 
-        gcs::chat::GcsCommand redeem;
-        redeem.mutable_redeem()->set_invite_url( "not-an-invite-url" );
-        EXPECT_EQ( PublishCommand( m_handle, redeem ), GCS_ERROR_INVALID_ARGUMENT );
-
-        EXPECT_TRUE( HasErrorNotice( g_pushedEvents.Take() ) );
+        const std::vector<std::string> malformed = {
+            "not-an-invite-url",
+            "gcs://invite/space?key=abc",                     // missing scope kind
+            "gcs://invite/space//invite-1?key=abc",           // empty scope segment
+            "gcs://invite/space/space-1/?key=abc",            // empty invite id
+            "gcs://invite/space/space-1/invite-1",            // missing key query
+            "gcs://invite/space/space-1/invite-1?notkey=abc", // missing key parameter
+        };
+        for ( const std::string &inviteUrl : malformed )
+        {
+            gcs::chat::GcsCommand redeem;
+            redeem.mutable_redeem()->set_invite_url( inviteUrl );
+            EXPECT_EQ( PublishCommand( m_handle, redeem ), GCS_ERROR_INVALID_ARGUMENT )
+                << inviteUrl;
+            EXPECT_TRUE( HasErrorNotice( g_pushedEvents.Take() ) ) << inviteUrl;
+        }
     }
 
     /**
