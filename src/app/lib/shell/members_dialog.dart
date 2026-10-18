@@ -41,7 +41,8 @@ import '../cubits/members_cubit.dart';
 import '../cubits/message_flow_cubit.dart' show truncateSender;
 import '../cubits/session_cubit.dart';
 import '../generated/proto/gcs_chat.pb.dart';
-import 'space_room_dialog.dart' show kConfirmButtonHeight, kPublishFailedMessage;
+import 'space_room_dialog.dart'
+    show kConfirmButtonHeight, kPublishFailedMessage;
 
 // ---------------------------------------------------------------------------
 // Copy (verbatim 04-UI-SPEC)
@@ -495,8 +496,8 @@ class _RosterFooter extends StatelessWidget {
     return BlocBuilder<MembersCubit, MembersState>(
       builder: (BuildContext context, MembersState state) {
         final String? viewerRole = viewerOf(state.byScope[scopeId])?.role;
-        final bool canLeave = viewerRole != null &&
-            viewerRole != kRoleLabelSuperAdmin;
+        final bool canLeave =
+            viewerRole != null && viewerRole != kRoleLabelSuperAdmin;
         final bool canInvite = _viewerCanInvite(viewerRole, membersCanInvite);
         return Row(
           children: <Widget>[
@@ -578,6 +579,7 @@ void _startInvite({
   unawaited(
     _showInviteView(
       context: context,
+      scopeId: scopeId,
       scopeName: scopeName,
       session: _sessionOf(context),
     ),
@@ -586,19 +588,27 @@ void _startInvite({
 
 /// Opens the invite view for [scopeName] (title `Invite to <name>`).
 ///
-/// [session] is the session whose pushed `InviteLink` the view renders; null
-/// (no provider in scope) leaves the view in its loading sub-state -- the view
-/// never invents a link.
+/// [scopeId] is the scope the invite was minted for: the view reads only that
+/// scope's pushed link, so a link minted elsewhere never renders here (WR-07).
+/// [session] is the session holding the pushed `InviteLink`; null (no provider
+/// in scope) leaves the view in its loading sub-state -- the view never
+/// invents a link.
+///
+/// The pending link is dropped when the drawer closes (not when it is read):
+/// the push's own emission must still reach the view, and no stale capability
+/// may outlive the view (T-04-10-02).
 Future<void> _showInviteView({
   required BuildContext context,
+  required String scopeId,
   required String scopeName,
   required SessionCubit? session,
 }) {
   return ResponsiveDrawer.show<void>(
     context: context,
     title: '$kInviteViewTitlePrefix$scopeName',
-    children: <Widget>[_InviteLinkView(session: session)],
+    children: <Widget>[_InviteLinkView(session: session, scopeId: scopeId)],
     footer: const _InviteFooter(),
+    onClose: () => session?.clearPendingInviteLink(scopeId),
   );
 }
 
@@ -615,10 +625,13 @@ SessionCubit? _sessionOf(BuildContext context) {
 /// The invite view body: the pushed link once it lands, the skeleton until
 /// then (UI-SPEC: no local optimism).
 class _InviteLinkView extends StatelessWidget {
-  const _InviteLinkView({required this.session});
+  const _InviteLinkView({required this.session, required this.scopeId});
 
   /// Session holding the pushed link; null renders the loading sub-state.
   final SessionCubit? session;
+
+  /// Scope this view was opened for; the only link it may render (WR-07).
+  final String scopeId;
 
   @override
   Widget build(BuildContext context) {
@@ -632,7 +645,10 @@ class _InviteLinkView extends StatelessWidget {
       stream: session.stream,
       initialData: session.state,
       builder: (BuildContext context, AsyncSnapshot<SessionState> snapshot) {
-        final String? link = session.pendingInviteLink;
+        // Scope-keyed read: a link minted for another scope is unreachable
+        // here, so the view stays in its loading sub-state instead of
+        // rendering the wrong capability token.
+        final String? link = session.pendingInviteLinkFor(scopeId);
         if (link == null || link.isEmpty) {
           return const ScaffoldStateView(state: 'loading');
         }
@@ -967,7 +983,10 @@ Future<void> _showConfirm({
   required String errorTitle,
   required GcsCommand command,
 }) {
-  final _ConfirmForm form = _ConfirmForm(command: command, errorTitle: errorTitle);
+  final _ConfirmForm form = _ConfirmForm(
+    command: command,
+    errorTitle: errorTitle,
+  );
   return ResponsiveDrawer.show<void>(
     context: context,
     title: title,
@@ -992,9 +1011,9 @@ class _ConfirmBody extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       body,
-      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-        color: context.palette.textPrimary,
-      ),
+      style: Theme.of(
+        context,
+      ).textTheme.bodyMedium?.copyWith(color: context.palette.textPrimary),
     );
   }
 }

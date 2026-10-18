@@ -37,6 +37,17 @@ class _RecordingTransport implements GcsCommandTransport {
   }
 }
 
+/// Pushes one scope-keyed invite link into [session] (the C++ authority seam).
+void _pushInviteLink(SessionCubit session, String scopeId, String url) {
+  session.handlePushedBytes(
+    (GcsEvent()
+          ..inviteLink = (InviteLink()
+            ..scopeId = scopeId
+            ..url = url))
+        .writeToBuffer(),
+  );
+}
+
 /// Pumps the host app with the injected [MembersCubit] provider ABOVE the
 /// `MaterialApp` so the modal drawer route (pushed onto the app's Navigator
 /// overlay) still resolves it, then opens the member list through the frozen
@@ -45,17 +56,20 @@ Future<void> _openMembersDialog(
   WidgetTester tester, {
   required MembersCubit members,
   required GcsCommandTransport transport,
+  SessionCubit? session,
   String scopeId = 'space-1',
   String scopeName = 'ops',
 }) async {
+  Widget app = MaterialApp(
+    theme: GcsTheme.light,
+    home: const Scaffold(body: SizedBox()),
+  );
+  if (session != null) {
+    // Above the MaterialApp so the modal drawer route still resolves it.
+    app = BlocProvider<SessionCubit>.value(value: session, child: app);
+  }
   await tester.pumpWidget(
-    BlocProvider<MembersCubit>.value(
-      value: members,
-      child: MaterialApp(
-        theme: GcsTheme.light,
-        home: const Scaffold(body: SizedBox()),
-      ),
-    ),
+    BlocProvider<MembersCubit>.value(value: members, child: app),
   );
   final BuildContext context = tester.state(find.byType(Scaffold)).context;
   unawaited(
@@ -140,6 +154,104 @@ void main() {
     // Settle the invite-view drawer opened by the accepted publish so no
     // route transition outlives the test.
     await tester.pump(const Duration(milliseconds: 300));
+  });
+
+  testWidgets('invite view renders the link minted for its scope (WR-07)', (
+    WidgetTester tester,
+  ) async {
+    final MembersCubit members = MembersCubit();
+    addTearDown(members.close);
+    final SessionCubit session = SessionCubit();
+    addTearDown(session.close);
+    final _RecordingTransport transport = _RecordingTransport();
+    members.setMembers('space-1', <MemberRecord>[
+      MemberRecord()
+        ..address = '0xself'
+        ..role = Role.ROLE_SUPER_ADMIN,
+    ], '0xself');
+    _pushInviteLink(session, 'space-1', 'gcs://invite/space-1-token');
+
+    await _openMembersDialog(
+      tester,
+      members: members,
+      transport: transport,
+      session: session,
+    );
+
+    await tester.tap(find.text('Invite members'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.text('gcs://invite/space-1-token'), findsOneWidget);
+  });
+
+  testWidgets("invite view does not render another scope's link (WR-07)", (
+    WidgetTester tester,
+  ) async {
+    final MembersCubit members = MembersCubit();
+    addTearDown(members.close);
+    final SessionCubit session = SessionCubit();
+    addTearDown(session.close);
+    final _RecordingTransport transport = _RecordingTransport();
+    members.setMembers('space-1', <MemberRecord>[
+      MemberRecord()
+        ..address = '0xself'
+        ..role = Role.ROLE_SUPER_ADMIN,
+    ], '0xself');
+    _pushInviteLink(session, 'space-2', 'gcs://invite/space-2-token');
+
+    await _openMembersDialog(
+      tester,
+      members: members,
+      transport: transport,
+      session: session,
+    );
+
+    await tester.tap(find.text('Invite members'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    // T-04-10-01: space-2's capability token never surfaces in space-1's
+    // invite view; the view stays in its loading sub-state.
+    expect(find.text('gcs://invite/space-2-token'), findsNothing);
+    expect(find.text(kInviteViewHelper), findsNothing);
+  });
+
+  testWidgets('closing the invite view clears its pending link (T-04-10-02)', (
+    WidgetTester tester,
+  ) async {
+    final MembersCubit members = MembersCubit();
+    addTearDown(members.close);
+    final SessionCubit session = SessionCubit();
+    addTearDown(session.close);
+    final _RecordingTransport transport = _RecordingTransport();
+    members.setMembers('space-1', <MemberRecord>[
+      MemberRecord()
+        ..address = '0xself'
+        ..role = Role.ROLE_SUPER_ADMIN,
+    ], '0xself');
+    _pushInviteLink(session, 'space-1', 'gcs://invite/space-1-token');
+
+    await _openMembersDialog(
+      tester,
+      members: members,
+      transport: transport,
+      session: session,
+    );
+
+    await tester.tap(find.text('Invite members'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(
+      session.pendingInviteLinkFor('space-1'),
+      'gcs://invite/space-1-token',
+    );
+
+    await tester.tap(find.text(kInviteViewDoneLabel));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(session.pendingInviteLinkFor('space-1'), isNull);
   });
 
   testWidgets('pending row renders the Pending removal badge and approve', (
