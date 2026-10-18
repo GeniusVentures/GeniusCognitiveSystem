@@ -21,6 +21,7 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <cstdint>
 #include <cstring>
 #include <filesystem>
 #include <string>
@@ -79,6 +80,10 @@ namespace
 
     /// Arbitrary tombstone timestamp for direct-write fixtures (D-03).
     constexpr int64_t kTombstoneAtMs = 1234;
+
+    /// Timestamps stamped onto the amended record by the Apply*State tests.
+    constexpr std::int64_t kDeletedAtMs = 7777;
+    constexpr std::int64_t kUpdatedAtMs = 8888;
 
     /// Injected local wallet address used as the Super Admin creator (D-03).
     constexpr const char kTestCreatorAddress[] = "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY";
@@ -454,6 +459,114 @@ namespace gcs::test
         EXPECT_EQ( rooms.front().id(), "room-live" );
         EXPECT_TRUE( reloaded.DerivedJoinedTopics().empty() ); // parent tombstoned
         EXPECT_FALSE( reloaded.IsValidParentSpace( "space-tomb" ) );
+
+        session.Shutdown();
+        pubsub->Stop();
+    }
+
+    /**
+     * @brief CR-06: ApplySpaceState persists the caller's amended record and
+     *        publishes it to the catalog in the same call — a tombstone is
+     *        visible to every reader immediately and survives a reload.
+     */
+    TEST_F( GcsEntitiesTest, ApplySpaceStatePublishesTombstoneToCatalogAndStore )
+    {
+        auto pubsub = MakeStartedPubSub( m_tempPath + "/key" );
+        ASSERT_NE( pubsub, nullptr );
+        auto graphsync = gcs::test::MakeGraphsyncContext( pubsub );
+
+        gcs::CoreSession::Config cfg{};
+        cfg.m_dbPath = m_tempPath + "/db";
+        gcs::CoreSession session( cfg );
+        ASSERT_TRUE( session.Initialize( pubsub, graphsync.network ).has_value() );
+
+        const auto dbPath = cfg.m_dbPath;
+        EXPECT_TRUE( gcs::test::WaitForCondition( [&dbPath]() { return std::filesystem::exists( dbPath ); },
+                                                  gcs::test::kWaitTimeout ) );
+
+        gcs::EntityStore store( session );
+        ASSERT_TRUE( store.LoadFromStore().has_value() );
+
+        auto space = store.CreateSpace( "ops", true, true, false );
+        ASSERT_TRUE( space.has_value() );
+        const std::string id = space.value().id();
+        auto room = store.CreateRoom( "sub", id );
+        ASSERT_TRUE( room.has_value() );
+        ASSERT_EQ( store.DerivedJoinedTopics().size(), 1U );
+
+        gcs::chat::SpaceRecord amended = space.value();
+        amended.set_deleted( true );
+        amended.set_deleted_at_ms( kDeletedAtMs );
+        amended.set_updated_at_ms( kUpdatedAtMs );
+
+        ASSERT_TRUE( store.ApplySpaceState( amended ).has_value() );
+
+        // The catalog is updated in the same call: no stale live entry, and the
+        // derived-join projection immediately drops the child room.
+        EXPECT_TRUE( store.Spaces().empty() );
+        EXPECT_FALSE( store.IsValidParentSpace( id ) );
+        EXPECT_TRUE( store.DerivedJoinedTopics().empty() );
+
+        // The persisted bytes are the caller's full state, not a preserved one.
+        auto storedBytes = session.Get( std::string( kSpacesKeyPrefix ) + id );
+        ASSERT_TRUE( storedBytes.has_value() );
+        gcs::chat::SpaceRecord stored;
+        ASSERT_TRUE( stored.ParseFromString( storedBytes.value() ) );
+        EXPECT_TRUE( stored.deleted() );
+        EXPECT_EQ( stored.deleted_at_ms(), kDeletedAtMs );
+        EXPECT_EQ( stored.updated_at_ms(), kUpdatedAtMs );
+
+        // The tombstone is persisted, not only in memory.
+        ASSERT_TRUE( store.LoadFromStore().has_value() );
+        EXPECT_TRUE( store.Spaces().empty() );
+
+        session.Shutdown();
+        pubsub->Stop();
+    }
+
+    /**
+     * @brief CR-06 room twin: ApplyRoomState persists the amended record and
+     *        publishes it to the catalog in the same call.
+     */
+    TEST_F( GcsEntitiesTest, ApplyRoomStatePublishesTombstoneToCatalogAndStore )
+    {
+        auto pubsub = MakeStartedPubSub( m_tempPath + "/key" );
+        ASSERT_NE( pubsub, nullptr );
+        auto graphsync = gcs::test::MakeGraphsyncContext( pubsub );
+
+        gcs::CoreSession::Config cfg{};
+        cfg.m_dbPath = m_tempPath + "/db";
+        gcs::CoreSession session( cfg );
+        ASSERT_TRUE( session.Initialize( pubsub, graphsync.network ).has_value() );
+
+        const auto dbPath = cfg.m_dbPath;
+        EXPECT_TRUE( gcs::test::WaitForCondition( [&dbPath]() { return std::filesystem::exists( dbPath ); },
+                                                  gcs::test::kWaitTimeout ) );
+
+        gcs::EntityStore store( session );
+        ASSERT_TRUE( store.LoadFromStore().has_value() );
+
+        auto room = store.CreateRoom( "lobby", "" );
+        ASSERT_TRUE( room.has_value() );
+        const std::string id = room.value().id();
+        ASSERT_EQ( store.Rooms().size(), 1U );
+
+        gcs::chat::RoomRecord amended = room.value();
+        amended.set_deleted( true );
+        amended.set_deleted_at_ms( kDeletedAtMs );
+        amended.set_updated_at_ms( kUpdatedAtMs );
+
+        ASSERT_TRUE( store.ApplyRoomState( amended ).has_value() );
+
+        EXPECT_TRUE( store.Rooms().empty() );
+        EXPECT_TRUE( store.DerivedJoinedTopics().empty() );
+
+        auto storedBytes = session.Get( std::string( kRoomsKeyPrefix ) + id );
+        ASSERT_TRUE( storedBytes.has_value() );
+        gcs::chat::RoomRecord stored;
+        ASSERT_TRUE( stored.ParseFromString( storedBytes.value() ) );
+        EXPECT_TRUE( stored.deleted() );
+        EXPECT_EQ( stored.deleted_at_ms(), kDeletedAtMs );
 
         session.Shutdown();
         pubsub->Stop();

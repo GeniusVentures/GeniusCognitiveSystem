@@ -26,6 +26,7 @@
 #include <memory>
 #include <mutex>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -60,6 +61,10 @@ namespace
 
     /// Room chat topic prefix — the gcs/chat/<id> convention (D-01).
     constexpr const char *kRoomTopicPrefix = "gcs/chat/";
+
+    /// CRDT key prefix for space records (mirrors gcs_entity_store.cpp) —
+    /// used to read the authoritative entity bytes in the delete/approve tests.
+    constexpr const char kSpacesKeyPrefix[] = "gcs/entities/spaces/";
 
     /// Base64url characters encoding a 32-byte key without padding (D-05).
     constexpr std::size_t kEncodedKeyLength = 43;
@@ -988,19 +993,162 @@ namespace gcs::test
         EXPECT_EQ( events.back().member_list().scope_id(), spaceId );
         EXPECT_EQ( FindMember( events.back().member_list(), kDeadAddress ), nullptr );
 
-        // Sole admin: DeleteScope tombstones the entity record immediately. The
-        // tombstone is proven through a fresh catalog reload (the delete is a
-        // direct store write, not an EntityStore mutator).
+        // Sole admin: DeleteScope tombstones the entity record through the
+        // catalog mutator, so the catalog is the source of the push and no
+        // stale live entry survives the call (CR-06).
         ASSERT_TRUE( membership.DeleteScope( spaceId ).has_value() );
-        gcs::EntityStore reloaded( *m_rig.session, kTestCreatorAddress );
-        ASSERT_TRUE( reloaded.LoadFromStore().has_value() );
-        EXPECT_TRUE( reloaded.Spaces().empty() );
-        const auto tombBytes = m_rig.session->Get( "gcs/entities/spaces/" + spaceId );
+        EXPECT_TRUE( m_rig.store->Spaces().empty() ); // id no longer live
+        EXPECT_TRUE( m_rig.store->Spaces().empty() ); // still excluded on re-read
+        const auto tombBytes = m_rig.session->Get( std::string( kSpacesKeyPrefix ) + spaceId );
         ASSERT_TRUE( tombBytes.has_value() );
         chat::SpaceRecord tomb;
         ASSERT_TRUE( tomb.ParseFromString( tombBytes.value() ) );
         EXPECT_TRUE( tomb.deleted() );
         EXPECT_GT( tomb.deleted_at_ms(), 0 );
+    }
+
+    /**
+     * @brief CR-06 (VERIFICATION truth 11): a dormant scope delete is visible
+     *        in the catalog, so Approve's entity branch is reachable and the
+     *        pushed tree carries the tombstone rather than a stale live scope.
+     */
+    TEST_F( GcsMembershipTest, DeleteScopeDormantThenApproved )
+    {
+        StartRig( kTestCreatorAddress );
+
+        auto space = m_rig.store->CreateSpace( "ops", true, true, true );
+        ASSERT_TRUE( space.has_value() );
+        const std::string spaceId = space.value().id();
+        SeedMember( spaceId, kAdminAddress, chat::ROLE_ADMIN );
+
+        std::vector<chat::GcsEvent> events;
+        gcs::Membership creator( *m_rig.session, *m_rig.store, kTestCreatorAddress,
+                                 CapturingSink( &events ), MakeSeam() );
+        ASSERT_TRUE( creator.OnScopeCreated( spaceId, "", true ).has_value() );
+
+        // Two admins: the delete is dormant, not applied.
+        ASSERT_TRUE( creator.DeleteScope( spaceId ).has_value() );
+
+        auto dormantBytes = m_rig.session->Get( std::string( kSpacesKeyPrefix ) + spaceId );
+        ASSERT_TRUE( dormantBytes.has_value() );
+        chat::SpaceRecord dormant;
+        ASSERT_TRUE( dormant.ParseFromString( dormantBytes.value() ) );
+        EXPECT_FALSE( dormant.deleted() );
+        EXPECT_TRUE( dormant.approved_by().empty() );
+        EXPECT_EQ( dormant.pending_action(), chat::PENDING_ACTION_DELETE );
+
+        // The catalog reflects the pending delete: the pushed tree carries the
+        // marker (pre-fix the stale live record was re-emitted).
+        ASSERT_FALSE( events.empty() );
+        ASSERT_TRUE( events.back().has_space_tree() );
+        ASSERT_EQ( events.back().space_tree().space_size(), 1 );
+        EXPECT_EQ( events.back().space_tree().space( 0 ).id(), spaceId );
+        EXPECT_EQ( events.back().space_tree().space( 0 ).pending_action(),
+                   chat::PENDING_ACTION_DELETE );
+
+        // The entity branch is reachable because the catalog holds the dormant
+        // record rather than the pre-delete live one.
+        ASSERT_TRUE( creator.Approve( spaceId, spaceId ).has_value() );
+        EXPECT_TRUE( m_rig.store->Spaces().empty() );
+
+        auto approvedBytes = m_rig.session->Get( std::string( kSpacesKeyPrefix ) + spaceId );
+        ASSERT_TRUE( approvedBytes.has_value() );
+        chat::SpaceRecord approved;
+        ASSERT_TRUE( approved.ParseFromString( approvedBytes.value() ) );
+        EXPECT_TRUE( approved.deleted() );
+        EXPECT_EQ( approved.approved_by(), kTestCreatorAddress );
+
+        // The push is built from the catalog the mutator just updated.
+        ASSERT_TRUE( events.back().has_space_tree() );
+        EXPECT_EQ( events.back().space_tree().space_size(), 0 );
+    }
+
+    /**
+     * @brief D-07: Approve rejects an entity target with no dormant DELETE and
+     *        writes nothing.
+     */
+    TEST_F( GcsMembershipTest, ApproveWithoutDormantEntityDeleteIsRejected )
+    {
+        StartRig( kTestCreatorAddress );
+
+        auto space = m_rig.store->CreateSpace( "ops", true, true, true );
+        ASSERT_TRUE( space.has_value() );
+        const std::string spaceId = space.value().id();
+        SeedMember( spaceId, kAdminAddress, chat::ROLE_ADMIN );
+
+        std::vector<chat::GcsEvent> events;
+        gcs::Membership creator( *m_rig.session, *m_rig.store, kTestCreatorAddress,
+                                 CapturingSink( &events ), MakeSeam() );
+        ASSERT_TRUE( creator.OnScopeCreated( spaceId, "", true ).has_value() );
+
+        const auto beforeBytes = m_rig.session->Get( std::string( kSpacesKeyPrefix ) + spaceId );
+        ASSERT_TRUE( beforeBytes.has_value() );
+
+        EXPECT_FALSE( creator.Approve( spaceId, spaceId ).has_value() );
+
+        const auto afterBytes = m_rig.session->Get( std::string( kSpacesKeyPrefix ) + spaceId );
+        ASSERT_TRUE( afterBytes.has_value() );
+        EXPECT_EQ( afterBytes.value(), beforeBytes.value() );
+    }
+
+    /**
+     * @brief CR-05: a failed member scan fails closed — RemoveMember,
+     *        ChangeRole, and DeleteScope abort instead of interpreting the
+     *        failure as "fewer than two admins" and writing the immediate
+     *        destructive branch.
+     */
+    TEST_F( GcsMembershipTest, AdminCountScanFailurePropagatesAndFailsClosed )
+    {
+        StartRig( kTestCreatorAddress );
+
+        auto space = m_rig.store->CreateSpace( "ops", true, true, true );
+        ASSERT_TRUE( space.has_value() );
+        const std::string spaceId = space.value().id();
+        SeedMember( spaceId, kAdminAddress, chat::ROLE_ADMIN );
+        SeedMember( spaceId, kTargetAddress, chat::ROLE_MEMBER );
+
+        std::vector<chat::GcsEvent> events;
+        gcs::Membership creator( *m_rig.session, *m_rig.store, kTestCreatorAddress,
+                                 CapturingSink( &events ), MakeSeam() );
+        ASSERT_TRUE( creator.OnScopeCreated( spaceId, "", true ).has_value() );
+
+        gcs::Membership::ScanFn failingScan =
+            []( const std::string & )
+            -> outcome::result<std::vector<std::pair<std::string, std::string>>> {
+            return outcome::failure( sgns::gcs::Error::GcsDbError );
+        };
+        gcs::Membership failing( *m_rig.session, *m_rig.store, kTestCreatorAddress,
+                                 CapturingSink( &events ), MakeSeam(), failingScan );
+
+        const std::string targetKey = std::string( gcs::Membership::kMembersKeyPrefix )
+                                      + spaceId + "/" + kTargetAddress;
+        const std::string adminKey = std::string( gcs::Membership::kMembersKeyPrefix )
+                                     + spaceId + "/" + kAdminAddress;
+        const std::string spaceKey = std::string( kSpacesKeyPrefix ) + spaceId;
+
+        const auto targetBefore = m_rig.session->Get( targetKey );
+        ASSERT_TRUE( targetBefore.has_value() );
+        const auto adminBefore = m_rig.session->Get( adminKey );
+        ASSERT_TRUE( adminBefore.has_value() );
+        const auto spaceBefore = m_rig.session->Get( spaceKey );
+        ASSERT_TRUE( spaceBefore.has_value() );
+
+        // Every destructive call must propagate the scan error, never write.
+        EXPECT_FALSE( failing.RemoveMember( spaceId, kTargetAddress ).has_value() );
+        const auto targetAfter = m_rig.session->Get( targetKey );
+        ASSERT_TRUE( targetAfter.has_value() );
+        EXPECT_EQ( targetAfter.value(), targetBefore.value() );
+
+        EXPECT_FALSE( failing.ChangeRole( spaceId, kAdminAddress, chat::ROLE_MEMBER ).has_value() );
+        const auto adminAfter = m_rig.session->Get( adminKey );
+        ASSERT_TRUE( adminAfter.has_value() );
+        EXPECT_EQ( adminAfter.value(), adminBefore.value() );
+
+        EXPECT_FALSE( failing.DeleteScope( spaceId ).has_value() );
+        const auto spaceAfter = m_rig.session->Get( spaceKey );
+        ASSERT_TRUE( spaceAfter.has_value() );
+        EXPECT_EQ( spaceAfter.value(), spaceBefore.value() );
+        EXPECT_FALSE( m_rig.store->Spaces().empty() ); // immediate branch never ran
     }
 
     /**
