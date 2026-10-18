@@ -28,6 +28,8 @@
 #include "gcs_storage/common/test_env.hpp"
 
 #include "GeniusSDK.hpp"
+#include "account/GeniusAccount.hpp"
+#include "account/GeniusSigner.hpp"
 
 #include <spdlog/spdlog.h>
 
@@ -103,6 +105,13 @@ namespace
     std::unique_ptr<gcs::EntityStore> g_entities;  // Phase 2: entity catalog over g_session
     std::unique_ptr<gcs::Messaging> g_messaging;   // Phase 3: messaging over g_session (D-03/D-08)
     std::unique_ptr<gcs::Membership> g_membership; // Phase 4: membership over g_session + g_entities (D-01..D-08)
+    // Phase 4 (04-16): the issuer-signing key holder, built ONCE per session
+    // from the embedded node's active account. NewFromMnemonic returns a
+    // shared_ptr, and each seam callable captures a copy, so the global may be
+    // reset at teardown without dangling the live Membership's callables.
+    // nullptr means no active account: the sign/verify seam is left unset and
+    // production invites fail closed. Guarded by g_mutex (assignment/reset only).
+    std::shared_ptr<sgns::GeniusAccount> g_inviteAccount;
     std::vector<std::string> g_roomTopics;         // joined topic set (guarded by g_mutex)
     std::vector<std::string> g_derivedTopics;      // autoJoin-derived subset of g_roomTopics (D-04)
     std::vector<std::string> g_explicitTopics;     // join_topic-joined subset (WR-03: survives derived
@@ -346,6 +355,11 @@ namespace
             entities   = std::move( g_entities );
             messaging  = std::move( g_messaging );
             membership = std::move( g_membership );
+            // After the eviction, before the session is shut down: the
+            // Membership's seam callables each hold a shared_ptr copy, so the
+            // account stays alive until membership.reset() below and no live
+            // callable can observe a freed account (T-04-16-02).
+            g_inviteAccount.reset();
             g_roomTopics.clear();
             g_derivedTopics.clear();
             g_explicitTopics.clear();
@@ -1157,17 +1171,110 @@ extern "C"
         // built by member assignment, NOT brace-init (KeyWrapSeam has a
         // user-provided default ctor — same reason as the CryptoSeam above).
         //
-        // All FOUR callables are required for a production invite to be
-        // bearer-gated (WR-04 parity with the 04-09 fixtures): leaving either
-        // auth callable empty makes InviteAuthEnabled() false and silently
-        // reverts production to ungated invites (T-04-11-05). No crypto is
-        // implemented here — the seam points at the crypto owner's functions.
+        // All SIX callables are required for a production invite to be both
+        // bearer-gated and issuer-authenticated (WR-04 parity with the 04-09
+        // fixtures): leaving either auth callable empty makes
+        // InviteAuthEnabled() false and silently reverts production to ungated
+        // invites (T-04-11-05); leaving the issuer pair empty makes
+        // IssuerAuthEnabled() false and rejects every mint/redeem (MEMB-01/
+        // CR-08). No crypto is implemented here — the seam points at the crypto
+        // owner's functions, and the issuer pair is derived from the embedded
+        // node's active account.
         {
             gcs::Membership::KeyWrapSeam keyWrapSeam;
             keyWrapSeam.wrap = &gcs::crypto::WrapRoomKey;
             keyWrapSeam.unwrap = &gcs::crypto::UnwrapRoomKey;
             keyWrapSeam.mintAuth = &gcs::crypto::MintInviteAuthenticator;
             keyWrapSeam.verifyAuth = &gcs::crypto::VerifyInviteAuthenticator;
+
+            // The node's active account is the only holder of the signing key
+            // (T-04-16-01): read its mnemonic into a local, build the account,
+            // and never store or log the mnemonic. GeniusSDKGetMnemonic()
+            // returns the struct BY VALUE and zeroes it when no node/account
+            // exists, so an empty string means "no active account".
+            const std::string mnemonic( GeniusSDKGetMnemonic().mnemonic );
+            if ( mnemonic.empty() )
+            {
+                spdlog::error( "gcs_ffi: no active account mnemonic — the "
+                               "issuer-signing seam cannot be built; production "
+                               "invites will fail closed" );
+            }
+            else
+            {
+                // SessionBasePath is the node/wallet identity scope at boot
+                // (EnsureSdkBooted); reuse it rather than deriving a second
+                // base path. NewFromMnemonic needs boost::filesystem::path
+                // while SessionBasePath returns std::filesystem::path.
+                const boost::filesystem::path accountBasePath(
+                    SessionBasePath( config ).string() );
+                std::shared_ptr<sgns::GeniusAccount> inviteAccount =
+                    sgns::GeniusAccount::NewFromMnemonic(
+                        GeniusSDKGetNode()->GetTokenID(), mnemonic, accountBasePath );
+                if ( inviteAccount == nullptr )
+                {
+                    spdlog::error( "gcs_ffi: could not build the issuer account "
+                                   "from the active mnemonic — production invites "
+                                   "will fail closed" );
+                }
+                else
+                {
+                    g_inviteAccount = inviteAccount;
+                    spdlog::info( "gcs_ffi: issuer signer active for wallet '{}'",
+                                  std::string( GeniusSDKGetAddress().address ) );
+                    // Each lambda captures its OWN copy of the shared_ptr, so a
+                    // later global reset cannot dangle a live callable.
+                    keyWrapSeam.sign =
+                        [inviteAccount]( const std::string &payload,
+                                         const std::string &issuer )
+                        -> outcome::result<std::string>
+                    {
+                        if ( inviteAccount == nullptr
+                             || issuer != std::string( GeniusSDKGetAddress().address ) )
+                        {
+                            return outcome::failure( sgns::gcs::Error::GcsDbError );
+                        }
+                        const std::vector<uint8_t> data( payload.begin(), payload.end() );
+                        const std::vector<uint8_t> raw = inviteAccount->Sign( data );
+                        if ( raw.empty() )
+                        {
+                            return outcome::failure( sgns::gcs::Error::GcsDbError );
+                        }
+                        // Binary-safe: never a C-string operation on raw bytes.
+                        return outcome::success( std::string( raw.begin(), raw.end() ) );
+                    };
+                    keyWrapSeam.verifyIssuer =
+                        [inviteAccount]( const std::string &issuer,
+                                         const std::string &payload,
+                                         const std::string &signature )
+                        -> outcome::result<bool>
+                    {
+                        if ( inviteAccount == nullptr )
+                        {
+                            return outcome::success( false );
+                        }
+                        // The seam order is (issuer, payload, signature);
+                        // GeniusSigner takes (address, signature, data) — the
+                        // payload must never occupy the signature slot
+                        // (T-04-16-04). The signer needs BARE hex (base::unhex).
+                        std::string bareAddress = issuer;
+                        if ( bareAddress.rfind( "0x", 0 ) == 0 )
+                        {
+                            bareAddress.erase( 0, 2 );
+                        }
+                        if ( signature.size() != gcs::Membership::kSignatureBytes )
+                        {
+                            return outcome::success( false );
+                        }
+                        const std::vector<uint8_t> signatureBytes( signature.begin(),
+                                                                   signature.end() );
+                        const std::vector<uint8_t> payloadBytes( payload.begin(),
+                                                                 payload.end() );
+                        return outcome::success( sgns::GeniusSigner::VerifySignature(
+                            bareAddress, signatureBytes, payloadBytes ) );
+                    };
+                }
+            }
+
             keyWrapSeam.enabled = true;
             g_membership = std::make_unique<gcs::Membership>(
                 *g_session, *g_entities, std::string( GeniusSDKGetAddress().address ),
