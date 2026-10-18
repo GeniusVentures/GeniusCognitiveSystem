@@ -153,7 +153,7 @@ Plans:
   4. Super Admin cannot be demoted by other admins
   5. When 2+ admins exist, destructive actions require Super Admin approval
 
-**Plans:** 12 (7 executed + 5 gap-closure)
+**Plans:** 8/12 plans executed
 
 Plans:
 **Wave 1**
@@ -177,7 +177,7 @@ Plans:
 
 **Wave 5** *(blocked on Wave 4 completion — gap closure)*
 
-- [ ] 04-08-PLAN.md — Wave 5 (gap CR-01) — EntityStore catalog synchronization (mutex-guarded maps, never held across a Put) + concurrent reader/writer stress test
+- [x] 04-08-PLAN.md — Wave 5 (gap CR-01) — EntityStore catalog synchronization (mutex-guarded maps, never held across a Put) + concurrent reader/writer stress test
 - [ ] 04-09-PLAN.md — Wave 5 (gaps WR-02/03/04/05/06) — Membership rank guards, every-invite bearer authenticator (HKDF/AES-GCM + seam callables) with kind cross-check and collision rejection, tombstone-arrival roster push, well-known replication topic + appended proto fields, and the multinode fixture moved onto that topic
 
 **Wave 6** *(blocked on Wave 5 completion — gap closure)*
@@ -244,7 +244,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 1. Foundation | 11/11 | Complete | 2026-09-16 |
 | 2. Spaces & Rooms | 5/5 | Complete   | 2026-09-19 |
 | 3. Messaging | 6/6 | Complete   | 2026-09-24 |
-| 4. Membership & Invites | 7/12 | Gap closure planned | verified 2026-10-12 |
+| 4. Membership & Invites | 8/12 | In Progress|  |
 | 5. Moderation | 0/TBD | Not started | - |
 | 6. GCS Bot | 0/TBD | Not started | - |
 | 7. Discovery | 0/TBD | Not started | - |

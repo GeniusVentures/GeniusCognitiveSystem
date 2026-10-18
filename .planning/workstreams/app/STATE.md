@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: GCS Chat
 status: executing
-stopped_at: Phase 4 UI-SPEC approved
-last_updated: "2026-10-17T20:53:12.679Z"
-last_activity: 2026-10-17 -- Phase 04 planning complete
+stopped_at: Completed 04-08 plan (EntityStore catalog synchronization)
+last_updated: "2026-10-18T20:51:02.917Z"
+last_activity: 2026-10-18 -- Phase 04 execution started
 progress:
   total_phases: 7
   completed_phases: 3
   total_plans: 34
-  completed_plans: 29
+  completed_plans: 30
   percent: 43
 ---
 
@@ -26,11 +26,11 @@ See: .planning/workstreams/app/PROJECT.md (updated 2026-09-22)
 ## Current Position
 
 Phase: 04 (membership-invites) — EXECUTING
-Plan: 1 of 7
-Status: Ready to execute
-Last activity: 2026-10-17 -- Phase 04 planning complete
+Plan: 8 of 12
+Status: Executing Phase 04
+Last activity: 2026-10-18 -- Phase 04 execution started
 
-Progress: [██████████] 95%
+Progress: [█████████░] 88%
 
 ## Performance Metrics
 
@@ -63,6 +63,7 @@ Progress: [██████████] 95%
 | Phase 03 P03 | 10min | 2 tasks | 7 files |
 | Phase 03 P04 | 13min | 3 tasks | 8 files |
 | Phase 03 P05 | 14min | 2 tasks | 3 files |
+| Phase 04 P08 | 11min | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -103,6 +104,7 @@ Recent decisions affecting current work:
 - [Phase 03]: Deleted NextMessageId()/kMessageIdPrefix/g_messageSeq from the FFI — id minting now lives entirely in gcs_messaging; the FFI is a thin validate-and-delegate dispatcher
 - [Phase 03]: P06 two-node deadlock root cause FIXED — three faces of one class: (1) ApplyMessage's synchronous archive Put blocked the GossipSub strand (fixed bd0ea41: async archive worker in gcs::Messaging); (2) heal-callback pattern was regex_match-inert — kMessagesKeyCallbackPattern "/gcs/messages/.*" now full-matches (7d1a105); (3) activating the heal path exposed a g_mutex ABBA — gcs_publish held g_mutex across SendMessage's WaitForJob-put while the DagWorker heal lambda needed g_mutex (fixed a0f8499: lock contract is "g_mutex guards FFI globals + PostToDart; Messaging is never called under g_mutex")
 - [Phase 03]: Deferred hardening — GcsGlobalDb graphsync scheduler runs on private m_io; SuperGenius mandates the pubsub host's asio context (cross-thread WriteQueue Debug-assertion risk). c5f8104 tried, e51f08e reverted (no deadlock effect); follow-up candidate
+- [Phase 04]: EntityStore owns a catalog mutex; accessors lock internally and return by value, mutators never hold it across a session Put/Get — Closes CR-01 without duplicating the locking discipline at every FFI call site; preserves the FFI g_mutex lock order
 
 ### Pending Todos
 
@@ -128,6 +130,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-28T01:18:26.493Z
-Stopped at: Phase 4 UI-SPEC approved
-Resume file: .planning/workstreams/app/phases/04-membership-invites/04-UI-SPEC.md
+Last session: 2026-10-18T20:51:02.910Z
+Stopped at: Completed 04-08 plan (EntityStore catalog synchronization)
+Resume file: None
