@@ -248,9 +248,11 @@ public:
    * pending_action, pending_role, deleted and explicit_leave — only the
    * carried key material is refreshed, so a redeem can never grant a role or
    * cancel a dormant destructive op (a pending removal is activated only by
-   * Approve). A record that does not yet exist is written as ROLE_GUEST. A
-   * TOMBSTONED record is rejected immediately after the authenticator gate and
-   * before the unwrap loop — neither a member record nor a room key is written
+   * Approve). The preserved record keeps its authority signature, prior role,
+   * and signed timestamp verbatim (an authority-preserving write); a record
+   * that does not yet exist is author-signed as ROLE_GUEST. A TOMBSTONED
+   * record is rejected immediately after the authenticator gate and before the
+   * unwrap loop — neither a member record nor a room key is written
    * (CR-01/CR-02). The invite record is never consumed (multi-use).
    *
    * @param[in] inviteUrl The full invite link to redeem.
@@ -291,7 +293,11 @@ public:
   /**
    * @brief The caller explicitly leaves a scope (D-02 — never a tombstone).
    *
-   * Writes explicit_leave = true on the caller's own record; the Super Admin
+   * Writes explicit_leave = true on the caller's own record and stamps a
+   * SUBJECT signature over the canonical leave payload (another wallet cannot
+   * flip the flag on a copied record). The record is written by an
+   * authority-preserving write, so the existing authority signature, prior
+   * role, and signed timestamp survive even on a cold node. The Super Admin
    * cannot leave (guard rejects).
    *
    * @param[in] scopeId Space id or standalone room id.
@@ -350,6 +356,11 @@ public:
    * For a standalone room (!isSpace) it also mints the room's 32-byte key,
    * stores it in the per-room key store, and carries it wrapped under a
    * freshly minted creator member key on the record.
+   *
+   * The creator root is author-signed by the local wallet and write-once: a
+   * second call returns success without rewriting an already-verified root,
+   * and fails closed rather than overwrite an occupying record it cannot
+   * verify (D-03).
    *
    * @param[in] scopeId   Newly created space or standalone room id.
    * @param[in] roomTopic The room topic (gcs/chat/<id>) for key storage.
@@ -621,15 +632,37 @@ private:
                              std::size_t depth) const;
 
   /**
-   * @brief Full-state Put of a member record under its member key.
+   * @brief Full-state Put of an AUTHOR-signed member record.
    *
-   * Preserves created_at_ms from any stored record and re-stamps
-   * updated_at_ms (the UpdateSpace immutables pattern).
+   * The acting wallet is the signer. Preserves created_at_ms from the stored
+   * record, derives prior_role from the verified pre-write record (the ONE
+   * place that sets it), stamps updated_at_ms monotonically
+   * (max(NowMs(), verified predecessor + 1)) so consecutive authority writes
+   * are strictly ordered, stamps created_by = the local sender, signs the
+   * canonical member payload, and Puts. Fails closed without the issuer seam —
+   * no unsigned authority record is ever persisted.
    *
    * @param[in] record Full desired member state.
    * @return outcome::success on a persisted record; propagated Error otherwise.
    */
-  outcome::result<void> WriteMember(const chat::MemberRecord &record);
+  outcome::result<void> WriteMemberAsAuthor(chat::MemberRecord record);
+
+  /**
+   * @brief Full-state Put of a record whose authority already exists.
+   *
+   * Used only for non-authority updates (explicit_leave plus its subject
+   * signature, or wrapped room-key refresh). Requires non-empty created_by and
+   * record_signature; re-verifies the record and warns on failure but does NOT
+   * fail the write (a cold node cannot resolve the creator, and failing would
+   * block a legitimate leave/redeem). Never re-signs and never mutates any
+   * authority field or the signed updated_at_ms, so the authority signature
+   * stays valid on nodes that can resolve the scope; read paths remain the
+   * authority gate.
+   *
+   * @param[in] record Full desired member state.
+   * @return outcome::success on a persisted record; propagated Error otherwise.
+   */
+  outcome::result<void> WriteMemberPreservingAuthority(chat::MemberRecord record);
 
   /**
    * @brief Build and push the scope's MemberList via the sink (D-04).

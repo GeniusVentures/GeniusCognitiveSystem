@@ -528,6 +528,347 @@ bool Membership::VerifyLeaveSignature( const std::string &scopeId,
     return verified.has_value() && verified.value();
 }
 
+bool Membership::VerifyMemberRecord( const std::string &scopeId,
+                                     const std::string &address,
+                                     const chat::MemberRecord &record,
+                                     std::size_t depth ) const
+{
+    // (a) Common clauses: authenticity, body/key binding, coherence.
+    if ( !IssuerAuthEnabled() )
+    {
+        return false;
+    }
+    if ( address.empty() || record.scope_id() != scopeId
+         || record.address() != address )
+    {
+        return false;
+    }
+    if ( record.created_by().empty() || record.record_signature().empty() )
+    {
+        return false;
+    }
+    if ( !VerifyMemberSignature( scopeId, address, record ) )
+    {
+        return false;
+    }
+    if ( !VerifyLeaveSignature( scopeId, address, record ) )
+    {
+        return false;
+    }
+    // A member record never carries the entity-level DELETE op, and a
+    // tombstone and a dormant op are mutually exclusive (D-07).
+    if ( record.pending_action() == chat::PENDING_ACTION_DELETE )
+    {
+        return false;
+    }
+    if ( record.deleted()
+         && record.pending_action() != chat::PENDING_ACTION_UNSPECIFIED )
+    {
+        return false;
+    }
+    if ( record.role() == chat::ROLE_UNSPECIFIED )
+    {
+        return false;
+    }
+
+    // (b) Predecessor/staleness gate. The cache holds this node's last
+    // verified authority write. A matching signature is the same write (an
+    // authority-preserving update keeps it) and skips the comparison; a
+    // DIFFERENT signature must be strictly newer AND must declare the cached
+    // role as its predecessor. The lock guards only the map — never the
+    // session or the seam.
+    const std::string cacheKey = scopeId + "/" + address;
+    bool              hasCached = false;
+    VerifiedMemberState cached;
+    {
+        std::lock_guard<std::mutex> lock( m_verifiedStateMutex );
+        const auto it = m_verifiedState.find( cacheKey );
+        if ( it != m_verifiedState.end() )
+        {
+            cached    = it->second;
+            hasCached = true;
+        }
+    }
+    if ( hasCached && cached.signature != record.record_signature() )
+    {
+        if ( record.updated_at_ms() <= cached.updatedAtMs )
+        {
+            return false;
+        }
+        if ( record.prior_role() != cached.role )
+        {
+            return false;
+        }
+    }
+
+    const ScopeInfo scope = ResolveScope( scopeId );
+    if ( record.created_by() == address )
+    {
+        // (c) Self-signed branch. A self-signed record may never claim a
+        // predecessor, and only the scope creator may set SUPER_ADMIN; any
+        // other wallet is capped at GUEST and may not carry a tombstone, a
+        // pending action, or an approval (D-03/D-05).
+        if ( record.prior_role() != chat::ROLE_UNSPECIFIED )
+        {
+            return false;
+        }
+        const bool isCreator =
+            scope.found && !scope.creator.empty() && scope.creator == address;
+        if ( isCreator )
+        {
+            if ( record.role() != chat::ROLE_SUPER_ADMIN || record.deleted()
+                 || record.pending_action()
+                        != chat::PENDING_ACTION_UNSPECIFIED
+                 || !record.approved_by().empty() || record.explicit_leave() )
+            {
+                return false;
+            }
+        }
+        else
+        {
+            if ( record.role() != chat::ROLE_GUEST || record.deleted()
+                 || record.pending_action()
+                        != chat::PENDING_ACTION_UNSPECIFIED
+                 || !record.approved_by().empty() )
+            {
+                return false;
+            }
+            // explicit_leave is allowed here: the common clause already
+            // verified the subject's leave signature (D-02).
+        }
+    }
+    else
+    {
+        // (d) Third-party branch. The creator identity must resolve locally;
+        // a cold node fails closed.
+        if ( !scope.found || scope.creator.empty() )
+        {
+            return false;
+        }
+        // No third-party record may touch the creator, whatever its role,
+        // deletion flag, or signed predecessor claim.
+        if ( address == scope.creator )
+        {
+            return false;
+        }
+        if ( depth >= kMaxMemberChainDepth
+             || record.created_by() == address )
+        {
+            return false;
+        }
+        auto signerRole =
+            VerifiedRoleFor( scopeId, record.created_by(), depth + 1 );
+        if ( !signerRole.has_value() )
+        {
+            return false;
+        }
+        const unsigned int signerRank = PrivilegeRank( signerRole.value() );
+        const unsigned int priorRank  = PrivilegeRank( record.prior_role() );
+
+        if ( record.role() == chat::ROLE_SUPER_ADMIN )
+        {
+            return false; // never grantable (D-03 root only)
+        }
+        // Grant matrix: admin-tier targets require an admin-tier signer;
+        // member/guest targets require a moderator-tier signer.
+        if ( PrivilegeRank( record.role() )
+             >= PrivilegeRank( chat::ROLE_MODERATOR ) )
+        {
+            if ( signerRank < PrivilegeRank( chat::ROLE_ADMIN ) )
+            {
+                return false;
+            }
+        }
+        else if ( signerRank < PrivilegeRank( chat::ROLE_MODERATOR ) )
+        {
+            return false;
+        }
+
+        // prior_role must be empty or a concrete non-Super-Admin role.
+        const bool priorKnown =
+            record.prior_role() == chat::ROLE_UNSPECIFIED
+            || record.prior_role() == chat::ROLE_GUEST
+            || record.prior_role() == chat::ROLE_MEMBER
+            || record.prior_role() == chat::ROLE_MODERATOR
+            || record.prior_role() == chat::ROLE_ADMIN;
+        if ( !priorKnown )
+        {
+            return false;
+        }
+
+        if ( record.prior_role() == chat::ROLE_UNSPECIFIED )
+        {
+            // A creator direct grant. A non-creator may never fabricate a
+            // fresh member.
+            if ( record.created_by() != scope.creator || record.deleted()
+                 || record.pending_action()
+                        != chat::PENDING_ACTION_UNSPECIFIED
+                 || !record.approved_by().empty() )
+            {
+                return false;
+            }
+        }
+        else if ( record.deleted() )
+        {
+            // Tombstone: rank is preserved, no dormant op, the approval (when
+            // present) is the creator's, and an admin-tier target is only
+            // removable by the creator (D-07).
+            if ( record.prior_role() != record.role()
+                 || record.pending_action()
+                        != chat::PENDING_ACTION_UNSPECIFIED
+                 || record.pending_role() != chat::ROLE_UNSPECIFIED )
+            {
+                return false;
+            }
+            if ( !record.approved_by().empty()
+                 && record.approved_by() != scope.creator )
+            {
+                return false;
+            }
+            if ( priorRank >= PrivilegeRank( chat::ROLE_ADMIN ) )
+            {
+                if ( record.created_by() != scope.creator )
+                {
+                    return false;
+                }
+            }
+            else if ( signerRank <= priorRank )
+            {
+                return false;
+            }
+        }
+        else if ( record.pending_action() == chat::PENDING_ACTION_REMOVE )
+        {
+            // Dormant removal: strict outrank at EVERY rank, and the signer
+            // must be a participant of the admin tier (or the target is
+            // already admin-tier). A below-admin signer cannot create a
+            // wire-only dormant Member state.
+            if ( record.prior_role() != record.role()
+                 || !record.approved_by().empty() || signerRank <= priorRank )
+            {
+                return false;
+            }
+            if ( priorRank < PrivilegeRank( chat::ROLE_ADMIN )
+                 && signerRank < PrivilegeRank( chat::ROLE_ADMIN ) )
+            {
+                return false;
+            }
+        }
+        else if ( record.pending_action() == chat::PENDING_ACTION_ROLE_CHANGE )
+        {
+            // Dormant demotion: only an admin-tier target, a strictly lower
+            // concrete role, and an outranking signer (only the creator
+            // outranks an admin).
+            if ( record.prior_role() != record.role()
+                 || !record.approved_by().empty() )
+            {
+                return false;
+            }
+            const chat::Role pending = record.pending_role();
+            if ( pending != chat::ROLE_ADMIN && pending != chat::ROLE_MODERATOR
+                 && pending != chat::ROLE_MEMBER
+                 && pending != chat::ROLE_GUEST )
+            {
+                return false;
+            }
+            if ( PrivilegeRank( pending ) >= priorRank
+                 || signerRank <= priorRank
+                 || priorRank < PrivilegeRank( chat::ROLE_ADMIN ) )
+            {
+                return false;
+            }
+        }
+        else if ( record.role() != record.prior_role() )
+        {
+            // Applied role change. A promotion needs strict outrank; an
+            // admin-tier demotion needs the creator.
+            if ( PrivilegeRank( record.role() ) > priorRank )
+            {
+                if ( signerRank <= priorRank )
+                {
+                    return false;
+                }
+            }
+            if ( priorRank >= PrivilegeRank( chat::ROLE_ADMIN ) )
+            {
+                if ( record.created_by() != scope.creator )
+                {
+                    return false;
+                }
+            }
+            else if ( signerRank <= priorRank )
+            {
+                return false;
+            }
+        }
+        else if ( signerRank <= priorRank
+                  && record.created_by() != scope.creator )
+        {
+            // No-op authority write without outrank.
+            return false;
+        }
+    }
+
+    // Only the creator approves, and an approval resolves the pending state.
+    if ( !record.approved_by().empty() )
+    {
+        if ( record.created_by() != scope.creator
+             || record.pending_action() != chat::PENDING_ACTION_UNSPECIFIED )
+        {
+            return false;
+        }
+    }
+
+    // Every successful verification advances the node-local cache.
+    {
+        std::lock_guard<std::mutex> lock( m_verifiedStateMutex );
+        VerifiedMemberState state;
+        state.signature   = record.record_signature();
+        state.updatedAtMs = record.updated_at_ms();
+        state.role        = record.role();
+        m_verifiedState[cacheKey] = state;
+    }
+    return true;
+}
+
+outcome::result<chat::Role> Membership::VerifiedRoleFor(
+    const std::string &scopeId, const std::string &address,
+    std::size_t depth ) const
+{
+    if ( depth >= kMaxMemberChainDepth )
+    {
+        return outcome::failure( sgns::gcs::Error::GcsDbError );
+    }
+    chat::MemberRecord record;
+    if ( !TryReadRawMember( scopeId, address, record ) || record.deleted() )
+    {
+        return outcome::failure( sgns::gcs::Error::GcsDbError );
+    }
+    if ( !VerifyMemberRecord( scopeId, address, record, depth ) )
+    {
+        return outcome::failure( sgns::gcs::Error::GcsDbError );
+    }
+    return outcome::success( record.role() );
+}
+
+bool Membership::TryReadMemberVerified( const std::string &scopeId,
+                                        const std::string &address,
+                                        chat::MemberRecord &out,
+                                        std::size_t depth ) const
+{
+    chat::MemberRecord record;
+    if ( !TryReadRawMember( scopeId, address, record ) )
+    {
+        return false;
+    }
+    if ( !VerifyMemberRecord( scopeId, address, record, depth ) )
+    {
+        return false;
+    }
+    out = record;
+    return true;
+}
+
 bool Membership::IsSuperAdmin( const std::string &scopeId,
                                const std::string &address ) const
 {
@@ -570,28 +911,94 @@ outcome::result<unsigned int> Membership::AdminCount(
     return outcome::success( count );
 }
 
-outcome::result<void> Membership::WriteMember( const chat::MemberRecord &record )
+outcome::result<void> Membership::WriteMemberAsAuthor(
+    chat::MemberRecord record )
 {
-    chat::MemberRecord updated = record;
-    const auto         stored  = m_session.Get( MemberKey( record.scope_id(),
-                                                           record.address() ) );
+    // Fail closed: an authority write requires a signer (MEMB-01).
+    if ( !IssuerAuthEnabled() )
+    {
+        spdlog::warn( "gcs_membership: authority write rejected for '{}' in "
+                      "scope '{}' — no issuer-signing seam",
+                      record.address(), record.scope_id() );
+        return outcome::failure( sgns::gcs::Error::GcsDbError );
+    }
+
+    // Preserve the immutable creation stamp from any stored record.
+    const auto stored =
+        m_session.Get( MemberKey( record.scope_id(), record.address() ) );
     if ( stored.has_value() )
     {
         chat::MemberRecord existing;
         if ( existing.ParseFromString( stored.value() ) )
         {
-            updated.set_created_at_ms( existing.created_at_ms() );
+            record.set_created_at_ms( existing.created_at_ms() );
         }
     }
-    if ( updated.created_at_ms() == 0 )
+    if ( record.created_at_ms() == 0 )
     {
-        updated.set_created_at_ms( NowMs() );
+        record.set_created_at_ms( NowMs() );
     }
-    updated.set_updated_at_ms( NowMs() );
+
+    // Derive prior_role in this ONE place from the verified pre-write record.
+    // The signed timestamp is stamped after that read and BEFORE signing so
+    // two same-millisecond authority writes stay strictly ordered.
+    chat::MemberRecord verifiedExisting;
+    const bool hasVerified = TryReadMemberVerified(
+        record.scope_id(), record.address(), verifiedExisting, 0 );
+    record.set_prior_role( hasVerified ? verifiedExisting.role()
+                                       : chat::ROLE_UNSPECIFIED );
+    record.set_updated_at_ms( hasVerified
+                                  ? std::max( NowMs(),
+                                              verifiedExisting.updated_at_ms() + 1 )
+                                  : NowMs() );
+
+    record.set_created_by( m_sender );
+    record.clear_record_signature();
+    const std::string payload = MemberIssuerPayload(
+        record.scope_id(), record.address(), record );
+    auto signature = m_keyWrap.sign( payload, m_sender );
+    if ( !signature.has_value() )
+    {
+        spdlog::warn( "gcs_membership: authority write could not be signed for "
+                      "'{}' in scope '{}'",
+                      record.address(), record.scope_id() );
+        return signature.error();
+    }
+    record.set_record_signature( crypto::HexEncode( signature.value() ) );
+
     // Replicate on the well-known membership topic so remote nodes converge
     // even when they have not joined the scope (D-01/D-04/WR-06).
-    return m_session.Put( MemberKey( updated.scope_id(), updated.address() ),
-                          updated.SerializeAsString(), ScopeTopics() );
+    return m_session.Put( MemberKey( record.scope_id(), record.address() ),
+                          record.SerializeAsString(), ScopeTopics() );
+}
+
+outcome::result<void> Membership::WriteMemberPreservingAuthority(
+    chat::MemberRecord record )
+{
+    // Never persist an unsigned authority record.
+    if ( record.created_by().empty() || record.record_signature().empty() )
+    {
+        spdlog::warn( "gcs_membership: preserving write rejected for '{}' in "
+                      "scope '{}' — the record carries no authority signature",
+                      record.address(), record.scope_id() );
+        return outcome::failure( sgns::gcs::Error::GcsDbError );
+    }
+    // This path only changes non-authority fields (explicit_leave plus its
+    // subject signature, or wrapped_room_key), which the canonical member
+    // payload excludes. Re-verification is advisory: a cold node cannot
+    // resolve the creator, and failing here would block a legitimate leave or
+    // redeem. The authority bytes are preserved verbatim, so the record stays
+    // valid on nodes that can resolve the scope and inert where they cannot;
+    // the read path remains the authority gate (T-04-19-08).
+    if ( !VerifyMemberRecord( record.scope_id(), record.address(), record, 0 ) )
+    {
+        spdlog::warn( "gcs_membership: preserving an authority record for '{}' "
+                      "in scope '{}' that this node cannot verify; authority "
+                      "bytes are unchanged",
+                      record.address(), record.scope_id() );
+    }
+    return m_session.Put( MemberKey( record.scope_id(), record.address() ),
+                          record.SerializeAsString(), ScopeTopics() );
 }
 
 outcome::result<void> Membership::PushMemberList( const std::string &scopeId )
@@ -1148,7 +1555,14 @@ outcome::result<void> Membership::RedeemInvite( const std::string &inviteUrl )
     // placed at the write block would still have written process-local key
     // state. A removed wallet must not resurrect itself with a stale link.
     chat::MemberRecord existing;
-    const bool         hasExisting = TryReadMember( urlScopeId, m_sender, existing );
+    const bool         hasExisting = TryReadRawMember( urlScopeId, m_sender, existing );
+    if ( hasExisting && existing.address() != m_sender )
+    {
+        spdlog::warn( "gcs_membership: redeem rejected — the stored record under "
+                      "the sender key names another wallet in scope '{}'",
+                      urlScopeId );
+        return outcome::failure( sgns::gcs::Error::GcsDbError );
+    }
     if ( hasExisting && existing.deleted() )
     {
         spdlog::warn( "gcs_membership: redeem rejected — wallet '{}' is tombstoned "
@@ -1320,12 +1734,17 @@ outcome::result<void> Membership::RedeemInvite( const std::string &inviteUrl )
         mine.set_approved_by( "" );
         mine.set_pending_action( chat::PENDING_ACTION_UNSPECIFIED );
         mine.set_pending_role( chat::ROLE_UNSPECIFIED );
+        mine.set_explicit_leave( false );
+        mine.clear_leave_signature();
     }
     for ( const chat::WrappedRoomKey &wrapped : keptWrappedKeys )
     {
         *mine.add_wrapped_room_key() = wrapped;
     }
-    auto writeResult = WriteMember( mine );
+    // A fresh record is author-signed; an existing record keeps its authority
+    // signature, prior role, and signed timestamp verbatim (CR-01).
+    auto writeResult = hasExisting ? WriteMemberPreservingAuthority( mine )
+                                   : WriteMemberAsAuthor( mine );
     if ( !writeResult.has_value() )
     {
         return writeResult;
@@ -1378,7 +1797,7 @@ outcome::result<void> Membership::ChangeRole( const std::string &scopeId,
         record.set_pending_action( chat::PENDING_ACTION_UNSPECIFIED );
         record.set_pending_role( chat::ROLE_UNSPECIFIED );
     }
-    auto writeResult = WriteMember( record );
+    auto writeResult = WriteMemberAsAuthor( record );
     if ( !writeResult.has_value() )
     {
         return writeResult;
@@ -1421,7 +1840,7 @@ outcome::result<void> Membership::RemoveMember( const std::string &scopeId,
     {
         record.set_deleted( true );
     }
-    auto writeResult = WriteMember( record );
+    auto writeResult = WriteMemberAsAuthor( record );
     if ( !writeResult.has_value() )
     {
         return writeResult;
@@ -1438,8 +1857,20 @@ outcome::result<void> Membership::Leave( const std::string &scopeId )
                       scopeId );
         return outcome::failure( sgns::gcs::Error::GcsDbError );
     }
+    // Leave carries only the subject's signature, so it needs the signing
+    // seam even when the authority record cannot be verified locally.
+    if ( !IssuerAuthEnabled() )
+    {
+        spdlog::warn( "gcs_membership: leave rejected — no issuer-signing seam "
+                      "for scope '{}'",
+                      scopeId );
+        return outcome::failure( sgns::gcs::Error::GcsDbError );
+    }
+    // The RAW read is deliberate: a promoted member on a cold node must still
+    // be able to leave; the authority bytes are preserved verbatim below.
     chat::MemberRecord record;
-    if ( !TryReadMember( scopeId, m_sender, record ) || record.deleted() )
+    if ( !TryReadRawMember( scopeId, m_sender, record ) || record.deleted()
+         || record.address() != m_sender )
     {
         spdlog::warn( "gcs_membership: leave rejected — no live member record in "
                       "scope '{}'",
@@ -1447,9 +1878,19 @@ outcome::result<void> Membership::Leave( const std::string &scopeId )
         return outcome::failure( sgns::gcs::Error::GcsDbError );
     }
     // D-02: explicit leave is a bool on the caller's own record — never a
-    // tombstone, never a key removal.
+    // tombstone, never a key removal. The SUBJECT signs the leave so another
+    // wallet cannot flip the flag on a copied record.
     record.set_explicit_leave( true );
-    auto writeResult = WriteMember( record );
+    auto leaveSignature = m_keyWrap.sign( MemberLeavePayload( scopeId, m_sender ),
+                                          m_sender );
+    if ( !leaveSignature.has_value() )
+    {
+        spdlog::warn( "gcs_membership: leave could not be signed for scope '{}'",
+                      scopeId );
+        return leaveSignature.error();
+    }
+    record.set_leave_signature( crypto::HexEncode( leaveSignature.value() ) );
+    auto writeResult = WriteMemberPreservingAuthority( record );
     if ( !writeResult.has_value() )
     {
         return writeResult;
@@ -1556,7 +1997,7 @@ outcome::result<void> Membership::Approve( const std::string &scopeId,
             {
                 record.set_approved_by( m_sender );
                 record.set_deleted( true );
-                auto writeResult = WriteMember( record );
+                auto writeResult = WriteMemberAsAuthor( record );
                 if ( !writeResult.has_value() )
                 {
                     return writeResult;
@@ -1569,7 +2010,7 @@ outcome::result<void> Membership::Approve( const std::string &scopeId,
                 record.set_role( record.pending_role() );
                 record.set_pending_action( chat::PENDING_ACTION_UNSPECIFIED );
                 record.set_pending_role( chat::ROLE_UNSPECIFIED );
-                auto writeResult = WriteMember( record );
+                auto writeResult = WriteMemberAsAuthor( record );
                 if ( !writeResult.has_value() )
                 {
                     return writeResult;
@@ -1702,6 +2143,28 @@ outcome::result<void> Membership::OnScopeCreated( const std::string &scopeId,
                                                   const std::string &roomTopic,
                                                   bool               isSpace )
 {
+    // Write-once creator root (D-03): a second call must not rewrite a verified
+    // root (it would derive prior_role = SUPER_ADMIN, which the self-signed
+    // branch rejects) and must not overwrite an occupying record it cannot
+    // verify.
+    chat::MemberRecord occupying;
+    if ( TryReadRawMember( scopeId, m_sender, occupying ) )
+    {
+        const bool verifiedRoot =
+            VerifyMemberRecord( scopeId, m_sender, occupying, 0 )
+            && occupying.role() == chat::ROLE_SUPER_ADMIN
+            && occupying.created_by() == m_sender;
+        if ( verifiedRoot )
+        {
+            return outcome::success();
+        }
+        spdlog::warn( "gcs_membership: on_scope_created rejected — an "
+                      "unverifiable or foreign record already occupies the "
+                      "creator key in scope '{}'",
+                      scopeId );
+        return outcome::failure( sgns::gcs::Error::GcsDbError );
+    }
+
     chat::MemberRecord creator;
     creator.set_scope_id( scopeId );
     creator.set_address( m_sender );
@@ -1752,7 +2215,7 @@ outcome::result<void> Membership::OnScopeCreated( const std::string &scopeId,
         }
     }
 
-    auto writeResult = WriteMember( creator );
+    auto writeResult = WriteMemberAsAuthor( creator );
     if ( !writeResult.has_value() )
     {
         return writeResult;
