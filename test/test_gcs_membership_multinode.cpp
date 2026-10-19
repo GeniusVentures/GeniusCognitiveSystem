@@ -18,9 +18,11 @@
  * @date       2026-10-02
  */
 
+#include "account/GeniusSigner.hpp"
 #include "lib/gcs_crypto.hpp"
 #include "lib/gcs_entity_store.hpp"
 #include "lib/gcs_membership.hpp"
+#include "test_gcs_invite_helpers.hpp"
 #include "test_graphsync_network.hpp"
 #include "test_wait_condition.hpp"
 
@@ -50,10 +52,6 @@ namespace
 {
     /// GossipPubSub bind address used by every node.
     constexpr const char *kListenIp = "0.0.0.0";
-
-    /// Distinct node wallet identities (D-03).
-    constexpr const char *kSenderA = "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY";
-    constexpr const char *kSenderB = "5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty";
 
     /// Room chat topic prefix — the gcs/chat/<id> convention (D-01).
     constexpr const char *kRoomTopicPrefix = "gcs/chat/";
@@ -158,8 +156,12 @@ namespace gcs::test
      *
      * @param[in,out] node   The node being wired.
      * @param[in]     sender The local wallet address (D-03 authority stamp).
+     * @param[in]     signer The fixture-owned real signer for @p sender; it
+     *                       must outlive the membership (the issuer seam binds
+     *                       it by reference).
      */
-    void ArmMembership( MultinodeNode &node, const std::string &sender )
+    void ArmMembership( MultinodeNode &node, const std::string &sender,
+                        sgns::GeniusSigner &signer )
     {
         // CRDT heal path (D-01/D-04): member-record callback -> Membership.
         ASSERT_TRUE( node.session->RegisterNewElementCallback(
@@ -186,13 +188,62 @@ namespace gcs::test
         ASSERT_TRUE( node.store->LoadFromStore().has_value() );
 
         // Production D-06 posture: real vendored-OpenSSL seam, enabled. Built by
-        // member assignment (KeyWrapSeam has a user-provided default ctor).
+        // member assignment (KeyWrapSeam has a user-provided default ctor). The
+        // issuer pair is the only difference from the pre-04-15 fixture: it
+        // binds the REAL secp256k1 signer, so the seam's argument order and
+        // binary handling are proven against the production implementation.
         gcs::Membership::KeyWrapSeam seam;
         seam.wrap       = &gcs::crypto::WrapRoomKey;
         seam.unwrap     = &gcs::crypto::UnwrapRoomKey;
         seam.mintAuth   = &gcs::crypto::MintInviteAuthenticator;
         seam.verifyAuth = &gcs::crypto::VerifyInviteAuthenticator;
         seam.enabled    = true;
+
+        // The signer is a fixture member that outlives the membership
+        // (ShutdownNode evicts it long before fixture destruction), so the
+        // reference capture cannot dangle.
+        seam.sign = [ &signer ]( const std::string &payload,
+                                 const std::string &issuer )
+            -> outcome::result<std::string>
+        {
+            if ( issuer != signer.GetAddress() )
+            {
+                return outcome::failure( sgns::gcs::Error::GcsDbError );
+            }
+            const std::vector<uint8_t> data( payload.begin(), payload.end() );
+            const std::vector<uint8_t> raw = signer.Sign( data );
+            if ( raw.empty() )
+            {
+                return outcome::failure( sgns::gcs::Error::GcsDbError );
+            }
+            // Binary-safe: never a C-string operation on raw signature bytes.
+            return outcome::success( std::string( raw.begin(), raw.end() ) );
+        };
+
+        // Seam order is (issuer, payload, signature); GeniusSigner takes
+        // (address, signature, data). The payload must never occupy the
+        // signature slot, and the signer needs BARE hex (base::unhex).
+        seam.verifyIssuer = []( const std::string &issuer,
+                                const std::string &payload,
+                                const std::string &signature )
+            -> outcome::result<bool>
+        {
+            std::string bareAddress = issuer;
+            if ( bareAddress.rfind( "0x", 0 ) == 0 )
+            {
+                bareAddress.erase( 0, 2 );
+            }
+            if ( signature.size() != gcs::Membership::kSignatureBytes )
+            {
+                return outcome::success( false );
+            }
+            const std::vector<uint8_t> signatureBytes( signature.begin(),
+                                                       signature.end() );
+            const std::vector<uint8_t> payloadBytes( payload.begin(),
+                                                     payload.end() );
+            return outcome::success( sgns::GeniusSigner::VerifySignature(
+                bareAddress, signatureBytes, payloadBytes ) );
+        };
 
         node.membership = std::make_unique<gcs::Membership>(
             *node.session, *node.store, sender,
@@ -309,8 +360,14 @@ namespace gcs::test
             StartTransport( m_nodeB, m_tempPath + "/b" );
             StartSession( m_nodeA, m_nodeA.basePath + "/db" );
             StartSession( m_nodeB, m_nodeB.basePath + "/db" );
-            ArmMembership( m_nodeA, kSenderA );
-            ArmMembership( m_nodeB, kSenderB );
+            // Real secp256k1 identities (D-03): Generate() returns by value and
+            // the signer need not be copyable, so the fixture owns it.
+            m_signerA = std::make_unique<sgns::GeniusSigner>(
+                sgns::GeniusSigner::Generate() );
+            m_signerB = std::make_unique<sgns::GeniusSigner>(
+                sgns::GeniusSigner::Generate() );
+            ArmMembership( m_nodeA, SenderA(), *m_signerA );
+            ArmMembership( m_nodeB, SenderB(), *m_signerB );
 
             ASSERT_NE( m_nodeA.membership, nullptr );
             ASSERT_NE( m_nodeB.membership, nullptr );
@@ -398,7 +455,31 @@ namespace gcs::test
                 kWaitTimeout ) );
         }
 
+        /**
+         * @brief Node A's bare 128-hex wallet address (the Membership sender).
+         *
+         * @return The address derived from the fixture's real signer A.
+         */
+        std::string SenderA() const
+        {
+            return m_signerA->GetAddress();
+        }
+
+        /**
+         * @brief Node B's bare 128-hex wallet address (the Membership sender).
+         *
+         * @return The address derived from the fixture's real signer B.
+         */
+        std::string SenderB() const
+        {
+            return m_signerB->GetAddress();
+        }
+
         std::string   m_tempPath; ///< Per-test temp root (removed in TearDown)
+        /// Real secp256k1 identities. Declared BEFORE the nodes so they outlive
+        /// every membership that binds them by reference.
+        std::unique_ptr<sgns::GeniusSigner> m_signerA;
+        std::unique_ptr<sgns::GeniusSigner> m_signerB;
         MultinodeNode m_nodeA;    ///< Mesh node A (Super Admin creator)
         MultinodeNode m_nodeB;    ///< Mesh node B (invite redeemer)
     };
@@ -422,14 +503,14 @@ namespace gcs::test
 
         // The creator is a Super Admin on both sides; B's grant is the Guest
         // default stamped by the invite record (D-05).
-        EXPECT_EQ( RoleOf( listA.value(), kSenderA ), chat::ROLE_SUPER_ADMIN );
-        EXPECT_EQ( RoleOf( listB.value(), kSenderA ), chat::ROLE_SUPER_ADMIN );
-        EXPECT_EQ( RoleOf( listA.value(), kSenderB ), chat::ROLE_GUEST );
-        EXPECT_EQ( RoleOf( listB.value(), kSenderB ), chat::ROLE_GUEST );
+        EXPECT_EQ( RoleOf( listA.value(), SenderA() ), chat::ROLE_SUPER_ADMIN );
+        EXPECT_EQ( RoleOf( listB.value(), SenderA() ), chat::ROLE_SUPER_ADMIN );
+        EXPECT_EQ( RoleOf( listA.value(), SenderB() ), chat::ROLE_GUEST );
+        EXPECT_EQ( RoleOf( listB.value(), SenderB() ), chat::ROLE_GUEST );
 
         // self_address is the pushed local wallet on each side (D-04).
-        EXPECT_EQ( listA.value().self_address(), kSenderA );
-        EXPECT_EQ( listB.value().self_address(), kSenderB );
+        EXPECT_EQ( listA.value().self_address(), SenderA() );
+        EXPECT_EQ( listB.value().self_address(), SenderB() );
     }
 
     /**
@@ -442,7 +523,7 @@ namespace gcs::test
         CreateRoomAndJoin( roomId );
 
         // A (the room's Super Admin) promotes B to Moderator.
-        ASSERT_TRUE( m_nodeA.membership->ChangeRole( roomId, kSenderB, chat::ROLE_MODERATOR ).has_value() );
+        ASSERT_TRUE( m_nodeA.membership->ChangeRole( roomId, SenderB(), chat::ROLE_MODERATOR ).has_value() );
 
         // B's local role and A's roster both converge on the new role.
         EXPECT_TRUE( WaitForCondition(
@@ -454,8 +535,8 @@ namespace gcs::test
                 auto listA = m_nodeA.membership->MembersFor( roomId );
                 auto listB = m_nodeB.membership->MembersFor( roomId );
                 return listA.has_value() && listB.has_value() &&
-                       RoleOf( listA.value(), kSenderB ) == chat::ROLE_MODERATOR &&
-                       RoleOf( listB.value(), kSenderB ) == chat::ROLE_MODERATOR;
+                       RoleOf( listA.value(), SenderB() ) == chat::ROLE_MODERATOR &&
+                       RoleOf( listB.value(), SenderB() ) == chat::ROLE_MODERATOR;
             },
             kWaitTimeout ) );
 
@@ -464,8 +545,8 @@ namespace gcs::test
         auto listB = m_nodeB.membership->MembersFor( roomId );
         ASSERT_TRUE( listA.has_value() );
         ASSERT_TRUE( listB.has_value() );
-        EXPECT_EQ( RoleOf( listA.value(), kSenderA ), chat::ROLE_SUPER_ADMIN );
-        EXPECT_EQ( RoleOf( listB.value(), kSenderA ), chat::ROLE_SUPER_ADMIN );
+        EXPECT_EQ( RoleOf( listA.value(), SenderA() ), chat::ROLE_SUPER_ADMIN );
+        EXPECT_EQ( RoleOf( listB.value(), SenderA() ), chat::ROLE_SUPER_ADMIN );
     }
 
     /**
@@ -522,10 +603,10 @@ namespace gcs::test
 
         // The creator is a Super Admin on both sides; B's grant is the Guest
         // default stamped by MintInvite (D-05).
-        EXPECT_EQ( RoleOf( listA.value(), kSenderA ), chat::ROLE_SUPER_ADMIN );
-        EXPECT_EQ( RoleOf( listB.value(), kSenderA ), chat::ROLE_SUPER_ADMIN );
-        EXPECT_EQ( RoleOf( listA.value(), kSenderB ), chat::ROLE_GUEST );
-        EXPECT_EQ( RoleOf( listB.value(), kSenderB ), chat::ROLE_GUEST );
+        EXPECT_EQ( RoleOf( listA.value(), SenderA() ), chat::ROLE_SUPER_ADMIN );
+        EXPECT_EQ( RoleOf( listB.value(), SenderA() ), chat::ROLE_SUPER_ADMIN );
+        EXPECT_EQ( RoleOf( listA.value(), SenderB() ), chat::ROLE_GUEST );
+        EXPECT_EQ( RoleOf( listB.value(), SenderB() ), chat::ROLE_GUEST );
     }
 
     /**
@@ -590,7 +671,7 @@ namespace gcs::test
         ASSERT_TRUE( baselineScan.has_value() );
         const std::size_t baselineRecordCount = baselineScan.value().size();
         ASSERT_EQ( baselineRecordCount, 2U );
-        const auto baselineRecord = m_nodeB.session->Get( memberPrefix + kSenderB );
+        const auto baselineRecord = m_nodeB.session->Get( memberPrefix + SenderB() );
         ASSERT_TRUE( baselineRecord.has_value() );
 
         // 2. Wrong key of the same base64url shape: parsed as a key, rejected
@@ -609,9 +690,9 @@ namespace gcs::test
         ASSERT_TRUE( afterWrongKeyMembers.has_value() );
         EXPECT_EQ( afterWrongKeyMembers.value().member_size(),
                    baselineMembers.value().member_size() );
-        EXPECT_EQ( RoleOf( afterWrongKeyMembers.value(), kSenderA ),
+        EXPECT_EQ( RoleOf( afterWrongKeyMembers.value(), SenderA() ),
                    chat::ROLE_SUPER_ADMIN );
-        EXPECT_EQ( RoleOf( afterWrongKeyMembers.value(), kSenderB ), chat::ROLE_GUEST );
+        EXPECT_EQ( RoleOf( afterWrongKeyMembers.value(), SenderB() ), chat::ROLE_GUEST );
 
         // 3. Forged record with no authenticator, written at the WIRE level
         // under a distinct invite id on the membership replication topic.
@@ -640,16 +721,16 @@ namespace gcs::test
         auto afterForgedScan = m_nodeB.session->QueryKeyValues( memberPrefix );
         ASSERT_TRUE( afterForgedScan.has_value() );
         EXPECT_EQ( afterForgedScan.value().size(), baselineRecordCount );
-        const auto afterForgedRecord = m_nodeB.session->Get( memberPrefix + kSenderB );
+        const auto afterForgedRecord = m_nodeB.session->Get( memberPrefix + SenderB() );
         ASSERT_TRUE( afterForgedRecord.has_value() );
         EXPECT_EQ( afterForgedRecord.value(), baselineRecord.value() );
         auto afterForgedMembers = m_nodeB.membership->MembersFor( spaceId );
         ASSERT_TRUE( afterForgedMembers.has_value() );
         EXPECT_EQ( afterForgedMembers.value().member_size(),
                    baselineMembers.value().member_size() );
-        EXPECT_EQ( RoleOf( afterForgedMembers.value(), kSenderA ),
+        EXPECT_EQ( RoleOf( afterForgedMembers.value(), SenderA() ),
                    chat::ROLE_SUPER_ADMIN );
-        EXPECT_EQ( RoleOf( afterForgedMembers.value(), kSenderB ), chat::ROLE_GUEST );
+        EXPECT_EQ( RoleOf( afterForgedMembers.value(), SenderB() ), chat::ROLE_GUEST );
     }
 
     /**
@@ -667,7 +748,7 @@ namespace gcs::test
 
         auto before = m_nodeB.membership->MembersFor( roomId );
         ASSERT_TRUE( before.has_value() );
-        EXPECT_EQ( RoleOf( before.value(), kSenderB ), chat::ROLE_GUEST );
+        EXPECT_EQ( RoleOf( before.value(), SenderB() ), chat::ROLE_GUEST );
 
         // The assertion must pin the POST-removal push: discard every event B
         // has already captured, including the pre-removal rosters.
@@ -677,14 +758,14 @@ namespace gcs::test
         }
 
         // A is the creator (Super Admin rank > Guest) and acts alone.
-        ASSERT_TRUE( m_nodeA.membership->RemoveMember( roomId, kSenderB ).has_value() );
+        ASSERT_TRUE( m_nodeA.membership->RemoveMember( roomId, SenderB() ).has_value() );
 
         ASSERT_TRUE( WaitForCondition(
             [ & ]() {
                 auto latest = LatestMemberListFor( m_nodeB, roomId );
                 return latest.has_value() &&
-                       RoleOf( latest.value(), kSenderB ) == chat::ROLE_UNSPECIFIED &&
-                       RoleOf( latest.value(), kSenderA ) == chat::ROLE_SUPER_ADMIN;
+                       RoleOf( latest.value(), SenderB() ) == chat::ROLE_UNSPECIFIED &&
+                       RoleOf( latest.value(), SenderA() ) == chat::ROLE_SUPER_ADMIN;
             },
             kWaitTimeout ) );
     }
