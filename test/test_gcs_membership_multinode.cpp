@@ -714,7 +714,8 @@ namespace gcs::test
             },
             kWaitTimeout ) );
 
-        const std::string forgedUrl = "gcs://invite/space/" + forgedInviteId + keyMarker
+        const std::string forgedUrl = "gcs://invite/space/" + spaceId + "/"
+                                      + forgedInviteId + keyMarker
                                       + kWellFormedInviteKey;
         EXPECT_FALSE( m_nodeB.membership->RedeemInvite( forgedUrl ).has_value() );
 
@@ -734,7 +735,122 @@ namespace gcs::test
     }
 
     /**
-     * @brief Test 5 (WR-05): a remote removal converges on the removed node as
+     * @brief Test 5 (CR-08): a wire-level record claiming the creator as its
+     *        issuer but signed by an attacker key grants nothing.
+     *
+     * The record carries a VALID bearer authenticator, so the authenticator
+     * gate passes; only issuer binding can reject it. The attacker signs the
+     * canonical payload with its own key while created_by names the creator,
+     * so verification against the CLAIMED issuer fails before any member write.
+     */
+    TEST_F( MembershipMultinodeTest, ForgedIssuerSignatureCannotGrantARoleOnTheWire )
+    {
+        auto space = m_nodeA.store->CreateSpace( "forged", true, false, true );
+        ASSERT_TRUE( space.has_value() );
+        const std::string spaceId = space.value().id();
+
+        ASSERT_TRUE(
+            m_nodeA.membership->OnScopeCreated( spaceId, "", /*isSpace=*/true ).has_value() );
+
+        auto minted = m_nodeA.membership->MintInvite( spaceId );
+        ASSERT_TRUE( minted.has_value() );
+
+        const std::string scopedInvitePrefix =
+            std::string( gcs::Membership::kInvitesKeyPrefix ) + spaceId + "/";
+        const std::string memberPrefix =
+            std::string( gcs::Membership::kMembersKeyPrefix ) + spaceId + "/";
+
+        // The genuine record and the creator's member record must replicate to
+        // B so the forged record starts from a well-formed shape.
+        ASSERT_TRUE( WaitForCondition(
+            [ & ]() {
+                auto invites = m_nodeB.session->QueryKeyValues( scopedInvitePrefix );
+                auto members = m_nodeB.session->QueryKeyValues( memberPrefix );
+                return invites.has_value() && invites.value().size() == 1 &&
+                       members.has_value() && members.value().size() == 1;
+            },
+            kWaitTimeout ) );
+
+        auto replicated = m_nodeB.session->QueryKeyValues( scopedInvitePrefix );
+        ASSERT_TRUE( replicated.has_value() );
+        ASSERT_EQ( replicated.value().size(), 1U );
+        chat::InviteRecord authentic;
+        ASSERT_TRUE( authentic.ParseFromString( replicated.value().front().second ) );
+
+        // Build the forged record: attacker's signature, the creator's claimed
+        // identity, an escalated role, and a bearer authenticator minted with
+        // an attacker-chosen key so the authenticator gate cannot be the
+        // reason for rejection.
+        sgns::GeniusSigner attacker = sgns::GeniusSigner::Generate();
+        const std::string  forgedInviteId = "invite-forged-issuer";
+        chat::InviteRecord forged         = authentic;
+        forged.set_created_by( SenderA() );
+        forged.set_role( chat::ROLE_SUPER_ADMIN );
+        forged.clear_wrapped_room_key();
+
+        // kWellFormedInviteKey is the unpadded base64url encoding of
+        // kRoomKeyLengthBytes zero bytes, so the URL's key decodes to exactly
+        // these bytes and this authenticator verifies.
+        const std::vector<unsigned char> attackerInviteKey(
+            gcs::crypto::kRoomKeyLengthBytes, 0 );
+        auto attackerAuth = gcs::crypto::MintInviteAuthenticator(
+            attackerInviteKey, spaceId, forgedInviteId );
+        ASSERT_TRUE( attackerAuth.has_value() );
+        forged.set_authenticator( attackerAuth.value() );
+
+        const std::string forgedPayload = BuildInviteIssuerPayload( forgedInviteId, forged );
+        const std::vector<uint8_t> forgedData( forgedPayload.begin(),
+                                               forgedPayload.end() );
+        const std::vector<uint8_t> forgedSignature = attacker.Sign( forgedData );
+        ASSERT_EQ( forgedSignature.size(), gcs::Membership::kSignatureBytes );
+        forged.set_issuer_signature( gcs::crypto::HexEncode(
+            std::string( forgedSignature.begin(), forgedSignature.end() ) ) );
+
+        // Write it at the WIRE level under the PUBLIC prefix on the membership
+        // replication topic — the same channel any peer may publish on.
+        ASSERT_TRUE( m_nodeA.session
+                         ->Put( scopedInvitePrefix + forgedInviteId,
+                                forged.SerializeAsString(),
+                                std::unordered_set<std::string>{
+                                    gcs::Membership::kMembershipTopic } )
+                         .has_value() );
+        ASSERT_TRUE( WaitForCondition(
+            [ & ]() {
+                auto seen = m_nodeB.session->QueryKeyValues( scopedInvitePrefix );
+                return seen.has_value() && seen.value().size() == 2;
+            },
+            kWaitTimeout ) );
+
+        // Baseline on B: the creator's record only. The genuine invite is never
+        // redeemed here, so B has no member record at all.
+        auto baselineScan = m_nodeB.session->QueryKeyValues( memberPrefix );
+        ASSERT_TRUE( baselineScan.has_value() );
+        const std::size_t baselineRecordCount = baselineScan.value().size();
+        ASSERT_EQ( baselineRecordCount, 1U );
+        EXPECT_FALSE( m_nodeB.session->Get( memberPrefix + SenderB() ).has_value() );
+
+        // The issuer-signature check fires here: the record is signed by a key
+        // that does not control created_by, after the bearer authenticator has
+        // already passed.
+        const std::string forgedUrl = "gcs://invite/space/" + spaceId + "/"
+                                      + forgedInviteId + "?key=" + kWellFormedInviteKey;
+        EXPECT_FALSE( m_nodeB.membership->RedeemInvite( forgedUrl ).has_value() );
+
+        auto afterScan = m_nodeB.session->QueryKeyValues( memberPrefix );
+        ASSERT_TRUE( afterScan.has_value() );
+        EXPECT_EQ( afterScan.value().size(), baselineRecordCount );
+        // Absent before and after: never compare bytes of a record that must
+        // not exist.
+        EXPECT_FALSE( m_nodeB.session->Get( memberPrefix + SenderB() ).has_value() );
+
+        auto listB = m_nodeB.membership->MembersFor( spaceId );
+        ASSERT_TRUE( listB.has_value() );
+        // RoleOf returns ROLE_UNSPECIFIED when the address is absent.
+        EXPECT_EQ( RoleOf( listB.value(), SenderB() ), chat::ROLE_UNSPECIFIED );
+    }
+
+    /**
+     * @brief Test 6 (WR-05): a remote removal converges on the removed node as
      *        a PUSHED MemberList, not merely in its local CRDT scan.
      *
      * Node A removes B after both rosters converge; B's captured events are
