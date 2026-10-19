@@ -16,7 +16,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 1: Foundation** - C++ core scaffolding, GlobalDB CRDT integration, FFI bridge to Flutter, and cross-platform CI/CD (macOS, Linux, Windows, iOS, Android)
 - [x] **Phase 2: Spaces & Rooms** - Space and room creation with configurable inheritance (completed 2026-09-19)
 - [x] **Phase 3: Messaging** - Real-time text messaging with CRDT sync across participants (completed 2026-09-24)
-- [ ] **Phase 4: Membership & Invites** - Roles, capability tokens, and permission model (gap closure in progress)
+- [x] **Phase 4: Membership & Invites** - Roles, capability tokens, and permission model (gap closure in progress) (completed 2026-10-19)
 - [ ] **Phase 5: Moderation** - Message tombstones, kick/ban, and admin approval flows
 - [ ] **Phase 6: GCS Bot** - Bot participant with auto-answer policies and Expert Model routing
 - [ ] **Phase 7: Discovery** - Public space lobby and private space isolation
@@ -153,7 +153,7 @@ Plans:
   4. Super Admin cannot be demoted by other admins
   5. When 2+ admins exist, destructive actions require Super Admin approval
 
-**Plans:** 17/18 plans executed
+**Plans:** 18/18 plans complete
 
 Plans:
 **Wave 1**
@@ -205,7 +205,7 @@ Plans:
 **Wave 11** *(blocked on Wave 10 completion — gap closure)*
 
 - [x] 04-17-PLAN.md — Wave 11 (gaps CR-03/CR-04) — CanChangeRole concrete-role and strict-rank guards (creator exception preserved) + role/rank authorization tests
-- [ ] 04-18-PLAN.md — Wave 11 (gap CR-08 wire proof) — Multinode real-signer fixture: genuine cross-node redeem accepted, forged issuer with a valid bearer authenticator rejected with baseline capture
+- [x] 04-18-PLAN.md — Wave 11 (gap CR-08 wire proof) — Multinode real-signer fixture: genuine cross-node redeem accepted, forged issuer with a valid bearer authenticator rejected with baseline capture
 
 **Deferred (recorded, not in this gap-closure set):** CR-07 — room keys live in a process-local store, so a second application process (or a restart without the invite material) cannot decrypt a room's key material. Warning-level; no Phase 4 requirement depends on cross-process key persistence, and no plan in Waves 5-11 addresses it.
 
@@ -267,7 +267,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 1. Foundation | 11/11 | Complete | 2026-09-16 |
 | 2. Spaces & Rooms | 5/5 | Complete   | 2026-09-19 |
 | 3. Messaging | 6/6 | Complete   | 2026-09-24 |
-| 4. Membership & Invites | 17/18 | In Progress|  |
+| 4. Membership & Invites | 18/18 | Complete   | 2026-10-19 |
 | 5. Moderation | 0/TBD | Not started | - |
 | 6. GCS Bot | 0/TBD | Not started | - |
 | 7. Discovery | 0/TBD | Not started | - |
