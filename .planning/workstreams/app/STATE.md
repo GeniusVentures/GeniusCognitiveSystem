@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: GCS Chat
 status: executing
-stopped_at: Completed 04-16-PLAN.md
-last_updated: "2026-10-18T23:59:30.158Z"
-last_activity: 2026-10-18
+stopped_at: Completed 04-17-PLAN.md
+last_updated: "2026-10-19T00:05:46.388Z"
+last_activity: 2026-10-19
 progress:
   total_phases: 7
   completed_phases: 3
   total_plans: 40
-  completed_plans: 38
+  completed_plans: 39
   percent: 43
 ---
 
@@ -26,11 +26,11 @@ See: .planning/workstreams/app/PROJECT.md (updated 2026-09-22)
 ## Current Position
 
 Phase: 04 (membership-invites) — EXECUTING
-Plan: 17 of 18
+Plan: 18 of 18
 Status: Ready to execute
-Last activity: 2026-10-18
+Last activity: 2026-10-19
 
-Progress: [██████████] 95%
+Progress: [██████████] 98%
 
 ## Performance Metrics
 
@@ -72,6 +72,7 @@ Progress: [██████████] 95%
 | Phase 04 P14 | 15min | 3 tasks | 6 files |
 | Phase 04 P15 | 16min | 3 tasks | 7 files |
 | Phase 04 P16 | 25min | 3 tasks | 6 files |
+| Phase 04 P17 | 5min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -141,6 +142,10 @@ Recent decisions affecting current work:
 - [Phase 04]: g_inviteAccount is a shared_ptr captured per seam lambda and reset after membership eviction, so no live callable dangles
 - [Phase 04]: verifyIssuer strips 0x, requires exactly kSignatureBytes, and reorders the seam to VerifySignature(address, signature, data)
 - [Phase 04]: The FFI fixture pins a deterministic BIP39 mnemonic so tests exercise the production issuer seam with no test-only override
+- [Phase 04]: CanChangeRole never grants ROLE_SUPER_ADMIN: it is the D-03 root created with its scope, never a grantable role — Closes CR-03; prevents a second authority root for every author including the creator
+- [Phase 04]: CanChangeRole rejects ROLE_UNSPECIFIED — It sorts below Guest and would corrupt every PrivilegeRank comparison (CR-03)
+- [Phase 04]: CanChangeRole requires a live target and strict outrank of the target's CURRENT stored role, mirroring CanRemoveMember — Closes CR-04; a Moderator cannot act on an Admin/peer Moderator and an Admin cannot act on a non-creator Super Admin
+- [Phase 04]: The creator exception sits after the target read and before the rank comparison — Preserves the documented WR-03 peer Super Admin demotion dormancy workflow (T-04-17-05)
 
 ### Pending Todos
 
@@ -166,7 +171,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-10-18T23:59:30.150Z
-Stopped at: Completed 04-16-PLAN.md
+Last session: 2026-10-19T00:05:46.381Z
+Stopped at: Completed 04-17-PLAN.md
 Resume file: 
 None
