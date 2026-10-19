@@ -1648,15 +1648,141 @@ namespace gcs::test
         EXPECT_FALSE( superAdminRecord.deleted() );
         EXPECT_EQ( superAdminRecord.role(), chat::ROLE_SUPER_ADMIN );
 
-        // CanChangeRole is not a removal guard: the demotion is accepted, but
-        // WR-03 dormancy keeps the Super Admin's role until approval.
-        ASSERT_TRUE( admin.ChangeRole( spaceId, kTargetAddress, chat::ROLE_ADMIN ).has_value() );
-        chat::MemberRecord dormant;
-        ASSERT_TRUE( ReadMemberRecord( *m_rig.session, spaceId, kTargetAddress, dormant ) );
-        EXPECT_EQ( dormant.role(), chat::ROLE_SUPER_ADMIN );
-        EXPECT_TRUE( dormant.approved_by().empty() );
-        EXPECT_EQ( dormant.pending_action(), chat::PENDING_ACTION_ROLE_CHANGE );
-        EXPECT_EQ( dormant.pending_role(), chat::ROLE_ADMIN );
+        // CR-04: the removal guard's rank rule now applies to role changes too
+        // — an Admin cannot initiate a non-creator Super Admin's demotion.
+        EXPECT_FALSE( admin.ChangeRole( spaceId, kTargetAddress, chat::ROLE_ADMIN ).has_value() );
+        chat::MemberRecord unchanged;
+        ASSERT_TRUE( ReadMemberRecord( *m_rig.session, spaceId, kTargetAddress, unchanged ) );
+        EXPECT_EQ( unchanged.role(), chat::ROLE_SUPER_ADMIN );
+        EXPECT_EQ( unchanged.pending_action(), chat::PENDING_ACTION_UNSPECIFIED );
+        EXPECT_EQ( unchanged.pending_role(), chat::ROLE_UNSPECIFIED );
+        EXPECT_TRUE( unchanged.approved_by().empty() );
+        EXPECT_FALSE( unchanged.deleted() );
+    }
+
+    /**
+     * @brief Test (CR-04/T-04-17-02): a Moderator may not initiate a role
+     *        change against an equal- or higher-ranked target, while a plain
+     *        Member remains manageable.
+     */
+    TEST_F( GcsMembershipTest, ModeratorCannotInitiateHighRankRoleChange )
+    {
+        StartRig( kTestCreatorAddress );
+
+        auto space = m_rig.store->CreateSpace( "ops", true, true, true );
+        ASSERT_TRUE( space.has_value() );
+        const std::string spaceId = space.value().id();
+        SeedMember( spaceId, kModeratorAddress, chat::ROLE_MODERATOR );
+        SeedMember( spaceId, kAdminAddress, chat::ROLE_ADMIN );
+        SeedMember( spaceId, kTargetAddress, chat::ROLE_MODERATOR );
+        SeedMember( spaceId, kMemberAddress, chat::ROLE_MEMBER );
+
+        std::vector<chat::GcsEvent> events;
+        gcs::Membership creator( *m_rig.session, *m_rig.store, kTestCreatorAddress,
+                                 CapturingSink( &events ), MakeSeam( kTestCreatorAddress ) );
+        ASSERT_TRUE( creator.OnScopeCreated( spaceId, "", true ).has_value() );
+
+        gcs::Membership moderator( *m_rig.session, *m_rig.store, kModeratorAddress,
+                                   CapturingSink( &events ), MakeSeam( kModeratorAddress ) );
+
+        // Rank 3 is not > 4: a Moderator cannot demote an Admin.
+        EXPECT_FALSE( moderator.ChangeRole( spaceId, kAdminAddress, chat::ROLE_MEMBER ).has_value() );
+        chat::MemberRecord adminRecord;
+        ASSERT_TRUE( ReadMemberRecord( *m_rig.session, spaceId, kAdminAddress, adminRecord ) );
+        EXPECT_EQ( adminRecord.role(), chat::ROLE_ADMIN );
+        EXPECT_EQ( adminRecord.pending_action(), chat::PENDING_ACTION_UNSPECIFIED );
+        EXPECT_EQ( adminRecord.pending_role(), chat::ROLE_UNSPECIFIED );
+
+        // Rank 3 is not > 3: equal rank is rejected too.
+        EXPECT_FALSE( moderator.ChangeRole( spaceId, kTargetAddress, chat::ROLE_MEMBER ).has_value() );
+        chat::MemberRecord peerRecord;
+        ASSERT_TRUE( ReadMemberRecord( *m_rig.session, spaceId, kTargetAddress, peerRecord ) );
+        EXPECT_EQ( peerRecord.role(), chat::ROLE_MODERATOR );
+        EXPECT_EQ( peerRecord.pending_action(), chat::PENDING_ACTION_UNSPECIFIED );
+
+        // Positive control: rank 3 > 2 — a plain Member is manageable.
+        ASSERT_TRUE( moderator.ChangeRole( spaceId, kMemberAddress, chat::ROLE_GUEST ).has_value() );
+        chat::MemberRecord memberRecord;
+        ASSERT_TRUE( ReadMemberRecord( *m_rig.session, spaceId, kMemberAddress, memberRecord ) );
+        EXPECT_EQ( memberRecord.role(), chat::ROLE_GUEST );
+    }
+
+    /**
+     * @brief Test (CR-03/T-04-17-01/T-04-17-04): no author may grant
+     *        ROLE_SUPER_ADMIN or write ROLE_UNSPECIFIED — including the creator
+     *        on itself.
+     */
+    TEST_F( GcsMembershipTest, ChangeRoleRejectsSuperAdminGrantAndUnspecifiedRole )
+    {
+        StartRig( kTestCreatorAddress );
+
+        auto space = m_rig.store->CreateSpace( "ops", true, true, true );
+        ASSERT_TRUE( space.has_value() );
+        const std::string spaceId = space.value().id();
+        SeedMember( spaceId, kMemberAddress, chat::ROLE_MEMBER );
+
+        std::vector<chat::GcsEvent> events;
+        gcs::Membership creator( *m_rig.session, *m_rig.store, kTestCreatorAddress,
+                                 CapturingSink( &events ), MakeSeam( kTestCreatorAddress ) );
+        ASSERT_TRUE( creator.OnScopeCreated( spaceId, "", true ).has_value() );
+
+        // A Super Admin grant would create a second authority root.
+        EXPECT_FALSE( creator.ChangeRole( spaceId, kMemberAddress, chat::ROLE_SUPER_ADMIN ).has_value() );
+        // ROLE_UNSPECIFIED sorts below Guest; it is never written.
+        EXPECT_FALSE( creator.ChangeRole( spaceId, kMemberAddress, chat::ROLE_UNSPECIFIED ).has_value() );
+
+        chat::MemberRecord memberRecord;
+        ASSERT_TRUE( ReadMemberRecord( *m_rig.session, spaceId, kMemberAddress, memberRecord ) );
+        EXPECT_EQ( memberRecord.role(), chat::ROLE_MEMBER );
+        EXPECT_EQ( memberRecord.pending_action(), chat::PENDING_ACTION_UNSPECIFIED );
+        EXPECT_EQ( memberRecord.pending_role(), chat::ROLE_UNSPECIFIED );
+        EXPECT_TRUE( memberRecord.approved_by().empty() );
+
+        // The creator is not self-promotable; nothing changes.
+        EXPECT_FALSE( creator.ChangeRole( spaceId, kTestCreatorAddress, chat::ROLE_SUPER_ADMIN ).has_value() );
+        chat::MemberRecord creatorRecord;
+        ASSERT_TRUE( ReadMemberRecord( *m_rig.session, spaceId, kTestCreatorAddress,
+                                       creatorRecord ) );
+        EXPECT_EQ( creatorRecord.role(), chat::ROLE_SUPER_ADMIN );
+        EXPECT_EQ( creatorRecord.pending_action(), chat::PENDING_ACTION_UNSPECIFIED );
+    }
+
+    /**
+     * @brief Test (CR-04/T-04-17-03): an Admin cannot initiate a non-creator
+     *        Super Admin's demotion — the attempt is rejected before any write
+     *        or roster push.
+     */
+    TEST_F( GcsMembershipTest, AdminCannotInitiateSuperAdminDemotion )
+    {
+        StartRig( kTestCreatorAddress );
+
+        auto space = m_rig.store->CreateSpace( "ops", true, true, true );
+        ASSERT_TRUE( space.has_value() );
+        const std::string spaceId = space.value().id();
+        SeedMember( spaceId, kAdminAddress, chat::ROLE_ADMIN );
+        SeedMember( spaceId, kTargetAddress, chat::ROLE_SUPER_ADMIN );
+
+        std::vector<chat::GcsEvent> events;
+        gcs::Membership creator( *m_rig.session, *m_rig.store, kTestCreatorAddress,
+                                 CapturingSink( &events ), MakeSeam( kTestCreatorAddress ) );
+        ASSERT_TRUE( creator.OnScopeCreated( spaceId, "", true ).has_value() );
+
+        gcs::Membership admin( *m_rig.session, *m_rig.store, kAdminAddress,
+                               CapturingSink( &events ), MakeSeam( kAdminAddress ) );
+        const std::size_t pushBaseline = events.size();
+
+        EXPECT_FALSE( admin.ChangeRole( spaceId, kTargetAddress, chat::ROLE_ADMIN ).has_value() );
+
+        chat::MemberRecord record;
+        ASSERT_TRUE( ReadMemberRecord( *m_rig.session, spaceId, kTargetAddress, record ) );
+        EXPECT_EQ( record.role(), chat::ROLE_SUPER_ADMIN );
+        EXPECT_EQ( record.pending_action(), chat::PENDING_ACTION_UNSPECIFIED );
+        EXPECT_EQ( record.pending_role(), chat::ROLE_UNSPECIFIED );
+        EXPECT_TRUE( record.approved_by().empty() );
+        EXPECT_FALSE( record.deleted() );
+
+        // A rejected change emits no roster push.
+        EXPECT_EQ( events.size(), pushBaseline );
     }
 
     /**
