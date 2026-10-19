@@ -153,7 +153,7 @@ Plans:
   4. Super Admin cannot be demoted by other admins
   5. When 2+ admins exist, destructive actions require Super Admin approval
 
-**Plans:** 18/18 plans complete
+**Plans:** 18/22 plans complete
 
 Plans:
 **Wave 1**
@@ -206,6 +206,22 @@ Plans:
 
 - [x] 04-17-PLAN.md — Wave 11 (gaps CR-03/CR-04) — CanChangeRole concrete-role and strict-rank guards (creator exception preserved) + role/rank authorization tests
 - [x] 04-18-PLAN.md — Wave 11 (gap CR-08 wire proof) — Multinode real-signer fixture: genuine cross-node redeem accepted, forged issuer with a valid bearer authenticator rejected with baseline capture
+
+**Wave 12** *(blocked on Wave 11 completion — re-verification gap closure, truth 29)*
+
+- [ ] 04-19-PLAN.md — Wave 12 — Signed member records: append-only created_by/record_signature, canonical payload, author-signed vs authority-preserving writes, verified reads, self-signed Guest cap, creator-rooted authority chain
+
+**Wave 13** *(blocked on Wave 12 completion)*
+
+- [ ] 04-20-PLAN.md — Wave 13 (depends: 04-19) — Signed SeedMember + shared test payload helper, flipped no-seam/peer-Super-Admin expectations, trust-chain exclusion and authority-preservation tests
+
+**Wave 14** *(blocked on Wave 13 completion)*
+
+- [ ] 04-21-PLAN.md — Wave 14 (depends: 04-20) — WR-02 identity-based creator exception, WR-03 approval re-validation, WR-05 pending-removal barrier and canonical clearing
+
+**Wave 15** *(blocked on Wave 14 completion)*
+
+- [ ] 04-22-PLAN.md — Wave 15 (depends: 04-19, 04-20, 04-21) — Multinode cold-node scope mirror + wire-level forged self-claimed Super Admin exclusion and command rejection + full-suite gate
 
 **Deferred (recorded, not in this gap-closure set):** CR-07 — room keys live in a process-local store, so a second application process (or a restart without the invite material) cannot decrypt a room's key material. Warning-level; no Phase 4 requirement depends on cross-process key persistence, and no plan in Waves 5-11 addresses it.
 
