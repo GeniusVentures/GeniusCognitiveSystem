@@ -589,10 +589,42 @@ bool Membership::CanChangeRole( const std::string &scopeId,
     {
         return false;
     }
+    // CR-03: only a concrete grantable role may be written. ROLE_UNSPECIFIED
+    // sorts below Guest and would corrupt every rank comparison, and
+    // ROLE_SUPER_ADMIN is the D-03 authority root created with its scope — it
+    // is never grantable by any author, including the creator.
+    if ( role != chat::ROLE_ADMIN && role != chat::ROLE_MODERATOR
+         && role != chat::ROLE_MEMBER && role != chat::ROLE_GUEST )
+    {
+        return false;
+    }
     const chat::Role author = LocalRoleFor( scopeId );
+    if ( author != chat::ROLE_SUPER_ADMIN && author != chat::ROLE_ADMIN
+         && author != chat::ROLE_MODERATOR )
+    {
+        return false; // Member/Guest may not change roles (D-08)
+    }
+    // CR-04: a role change needs a live target — read its CURRENT record.
+    chat::MemberRecord targetRecord;
+    if ( !TryReadMember( scopeId, target, targetRecord )
+         || targetRecord.deleted() )
+    {
+        return false;
+    }
+    // The creator is the D-03 authority root: it may amend any member except
+    // itself (rejected above), and the WR-03 dormancy rule still keeps a peer
+    // Super Admin demotion dormant until approval. Deliberate, not an
+    // oversight — the rank comparison below applies to non-creator authors.
     if ( author == chat::ROLE_SUPER_ADMIN )
     {
         return true;
+    }
+    // CR-04/WR-02: the author must STRICTLY outrank the target's CURRENT role
+    // (mirrors CanRemoveMember) — a Moderator cannot act on an Admin or another
+    // Moderator, and an Admin cannot act on a non-creator Super Admin.
+    if ( PrivilegeRank( author ) <= PrivilegeRank( targetRecord.role() ) )
+    {
+        return false;
     }
     if ( author == chat::ROLE_ADMIN )
     {
@@ -604,7 +636,7 @@ bool Membership::CanChangeRole( const std::string &scopeId,
         // Moderator: member management only — no admin-tier grants.
         return role == chat::ROLE_MEMBER || role == chat::ROLE_GUEST;
     }
-    return false; // Member/Guest may not change roles (D-08)
+    return false; // unreachable after the allowed-author set above
 }
 
 bool Membership::CanRemoveMember( const std::string &scopeId,

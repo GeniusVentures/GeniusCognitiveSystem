@@ -436,6 +436,15 @@ private:
                     const std::string &address) const;
 
   /// @brief Whether the local sender may apply the requested role change.
+  ///
+  /// Grants only a concrete role (Admin, Moderator, Member, or Guest — never
+  /// ROLE_UNSPECIFIED and never a new ROLE_SUPER_ADMIN, the D-03 root created
+  /// with its scope), and the author must strictly outrank the target's
+  /// CURRENT stored role, mirroring CanRemoveMember: a Moderator cannot alter
+  /// an Admin or another Moderator, and an Admin cannot alter a non-creator
+  /// Super Admin. The scope creator is the documented exception — as the D-03
+  /// authority root it may amend any other member, and the D-07/WR-03
+  /// dormancy rule keeps a peer Super Admin demotion dormant until approval.
   bool CanChangeRole(const std::string &scopeId, const std::string &target,
                      chat::Role role) const;
 
