@@ -33,6 +33,8 @@
 
 #include <cstddef>
 #include <functional>
+#include <map>
+#include <mutex>
 #include <string>
 #include <utility>
 #include <vector>
@@ -503,6 +505,122 @@ private:
                      chat::MemberRecord &out) const;
 
   /**
+   * @brief Maximum signer-chain recursion depth for member authority checks.
+   *
+   * Bounds the third-party signer recursion so a cycle of mutually signed
+   * records terminates (T-04-19-06).
+   */
+  static constexpr std::size_t kMaxMemberChainDepth = 4;
+
+  /**
+   * @brief A node-local snapshot of the last verified authority write.
+   *
+   * The cache is an in-memory, non-replicated read gate — never a merge rule.
+   * It detects a replayed or mis-declared predecessor on a node that has
+   * already verified the newer state. A cold start has no history and falls
+   * back to the signed prior_role (documented residual T-04-19-09).
+   */
+  struct VerifiedMemberState
+  {
+    std::string signature;  ///< record_signature of the verified write
+    int64_t     updatedAtMs = 0; ///< signed updated_at_ms of the verified write
+    chat::Role  role = chat::ROLE_UNSPECIFIED; ///< verified role after the write
+  };
+
+  /**
+   * @brief Verify the record's authority signature names its claimed signer.
+   *
+   * Requires IssuerAuthEnabled(), non-empty created_by and record_signature,
+   * hex-decodes the signature (tolerating a leading "0x"), and accepts it only
+   * when the injected seam verifies it for the CLAIMED issuer. Signature length
+   * is enforced at the crypto seam (the FFI adapter and the multinode MakeSeam
+   * check kSignatureBytes), never in core — the seam is the crypto boundary.
+   *
+   * @param[in] scopeId Scope the record belongs to (payload binding).
+   * @param[in] address Wallet the record is stored under (payload binding).
+   * @param[in] record  The member record whose signature is checked.
+   * @return true only when a valid authority signature exists.
+   */
+  bool VerifyMemberSignature(const std::string &scopeId, const std::string &address,
+                          const chat::MemberRecord &record) const;
+
+  /**
+   * @brief Verify the subject-signed explicit_leave attestation (D-02).
+   *
+   * explicit_leave == true requires a valid signature by @p address over the
+   * canonical leave payload; explicit_leave == false requires an empty
+   * leave_signature. A copied record cannot be flipped by another wallet.
+   *
+   * @param[in] scopeId Scope the record belongs to.
+   * @param[in] address The subject wallet (the signature's required signer).
+   * @param[in] record  The member record.
+   * @return true only when the leave attestation is coherent and valid.
+   */
+  bool VerifyLeaveSignature(const std::string &scopeId, const std::string &address,
+                            const chat::MemberRecord &record) const;
+
+  /**
+   * @brief Verify a member record against the full authority transition matrix.
+   *
+   * Enforces the common clauses (body/key binding, signature, leave
+   * attestation, tombstone/pending coherence), the node-local predecessor gate,
+   * the self-signed cap (GUEST for a non-creator, SUPER_ADMIN only for the
+   * creator), the unconditional creator-target rejection, the creator-rooted
+   * signer chain, the grant matrix, and strict outrank against the signed
+   * prior_role. Every admin-tier destruction or dormant request requires the
+   * resolved creator (D-03/D-07).
+   *
+   * @param[in] scopeId Scope the record belongs to.
+   * @param[in] address Wallet the record is stored under.
+   * @param[in] record  The record to verify.
+   * @param[in] depth   Current signer-chain depth.
+   * @return true only when the record is authentic and authorized.
+   */
+  bool VerifyMemberRecord(const std::string &scopeId, const std::string &address,
+                          const chat::MemberRecord &record,
+                          std::size_t depth) const;
+
+  /**
+   * @brief Resolve a wallet's verified role through the member chain.
+   *
+   * Reads the raw record, rejects a missing or tombstoned record, verifies it
+   * at @p depth, and returns its role. Fails closed when the chain is too deep.
+   *
+   * @param[in] scopeId Scope id.
+   * @param[in] address Wallet whose authority is wanted.
+   * @param[in] depth   Current signer-chain depth.
+   * @return The verified role; Error when the chain cannot be trusted.
+   */
+  outcome::result<chat::Role> VerifiedRoleFor(const std::string &scopeId,
+                                              const std::string &address,
+                                              std::size_t depth) const;
+
+  /**
+   * @brief Read and parse a member record without verifying it.
+   *
+   * @param[in]  scopeId Scope id.
+   * @param[in]  address Member wallet address.
+   * @param[out] out     Parsed record when found.
+   * @return true when a parseable record exists (tombstoned records still
+   *         return true — callers decide whether to skip them).
+   */
+  bool TryReadRawMember(const std::string &scopeId, const std::string &address,
+                        chat::MemberRecord &out) const;
+
+  /**
+   * @brief Read a member record and return it only when it verifies.
+   *
+   * @param[in]  scopeId Scope id.
+   * @param[in]  address Member wallet address.
+   * @param[out] out     Verified record when found.
+   * @param[in]  depth   Current signer-chain depth.
+   * @return true only when an authentic, authorized record exists.
+   */
+  bool TryReadMemberVerified(const std::string &scopeId,
+                             const std::string &address, chat::MemberRecord &out,
+                             std::size_t depth) const;
+
+  /**
    * @brief Full-state Put of a member record under its member key.
    *
    * Preserves created_at_ms from any stored record and re-stamps
@@ -529,6 +647,10 @@ private:
   EventSink    m_sink;       ///< Plaintext event sink
   KeyWrapSeam  m_keyWrap;    ///< D-06 injected seam (never called when disabled)
   ScanFn       m_memberScan; ///< AdminCount member-scan seam (empty = session)
+  /// Node-local verified-predecessor cache (in-memory, non-replicated).
+  mutable std::mutex m_verifiedStateMutex;
+  /// Keyed by scopeId + "/" + address; see VerifiedMemberState.
+  mutable std::map<std::string, VerifiedMemberState> m_verifiedState;
 };
 
 } // namespace gcs

@@ -21,6 +21,7 @@
 
 #include <spdlog/spdlog.h>
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <cstddef>
@@ -51,6 +52,10 @@ constexpr const char *kScopeKindSpace  = "space";
 constexpr const char *kScopeKindRoom   = "room";
 /// Domain separator for the canonical bytes an invite issuer signs.
 constexpr const char kInviteIssuerDomain[] = "gcs-invite-issuer-v1";
+/// Domain separator for the canonical member authority bytes an issuer signs.
+constexpr const char kMemberIssuerDomain[] = "gcs-member-issuer-v1";
+/// Domain separator for the canonical bytes a member signs to leave a scope.
+constexpr const char kMemberLeaveDomain[] = "gcs-member-leave-v1";
 
 /**
  * @brief Broadcast topic set for member and invite records (WR-06).
@@ -271,6 +276,63 @@ std::string InviteIssuerPayload( const std::string &inviteId,
     return std::string( kInviteIssuerDomain ) + '\n' + inviteId + '\n'
            + canonical.SerializeAsString();
 }
+
+/**
+ * @brief Build the canonical bytes a member authority write signs (D-03/D-05).
+ *
+ * Signing covers the AUTHORITY fields only. The scope id and wallet address are
+ * explicit (not just record fields) because the record is stored under
+ * gcs/members/<scopeId>/<wallet>; binding both stops a valid signature being
+ * lifted onto another key or replayed in another scope (T-04-19-04).
+ *
+ * Cleared fields:
+ * - record_signature: a signature cannot cover itself.
+ * - leave_signature: a separate SUBJECT signature over its own payload (D-02).
+ * - wrapped_room_key: bearer key material refreshed at redeem, never authority.
+ * - explicit_leave: a subject-owned transition covered by leave_signature.
+ *
+ * Kept fields:
+ * - created_at_ms: immutable after the first write, so a rewritten history is
+ *   detectable.
+ * - updated_at_ms: authority writes stamp it before signing and authority-
+ *   preserving writes keep it verbatim, so a captured record cannot be re-dated.
+ * - prior_role: the authenticated predecessor claim the transition matrix and
+ *   the node-local verified-predecessor cache check.
+ *
+ * @param[in] scopeId The scope the record belongs to (record key segment).
+ * @param[in] address The wallet the record is stored under (record key segment).
+ * @param[in] record  The member record to canonicalize.
+ * @return domain + '\n' + scopeId + '\n' + address + '\n' + serialized record.
+ */
+std::string MemberIssuerPayload( const std::string &scopeId,
+                                 const std::string &address,
+                                 const chat::MemberRecord &record )
+{
+    chat::MemberRecord canonical = record;
+    canonical.clear_record_signature();
+    canonical.clear_leave_signature();
+    canonical.clear_wrapped_room_key();
+    canonical.clear_explicit_leave();
+    return std::string( kMemberIssuerDomain ) + '\n' + scopeId + '\n' + address
+           + '\n' + canonical.SerializeAsString();
+}
+
+/**
+ * @brief Build the canonical bytes a member signs to leave a scope (D-02).
+ *
+ * It attests only "this wallet leaves this scope" and deliberately excludes the
+ * record bytes: a later authority rewrite cannot invalidate the subject's
+ * leave, and no non-subject wallet needs to re-sign it.
+ *
+ * @param[in] scopeId The scope being left.
+ * @param[in] address The leaving subject's wallet address.
+ * @return domain + '\n' + scopeId + '\n' + address.
+ */
+std::string MemberLeavePayload( const std::string &scopeId,
+                                const std::string &address )
+{
+    return std::string( kMemberLeaveDomain ) + '\n' + scopeId + '\n' + address;
+}
 } // namespace
 
 Membership::Membership( CoreSession &session, EntityStore &entities,
@@ -387,6 +449,83 @@ bool Membership::TryReadMember( const std::string &scopeId,
     }
     out = record;
     return true;
+}
+
+bool Membership::TryReadRawMember( const std::string &scopeId,
+                                   const std::string &address,
+                                   chat::MemberRecord &out ) const
+{
+    const auto stored = m_session.Get( MemberKey( scopeId, address ) );
+    if ( !stored.has_value() )
+    {
+        return false;
+    }
+    chat::MemberRecord record;
+    if ( !record.ParseFromString( stored.value() ) )
+    {
+        spdlog::warn( "gcs_membership: member record for '{}' in scope '{}' is "
+                      "unparseable",
+                      address, scopeId );
+        return false;
+    }
+    out = record;
+    return true;
+}
+
+bool Membership::VerifyMemberSignature( const std::string &scopeId,
+                                      const std::string &address,
+                                      const chat::MemberRecord &record ) const
+{
+    if ( !IssuerAuthEnabled() )
+    {
+        return false;
+    }
+    if ( record.created_by().empty() || record.record_signature().empty() )
+    {
+        return false;
+    }
+    std::string signatureHex = record.record_signature();
+    if ( signatureHex.rfind( "0x", 0 ) == 0 )
+    {
+        signatureHex.erase( 0, 2 );
+    }
+    auto decodedSignature = crypto::HexDecode( signatureHex );
+    if ( !decodedSignature.has_value() )
+    {
+        return false;
+    }
+    auto verified = m_keyWrap.verifyIssuer(
+        record.created_by(), MemberIssuerPayload( scopeId, address, record ),
+        decodedSignature.value() );
+    return verified.has_value() && verified.value();
+}
+
+bool Membership::VerifyLeaveSignature( const std::string &scopeId,
+                                       const std::string &address,
+                                       const chat::MemberRecord &record ) const
+{
+    if ( !record.explicit_leave() )
+    {
+        return record.leave_signature().empty();
+    }
+    if ( record.leave_signature().empty() )
+    {
+        return false;
+    }
+    std::string signatureHex = record.leave_signature();
+    if ( signatureHex.rfind( "0x", 0 ) == 0 )
+    {
+        signatureHex.erase( 0, 2 );
+    }
+    auto decodedSignature = crypto::HexDecode( signatureHex );
+    if ( !decodedSignature.has_value() )
+    {
+        return false;
+    }
+    auto verified = m_keyWrap.verifyIssuer(
+        address, MemberLeavePayload( scopeId, address ),
+        decodedSignature.value() );
+    return verified.has_value() && verified.value();
 }
 
 bool Membership::IsSuperAdmin( const std::string &scopeId,

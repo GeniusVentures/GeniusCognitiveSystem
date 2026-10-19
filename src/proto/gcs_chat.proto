@@ -246,6 +246,24 @@ message MemberRecord {
   PendingAction pending_action = 9;  // D-07 dormant op kind on this member
   Role pending_role = 10;            // D-07 target role of a dormant role change
   repeated WrappedRoomKey wrapped_room_key = 11; // D-06 room key(s) wrapped under this member's key
+  string created_by = 12;            // wallet whose key signed this record: the
+                                     // creator for the root and a creator-granted
+                                     // fresh record, the acting member for
+                                     // role/removal/pending writes, and the
+                                     // original authority author for leave or
+                                     // key refresh (C++-stamped, never client)
+  string record_signature = 13;      // signer's secp256k1 signature over the
+                                     // canonical member payload (authority fields
+                                     // only), hex-encoded because this is a proto3
+                                     // string field; a signature cannot cover
+                                     // itself, so the payload clears this field
+  string leave_signature = 14;       // SUBJECT's secp256k1 signature over the
+                                     // canonical leave payload, hex-encoded;
+                                     // empty when explicit_leave is false
+  Role prior_role = 15;              // target's role immediately before this
+                                     // authority write, signed; ROLE_UNSPECIFIED
+                                     // for a fresh record and preserved verbatim
+                                     // by authority-preserving writes
 }
 
 // Flat, full-replacement roster pushed on the GcsEvent oneof (D-04) — the
