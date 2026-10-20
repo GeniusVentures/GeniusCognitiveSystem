@@ -180,10 +180,17 @@ public:
    * @brief Enumerate a scope's live roster (D-01/D-04).
    *
    * Runs the QueryKeyValues prefix scan over gcs/members/<scopeId>/, parses
-   * each value into a MemberRecord, skip-and-logs unparseable bytes and
-   * tombstoned (deleted()) records, and stamps the returned MemberList's
-   * self_address from m_senderAddress (the pushed local wallet) so Dart
-   * derives the "You" marker from authority instead of guessing.
+   * each value into a MemberRecord, derives the wallet from the KEY (a
+   * body/key mismatch is skipped), verifies the record (signature, creator
+   * chain, authority transition matrix, predecessor gate) and skip-and-logs
+   * unparseable or unverifiable bytes, then skips tombstoned (deleted())
+   * records. Verification runs BEFORE the tombstone skip so a verified
+   * tombstone advances the predecessor cache. The returned MemberList's
+   * self_address is stamped from m_senderAddress (the pushed local wallet) so
+   * Dart derives the "You" marker from authority instead of guessing.
+   *
+   * An unverifiable record is not a member: it is excluded from the roster and
+   * from every authority decision.
    *
    * @param[in] scopeId Space id or standalone room id.
    * @return outcome::success with the flat full-replacement roster; propagated
@@ -339,11 +346,13 @@ public:
   /**
    * @brief Handle a CRDT heal delivery of a member record (D-01/D-04).
    *
-   * Derives the scope id from the key, parses the value, skip-and-logs on
-   * parse failure, and pushes the affected scope's MemberList so remote
-   * joins/role changes converge live (never a restart). A tombstoned arrival
-   * still pushes the tombstone-filtered roster so a remote removal converges
-   * instead of being silently dropped (WR-05).
+   * Derives the scope id from the key, parses the value, derives the wallet
+   * from the key, and verifies the record. An unparseable or unverifiable
+   * record is skip-and-logged and pushes NOTHING (an unverifiable record is
+   * not a member). A verified arrival pushes the affected scope's MemberList so
+   * remote joins/role changes converge live (never a restart). A tombstoned
+   * arrival still pushes the tombstone-filtered roster so a remote removal
+   * converges instead of being silently dropped (WR-05).
    *
    * @param[in] key   The member key (logical or raw datastore form).
    * @param[in] value The serialized MemberRecord bytes.
@@ -489,8 +498,10 @@ private:
    *
    * Fails closed: the count gates the D-07 dormancy decision, so a failed member
    * scan must abort the destructive op rather than read as zero admins (which
-   * would take the immediate-destructive branch). Unparseable or tombstoned
-   * records are still skipped.
+   * would take the immediate-destructive branch). Only VERIFIED live records
+   * are counted — a forged admin record cannot change the dormancy decision.
+   * Unparseable, body/key-mismatched, unverifiable, or tombstoned records are
+   * skipped.
    *
    * @param[in] scopeId Scope id.
    * @return outcome::success with the admin-tier count; Error::GcsDbError when
@@ -504,13 +515,19 @@ private:
   ScopeInfo ResolveScope(const std::string &scopeId) const;
 
   /**
-   * @brief Read and parse a member record when present and live.
+   * @brief Read a member record, returning it only when it verifies.
+   *
+   * Depth-0 wrapper over TryReadMemberVerified. An unverifiable record is not
+   * a member, so every authorization decision that resolves through this read
+   * (LocalRoleFor, HasExplicitLeave, CanInviteFor, CanChangeRole,
+   * CanRemoveMember, and the command bodies) trusts only authenticated
+   * authority.
    *
    * @param[in]  scopeId Scope id.
    * @param[in]  address Member wallet address.
-   * @param[out] out     Parsed record when found.
-   * @return true when a parseable record exists (tombstoned records still
-   *         return true — callers decide whether to skip them).
+   * @param[out] out     Verified record when found.
+   * @return true only when an authentic, authorized record exists (a verified
+   *         tombstoned record still returns true — callers skip it).
    */
   bool TryReadMember(const std::string &scopeId, const std::string &address,
                      chat::MemberRecord &out) const;

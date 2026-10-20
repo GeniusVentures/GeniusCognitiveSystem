@@ -434,21 +434,8 @@ bool Membership::TryReadMember( const std::string &scopeId,
                                 const std::string &address,
                                 chat::MemberRecord &out ) const
 {
-    const auto stored = m_session.Get( MemberKey( scopeId, address ) );
-    if ( !stored.has_value() )
-    {
-        return false;
-    }
-    chat::MemberRecord record;
-    if ( !record.ParseFromString( stored.value() ) )
-    {
-        spdlog::warn( "gcs_membership: member record for '{}' in scope '{}' is "
-                      "unparseable",
-                      address, scopeId );
-        return false;
-    }
-    out = record;
-    return true;
+    // Every read returns only a verified record (depth-0 entry point).
+    return TryReadMemberVerified( scopeId, address, out, 0 );
 }
 
 bool Membership::TryReadRawMember( const std::string &scopeId,
@@ -899,6 +886,26 @@ outcome::result<unsigned int> Membership::AdminCount(
         {
             continue;
         }
+        // The wallet comes from the KEY, never from the record body; a body/key
+        // mismatch is hostile.
+        const std::string wallet =
+            SegmentAfterMarker( entry.first, kMembersKeyPrefix, 1 );
+        if ( wallet.empty() || record.address() != wallet )
+        {
+            spdlog::warn( "gcs_membership: admin count skipping a member record "
+                          "whose key and body disagree in scope '{}'",
+                          scopeId );
+            continue;
+        }
+        // Count only verified live records so a forged admin cannot change the
+        // D-07 dormancy decision (T-04-19-05).
+        if ( !VerifyMemberRecord( scopeId, wallet, record, 0 ) )
+        {
+            spdlog::warn( "gcs_membership: admin count skipping an unverifiable "
+                          "member record in scope '{}'",
+                          scopeId );
+            continue;
+        }
         if ( record.deleted() )
         {
             continue;
@@ -1060,6 +1067,27 @@ outcome::result<chat::MemberList> Membership::MembersFor(
         {
             spdlog::warn( "gcs_membership: skipping unparseable member record in "
                           "scope '{}'",
+                          scopeId );
+            continue;
+        }
+        // The wallet comes from the KEY, never from the record body.
+        const std::string wallet =
+            SegmentAfterMarker( entry.first, kMembersKeyPrefix, 1 );
+        if ( wallet.empty() || record.address() != wallet )
+        {
+            spdlog::warn( "gcs_membership: skipping a member record whose key and "
+                          "body disagree in scope '{}'",
+                          scopeId );
+            continue;
+        }
+        // Verify BEFORE the tombstone skip so a verified tombstone advances the
+        // predecessor cache; verifying after the skip would leave the cache at
+        // the pre-tombstone state and let a replay of the exact pre-tombstone
+        // bytes pass the identical-signature shortcut.
+        if ( !VerifyMemberRecord( scopeId, wallet, record, 0 ) )
+        {
+            spdlog::warn( "gcs_membership: skipping an unverifiable member record "
+                          "in scope '{}'",
                           scopeId );
             continue;
         }
@@ -2126,6 +2154,19 @@ void Membership::OnMemberArrived( const std::string &key,
     {
         spdlog::warn( "gcs_membership: skipping unparseable member record for key "
                       "'{}'",
+                      key );
+        return;
+    }
+    // Derive the wallet from the KEY and refuse to push a roster influenced by
+    // an unverifiable record (T-04-19-07). The record stays in the CRDT but
+    // never enters a roster.
+    const std::string wallet =
+        SegmentAfterMarker( key, kMembersKeyPrefix, 1 );
+    if ( wallet.empty() || record.address() != wallet
+         || !VerifyMemberRecord( scopeId, wallet, record, 0 ) )
+    {
+        spdlog::warn( "gcs_membership: skipping an unverifiable member arrival "
+                      "for key '{}'",
                       key );
         return;
     }
