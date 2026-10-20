@@ -2798,4 +2798,249 @@ namespace gcs::test
         EXPECT_EQ( hostileBytes.value(), hostile.SerializeAsString() );
     }
 
+    /**
+     * @brief WR-05: a pending removal is terminal until Approve; a role change
+     *        cannot cancel it, and the approved tombstone verifies.
+     *
+     * The approved tombstone must clear pending_action/pending_role (a deleted
+     * record carrying a pending action fails 04-19 verification), keep the
+     * signed role as its prior_role, and carry a strictly newer timestamp so
+     * the predecessor gate accepts it. An OnMemberArrived roster push is the
+     * proof that verification accepted the written bytes.
+     */
+    TEST_F( GcsMembershipTest, ChangeRoleRejectedWhileRemovalIsPending )
+    {
+        StartRig( kTestCreatorAddress );
+
+        auto space = m_rig.store->CreateSpace( "ops", true, true, true );
+        ASSERT_TRUE( space.has_value() );
+        const std::string spaceId = space.value().id();
+        SeedMember( spaceId, kTargetAddress, chat::ROLE_ADMIN );
+
+        std::vector<chat::GcsEvent> events;
+        gcs::Membership membership( *m_rig.session, *m_rig.store, kTestCreatorAddress,
+                                    CapturingSink( &events ), MakeSeam( kTestCreatorAddress ) );
+        ASSERT_TRUE( membership.OnScopeCreated( spaceId, "", true ).has_value() );
+
+        // Two admins (creator + target): the removal is dormant, not applied.
+        ASSERT_TRUE( membership.RemoveMember( spaceId, kTargetAddress ).has_value() );
+
+        chat::MemberRecord dormant;
+        ASSERT_TRUE( ReadMemberRecord( *m_rig.session, spaceId, kTargetAddress, dormant ) );
+        EXPECT_FALSE( dormant.deleted() );
+        EXPECT_EQ( dormant.role(), chat::ROLE_ADMIN );
+        EXPECT_TRUE( dormant.approved_by().empty() );
+        EXPECT_EQ( dormant.pending_action(), chat::PENDING_ACTION_REMOVE );
+        EXPECT_EQ( dormant.pending_role(), chat::ROLE_UNSPECIFIED );
+
+        // A role change must not silently convert the pending removal.
+        EXPECT_FALSE( membership.ChangeRole( spaceId, kTargetAddress, chat::ROLE_MODERATOR )
+                          .has_value() );
+        chat::MemberRecord stillPending;
+        ASSERT_TRUE(
+            ReadMemberRecord( *m_rig.session, spaceId, kTargetAddress, stillPending ) );
+        EXPECT_EQ( stillPending.role(), chat::ROLE_ADMIN );
+        EXPECT_EQ( stillPending.pending_action(), chat::PENDING_ACTION_REMOVE );
+        EXPECT_EQ( stillPending.pending_role(), chat::ROLE_UNSPECIFIED );
+
+        // Approve is the only way out: a creator-signed tombstone with no
+        // pending state.
+        ASSERT_TRUE( membership.Approve( spaceId, kTargetAddress ).has_value() );
+        chat::MemberRecord approved;
+        ASSERT_TRUE( ReadMemberRecord( *m_rig.session, spaceId, kTargetAddress, approved ) );
+        EXPECT_TRUE( approved.deleted() );
+        EXPECT_EQ( approved.pending_action(), chat::PENDING_ACTION_UNSPECIFIED );
+        EXPECT_EQ( approved.pending_role(), chat::ROLE_UNSPECIFIED );
+        EXPECT_EQ( approved.approved_by(), kTestCreatorAddress );
+        EXPECT_EQ( approved.role(), chat::ROLE_ADMIN );
+        EXPECT_FALSE( approved.record_signature().empty() );
+        EXPECT_GT( approved.updated_at_ms(), dormant.updated_at_ms() );
+
+        // Verification acceptance: OnMemberArrived returns before pushing when
+        // the record does not verify (04-19), so a roster push that excludes
+        // the target proves the tombstone was accepted.
+        const std::size_t beforeArrival = events.size();
+        membership.OnMemberArrived(
+            "/crdt/k" + std::string( gcs::Membership::kMembersKeyPrefix ) + spaceId + "/"
+                + kTargetAddress + "/v",
+            approved.SerializeAsString() );
+        ASSERT_GT( events.size(), beforeArrival );
+        ASSERT_TRUE( events.back().has_member_list() );
+        EXPECT_EQ( events.back().member_list().scope_id(), spaceId );
+        EXPECT_EQ( FindMember( events.back().member_list(), kTargetAddress ), nullptr );
+
+        auto list = membership.MembersFor( spaceId );
+        ASSERT_TRUE( list.has_value() );
+        EXPECT_EQ( FindMember( list.value(), kTargetAddress ), nullptr );
+    }
+
+    /**
+     * @brief WR-05: a dormant REMOVE clears a stale pending_role left by a
+     *        superseded dormant ROLE_CHANGE.
+     */
+    TEST_F( GcsMembershipTest, DormantRemovalClearsAStalePendingRole )
+    {
+        StartRig( kTestCreatorAddress );
+
+        auto space = m_rig.store->CreateSpace( "ops", true, true, true );
+        ASSERT_TRUE( space.has_value() );
+        const std::string spaceId = space.value().id();
+        SeedMember( spaceId, kTargetAddress, chat::ROLE_ADMIN );
+
+        std::vector<chat::GcsEvent> events;
+        gcs::Membership membership( *m_rig.session, *m_rig.store, kTestCreatorAddress,
+                                    CapturingSink( &events ), MakeSeam( kTestCreatorAddress ) );
+        ASSERT_TRUE( membership.OnScopeCreated( spaceId, "", true ).has_value() );
+
+        // Two admins: the admin demotion is dormant with a concrete role.
+        ASSERT_TRUE(
+            membership.ChangeRole( spaceId, kTargetAddress, chat::ROLE_MODERATOR )
+                .has_value() );
+        chat::MemberRecord demotion;
+        ASSERT_TRUE( ReadMemberRecord( *m_rig.session, spaceId, kTargetAddress, demotion ) );
+        ASSERT_EQ( demotion.pending_action(), chat::PENDING_ACTION_ROLE_CHANGE );
+        ASSERT_EQ( demotion.pending_role(), chat::ROLE_MODERATOR );
+
+        // The removal supersedes it and must not carry the stale role.
+        ASSERT_TRUE( membership.RemoveMember( spaceId, kTargetAddress ).has_value() );
+        chat::MemberRecord removal;
+        ASSERT_TRUE( ReadMemberRecord( *m_rig.session, spaceId, kTargetAddress, removal ) );
+        EXPECT_EQ( removal.pending_action(), chat::PENDING_ACTION_REMOVE );
+        EXPECT_EQ( removal.pending_role(), chat::ROLE_UNSPECIFIED );
+        EXPECT_TRUE( removal.approved_by().empty() );
+        EXPECT_FALSE( removal.deleted() );
+    }
+
+    /**
+     * @brief WR-05: an immediate removal is a coherent tombstone — no pending
+     *        state and no approval attribution — and it verifies.
+     */
+    TEST_F( GcsMembershipTest, ImmediateRemovalClearsAllPendingFields )
+    {
+        StartRig( kTestCreatorAddress );
+
+        auto space = m_rig.store->CreateSpace( "ops", true, true, true );
+        ASSERT_TRUE( space.has_value() );
+        const std::string spaceId = space.value().id();
+        SeedMember( spaceId, kMemberAddress, chat::ROLE_MEMBER );
+
+        std::vector<chat::GcsEvent> events;
+        gcs::Membership creator( *m_rig.session, *m_rig.store, kTestCreatorAddress,
+                                 CapturingSink( &events ), MakeSeam( kTestCreatorAddress ) );
+        ASSERT_TRUE( creator.OnScopeCreated( spaceId, "", true ).has_value() );
+
+        // Sole admin: the removal tombstones immediately.
+        ASSERT_TRUE( creator.RemoveMember( spaceId, kMemberAddress ).has_value() );
+        chat::MemberRecord removed;
+        ASSERT_TRUE( ReadMemberRecord( *m_rig.session, spaceId, kMemberAddress, removed ) );
+        EXPECT_TRUE( removed.deleted() );
+        EXPECT_EQ( removed.pending_action(), chat::PENDING_ACTION_UNSPECIFIED );
+        EXPECT_EQ( removed.pending_role(), chat::ROLE_UNSPECIFIED );
+        EXPECT_TRUE( removed.approved_by().empty() );
+
+        const std::size_t beforeArrival = events.size();
+        creator.OnMemberArrived(
+            "/crdt/k" + std::string( gcs::Membership::kMembersKeyPrefix ) + spaceId + "/"
+                + kMemberAddress + "/v",
+            removed.SerializeAsString() );
+        ASSERT_GT( events.size(), beforeArrival );
+        ASSERT_TRUE( events.back().has_member_list() );
+        EXPECT_EQ( events.back().member_list().scope_id(), spaceId );
+        EXPECT_EQ( FindMember( events.back().member_list(), kMemberAddress ), nullptr );
+    }
+
+    /**
+     * @brief WR-02: creator authority is catalog identity, never a claimed
+     *        SUPER_ADMIN role.
+     *
+     * No verified non-creator Super Admin is constructible by design, so this
+     * is also a defense against a future verification regression: even with a
+     * self-signed SUPER_ADMIN record occupying the wallet, every command
+     * fails, while the real creator succeeds on the same operations.
+     */
+    TEST_F( GcsMembershipTest, CreatorIdentityIsTheOnlyCreatorException )
+    {
+        StartRig( kTestCreatorAddress );
+
+        auto space = m_rig.store->CreateSpace( "ops", true, true, true );
+        ASSERT_TRUE( space.has_value() );
+        const std::string spaceId = space.value().id();
+
+        std::vector<chat::GcsEvent> events;
+        gcs::Membership creator( *m_rig.session, *m_rig.store, kTestCreatorAddress,
+                                 CapturingSink( &events ), MakeSeam( kTestCreatorAddress ) );
+        ASSERT_TRUE( creator.OnScopeCreated( spaceId, "", true ).has_value() );
+
+        SeedMember( spaceId, kMemberAddress, chat::ROLE_MEMBER );
+        SeedMember( spaceId, kTargetAddress, chat::ROLE_SUPER_ADMIN, kSeedCreatedAtMs,
+                    false, kTargetAddress );
+
+        gcs::Membership attacker( *m_rig.session, *m_rig.store, kTargetAddress,
+                                  CapturingSink( &events ), MakeSeam( kTargetAddress ) );
+        EXPECT_EQ( attacker.LocalRoleFor( spaceId ), chat::ROLE_GUEST );
+        EXPECT_FALSE( attacker.DeleteScope( spaceId ).has_value() );
+        EXPECT_FALSE( attacker.RemoveMember( spaceId, kMemberAddress ).has_value() );
+        EXPECT_FALSE( attacker.ChangeRole( spaceId, kMemberAddress, chat::ROLE_GUEST )
+                          .has_value() );
+
+        // The forged record stays: rejection is not rollback.
+        chat::MemberRecord forged;
+        ASSERT_TRUE( ReadMemberRecord( *m_rig.session, spaceId, kTargetAddress, forged ) );
+        EXPECT_EQ( forged.role(), chat::ROLE_SUPER_ADMIN );
+        EXPECT_EQ( forged.created_by(), kTargetAddress );
+
+        // The real creator succeeds on the same operations.
+        ASSERT_TRUE(
+            creator.ChangeRole( spaceId, kMemberAddress, chat::ROLE_MODERATOR )
+                .has_value() );
+        ASSERT_TRUE( creator.RemoveMember( spaceId, kMemberAddress ).has_value() );
+        ASSERT_TRUE( creator.DeleteScope( spaceId ).has_value() );
+    }
+
+    /**
+     * @brief T-04-21-07: the dormancy predicate matches verification, so a
+     *        Moderator's Member removal is immediate and verifiable.
+     */
+    TEST_F( GcsMembershipTest, ModeratorMemberRemovalIsImmediateAfterTheTierAlignment )
+    {
+        StartRig( kTestCreatorAddress );
+
+        auto space = m_rig.store->CreateSpace( "ops", true, true, true );
+        ASSERT_TRUE( space.has_value() );
+        const std::string spaceId = space.value().id();
+        SeedMember( spaceId, kAdminAddress, chat::ROLE_ADMIN );
+        SeedMember( spaceId, kModeratorAddress, chat::ROLE_MODERATOR );
+        SeedMember( spaceId, kMemberAddress, chat::ROLE_MEMBER );
+
+        std::vector<chat::GcsEvent> events;
+        gcs::Membership creator( *m_rig.session, *m_rig.store, kTestCreatorAddress,
+                                 CapturingSink( &events ), MakeSeam( kTestCreatorAddress ) );
+        ASSERT_TRUE( creator.OnScopeCreated( spaceId, "", true ).has_value() );
+
+        // Two admins, but neither the target nor the author is admin-tier: the
+        // verifier rejects a below-admin dormant Member state, so the command
+        // takes the immediate branch instead.
+        gcs::Membership moderator( *m_rig.session, *m_rig.store, kModeratorAddress,
+                                   CapturingSink( &events ), MakeSeam( kModeratorAddress ) );
+        ASSERT_TRUE( moderator.RemoveMember( spaceId, kMemberAddress ).has_value() );
+
+        chat::MemberRecord removed;
+        ASSERT_TRUE( ReadMemberRecord( *m_rig.session, spaceId, kMemberAddress, removed ) );
+        EXPECT_TRUE( removed.deleted() );
+        EXPECT_EQ( removed.pending_action(), chat::PENDING_ACTION_UNSPECIFIED );
+        EXPECT_EQ( removed.pending_role(), chat::ROLE_UNSPECIFIED );
+        EXPECT_TRUE( removed.approved_by().empty() );
+
+        // The immediate tombstone verifies through the delivery path.
+        const std::size_t beforeArrival = events.size();
+        creator.OnMemberArrived(
+            "/crdt/k" + std::string( gcs::Membership::kMembersKeyPrefix ) + spaceId + "/"
+                + kMemberAddress + "/v",
+            removed.SerializeAsString() );
+        ASSERT_GT( events.size(), beforeArrival );
+        ASSERT_TRUE( events.back().has_member_list() );
+        EXPECT_EQ( events.back().member_list().scope_id(), spaceId );
+        EXPECT_EQ( FindMember( events.back().member_list(), kMemberAddress ), nullptr );
+    }
+
 } // namespace gcs::test

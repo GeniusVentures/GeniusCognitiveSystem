@@ -275,7 +275,10 @@ public:
    * Rejects any demotion targeting the scope creator (MEMB-03) and any grant
    * the author's role cannot make. An admin demotion with 2+ admins writes
    * dormant (empty approved_by + pending_action ROLE_CHANGE + pending_role);
-   * otherwise the record is rewritten with the new role. Pushes the roster.
+   * otherwise the record is rewritten with the new role. A member with a
+   * pending removal is rejected outright: a pending REMOVE is terminal until
+   * Approve, so a role change cannot silently cancel it (WR-05). Pushes the
+   * roster.
    *
    * @param[in] scopeId Space id or standalone room id.
    * @param[in] target  Target member wallet address.
@@ -288,6 +291,13 @@ public:
 
   /**
    * @brief Remove a member (D-07): dormant when 2+ admins, else tombstone.
+   *
+   * Dormancy uses the same predicate as verification: 2+ admins AND (the
+   * target or the author is admin-tier). A Moderator's Member removal is
+   * therefore immediate rather than an unverifiable wire-only state. A
+   * dormant REMOVE clears pending_role; an immediate tombstone clears
+   * pending_action, pending_role, and approved_by, so neither path leaves
+   * stale approval or role state (WR-05).
    *
    * @param[in] scopeId Space id or standalone room id.
    * @param[in] target  Target member wallet address.

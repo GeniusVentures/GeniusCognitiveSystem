@@ -1802,6 +1802,16 @@ outcome::result<void> Membership::ChangeRole( const std::string &scopeId,
                       target, scopeId );
         return outcome::failure( sgns::gcs::Error::GcsDbError );
     }
+    // D-07/WR-05: a pending removal is terminal until Approve. Rewriting the
+    // record as a role change would silently cancel or overwrite it, so a role
+    // change is rejected while PENDING_ACTION_REMOVE is set (T-04-21-03).
+    if ( record.pending_action() == chat::PENDING_ACTION_REMOVE )
+    {
+        spdlog::warn( "gcs_membership: change_role rejected — member '{}' has a "
+                      "pending removal in scope '{}'",
+                      target, scopeId );
+        return outcome::failure( sgns::gcs::Error::GcsDbError );
+    }
 
     // D-07/WR-03: demoting any admin-tier-or-above target (Admin or Super
     // Admin) to a lower rank is destructive; with 2+ admins it goes dormant
@@ -1856,20 +1866,38 @@ outcome::result<void> Membership::RemoveMember( const std::string &scopeId,
     }
 
     // D-07: dormant when 2+ admins (not tombstoned yet), sole-admin acts alone.
-    // The count fails closed — a failed scan aborts rather than reading as zero.
+    // The count fails closed — a failed scan aborts rather than reading as
+    // zero. The dormancy predicate matches verification exactly (T-04-21-07):
+    // a below-admin-authored dormant Member state is rejected by the verifier,
+    // so it must also be absent here. A Moderator removing a Member is
+    // therefore immediate, not a wire-only state with no cancel path.
     const auto adminCount = AdminCount( scopeId );
     if ( !adminCount.has_value() )
     {
         return adminCount.error();
     }
-    if ( adminCount.value() > 1 )
+    const bool isDormant =
+        adminCount.value() > 1
+        && ( PrivilegeRank( record.role() )
+                 >= PrivilegeRank( chat::ROLE_ADMIN )
+             || PrivilegeRank( LocalRoleFor( scopeId ) )
+                    >= PrivilegeRank( chat::ROLE_ADMIN ) );
+    if ( isDormant )
     {
+        // A REMOVE carries no pending role; a stale value from a superseded
+        // ROLE_CHANGE must not survive (T-04-21-05).
         record.set_approved_by( "" );
         record.set_pending_action( chat::PENDING_ACTION_REMOVE );
+        record.set_pending_role( chat::ROLE_UNSPECIFIED );
     }
     else
     {
+        // A tombstone carries neither dormant state nor approval attribution
+        // (T-04-21-04).
         record.set_deleted( true );
+        record.set_pending_action( chat::PENDING_ACTION_UNSPECIFIED );
+        record.set_pending_role( chat::ROLE_UNSPECIFIED );
+        record.set_approved_by( "" );
     }
     auto writeResult = WriteMemberAsAuthor( record );
     if ( !writeResult.has_value() )
