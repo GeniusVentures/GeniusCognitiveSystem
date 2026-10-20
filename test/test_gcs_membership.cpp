@@ -18,6 +18,7 @@
 #include "lib/gcs_entity_store.hpp"
 #include "lib/gcs_membership.hpp"
 #include "test_gcs_invite_helpers.hpp"
+#include "test_gcs_member_helpers.hpp"
 #include "test_graphsync_network.hpp"
 #include "test_wait_condition.hpp"
 
@@ -384,18 +385,30 @@ namespace gcs::test
             return [ out ]( const chat::GcsEvent &event ) { out->push_back( event ); };
         }
 
-        /// @brief Persist a member record directly (the hostile/forged-write path).
+        /// @brief Persist a member record directly.
+        ///
+        /// The shared helper signs the authority payload exactly as production
+        /// verifies it, so every seeded record models a record the trust chain
+        /// can construct. A hostile case passes a different @p signer; the
+        /// rejection then comes from the authority matrix, not from a broken
+        /// signature.
         void SeedMember( const std::string &scopeId, const std::string &address,
                          chat::Role role, int64_t createdAtMs = kSeedCreatedAtMs,
-                         bool deleted = false )
+                         bool deleted = false,
+                         const std::string &signer = kTestCreatorAddress )
         {
             chat::MemberRecord record;
             record.set_scope_id( scopeId );
             record.set_address( address );
             record.set_role( role );
             record.set_deleted( deleted );
+            // A tombstone changes no role; a fresh grant has no predecessor.
+            record.set_prior_role( deleted ? role : chat::ROLE_UNSPECIFIED );
             record.set_created_at_ms( createdAtMs );
             record.set_updated_at_ms( createdAtMs );
+            record.set_created_by( signer );
+            record.set_record_signature(
+                TestMemberSignatureHex( signer, scopeId, address, record ) );
             ASSERT_TRUE( m_rig.session
                              ->Put( std::string( gcs::Membership::kMembersKeyPrefix ) + scopeId
                                         + "/" + address,
@@ -436,6 +449,14 @@ namespace gcs::test
         EXPECT_TRUE( list.value().member( 0 ).approved_by().empty() );
         EXPECT_EQ( list.value().member( 0 ).pending_action(), chat::PENDING_ACTION_UNSPECIFIED );
 
+        // The creator root is author-signed with no predecessor claim.
+        chat::MemberRecord creatorRecord;
+        ASSERT_TRUE(
+            ReadMemberRecord( *m_rig.session, spaceId, kTestCreatorAddress, creatorRecord ) );
+        EXPECT_EQ( creatorRecord.created_by(), kTestCreatorAddress );
+        EXPECT_FALSE( creatorRecord.record_signature().empty() );
+        EXPECT_EQ( creatorRecord.prior_role(), chat::ROLE_UNSPECIFIED );
+
         EXPECT_EQ( membership.LocalRoleFor( spaceId ), chat::ROLE_SUPER_ADMIN );
         // Unknown scope: no local record -> safest default (D-08 read-only).
         EXPECT_EQ( membership.LocalRoleFor( "space-unknown" ), chat::ROLE_GUEST );
@@ -444,6 +465,36 @@ namespace gcs::test
         // The roster push landed on the sink.
         ASSERT_FALSE( events.empty() );
         EXPECT_TRUE( events.back().has_member_list() );
+    }
+
+    /**
+     * @brief Positive control: a creator-signed seed is admitted to the roster.
+     *
+     * The helper signs the SAME canonical payload production verifies, so this
+     * case fails if they drift.
+     */
+    TEST_F( GcsMembershipTest, SignedSeedIsAdmitted )
+    {
+        StartRig( kTestCreatorAddress );
+
+        auto space = m_rig.store->CreateSpace( "ops", true, true, true );
+        ASSERT_TRUE( space.has_value() );
+        const std::string spaceId = space.value().id();
+
+        std::vector<chat::GcsEvent> events;
+        gcs::Membership membership( *m_rig.session, *m_rig.store, kTestCreatorAddress,
+                                    CapturingSink( &events ), MakeSeam( kTestCreatorAddress ) );
+        ASSERT_TRUE( membership.OnScopeCreated( spaceId, "", true ).has_value() );
+        SeedMember( spaceId, kMemberAddress, chat::ROLE_MEMBER );
+
+        auto list = membership.MembersFor( spaceId );
+        ASSERT_TRUE( list.has_value() );
+        ASSERT_EQ( list.value().member_size(), 2 );
+        EXPECT_NE( FindMember( list.value(), kTestCreatorAddress ), nullptr );
+        const chat::MemberRecord *seeded = FindMember( list.value(), kMemberAddress );
+        ASSERT_NE( seeded, nullptr );
+        EXPECT_EQ( seeded->role(), chat::ROLE_MEMBER );
+        EXPECT_EQ( seeded->created_by(), kTestCreatorAddress );
     }
 
     /**
@@ -807,7 +858,13 @@ namespace gcs::test
         gcs::Membership noIssuer( *m_rig.session, *m_rig.store, kTestCreatorAddress,
                                   CapturingSink( &events ),
                                   MakeSeam( kTestCreatorAddress, /*issuerEnabled=*/false ) );
-        ASSERT_TRUE( noIssuer.OnScopeCreated( spaceId, "", true ).has_value() );
+        // Fail closed: a scope cannot be created without a signer, so no
+        // unsigned authority record is ever persisted.
+        EXPECT_FALSE( noIssuer.OnScopeCreated( spaceId, "", true ).has_value() );
+
+        const std::string creatorKey = std::string( gcs::Membership::kMembersKeyPrefix )
+                                       + spaceId + "/" + kTestCreatorAddress;
+        EXPECT_FALSE( m_rig.session->Get( creatorKey ).has_value() );
 
         EXPECT_FALSE( noIssuer.MintInvite( spaceId ).has_value() );
 
@@ -819,11 +876,10 @@ namespace gcs::test
         // A genuinely minted invite is still rejected by the disabled seam.
         gcs::Membership creator( *m_rig.session, *m_rig.store, kTestCreatorAddress,
                                  CapturingSink( &events ), MakeSeam( kTestCreatorAddress ) );
+        ASSERT_TRUE( creator.OnScopeCreated( spaceId, "", true ).has_value() );
         auto minted = creator.MintInvite( spaceId );
         ASSERT_TRUE( minted.has_value() );
 
-        const std::string creatorKey = std::string( gcs::Membership::kMembersKeyPrefix )
-                                       + spaceId + "/" + kTestCreatorAddress;
         auto baseline = m_rig.session->Get( creatorKey );
         ASSERT_TRUE( baseline.has_value() );
 
@@ -1416,11 +1472,19 @@ namespace gcs::test
                                     CapturingSink( &events ), MakeSeam( kTestCreatorAddress ) );
         ASSERT_TRUE( membership.OnScopeCreated( spaceId, "", true ).has_value() );
 
-        // Heal delivery: the callback derives the scope and pushes the roster.
+        // Heal delivery: the callback derives the scope, verifies the record,
+        // and pushes the roster. The delivery is a creator-signed record,
+        // exactly as a remote node would replicate it.
         chat::MemberRecord arrived;
         arrived.set_scope_id( spaceId );
         arrived.set_address( kMemberAddress );
         arrived.set_role( chat::ROLE_MEMBER );
+        arrived.set_created_by( kTestCreatorAddress );
+        arrived.set_prior_role( chat::ROLE_UNSPECIFIED );
+        arrived.set_created_at_ms( kSeedCreatedAtMs );
+        arrived.set_updated_at_ms( kSeedCreatedAtMs );
+        arrived.set_record_signature( TestMemberSignatureHex(
+            kTestCreatorAddress, spaceId, kMemberAddress, arrived ) );
         const std::size_t beforeCount = events.size();
         membership.OnMemberArrived(
             "/crdt/k" + std::string( gcs::Membership::kMembersKeyPrefix ) + spaceId + "/"
@@ -1432,8 +1496,13 @@ namespace gcs::test
 
         // WR-05: a tombstoned heal delivery still pushes the roster so a remote
         // removal converges — the pushed list must exclude the dead member.
+        // A tombstone preserves the role and changes no predecessor.
         chat::MemberRecord deadArrived = arrived;
+        deadArrived.set_address( kDeadAddress );
         deadArrived.set_deleted( true );
+        deadArrived.set_prior_role( chat::ROLE_MEMBER );
+        deadArrived.set_record_signature( TestMemberSignatureHex(
+            kTestCreatorAddress, spaceId, kDeadAddress, deadArrived ) );
         const std::size_t afterLive = events.size();
         membership.OnMemberArrived(
             std::string( gcs::Membership::kMembersKeyPrefix ) + spaceId + "/" + kDeadAddress,
@@ -1603,10 +1672,12 @@ namespace gcs::test
 
     /**
      * @brief Test (WR-02/D-08): a role governs which members its holder may act
-     *        on — a Moderator cannot remove an Admin and an Admin cannot remove
-     *        a non-creator Super Admin, while a Moderator may remove a Member.
+     *        on — a Moderator cannot remove an Admin, while a Moderator may
+     *        remove a Member. A creator-signed SUPER_ADMIN grant to another
+     *        wallet is itself invalid, so the record is unverifiable and grants
+     *        nothing.
      */
-    TEST_F( GcsMembershipTest, ModeratorCannotRemoveAdminAndAdminCannotRemoveSuperAdmin )
+    TEST_F( GcsMembershipTest, ModeratorCannotRemoveAdminAndAnUnverifiableSuperAdminGrantsNothing )
     {
         StartRig( kTestCreatorAddress );
 
@@ -1635,29 +1706,30 @@ namespace gcs::test
         EXPECT_FALSE( adminRecord.deleted() );
         EXPECT_EQ( adminRecord.pending_action(), chat::PENDING_ACTION_UNSPECIFIED );
 
-        // A second, non-creator Super Admin target.
+        // A second, non-creator SUPER_ADMIN target. The creator-signed grant
+        // is invalid by design (only the scope root may be Super Admin), so the
+        // record is unverifiable and is not a member.
         SeedMember( spaceId, kTargetAddress, chat::ROLE_SUPER_ADMIN );
         gcs::Membership admin( *m_rig.session, *m_rig.store, kAdminAddress,
                                CapturingSink( &events ), MakeSeam( kAdminAddress ) );
 
-        // Rank 4 is not > 5: an Admin may NOT remove the Super Admin directly.
         EXPECT_FALSE( admin.RemoveMember( spaceId, kTargetAddress ).has_value() );
+        EXPECT_FALSE( admin.ChangeRole( spaceId, kTargetAddress, chat::ROLE_ADMIN ).has_value() );
+
+        // The rejected calls wrote nothing: the raw record is unchanged.
         chat::MemberRecord superAdminRecord;
         ASSERT_TRUE( ReadMemberRecord( *m_rig.session, spaceId, kTargetAddress,
                                        superAdminRecord ) );
         EXPECT_FALSE( superAdminRecord.deleted() );
         EXPECT_EQ( superAdminRecord.role(), chat::ROLE_SUPER_ADMIN );
+        EXPECT_EQ( superAdminRecord.pending_action(), chat::PENDING_ACTION_UNSPECIFIED );
+        EXPECT_EQ( superAdminRecord.pending_role(), chat::ROLE_UNSPECIFIED );
+        EXPECT_TRUE( superAdminRecord.approved_by().empty() );
 
-        // CR-04: the removal guard's rank rule now applies to role changes too
-        // — an Admin cannot initiate a non-creator Super Admin's demotion.
-        EXPECT_FALSE( admin.ChangeRole( spaceId, kTargetAddress, chat::ROLE_ADMIN ).has_value() );
-        chat::MemberRecord unchanged;
-        ASSERT_TRUE( ReadMemberRecord( *m_rig.session, spaceId, kTargetAddress, unchanged ) );
-        EXPECT_EQ( unchanged.role(), chat::ROLE_SUPER_ADMIN );
-        EXPECT_EQ( unchanged.pending_action(), chat::PENDING_ACTION_UNSPECIFIED );
-        EXPECT_EQ( unchanged.pending_role(), chat::ROLE_UNSPECIFIED );
-        EXPECT_TRUE( unchanged.approved_by().empty() );
-        EXPECT_FALSE( unchanged.deleted() );
+        // An unverifiable record is not a member: excluded from the roster.
+        auto list = creator.MembersFor( spaceId );
+        ASSERT_TRUE( list.has_value() );
+        EXPECT_EQ( FindMember( list.value(), kTargetAddress ), nullptr );
     }
 
     /**
@@ -1748,11 +1820,11 @@ namespace gcs::test
     }
 
     /**
-     * @brief Test (CR-04/T-04-17-03): an Admin cannot initiate a non-creator
-     *        Super Admin's demotion — the attempt is rejected before any write
-     *        or roster push.
+     * @brief Test (CR-04/T-04-17-03): an Admin cannot act on a non-creator
+     *        SUPER_ADMIN record that the trust chain cannot verify — the
+     *        attempt is rejected before any write or roster push.
      */
-    TEST_F( GcsMembershipTest, AdminCannotInitiateSuperAdminDemotion )
+    TEST_F( GcsMembershipTest, AdminCannotActOnAnUnverifiableSuperAdminRecord )
     {
         StartRig( kTestCreatorAddress );
 
@@ -1781,22 +1853,27 @@ namespace gcs::test
         EXPECT_TRUE( record.approved_by().empty() );
         EXPECT_FALSE( record.deleted() );
 
+        // An unverifiable record is excluded from the roster.
+        auto list = creator.MembersFor( spaceId );
+        ASSERT_TRUE( list.has_value() );
+        EXPECT_EQ( FindMember( list.value(), kTargetAddress ), nullptr );
+
         // A rejected change emits no roster push.
         EXPECT_EQ( events.size(), pushBaseline );
     }
 
     /**
-     * @brief Test (WR-03): demoting a non-creator Super Admin with 2+ admins
-     *        writes a dormant ROLE_CHANGE record instead of applying it.
+     * @brief Test (WR-03): demoting an Admin with 2+ admins writes a dormant
+     *        ROLE_CHANGE record instead of applying it.
      */
-    TEST_F( GcsMembershipTest, SuperAdminDemotionIsDormantWhenTwoAdmins )
+    TEST_F( GcsMembershipTest, AdminDemotionIsDormantWhenTwoAdmins )
     {
         StartRig( kTestCreatorAddress );
 
         auto space = m_rig.store->CreateSpace( "ops", true, true, true );
         ASSERT_TRUE( space.has_value() );
         const std::string spaceId = space.value().id();
-        SeedMember( spaceId, kTargetAddress, chat::ROLE_SUPER_ADMIN );
+        SeedMember( spaceId, kTargetAddress, chat::ROLE_ADMIN );
 
         std::vector<chat::GcsEvent> events;
         gcs::Membership membership( *m_rig.session, *m_rig.store, kTestCreatorAddress,
@@ -1804,14 +1881,14 @@ namespace gcs::test
         ASSERT_TRUE( membership.OnScopeCreated( spaceId, "", true ).has_value() );
 
         // Two admins (creator + target) -> the demotion is dormant, not applied.
-        ASSERT_TRUE( membership.ChangeRole( spaceId, kTargetAddress, chat::ROLE_ADMIN ).has_value() );
+        ASSERT_TRUE( membership.ChangeRole( spaceId, kTargetAddress, chat::ROLE_MODERATOR ).has_value() );
 
         chat::MemberRecord record;
         ASSERT_TRUE( ReadMemberRecord( *m_rig.session, spaceId, kTargetAddress, record ) );
-        EXPECT_EQ( record.role(), chat::ROLE_SUPER_ADMIN );
+        EXPECT_EQ( record.role(), chat::ROLE_ADMIN );
         EXPECT_TRUE( record.approved_by().empty() );
         EXPECT_EQ( record.pending_action(), chat::PENDING_ACTION_ROLE_CHANGE );
-        EXPECT_EQ( record.pending_role(), chat::ROLE_ADMIN );
+        EXPECT_EQ( record.pending_role(), chat::ROLE_MODERATOR );
     }
 
     /**
