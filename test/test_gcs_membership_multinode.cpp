@@ -23,11 +23,14 @@
 #include "lib/gcs_entity_store.hpp"
 #include "lib/gcs_membership.hpp"
 #include "test_gcs_invite_helpers.hpp"
+#include "test_gcs_member_helpers.hpp"
 #include "test_graphsync_network.hpp"
 #include "test_wait_condition.hpp"
 
 #include <chrono>
+#include <cstdint>
 #include <filesystem>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -66,6 +69,22 @@ namespace
     constexpr const char *kManifestKey  = "gcs/index/manifest";
     constexpr const char *kSpacesPrefix = "gcs/entities/spaces/";
     constexpr const char *kRoomsPrefix  = "gcs/entities/rooms/";
+
+    /**
+     * @brief Wall-clock milliseconds since the epoch.
+     *
+     * Signed member timestamps are app-level provenance (the predecessor gate),
+     * so the test only needs a monotonic-ish wall clock — never a CRDT
+     * priority. Mirrors the production NowMs idiom.
+     *
+     * @return Millisecond count.
+     */
+    int64_t NowMs()
+    {
+        return std::chrono::duration_cast<std::chrono::milliseconds>(
+                   std::chrono::system_clock::now().time_since_epoch() )
+            .count();
+    }
 
     /// Minimal soralog YAML — console sink only, error level (mirrors
     /// test_gcs_messaging_multinode.cpp).
@@ -1033,6 +1052,460 @@ namespace gcs::test
                               == chat::ROLE_SUPER_ADMIN;
             },
             kWaitTimeout ) );
+    }
+
+    /**
+     * @brief Test 8 (T-04-22-01/02/04): a validly self-signed SUPER_ADMIN
+     *        published at the WIRE level becomes no member and gains no command.
+     *
+     * The attacker controls created_by and signs the exact canonical bytes the
+     * production verifier reads, so only the self-signed role cap can reject
+     * it. Rejection is exclusion, never rollback: the forged bytes stay in the
+     * raw CRDT as the winning value while every verified roster omits them.
+     */
+    TEST_F( MembershipMultinodeTest, WireInjectedSelfSignedSuperAdminIsNotAMember )
+    {
+        std::string roomId;
+        CreateRoomAndJoin( roomId );
+
+        const std::string memberPrefix =
+            std::string( gcs::Membership::kMembersKeyPrefix ) + roomId + "/";
+
+        // Verified baseline: the creator is SUPER_ADMIN, B is GUEST.
+        auto baselineA = m_nodeA.membership->MembersFor( roomId );
+        auto baselineB = m_nodeB.membership->MembersFor( roomId );
+        ASSERT_TRUE( baselineA.has_value() );
+        ASSERT_TRUE( baselineB.has_value() );
+        ASSERT_EQ( baselineA.value().member_size(), 2 );
+        ASSERT_EQ( baselineB.value().member_size(), 2 );
+        EXPECT_EQ( RoleOf( baselineA.value(), SenderA() ),
+                   chat::ROLE_SUPER_ADMIN );
+        EXPECT_EQ( RoleOf( baselineA.value(), SenderB() ), chat::ROLE_GUEST );
+        EXPECT_EQ( RoleOf( baselineB.value(), SenderA() ),
+                   chat::ROLE_SUPER_ADMIN );
+        EXPECT_EQ( RoleOf( baselineB.value(), SenderB() ), chat::ROLE_GUEST );
+
+        const auto baselineScan = m_nodeB.session->QueryKeyValues( memberPrefix );
+        ASSERT_TRUE( baselineScan.has_value() );
+        const std::size_t baselineRecordCount = baselineScan.value().size();
+        ASSERT_EQ( baselineRecordCount, 2U );
+
+        sgns::GeniusSigner attacker = sgns::GeniusSigner::Generate();
+        const std::string  attackerAddress = attacker.GetAddress();
+        const std::string  attackerKey = memberPrefix + attackerAddress;
+        const int64_t      nowMs       = NowMs();
+
+        chat::MemberRecord forged;
+        forged.set_scope_id( roomId );
+        forged.set_address( attackerAddress );
+        forged.set_role( chat::ROLE_SUPER_ADMIN );
+        forged.set_deleted( false );
+        forged.set_created_at_ms( nowMs );
+        forged.set_updated_at_ms( nowMs );
+        forged.set_pending_action( chat::PENDING_ACTION_UNSPECIFIED );
+        forged.set_pending_role( chat::ROLE_UNSPECIFIED );
+        forged.set_approved_by( "" );
+        forged.set_created_by( attackerAddress );
+
+        // A REAL signature over the exact canonical bytes: the record is
+        // validly self-signed, so rejection must come from the role cap.
+        const std::string payload =
+            BuildMemberIssuerPayload( roomId, attackerAddress, forged );
+        const std::vector<uint8_t> payloadBytes( payload.begin(),
+                                                 payload.end() );
+        const std::vector<uint8_t> rawSignature = attacker.Sign( payloadBytes );
+        ASSERT_EQ( rawSignature.size(), gcs::Membership::kSignatureBytes );
+        forged.set_record_signature( gcs::crypto::HexEncode(
+            std::string( rawSignature.begin(), rawSignature.end() ) ) );
+        const std::string forgedBytes = forged.SerializeAsString();
+
+        // Publish on the PUBLIC membership replication topic — the same channel
+        // any peer may write.
+        ASSERT_TRUE( m_nodeA.session
+                         ->Put( attackerKey, forgedBytes,
+                                std::unordered_set<std::string>{
+                                    gcs::Membership::kMembershipTopic } )
+                         .has_value() );
+        ASSERT_TRUE( WaitForCondition(
+            [ & ]() {
+                return m_nodeA.session->Get( attackerKey ).has_value()
+                       && m_nodeB.session->Get( attackerKey ).has_value();
+            },
+            kWaitTimeout ) );
+
+        // (i) Rejection, not deletion: the forged bytes are the winning raw
+        // value on BOTH nodes, and the raw scan grew by one.
+        const auto rawA = m_nodeA.session->Get( attackerKey );
+        const auto rawB = m_nodeB.session->Get( attackerKey );
+        ASSERT_TRUE( rawA.has_value() );
+        ASSERT_TRUE( rawB.has_value() );
+        EXPECT_EQ( rawA.value(), forgedBytes );
+        EXPECT_EQ( rawB.value(), forgedBytes );
+        const auto hostileScan = m_nodeB.session->QueryKeyValues( memberPrefix );
+        ASSERT_TRUE( hostileScan.has_value() );
+        EXPECT_EQ( hostileScan.value().size(), baselineRecordCount + 1 );
+
+        // (ii) The verified rosters still contain only the genuine members.
+        auto listA = m_nodeA.membership->MembersFor( roomId );
+        auto listB = m_nodeB.membership->MembersFor( roomId );
+        ASSERT_TRUE( listA.has_value() );
+        ASSERT_TRUE( listB.has_value() );
+        EXPECT_EQ( listA.value().member_size(),
+                   baselineA.value().member_size() );
+        EXPECT_EQ( listB.value().member_size(),
+                   baselineB.value().member_size() );
+        EXPECT_EQ( RoleOf( listA.value(), attackerAddress ),
+                   chat::ROLE_UNSPECIFIED );
+        EXPECT_EQ( RoleOf( listB.value(), attackerAddress ),
+                   chat::ROLE_UNSPECIFIED );
+
+        // (iii) The attacker is the local sender on its own Membership but
+        // resolves to GUEST and can drive no command.
+        gcs::Membership attackerMembership(
+            *m_nodeB.session, *m_nodeB.store, attackerAddress,
+            []( const chat::GcsEvent & ) {}, MakeSeam( attacker ) );
+        EXPECT_EQ( attackerMembership.LocalRoleFor( roomId ), chat::ROLE_GUEST );
+        EXPECT_FALSE( attackerMembership.DeleteScope( roomId ).has_value() );
+        EXPECT_FALSE(
+            attackerMembership.RemoveMember( roomId, SenderB() ).has_value() );
+        EXPECT_FALSE(
+            attackerMembership.ChangeRole( roomId, SenderB(), chat::ROLE_MEMBER )
+                .has_value() );
+
+        // Positive control: the genuine creator still resolves everywhere and
+        // retains command authority.
+        EXPECT_EQ( RoleOf( listA.value(), SenderA() ),
+                   chat::ROLE_SUPER_ADMIN );
+        EXPECT_EQ( RoleOf( listB.value(), SenderA() ),
+                   chat::ROLE_SUPER_ADMIN );
+        ASSERT_TRUE( m_nodeA.membership
+                         ->ChangeRole( roomId, SenderB(), chat::ROLE_MEMBER )
+                         .has_value() );
+        ASSERT_TRUE( WaitForCondition(
+            [ & ]() {
+                auto list = m_nodeB.membership->MembersFor( roomId );
+                return list.has_value()
+                       && RoleOf( list.value(), SenderB() ) == chat::ROLE_MEMBER
+                       && RoleOf( list.value(), SenderA() )
+                              == chat::ROLE_SUPER_ADMIN;
+            },
+            kWaitTimeout ) );
+    }
+
+    /**
+     * @brief Test 9 (T-04-22-06/08): a real signature does not authorize a
+     *        creator-target overwrite, an admin-tier tombstone or demotion, or
+     *        an outrank-bypassing peer-Moderator demotion.
+     *
+     * Five hostile records, each carrying a valid secp256k1 signature over the
+     * canonical payload. While the hostile bytes are the winning per-key LWW
+     * value the target is ABSENT from every verified roster (not "still the
+     * previous role") and grants no command. Each case then re-publishes the
+     * creator's saved bytes to prove the genuine chain recovers.
+     */
+    TEST_F( MembershipMultinodeTest, WireInjectedAuthorityTransitionsAreRejected )
+    {
+        std::string roomId;
+        CreateRoomAndJoin( roomId );
+
+        const std::string memberPrefix =
+            std::string( gcs::Membership::kMembersKeyPrefix ) + roomId + "/";
+
+        // Real keys for every seeded authority identity: rejection must come
+        // from the transition matrix, never from a broken signature.
+        sgns::GeniusSigner adminA = sgns::GeniusSigner::Generate();
+        sgns::GeniusSigner adminB = sgns::GeniusSigner::Generate();
+        sgns::GeniusSigner modA   = sgns::GeniusSigner::Generate();
+        sgns::GeniusSigner modB   = sgns::GeniusSigner::Generate();
+
+        // ONE payload builder + signer + publisher for the whole test
+        // (test-side invariant 11). created_by is always the real signer.
+        auto PublishSignedRecord =
+            [ & ]( const std::string &address, chat::MemberRecord &record,
+                   sgns::GeniusSigner &signer ) -> outcome::result<void>
+        {
+            record.set_created_by( signer.GetAddress() );
+            const std::string payload =
+                BuildMemberIssuerPayload( roomId, address, record );
+            const std::vector<uint8_t> data( payload.begin(), payload.end() );
+            const std::vector<uint8_t> raw = signer.Sign( data );
+            record.set_record_signature( gcs::crypto::HexEncode(
+                std::string( raw.begin(), raw.end() ) ) );
+            return m_nodeA.session->Put(
+                memberPrefix + address, record.SerializeAsString(),
+                std::unordered_set<std::string>{
+                    gcs::Membership::kMembershipTopic } );
+        };
+
+        // Creator-signed direct grants establish the authority baseline:
+        // prior_role UNSPECIFIED, created_by = the creator.
+        auto SeedCreatorGrant = [ & ]( const std::string &address,
+                                       chat::Role         role )
+        {
+            chat::MemberRecord record;
+            record.set_scope_id( roomId );
+            record.set_address( address );
+            record.set_role( role );
+            record.set_deleted( false );
+            record.set_created_at_ms( NowMs() );
+            record.set_updated_at_ms( NowMs() );
+            record.set_prior_role( chat::ROLE_UNSPECIFIED );
+            record.set_pending_action( chat::PENDING_ACTION_UNSPECIFIED );
+            record.set_pending_role( chat::ROLE_UNSPECIFIED );
+            record.set_approved_by( "" );
+            EXPECT_TRUE(
+                PublishSignedRecord( address, record, *m_signerA ).has_value() );
+        };
+        SeedCreatorGrant( adminA.GetAddress(), chat::ROLE_ADMIN );
+        SeedCreatorGrant( adminB.GetAddress(), chat::ROLE_ADMIN );
+        SeedCreatorGrant( modA.GetAddress(), chat::ROLE_MODERATOR );
+        SeedCreatorGrant( modB.GetAddress(), chat::ROLE_MODERATOR );
+
+        constexpr std::size_t kSeededRecords = 4;
+        const std::size_t     baselineCount  = kSeededRecords + 2; // + creator + B
+
+        // Both nodes must hold all four records AND verify their roles; that
+        // read also populates each node's verified-predecessor cache.
+        ASSERT_TRUE( WaitForCondition(
+            [ & ]() {
+                const auto scan =
+                    m_nodeB.session->QueryKeyValues( memberPrefix );
+                if ( !scan.has_value() || scan.value().size() != baselineCount )
+                {
+                    return false;
+                }
+                auto listA = m_nodeA.membership->MembersFor( roomId );
+                auto listB = m_nodeB.membership->MembersFor( roomId );
+                return listA.has_value() && listB.has_value()
+                       && listA.value().member_size() == baselineCount
+                       && listB.value().member_size() == baselineCount
+                       && RoleOf( listA.value(), adminA.GetAddress() )
+                              == chat::ROLE_ADMIN
+                       && RoleOf( listB.value(), adminA.GetAddress() )
+                              == chat::ROLE_ADMIN
+                       && RoleOf( listA.value(), adminB.GetAddress() )
+                              == chat::ROLE_ADMIN
+                       && RoleOf( listB.value(), adminB.GetAddress() )
+                              == chat::ROLE_ADMIN
+                       && RoleOf( listA.value(), modA.GetAddress() )
+                              == chat::ROLE_MODERATOR
+                       && RoleOf( listB.value(), modA.GetAddress() )
+                              == chat::ROLE_MODERATOR
+                       && RoleOf( listA.value(), modB.GetAddress() )
+                              == chat::ROLE_MODERATOR
+                       && RoleOf( listB.value(), modB.GetAddress() )
+                              == chat::ROLE_MODERATOR;
+            },
+            kWaitTimeout ) );
+
+        /**
+         * Publish @p hostile on @p target's key, assert exclusion while the
+         * hostile bytes win, then restore the creator's saved bytes and assert
+         * the original verified role returns.
+         *
+         * @param target          The wallet key being attacked.
+         * @param signer          The real hostile signer.
+         * @param hostile         The prepared hostile record (without its
+         *                        updated_at_ms and signature).
+         * @param restoredRole    The target's expected role after restoration.
+         * @param whileHostile    Optional extra assertions (case 3 approvals).
+         */
+        auto HostileCase =
+            [ & ]( const std::string &target, sgns::GeniusSigner &signer,
+                   chat::MemberRecord hostile, chat::Role restoredRole,
+                   const std::function<void( gcs::Membership & )> &whileHostile )
+        {
+            const std::string targetKey = memberPrefix + target;
+
+            // Save the creator's current bytes for restoration below.
+            const auto savedBytes = m_nodeA.session->Get( targetKey );
+            ASSERT_TRUE( savedBytes.has_value() );
+            if ( !savedBytes.has_value() )
+            {
+                return;
+            }
+            chat::MemberRecord saved;
+            ASSERT_TRUE( saved.ParseFromString( savedBytes.value() ) );
+
+            // A live node has verified history before the hostile write: warm
+            // this signer-bound instance's node-local predecessor cache with
+            // the genuine roster. Only then is the lying-predecessor case
+            // detectable (a never-synced node trusts the signed prior_role —
+            // the documented cold-start residual T-04-19-09).
+            gcs::Membership hostileMembership(
+                *m_nodeB.session, *m_nodeB.store, signer.GetAddress(),
+                []( const chat::GcsEvent & ) {}, MakeSeam( signer ) );
+            auto warm = hostileMembership.MembersFor( roomId );
+            ASSERT_TRUE( warm.has_value() );
+
+            // Strictly newer so rejection is attributable to the authority
+            // rule under test, never to the predecessor-staleness gate.
+            hostile.set_updated_at_ms( saved.updated_at_ms() + 1 );
+            ASSERT_TRUE(
+                PublishSignedRecord( target, hostile, signer ).has_value() );
+            const std::string hostileBytes = hostile.SerializeAsString();
+
+            ASSERT_TRUE( WaitForCondition(
+                [ & ]() {
+                    const auto a = m_nodeA.session->Get( targetKey );
+                    const auto b = m_nodeB.session->Get( targetKey );
+                    return a.has_value() && a.value() == hostileBytes
+                           && b.has_value() && b.value() == hostileBytes;
+                },
+                kWaitTimeout ) );
+
+            // (i) The hostile bytes are the winning raw value on BOTH nodes.
+            EXPECT_EQ( m_nodeA.session->Get( targetKey ).value(), hostileBytes );
+            EXPECT_EQ( m_nodeB.session->Get( targetKey ).value(), hostileBytes );
+
+            // (ii) Per-key LWW installs the rejected bytes, so the target is
+            // ABSENT from every verified roster — not "still the previous role".
+            auto listA = m_nodeA.membership->MembersFor( roomId );
+            auto listB = m_nodeB.membership->MembersFor( roomId );
+            ASSERT_TRUE( listA.has_value() );
+            ASSERT_TRUE( listB.has_value() );
+            EXPECT_EQ( RoleOf( listA.value(), target ),
+                       chat::ROLE_UNSPECIFIED );
+            EXPECT_EQ( RoleOf( listB.value(), target ),
+                       chat::ROLE_UNSPECIFIED );
+
+            // (iii) The hostile signer is the local sender on its own
+            // Membership but gains no command authority over the target.
+            EXPECT_FALSE(
+                hostileMembership.ChangeRole( roomId, target, chat::ROLE_MEMBER )
+                    .has_value() );
+            EXPECT_FALSE(
+                hostileMembership.RemoveMember( roomId, target ).has_value() );
+            if ( whileHostile )
+            {
+                whileHostile( hostileMembership );
+            }
+
+            // Restoration is the TEST re-publishing the creator's own bytes —
+            // never a claim of attacker authority. The identical signature
+            // takes the predecessor cache's same-write path.
+            ASSERT_TRUE( m_nodeA.session
+                             ->Put( targetKey, savedBytes.value(),
+                                    std::unordered_set<std::string>{
+                                        gcs::Membership::kMembershipTopic } )
+                             .has_value() );
+            ASSERT_TRUE( WaitForCondition(
+                [ & ]() {
+                    const auto a = m_nodeA.session->Get( targetKey );
+                    const auto b = m_nodeB.session->Get( targetKey );
+                    return a.has_value() && a.value() == savedBytes.value()
+                           && b.has_value() && b.value() == savedBytes.value();
+                },
+                kWaitTimeout ) );
+            ASSERT_TRUE( WaitForCondition(
+                [ & ]() {
+                    auto a = m_nodeA.membership->MembersFor( roomId );
+                    auto b = m_nodeB.membership->MembersFor( roomId );
+                    return a.has_value() && b.has_value()
+                           && RoleOf( a.value(), target ) == restoredRole
+                           && RoleOf( b.value(), target ) == restoredRole;
+                },
+                kWaitTimeout ) );
+        };
+
+        // 1. adminA overwrites the creator. The unconditional creator-target
+        // rejection applies to any third party, even an admin.
+        {
+            const auto saved = m_nodeA.session->Get( memberPrefix + SenderA() );
+            ASSERT_TRUE( saved.has_value() );
+            chat::MemberRecord hostile;
+            ASSERT_TRUE( hostile.ParseFromString( saved.value() ) );
+            hostile.set_role( chat::ROLE_GUEST );
+            hostile.set_prior_role( chat::ROLE_SUPER_ADMIN );
+            hostile.set_deleted( false );
+            hostile.set_pending_action( chat::PENDING_ACTION_UNSPECIFIED );
+            hostile.set_pending_role( chat::ROLE_UNSPECIFIED );
+            hostile.set_approved_by( "" );
+            HostileCase( SenderA(), adminA, hostile, chat::ROLE_SUPER_ADMIN, {} );
+        }
+
+        // 2. adminA tombstones peer adminB. Admin-tier destruction requires
+        // the creator, and a peer admin does not strictly outrank an admin.
+        {
+            const auto saved =
+                m_nodeA.session->Get( memberPrefix + adminB.GetAddress() );
+            ASSERT_TRUE( saved.has_value() );
+            chat::MemberRecord hostile;
+            ASSERT_TRUE( hostile.ParseFromString( saved.value() ) );
+            hostile.set_role( chat::ROLE_ADMIN );
+            hostile.set_deleted( true );
+            hostile.set_prior_role( chat::ROLE_ADMIN );
+            hostile.set_pending_action( chat::PENDING_ACTION_UNSPECIFIED );
+            hostile.set_pending_role( chat::ROLE_UNSPECIFIED );
+            hostile.set_approved_by( "" );
+            HostileCase( adminB.GetAddress(), adminA, hostile, chat::ROLE_ADMIN,
+                         {} );
+        }
+
+        // 3. adminA demotes peer adminB via a pending approval. Strict outrank
+        // fails (Admin is not above Admin), and with no verifiable dormant op
+        // neither a non-creator Approve nor the creator's Approve can complete.
+        {
+            const auto saved =
+                m_nodeA.session->Get( memberPrefix + adminB.GetAddress() );
+            ASSERT_TRUE( saved.has_value() );
+            chat::MemberRecord hostile;
+            ASSERT_TRUE( hostile.ParseFromString( saved.value() ) );
+            hostile.set_role( chat::ROLE_ADMIN );
+            hostile.set_deleted( false );
+            hostile.set_prior_role( chat::ROLE_ADMIN );
+            hostile.set_pending_action( chat::PENDING_ACTION_ROLE_CHANGE );
+            hostile.set_pending_role( chat::ROLE_MODERATOR );
+            hostile.set_approved_by( "" );
+            HostileCase( adminB.GetAddress(), adminA, hostile, chat::ROLE_ADMIN,
+                         [ & ]( gcs::Membership &hostileMembership ) {
+                             EXPECT_FALSE(
+                                 hostileMembership
+                                     .Approve( roomId, adminB.GetAddress() )
+                                     .has_value() );
+                             EXPECT_FALSE(
+                                 m_nodeA.membership
+                                     ->Approve( roomId, adminB.GetAddress() )
+                                     .has_value() );
+                         } );
+        }
+
+        // 4. modA demotes peer modB with an honest predecessor. Strict outrank
+        // fails: a Moderator is not above a Moderator.
+        {
+            const auto saved =
+                m_nodeA.session->Get( memberPrefix + modB.GetAddress() );
+            ASSERT_TRUE( saved.has_value() );
+            chat::MemberRecord hostile;
+            ASSERT_TRUE( hostile.ParseFromString( saved.value() ) );
+            hostile.set_role( chat::ROLE_MEMBER );
+            hostile.set_deleted( false );
+            hostile.set_prior_role( chat::ROLE_MODERATOR );
+            hostile.set_pending_action( chat::PENDING_ACTION_UNSPECIFIED );
+            hostile.set_pending_role( chat::ROLE_UNSPECIFIED );
+            hostile.set_approved_by( "" );
+            HostileCase( modB.GetAddress(), modA, hostile,
+                         chat::ROLE_MODERATOR, {} );
+        }
+
+        // 5. modA demotes peer modB with a LYING predecessor. Both nodes
+        // verified MODERATOR, so the signed GUEST claim contradicts the
+        // verified-predecessor cache and is rejected.
+        {
+            const auto saved =
+                m_nodeA.session->Get( memberPrefix + modB.GetAddress() );
+            ASSERT_TRUE( saved.has_value() );
+            chat::MemberRecord hostile;
+            ASSERT_TRUE( hostile.ParseFromString( saved.value() ) );
+            hostile.set_role( chat::ROLE_MEMBER );
+            hostile.set_deleted( false );
+            hostile.set_prior_role( chat::ROLE_GUEST );
+            hostile.set_pending_action( chat::PENDING_ACTION_UNSPECIFIED );
+            hostile.set_pending_role( chat::ROLE_UNSPECIFIED );
+            hostile.set_approved_by( "" );
+            HostileCase( modB.GetAddress(), modA, hostile,
+                         chat::ROLE_MODERATOR, {} );
+        }
     }
 
 } // namespace gcs::test
