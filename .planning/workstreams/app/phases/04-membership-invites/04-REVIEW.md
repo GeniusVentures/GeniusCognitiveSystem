@@ -1,8 +1,8 @@
 ---
 phase: 04-membership-invites
-reviewed: 2026-10-18T22:40:00Z
+reviewed: 2026-10-19T18:45:00Z
 depth: standard
-files_reviewed: 30
+files_reviewed: 32
 files_reviewed_list:
   - src/CMakeLists.txt
   - src/app/lib/cubits/members_cubit.dart
@@ -27,35 +27,67 @@ files_reviewed_list:
   - src/lib/gcs_entity_store.hpp
   - src/lib/gcs_membership.cpp
   - src/lib/gcs_membership.hpp
+  - src/lib/gcs_storage/gcs_global_db.cpp
   - src/proto/gcs_chat.proto
   - test/CMakeLists.txt
   - test/test_gcs_crypto.cpp
   - test/test_gcs_entities.cpp
   - test/test_gcs_ffi.cpp
+  - test/test_gcs_member_helpers.hpp
   - test/test_gcs_membership.cpp
   - test/test_gcs_membership_multinode.cpp
 findings:
   critical: 1
-  warning: 10
-  info: 5
-  total: 16
+  warning: 11
+  info: 7
+  total: 19
 status: issues_found
 ---
 
 # Phase 04: Code Review Report
 
-**Reviewed:** 2026-10-18T22:40:00Z
+**Reviewed:** 2026-10-19T18:45:00Z
 **Depth:** standard
-**Files Reviewed:** 30
+**Files Reviewed:** 32
 **Status:** issues_found
 
 ## Summary
 
-Reviewed the current Phase 04 membership/invites tree at standard depth (no structural pre-pass was supplied). The gap plans 04-13 through 04-18 are present and verified in the code: `RedeemInvite` now preserves live state and rejects tombstones before the unwrap loop; fresh records are stamped `ROLE_GUEST`; the issuer identity is C++-stamped, signed, hex-encoded, and verified against the claimed issuer before any write; the URL carries the scope and the stored record's `scope_id`/`is_space` are cross-checked; `AdminCount` fails closed; `ApplySpaceState`/`ApplyRoomState` Put outside `m_catalogMutex` and publish the exact stored state under it; the FFI issuer seam uses the real account signer and the multinode fixture signs with real `GeniusSigner` identities. CR-07 (process-local room keys) was explicitly deferred and is not re-raised here.
+Post-gap-closure review of the Phase 04 tree at standard depth (no structural pre-pass was supplied). The gap waves 04-19 through 04-22 were read against the previous review's findings:
 
-The remaining blocker is structural: `MemberRecord` is still an unauthenticated, permissionless-topic value. The invite record is now signed, but every authorization decision in `Membership` (`LocalRoleFor` -> `CanChangeRole`/`CanRemoveMember`/`CanDelete`) and every roster the UI trusts are derived from records that any peer may publish. The tests themselves treat direct member-record injection as the "hostile/forged-write path" and depend on it to seed admins (`test/test_gcs_membership.cpp:387-404`), so this is not a hypothetical. The rest of the findings are correctness/robustness gaps around the join/leave flow, the new role-authorization branch, pending-state transitions, and record-vs-key validation.
+- **CR-01 (unsigned `MemberRecord`) is closed.** Every authority write path goes through `WriteMemberAsAuthor`, which stamps `created_by = m_sender`, derives `prior_role` from the *verified* pre-write record, and signs the canonical payload (`gcs_membership.cpp:921-980`). Every authority read (`TryReadMember`, `MembersFor`, `LocalRoleFor`, `AdminCount`, `OnScopeCreated`) verifies the signature and the body/key binding (`:528-529`, `:1048-1101`). The verification matrix now enforces creator-root write-once, the transition table, dormancy, and the approval gates (`:518-819`). The accepted residuals documented in `04-22-SUMMARY.md` (exclusion-not-rollback; a never-synced node trusts a signed `prior_role`) are not re-raised here.
+- **Prior WR-02, WR-03 and WR-05 are closed** (`IsSuperAdmin` creator exception at `:1195`; `Approve` re-validates `pending_role`/creator target; `ChangeRole` rejects while a removal is pending).
+- **Prior WR-04 is partially closed.** Authoring writes now key off a verified record, so the body/key mismatch that used to redirect `ChangeRole`/`RemoveMember`/`Approve` is gone. The two *raw* read paths (`RedeemInvite` merge and `Leave`) still copy an unverified record to a key derived from its body; that remainder is re-reported as **CR-01** below.
+- **Prior WR-01, WR-06, WR-07, WR-08, WR-09, WR-10 and IN-01 through IN-05 remain open** and are listed with their current evidence.
 
-No hardcoded secrets, no `eval`/shell/`printf`/`cout` debug output, no empty catch blocks, no `std::this_thread::sleep_for` in any reviewed test, no OS preprocessor guards in the reviewed C++ sources, and no `void*` dependency injection were found.
+New findings beyond the prior review: a cross-scope write primitive in the raw-read paths (CR-01), a dormant-delete cancellation through `update_space` (WR-11), unbalanced embedded-SDK teardown on failed init (WR-12), non-transactional scope creation (WR-13), a wrong-room-key invite wrap (WR-14), and an irreversible explicit leave (WR-15).
+
+Counts in the frontmatter include the prior still-open items so the fixer sees the full backlog; prior findings keep their original IDs and are marked `(prior, still open)`.
+
+No hardcoded secrets, no `eval`/shell/`printf`/`cout` debug output, no empty catch blocks, no `std::this_thread::sleep_for` in reviewed tests, no OS preprocessor guards, and no `void*` dependency injection were found. Generated Dart protobuf files were treated as codegen output and reviewed only for misuse (none found).
+
+---
+
+## Prior Findings — Closure Status
+
+| ID | Status | Evidence |
+|----|--------|----------|
+| CR-01 (unsigned `MemberRecord`) | **Closed** | Signed writes `gcs_membership.cpp:921-980`; verified reads `:518-559`, `:1048-1101`; wire-level regressions in `test/test_gcs_membership_multinode.cpp` |
+| WR-02 (role-based creator exception) | **Closed** | `CanChangeRole` uses `IsSuperAdmin(scopeId, m_sender)` at `:1195` |
+| WR-03 (`Approve` applies unvalidated `pending_role`) | **Closed** | `:2080-2105` re-validates the grantable-role set and rejects a creator target |
+| WR-04 (body/key mismatch redirects a write) | **Partially closed** | Verified authoring writes are key-bound; raw `RedeemInvite`/`Leave` paths re-reported as CR-01 |
+| WR-05 (pending-state reconciliation) | **Closed** | `ChangeRole` rejects on `PENDING_ACTION_REMOVE` (`:1808`); `RemoveMember` clears `pending_role` (`:1889-1900`) |
+| WR-01 (no derived-join refresh on redeem/leave) | **Still open** | New WR-01 below |
+| WR-06 (optional bearer gate) | **Still open** | New WR-06 below |
+| WR-07 (`ScopeHasRoster` fails open) | **Still open** | New WR-07 below |
+| WR-08 (scan failure pushed as empty roster) | **Still open** | New WR-08 below |
+| WR-09 (self change-role affordance) | **Still open** | New WR-09 below |
+| WR-10 (no room cascade on space delete) | **Still open** | New WR-10 below |
+| IN-01 (stale `kRedeem` comment) | **Still open** | New IN-01 below |
+| IN-02 (unnamed rank/codec literals) | **Still open** | New IN-02 below |
+| IN-03 (all membership failures mapped to one error) | **Still open** | New IN-03 below |
+| IN-04 (duplicate `MemberList` pushes) | **Still open** | New IN-04 below |
+| IN-05 (`VerifyInviteAuthenticator` length) | **Still open** | New IN-05 below |
 
 ---
 
@@ -63,189 +95,220 @@ No hardcoded secrets, no `eval`/shell/`printf`/`cout` debug output, no empty cat
 
 ### Critical Issues
 
-#### CR-01: `MemberRecord` is unsigned — any membership-topic peer can self-assert `ROLE_SUPER_ADMIN` and obtain destructive authority
+#### CR-01: `RedeemInvite` and `Leave` take the write key from an **unverified** record body — a body/key-mismatched record is laundered into another scope
 
-**File:** `src/proto/gcs_chat.proto:236-250`; `src/lib/gcs_membership.cpp:371-390, 495-527, 529-537, 601-628, 642-676, 1536-1560`
-**Issue:** `InviteRecord` gained `created_by`/`issuer_signature`, but `MemberRecord` still carries no signer and no signature, and nothing validates a member record against its writer or its key:
-- `OnMemberArrived` (`:1536-1560`) parses whatever value arrives on the permissionless membership topic and pushes the roster.
-- `TryReadMember`/`MembersFor` (`:371-390`, `:495-527`) return the stored bytes with no signature check and no check that `record.scope_id()`/`record.address()` match the key they were stored under.
-- `LocalRoleFor` (`:529-537`) returns `record.role()` verbatim, and `CanChangeRole`/`CanRemoveMember`/`CanDelete` (`:601-628`, `:642-676`) authorize from that value.
+**File:** `src/lib/gcs_membership.cpp:1589-1596`, `:1752-1778`, `:1930-1952`, `:1007-1008`
+**Issue:** Both paths deliberately read the *raw* stored value (`TryReadRawMember`) and then hand it to `WriteMemberPreservingAuthority`, which derives the destination key from the record body:
 
-Consequence, from any connected peer (the scope id is public in the catalog and the topic is the well-known `gcs/membership/replication`):
+```cpp
+const bool hasExisting = TryReadRawMember( urlScopeId, m_sender, existing );  // :1589
+...
+if ( hasExisting && existing.address() != m_sender ) { reject }               // :1590
+...
+mine = existing;                                                              // :1754
+auto writeResult = hasExisting ? WriteMemberPreservingAuthority( mine ) : ... // :1777
+```
 
-1. Publish `gcs/members/<victimScope>/<attackerWallet>` with `role = ROLE_SUPER_ADMIN`. The record replicates and is accepted (the multinode fixture proves wire-level `Put`s on this topic reach the other node: `test/test_gcs_membership_multinode.cpp:811-816`, `699-708`).
-2. The attacker's own client now resolves `LocalRoleFor` to `ROLE_SUPER_ADMIN`, so `CanDelete` returns true and `CanRemoveMember`/`CanChangeRole` pass the strict-outrank test against every target. A `delete_scope`/`remove_member`/`change_role` command tombstones or rewrites the victim's records, which replicate back to the victim as authoritative LWW state.
+```cpp
+if ( !TryReadRawMember( scopeId, m_sender, record ) || record.deleted()
+     || record.address() != m_sender )                                        // :1931-1932
+...
+WriteMemberPreservingAuthority( record );                                     // :1952
+```
 
-`CanApprove` is the only guard that still holds (it uses `IsSuperAdmin`, `:678-681`), because it checks the resolved creator identity rather than a role. The D-03 "creator is the authority root" model is therefore not enforceable against a peer that can write the roster. The invite signature fix closed the grant path but not the authority path.
+```cpp
+return m_session.Put( MemberKey( record.scope_id(), record.address() ), ... ); // :1007
+```
 
-**Fix:** Make member authority verifiable end to end:
-1. Append `string created_by = 12; string record_signature = 13;` to `MemberRecord` (append-only; field 12+ is free).
-2. Sign the canonical serialization with `record_signature` cleared, using the existing `KeyWrapSeam::sign`, on every `WriteMember` path (self-redeem, role change, removal, leave, creator mint). Do not persist an unsigned member record.
-3. On `OnMemberArrived`, `TryReadMember`, and `MembersFor`, verify `record_signature` against `created_by` and reject unverifiable records from both the roster and authorization.
-4. Constrain what a self-signature may assert: a record signed by `address` may only claim the invite-derived tier (`ROLE_GUEST`) and must not clear a tombstone or a pending op. Any role grant/removal must be signed by an issuer whose own signed record proves the required rank, rooted at the creator's signed record. Until the chain exists, do not treat any pushed role as authority.
-5. Add a regression test that injects `gcs/members/<scope>/<attacker>` with `role = ROLE_SUPER_ADMIN` at the wire level and asserts `MembersFor` excludes it and `DeleteScope`/`RemoveMember` reject the attacker's command.
+`WriteMemberPreservingAuthority` only requires a non-empty `created_by`/`record_signature` (`:986`); its advisory `VerifyMemberRecord` call passes the record's *own* `scope_id()`/`address()` (`:1000`), so it is self-consistent and can never detect a key mismatch. Nothing checks `record.scope_id() == scopeId`. A hostile peer on the permissionless `gcs/membership/replication` topic writes `{ scope_id: B, address: alice, created_by: <anything>, record_signature: <anything>, role: ... }` under the key `gcs/members/A/alice`. The read path correctly excludes it (CR-01 of the prior review is closed). Then:
+
+- Alice calls `leave` on scope A. Her node copies the hostile bytes and writes them to `gcs/members/B/alice` — a scope she may never have touched. If Alice is B's creator, the write clobbers B's creator root with bytes that have no valid signature for B, collapsing B's verified authority (every B member resolves to GUEST, `delete_scope`/role changes/invites all fail) until the creator re-signs the root by hand.
+- Or Alice redeems an invite for A. The same hostile bytes are written to B, now carrying the invite's wrapped room-key material as well, and the redeem reports success even though A's roster still excludes her.
+
+The write requires no signature valid for B and no authority in B. It also violates the phase's stated contract that a rejected record is *excluded*, never *propagated*: the honest node itself performs the cross-scope write. The accepted "exclusion, not rollback" residual covers leaving hostile bytes at their original key; it does not cover an automatic rewrite into a different key.
+
+**Fix:** Reject the raw record when it does not belong to the requested key, in both call sites (or bind the write key explicitly):
+
+```cpp
+if ( record.scope_id() != scopeId )
+{
+    spdlog::warn( "gcs_membership: raw member record in scope '{}' names "
+                  "scope '{}' — rejecting the rewrite", scopeId, record.scope_id() );
+    return outcome::failure( sgns::gcs::Error::GcsDbError );
+}
+```
+
+Do the same for the `existing` read in `RedeemInvite` after the address check (`:1590`), and consider moving the binding check into `TryReadRawMember` (`:441`) so no future raw caller can repeat this. Add a unit test that stores a record at `gcs/members/A/<sender>` whose body names scope B and asserts `Leave(A)` fails and `gcs/members/B/<sender>` is unchanged.
 
 ### Warnings
 
-#### WR-01: Membership changes never refresh the derived-join projection — a redeemer lands on a disabled room, and `leave` only takes effect after restart
+#### WR-11: `update_space` silently cancels a dormant deletion (D-07 coherence gap)
 
-**File:** `src/ffi/gcs_core_ffi.cpp:1736-1763, 1818-1843, 799-830`; `src/app/lib/cubits/rail_cubit.dart:159-166`; `src/app/lib/shell/room_rail.dart:219`
-**Issue:** `RefreshDerivedJoins` is called only from `gcs_init` (`:1288`), `kCreateRoom` (`:1648`), and `kUpdateSpace` (`:1696`). Neither `kRedeem` nor `kLeave` calls it or pushes a `RoomList`:
-- After a successful redeem of a *standalone-room* invite, the scope's topic is never registered (`DerivedJoinedTopics` explicitly excludes standalone rooms), so the room never appears in `g_roomTopics`.
-- After a successful redeem of a *space* invite, the space's `auto_join_rooms` rooms are not recomputed, so they are absent from the pushed `RoomList`.
-- In both cases `RoomList` is not pushed at all and `RailCubit.selectRoom` (`:159-166`) rejects topics outside the pushed list, while `_TreeRoomRow` renders `onPressed` disabled for `!joined` (`room_rail.dart:219`, `:756-758`). The new member can see the room but cannot open or read it until a later create/update or an app restart (init recomputes).
-- Symmetrically, `Leave` writes `explicit_leave = true` (`gcs_membership.cpp:1312`) but never re-runs `RefreshDerivedJoins`, so the left space's derived rooms stay in `g_roomTopics` and keep receiving messages until restart or an unrelated create/update. The D-02 term has no observable effect at the time it is written.
+**File:** `src/ffi/gcs_core_ffi.cpp:1681-1687`; `src/lib/gcs_entity_store.cpp:293-350`
+**Issue:** `kUpdateSpace` builds a fresh `SpaceRecord desired` with only `id`, `name`, `is_public`, `auto_join_rooms` and `members_can_invite`. `EntityStore::UpdateSpace` preserves `created_at_ms`, `deleted`, `deleted_at_ms` and `creator` from the stored record (comment at `:323-328`), but **not** `approved_by` or `pending_action`. The stored pending fields are therefore reset to their proto defaults on every update. A scope with an Admin count > 1 whose deletion was parked as `pending_action = DELETE` (`gcs_membership.cpp:1987-1988`, `:2015-2016`) has that request erased by any Admin renaming the space — no `Approve`, no creator involvement. This is the same class of state-coherence defect 04-21 fixed for member records; the entity mutator was missed. It also means an Admin can suppress another Admin's deletion request without possessing the approval authority D-07 reserves for the creator.
 
-This extends the previously reported IN-05; it now blocks the phase's primary entry path (join via invite) rather than only non-auto-join spaces.
+**Fix:** Carry the stored authority fields through the rewrite, exactly as the other immutable fields are carried:
 
-**Fix:** In the `kRedeem` and `kLeave` arms, after the mutator returns success, call `RefreshDerivedJoins(lock)` and `PostToDart(BuildRoomListEvent())` (the redeem arm already holds the lock again at that point). For a room-invite redeem, explicitly register `gcs/chat/<roomId>` via the same listen-first/broadcast path as `kJoinTopic` and add it to `g_roomTopics`/`g_explicitTopics`. Add an FFI/multinode test: B redeems a standalone-room invite and a space invite, then asserts B's pushed `RoomList` contains the room topic(s) before any other command.
-
-#### WR-02: `CanChangeRole`'s creator exception is role-based, not creator-identity based
-
-**File:** `src/lib/gcs_membership.cpp:614-621`; contract at `src/lib/gcs_membership.hpp:444-448`
-**Issue:** The header documents "The scope creator is the documented exception", but the implementation tests the resolved role:
 ```cpp
-if ( author == chat::ROLE_SUPER_ADMIN )
+std::string storedApprovedBy;
+chat::PendingAction storedPending = chat::PENDING_ACTION_UNSPECIFIED;
+...
+storedApprovedBy = existingIt->second.approved_by();
+storedPending    = existingIt->second.pending_action();
+...
+updated.set_approved_by( storedApprovedBy );
+updated.set_pending_action( storedPending );
+```
+
+Add an entities test: park a DELETE, call `UpdateSpace`, assert `pending_action` survives.
+
+#### WR-12: Failed `gcs_init` paths leave the embedded SDK booted and smoke topics latched in `g_roomTopics`
+
+**File:** `src/ffi/gcs_core_ffi.cpp:985`, `:997-1002`, `:1015-1022`; contrast `:959-974`
+**Issue:** `EnsureSdkBooted` sets `g_sdkBootedHere` and boots the embedded `GeniusSDK`. The `Initialize()` failure path correctly pairs that boot with `GeniusSDKShutdown()` (`:959-974`, IN-02). The two later failure paths do not:
+
+```cpp
+if ( !joinedAnySmokeTopic )
 {
-    return true;
+    session->Shutdown();   // :1000
+    return nullptr;        // embedded SDK stays booted
 }
+...
+session->Shutdown();       // :1020
+return nullptr;
 ```
-`author` comes from `LocalRoleFor(scopeId)` (`:601`), i.e. the local sender's stored record. Any record that resolves to `ROLE_SUPER_ADMIN` — including a forged peer record (CR-01) or a stale/corrupt local record — receives the creator exception over every member, with no identity check. `IsSuperAdmin` (`:392-397`) already implements the correct predicate and is used by `Leave`/`CanApprove`.
 
-**Fix:**
+A caller that never retries leaks the node's wallet, threads and ports for the process lifetime — the exact condition the `:961-966` comment says must not happen. Additionally, the smoke loop pushes into the global `g_roomTopics` at `:985` *before* these failure checks, and the teardown that clears it is gated on `g_session != nullptr`, which is never assigned on this path. A retry therefore appends `kSmokeTopicA`/`kSmokeTopicB` a second time and the pushed `RoomList` shows duplicate rooms.
+
+**Fix:** Mirror the `Initialize()` failure path in both arms:
+
 ```cpp
-if ( IsSuperAdmin( scopeId, m_sender ) )
+session->Shutdown();
+g_roomTopics.clear();
+if ( g_sdkBootedHere )
 {
-    return true; // D-03 creator exception, by identity
+    g_sdkBootedHere = false;
+    GeniusSDKShutdown();
 }
+return nullptr;
 ```
-Add a test that seeds a non-creator `SUPER_ADMIN` record for the local sender and asserts `ChangeRole` is rejected (the current matrix only covers a non-creator Super Admin as a *target*).
 
-#### WR-03: `Approve` applies `pending_role` without re-validating it, bypassing the CR-03 concrete-role guard
+Add an FFI test that forces the membership-topic join to fail, asserts `gcs_init` returns null, and asserts a subsequent successful init pushes each smoke topic exactly once.
 
-**File:** `src/lib/gcs_membership.cpp:1427-1432`
-**Issue:** The activation path copies the stored `pending_role` straight into `role`:
-```cpp
-record.set_approved_by( m_sender );
-record.set_role( record.pending_role() );
-```
-`ChangeRole` guards the grantable-role set (`:596-600`) and the creator-demotion rule (`:587-591`), but `Approve` does not re-run either. A record carrying `pending_action = ROLE_CHANGE` and `pending_role = ROLE_SUPER_ADMIN` (or `ROLE_UNSPECIFIED`) is therefore applied verbatim once the creator approves. The only writer that produces pending records is `ChangeRole`, which validates, but records arrive from the permissionless topic (CR-01), so the value is attacker-controlled. The intended invariant ("`ROLE_SUPER_ADMIN` is never grantable by any author, including the creator") is not enforced on this path.
+#### WR-13: Scope creation is not transactional — a failed creator root leaves an orphan scope that can never acquire an authority root
 
-**Fix:** Before applying, re-validate the same way `CanChangeRole` does:
-```cpp
-const chat::Role pending = record.pending_role();
-if ( pending != chat::ROLE_ADMIN && pending != chat::ROLE_MODERATOR
-     && pending != chat::ROLE_MEMBER && pending != chat::ROLE_GUEST )
-{
-    return outcome::failure( sgns::gcs::Error::GcsDbError );
-}
-if ( !scope.creator.empty() && target == scope.creator )
-{
-    return outcome::failure( sgns::gcs::Error::GcsDbError );
-}
-```
-(Resolve the scope as `CanChangeRole` does.) Add a test that seeds a pending `ROLE_SUPER_ADMIN` change and asserts `Approve` rejects it.
+**File:** `src/ffi/gcs_core_ffi.cpp:1523-1555`, `:1595-1643`; `src/lib/gcs_membership.cpp:2257-2271`
+**Issue:** Both `kCreateSpace` and standalone `kCreateRoom` persist the entity first and only then call `OnScopeCreated`. If the membership write fails, the arm returns `GCS_ERROR_GENERIC` but the entity record remains. Failure is reachable: an occupying unverifiable record at the creator key makes `OnScopeCreated` reject (`:2257-2271`), and a store/`Put` failure does too. The result is a space or standalone room with no member records at all:
 
-#### WR-04: Member writes key off record-body fields, and reads never validate body-vs-key — a poisoned record redirects a write to another member/scope
+- `LocalRoleFor` returns GUEST for everyone, so no one can change roles, remove members or delete the scope (`CanDelete` is role-based, `:1249-1253`).
+- Creation is the only caller of `OnScopeCreated`, and a retry generates a new id, so the orphan is permanent.
 
-**File:** `src/lib/gcs_membership.cpp:434-456, 371-390, 495-527, 1167-1189`
-**Issue:** `WriteMember` builds the key from the record body:
-```cpp
-return m_session.Put( MemberKey( updated.scope_id(), updated.address() ), ... );
-```
-`TryReadMember` reads `MemberKey(scopeId, address)` but never checks `record.scope_id() == scopeId` or `record.address() == address`; `MembersFor` likewise includes any record found under the prefix. The redeem merge copies the stored record wholesale (`mine = existing;`) and then `WriteMember(mine)` writes it under the body's ids. A record stored at `gcs/members/A/alice` whose body names `{scope_id: B, address: creatorB, role: GUEST}` is therefore:
-- included in A's roster (roster injection), and
-- rewritten by `ChangeRole(A, alice, ...)` or by Alice's own redeem to `gcs/members/B/creatorB`, overwriting another scope's creator record with a mutable role.
+For standalone rooms the failure also leaves the freshly minted room key stored under the new topic (`:2296`), so a later entity with the same name/key reuse starts from stale key material.
 
-This is the same class of validation the invite path already has (`invite.scope_id() != urlScopeId` is a hard reject, `:966-973`); member records have no equivalent.
+**Fix:** Do not leave the entity behind on a creator-root failure. Either (a) write the creator root first and only then create the entity, or (b) on `creatorOk == false`, apply a tombstone through `ApplySpaceState`/`ApplyRoomState` (or `DeleteScope` semantics) and `StoreRoomKey`-clear, then return the error. Add a test that forces `OnScopeCreated` to fail and asserts the catalog contains no live entity.
 
-**Fix:**
-1. Make the write key explicit: `WriteMember(scopeId, address, record)` (or force `updated.set_scope_id(scopeId); updated.set_address(address);` inside a keyed variant) and update all call sites.
-2. In `TryReadMember`/`MembersFor`, reject a record whose `scope_id()`/`address()` disagree with the key (skip + `spdlog::warn`, like the unparseable case) instead of returning it.
-3. In `RedeemInvite`, after copying `existing`, overwrite `mine.set_scope_id(urlScopeId); mine.set_address(m_sender);`.
-4. Add a test that stores a body/key-mismatched record and asserts it is not in the roster and that `ChangeRole` does not touch the foreign key.
+#### WR-14: `MintInvite` wraps a topic-derived key for child rooms the minter does not hold, and `RedeemInvite` overwrites the redeemer's real key with it
 
-#### WR-05: Mutators do not reconcile existing pending state — `ChangeRole` silently cancels a pending removal, `RemoveMember` leaves a stale `pending_role`
+**File:** `src/lib/gcs_membership.cpp:1314-1338`; `src/lib/gcs_crypto.cpp:222-238`; `src/lib/gcs_membership.cpp:1738`
+**Issue:** For a space invite, every child room is wrapped at mint time. When the minter has no stored key for a room, the else branch calls `crypto::DeriveRoomKey(topic)`, which itself falls back to the topic string as HKDF input (`gcs_crypto.cpp:226-233`). The minter therefore wraps `HKDF(topic)` and stamps it into the signed invite as if it were the room's real random key. This is not hypothetical: room keys are process-local and distributed only through invites, so an Admin who joined the space before a child room was created — or any node after a restart (CR-07, deferred) — has no stored key for rooms it did not create. On the redeemer side `StoreRoomKey` is called unconditionally (`:1738`), so an existing member who redeems an invite overwrites a working stored key with the topic-derived one; every message subsequently encrypted or decrypted with the real key fails, and the room's confidentiality degrades to the publicly derivable topic key.
 
-**File:** `src/lib/gcs_membership.cpp:1229-1241, 1276-1284`
-**Issue:** The non-demotion branch of `ChangeRole` always executes:
-```cpp
-record.set_pending_action( chat::PENDING_ACTION_UNSPECIFIED );
-record.set_pending_role( chat::ROLE_UNSPECIFIED );
-```
-regardless of what was pending. A second admin's dormant `PENDING_ACTION_REMOVE` (written by `RemoveMember`) is therefore cancelled by any role change that is not itself an admin demotion, without the creator's `Approve`. Conversely, `RemoveMember` sets `pending_action = REMOVE` but leaves the previous `pending_role` populated, so the record carries an incoherent pending state. D-07 says destructive ops are activated only by `Approve`; cancellation is a distinct transition and is currently implicit.
+**Fix:** Wrap only keys the minter actually holds. Skip the entry (and log) when `crypto::RoomKeyFor(topic)` has no value for a nested-room wrap, keeping the pre-membership fallback only for the standalone-room branch where the topic derivation *is* the room key. In `RedeemInvite`, do not overwrite a stored key: `if ( !crypto::RoomKeyFor(topic).has_value() ) { StoreRoomKey(...) }`. Add a test that mints with an empty key store for a nested room and asserts the invite carries no wrapped key for it.
 
-**Fix:** Define the transition explicitly: reject `ChangeRole` while `record.pending_action() == PENDING_ACTION_REMOVE` (the caller must approve or explicitly cancel), or implement a creator-only cancel that clears both fields and records `approved_by`. In `RemoveMember`, clear `pending_role` when setting `pending_action = REMOVE`. Add a test that seeds a pending REMOVE, calls `ChangeRole`, and asserts the pending removal survives (or is rejected).
+#### WR-15: Explicit leave is irreversible — a re-invited member is silently left out of the derived join
 
-#### WR-06: The invite bearer gate is optional and wrong-key redemption still writes a member record
+**File:** `src/lib/gcs_membership.cpp:1942-1952`, `:1752-1770`, `:494-497`, `:1116-1120`
+**Issue:** Nothing ever clears `explicit_leave`. `Leave` sets it with a subject signature (`:1942-1951`). `RedeemInvite` on an existing record preserves the field verbatim by design (`:1748`, `:1752-1755`), tombstones are rejected before the merge, and every authoring write (`ChangeRole`, `RemoveMember`, `Approve`, `OnScopeCreated`) copies the record without clearing it. `HasExplicitLeave` then permanently excludes the member from `DerivedJoinedTopics` (`gcs_core_ffi.cpp:820`). A member who leaves and is later re-invited redeems successfully, is told they joined, receives room keys — and never has `auto_join_rooms` membership again. D-02 defines leave as a derived-join toggle, not a lifetime ban, and no command, approval or invite path can undo it.
 
-**File:** `src/lib/gcs_membership.cpp:823-840, 987-1005, 1140-1156`
-**Issue:** `MintInvite` logs a warning and stores an invite with no authenticator when `InviteAuthEnabled()` is false; `RedeemInvite` then skips the bearer gate entirely. This was previously reported (WR-08) and is still open. It matters more now because unwrap failures are skip-and-log (`:1147-1153`) and never abort: for a room invite, a redeemer holding only `scopeId` + `inviteId` (no key) passes the skipped gate, fails every unwrap, and still writes a live `ROLE_GUEST` member record (`:1167-1189`). The authenticator is the only thing that makes "possess the key" a precondition for membership; expressing it as an optional runtime seam means a partially wired seam silently drops it.
+**Fix:** Treat a successful redeem by the subject as an explicit re-join: when `hasExisting` and `existing.explicit_leave()`, clear `explicit_leave` and `leave_signature` on the record before `WriteMemberPreservingAuthority`. Both fields are excluded from the authority payload (`:311-317`), so the existing authority signature stays valid, and the redeem is already executed by the subject's own wallet, preserving the "only the subject can flip the flag" rule (`:490-516`). Add a test: leave, then redeem a fresh invite, and assert `HasExplicitLeave` is false and the derived topic is present.
 
-**Fix:** Fail closed in both directions: return an error from `MintInvite` when `mintAuth` is unset, and from `RedeemInvite` when `verifyAuth` is unset (mirroring the `IssuerAuthEnabled` posture, `:940-946`). Keep `enabled = false` only for the pre-membership test seam. Additionally, for a room invite whose wrapped keys are all undecryptable, reject the redeem rather than writing a keyless member record.
+#### WR-01 (prior, still open): Membership changes never refresh the derived-join projection
 
-#### WR-07: `ScopeHasRoster` fails open on a scan error, disabling the D-08 write/config gates
+**File:** `src/ffi/gcs_core_ffi.cpp:1762-1764`, `:1818-1844`, `:799-879`
+**Issue:** `RefreshDerivedJoins` is still called only from `gcs_init` (`:1288`), `kCreateRoom` (`:1648`) and `kUpdateSpace` (`:1696`). `kRedeem` pushes only `SpaceTree` (`:1762-1764`) and `kLeave` pushes only `MemberList` (`:1842`); both mutators push through the sink but neither recomputes or pushes `RoomList`. A redeemer of a standalone-room invite is never registered on the room topic; a space-invite redeemer does not get the `auto_join_rooms` rooms in the pushed list; a leaver's derived rooms stay joined until restart. `RailCubit.selectRoom` rejects unlisted topics and the row is rendered disabled.
 
-**File:** `src/ffi/gcs_core_ffi.cpp:745-756` (call sites `:1473`, `:1588`, `:1668`, `:1440` region)
-**Issue:** `return members.has_value() && members.value().member_size() > 0;` converts a `MembersFor` failure into "no roster", which makes every caller skip its `RoleAtLeast` check. A transient store read failure therefore downgrades Member+/Admin+ gates to no gate. This was previously reported (WR-01) and is unchanged; it remains a fail-open authorization path, which the project's "fail early and explicitly" invariant forbids.
+**Fix:** After a successful redeem/leave, call `RefreshDerivedJoins(lock)` and `PostToDart(BuildRoomListEvent())` (both arms re-acquire the lock). For a standalone-room invite, register `gcs/chat/<roomId>` listen-first/broadcast and add it to `g_roomTopics`/`g_explicitTopics`. Add an FFI/multinode test asserting the pushed `RoomList` contains the room before any other command.
 
-**Fix:** Return `outcome::result<bool>`; on error, `PostErrorNotice` and reject the command (`GCS_ERROR_GENERIC`) instead of continuing ungated.
+#### WR-06 (prior, still open): The invite bearer gate is optional and wrong-key redemption still writes a member record
 
-#### WR-08: A failed member scan is pushed as an empty roster, wiping the Dart roster
+**File:** `src/lib/gcs_membership.cpp:1400-1417`, `:1566-1582`; `src/ffi/gcs_core_ffi.cpp:1187-1188`
+**Issue:** Production wires `mintAuth`/`verifyAuth` (`gcs_core_ffi.cpp:1187-1188`), but both sides fail open when the seam is absent: `MintInvite` logs a warning and persists an invite with no authenticator, and `RedeemInvite` skips the gate entirely. A partially wired seam silently removes the "possess the bearer key" precondition for membership. All undecryptable wrapped keys are still skip-and-log, so a redeemer holding only the scope/invite ids writes a live GUEST record.
 
-**File:** `src/ffi/gcs_core_ffi.cpp:596-611`; `src/app/lib/cubits/members_cubit.dart:204-219`
-**Issue:** `BuildMemberListEvent` converts a scan failure into a `MemberList` with only `scope_id` set (comment: "An unreachable scan ... still emits a scoped list"). `SessionCubit._dispatchEvent` forwards it (`session_cubit.dart:520-529`) and `MembersCubit.setMembers` replaces the roster with the empty list. The UI then shows "No members yet", `viewerOf` returns null, and every role-gated affordance disappears until the next successful push. A read failure is thus rendered as a successful empty result, the same fail-open pattern as WR-07 but on the presentation path.
+**Fix:** Fail closed in both directions when the seam is unset (mirroring `IssuerAuthEnabled`), and reject a room invite whose wrapped keys are all undecryptable instead of writing a keyless member record.
 
-**Fix:** Do not synthesize a successful empty roster on error. Either push an `Error` event and let Dart keep its last good roster, or make the event carry a status the cubit honors (`setMembers` skips replacement on failure). If an empty push is retained for a genuinely empty scope, distinguish "scan failed" from "zero records" in the event.
+#### WR-07 (prior, still open): `ScopeHasRoster` fails open on a scan error
 
-#### WR-09: The members dialog offers "change role" on the viewer's own row, which C++ always rejects
+**File:** `src/ffi/gcs_core_ffi.cpp:752-756` (call sites `:1668`, `:1588`, `:1473` region)
+**Issue:** `return members.has_value() && members.value().member_size() > 0;` maps a failed `MembersFor` scan to "no roster", which makes every caller skip its `RoleAtLeast` gate. A transient store read failure downgrades Member+/Admin+ checks to no check.
 
-**File:** `src/app/lib/shell/members_dialog.dart:318-324`
-**Issue:** `showChangeRole` lacks the `!member.self` condition that `showRemove` has (`:320-324`). The row always offers it when the viewer can manage members, but `CanChangeRole` always denies self-targeting: the creator branch rejects any non-Super-Admin role for `target == scope.creator`, `ROLE_SUPER_ADMIN` is never grantable, and every other author fails the strict-outrank check (`PrivilegeRank(author) <= PrivilegeRank(targetRecord.role())`, `gcs_membership.cpp:625`). The affordance is guaranteed to produce an error toast.
+**Fix:** Return `outcome::result<bool>`; on error, post an error notice and reject the command (`GCS_ERROR_GENERIC`) instead of continuing ungated.
 
-**Fix:** Mirror the remove row: `viewerCanManage && !member.self && !targetIsSuperAdmin && !member.pending`. Add a widget test asserting the self row has no change-role affordance.
+#### WR-08 (prior, still open): A failed member scan is pushed as an empty roster
 
-#### WR-10: Deleting a space does not cascade to its rooms, and a nested room cannot be deleted on its own
+**File:** `src/ffi/gcs_core_ffi.cpp:596-612`; `src/app/lib/cubits/members_cubit.dart:204-219`
+**Issue:** `BuildMemberListEvent` converts a scan failure into a `MemberList` carrying only `scope_id`; `MembersCubit.setMembers` performs a full replacement, so the Dart roster is wiped and every role-gated affordance disappears until the next successful push.
 
-**File:** `src/lib/gcs_membership.cpp:1339-1391, 672-676`; `src/app/lib/cubits/rail_cubit.dart:196-211`
-**Issue:** `DeleteScope` matches only `space.id() == scopeId` or `room.id() == scopeId`; child rooms are left live, and `RailCubit.setTree` degrades a room whose parent is absent to a standalone row (`rail_cubit.dart:196-211`), so the deleted space's rooms reappear as top-level rooms. Nested rooms also cannot be deleted directly: `CanDelete` resolves `LocalRoleFor(roomId)`, and no member records exist under a nested room id, so it always returns `GUEST`. This was previously reported (WR-02) and is unchanged.
+**Fix:** Do not synthesize a successful empty roster on error. Push an error event, or carry a status the cubit honors by keeping the last good roster, and distinguish "scan failed" from "zero records".
 
-**Fix:** In the space branch, apply the same pending/deleted state to every room with `parent_space_id() == scopeId` through `ApplyRoomState`, then push the tree once. For a nested-room delete, authorize against `parent_space_id` (the owning scope) rather than the room id.
+#### WR-09 (prior, still open): The members dialog offers "change role" on the viewer's own row
+
+**File:** `src/app/lib/shell/members_dialog.dart:318-319`
+**Issue:** `showChangeRole = viewerCanManage && !targetIsSuperAdmin && !member.pending` still lacks the `!member.self` condition that `showRemove` has (`:320-325`). `CanChangeRole` always denies self-targeting, so the affordance is guaranteed to produce an error toast.
+
+**Fix:** `viewerCanManage && !member.self && !targetIsSuperAdmin && !member.pending`. Add a widget test asserting the self row has no change-role affordance.
+
+#### WR-10 (prior, still open): Deleting a space does not cascade to its rooms, and a nested room cannot be deleted alone
+
+**File:** `src/lib/gcs_membership.cpp:1960-2034`, `:1249-1253`; `src/app/lib/cubits/rail_cubit.dart:196-211`
+**Issue:** `DeleteScope` matches only the space record itself; child rooms stay live and `RailCubit.setTree` degrades a room with an absent parent to a standalone top-level row. A nested room also cannot be deleted directly because `CanDelete` resolves `LocalRoleFor(roomId)` and no member records exist under a nested room id.
+
+**Fix:** In the space branch, apply the same pending/deleted state to every room with `parent_space_id() == scopeId` through `ApplyRoomState`, then push once. Authorize a nested-room delete against its parent scope.
 
 ### Info
 
-#### IN-01: Stale `kRedeem` comment contradicts the 04-15 URL contract
+#### IN-01 (prior, still open): Stale `kRedeem` comment
 
 **File:** `src/ffi/gcs_core_ffi.cpp:1740-1743`
-**Issue:** The comment says "(the scope id lives in the invite record, NOT the URL)" and "it must never derive the scope id from the URL itself", but the URL has carried the scope segment since 04-15 (`gcs_membership.cpp:893-908`) and the arm now pushes the tree only. The comment no longer describes the code and invites a future regression.
-**Fix:** Reword to state that the redeem arms do not need the scope id because `RedeemInvite` pushes the roster through the sink, while the URL is the authoritative scope for parsing.
+**Issue:** The comment says the scope id lives in the invite record, not the URL, and that the arm must never derive it from the URL; the URL has carried the scope segment since 04-15 and the arm only pushes the tree. The comment invites a regression.
+**Fix:** Reword to state that the URL is the authoritative parse source while `RedeemInvite` owns the roster push.
 
-#### IN-02: Unnamed numeric literals in `PrivilegeRank` and the base64url codec
+#### IN-02 (prior, still open): Unnamed numeric literals in `PrivilegeRank`
 
-**File:** `src/lib/gcs_membership.cpp:95-107, 169-189`
-**Issue:** `PrivilegeRank` returns bare `5`/`4`/`3`/`2`/`1`/`0`, and the base64url codec uses bare `0x3F`, `18`, `12`, `6`, `16`, `8` shifts/masks. The project rule is named `constexpr kCamelCase` for every numeric literal (0/1/-1 excepted in trivial contexts); these are rank values and codec constants, not trivial indices.
-**Fix:** Add `constexpr unsigned int kRankSuperAdmin = 5; ... kRankUnspecified = 0;` and `kBase64UrlChunkBits = 6`, `kBase64UrlMask = 0x3F`, etc., and use them.
+**File:** `src/lib/gcs_membership.cpp:98-113`
+**Issue:** `PrivilegeRank` still returns bare `5`/`4`/`3`/`2`/`1`/`0`. These are rank values, not the trivial `0`/`1`/`-1` the project rule exempts.
+**Fix:** `constexpr unsigned int kRankSuperAdmin = 5;` … `kRankUnspecified = 0;` and return those.
 
-#### IN-03: Membership failures are all reported as "permission denied"/`GCS_ERROR_INVALID_ARGUMENT`
+#### IN-03 (prior, still open): All membership failures map to one error
 
-**File:** `src/ffi/gcs_core_ffi.cpp:1759, 1786, 1812, 1838, 1891`
-**Issue:** Every `outcome::failure` becomes "permission denied" (or the redeem/leave variants), including store write failures, missing targets, and "no dormant op". `GcsDbError` is a single code, so the arm cannot distinguish causes; debugging and user feedback both point at authorization when the real cause may be the store. Previously reported as IN-02 and unchanged.
-**Fix:** Give the membership methods distinguishable error reasons and map them to distinct notices; at minimum reword the generic notice to "rejected (permission or target state)".
+**File:** `src/ffi/gcs_core_ffi.cpp:1786`, `:1812`, `:1838`, `:1864`, `:1891`
+**Issue:** Every `outcome::failure` from `ChangeRole`/`RemoveMember`/`Leave`/`DeleteScope`/`Approve` becomes "permission denied" or `GCS_ERROR_INVALID_ARGUMENT`, including store write failures, missing targets and "no dormant op". `GcsDbError` is a single code, so neither the user nor the logs can distinguish causes.
+**Fix:** Give membership mutators distinguishable error reasons and map them to distinct notices; at minimum reword the generic notice.
 
-#### IN-04: Every membership mutation pushes `MemberList` twice
+#### IN-04 (prior, still open): Every membership mutation pushes `MemberList` twice
 
-**File:** `src/lib/gcs_membership.cpp:458-473, 1247, 1290, 1318`; `src/ffi/gcs_core_ffi.cpp:1789, 1815, 1842, 1894`
-**Issue:** Each mutator calls `PushMemberList` through the sink, and each FFI arm then calls `PostToDart(BuildMemberListEvent(...))` again; `delete_scope`/`approve` add a duplicate `SpaceTree` as well. Two identical full-roster events reach Dart per action (possibly three with the heal callback). Previously reported as IN-01 and unchanged.
-**Fix:** Pick one owner: keep the sink push and drop the FFI posts, or drop the mutator pushes and keep the FFI posts.
+**File:** `src/lib/gcs_membership.cpp:1011-1046` (sink push) and `src/ffi/gcs_core_ffi.cpp:1789`, `:1815`, `:1842`, `:1894`
+**Issue:** Each mutator calls `PushMemberList` through the sink and each FFI arm posts `BuildMemberListEvent` again; `delete_scope`/`approve` also duplicate `SpaceTree`. Two identical full-roster events reach Dart per action.
+**Fix:** Pick one owner: keep the sink push and drop the FFI posts, or the reverse.
 
-#### IN-05: `VerifyInviteAuthenticator` accepts any non-empty key length while mint requires exactly 32 bytes
+#### IN-05 (prior, still open): `VerifyInviteAuthenticator` accepts any non-empty key length
 
-**File:** `src/lib/gcs_crypto.cpp:487-489, 519-527`
-**Issue:** `MintInviteAuthenticator` rejects `inviteKey.size() != kRoomKeyLengthBytes`; verify only rejects an empty key. A short key still derives an HKDF key and verifies an authenticator minted with that same short key (no current caller can mint one), so the verify contract is weaker than the documented 32-byte invariant. Previously reported as IN-03 and unchanged.
-**Fix:** Apply the `kRoomKeyLengthBytes` check in `VerifyInviteAuthenticator` and in `RedeemInvite` before using the decoded key.
+**File:** `src/lib/gcs_crypto.cpp:515-521`
+**Issue:** `MintInviteAuthenticator` rejects `size() != kRoomKeyLengthBytes` (`:487-489`); verify only rejects empty. A short key still derives an HKDF key, so the verify contract is weaker than the documented 32-byte invariant.
+**Fix:** Apply the `kRoomKeyLengthBytes` check in `VerifyInviteAuthenticator` and before use in `RedeemInvite`.
+
+#### IN-06: Dead/redundant clause in the third-party verification branch
+
+**File:** `src/lib/gcs_membership.cpp:641-645`
+**Issue:** Inside the `else` of `record.created_by() == address` (`:592`), the condition `record.created_by() == address` can never be true, so half of the guard is dead. The `depth >= kMaxMemberChainDepth` half duplicates the bound already enforced by `VerifiedRoleFor(... depth + 1)`.
+**Fix:** Keep one explicit depth check (or document that the helper owns it) and drop the unreachable comparison.
+
+#### IN-07: Entity-level `pending_action` is never cleared on activation
+
+**File:** `src/lib/gcs_membership.cpp:2168-2171`, `:2188-2191`, `:1992`
+**Issue:** `Approve` sets `approved_by`, `deleted` and `deleted_at_ms` but leaves `pending_action = DELETE` on the now-deleted record. The immediate `DeleteScope` branch likewise sets `deleted` without clearing a pre-existing pending DELETE. The stored state `deleted == true && pending_action == DELETE` contradicts the coherence rule the member path enforces (`:551-555`) and makes a record's pending status depend on which path activated it.
+**Fix:** Clear `pending_action` (and `pending_role` where present) whenever `deleted` is set, in both the immediate and approved branches.
 
 ---
 
-_Reviewed: 2026-10-18T22:40:00Z_
+_Reviewed: 2026-10-19T18:45:00Z_
 _Reviewer: Claude (gsd-code-reviewer)_
 _Depth: standard_
