@@ -153,7 +153,7 @@ Plans:
   4. Super Admin cannot be demoted by other admins
   5. When 2+ admins exist, destructive actions require Super Admin approval
 
-**Plans:** 22/22 plans complete
+**Plans:** 22/22 plans complete + 1 gap-closure plan pending (04-23)
 
 Plans:
 **Wave 1**
@@ -222,6 +222,10 @@ Plans:
 **Wave 15** *(blocked on Wave 14 completion)*
 
 - [x] 04-22-PLAN.md — Wave 15 (depends: 04-19, 04-20, 04-21) — Multinode cold-node scope mirror + wire-level forged self-claimed Super Admin exclusion and command rejection + full-suite gate
+
+**Wave 16** *(blocked on Wave 15 completion — verification gap closure)*
+
+- [ ] 04-23-PLAN.md — Wave 16 (depends: 04-19, 04-20, 04-21) — Reject cross-scope raw member records in RedeemInvite/Leave before the authority-preserving write (CR-01, truth 29) + byte-level regression
 
 **Deferred (recorded, not in this gap-closure set):** CR-07 — room keys live in a process-local store, so a second application process (or a restart without the invite material) cannot decrypt a room's key material. Warning-level; no Phase 4 requirement depends on cross-process key persistence, and no plan in Waves 5-11 addresses it.
 

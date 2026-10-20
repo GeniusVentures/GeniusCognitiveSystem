@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: GCS Chat
 status: executing
-stopped_at: Completed 04-22-PLAN.md
-last_updated: "2026-10-20T01:01:29.691Z"
-last_activity: 2026-10-20
+stopped_at: "Gap plan 04-23 planned and checker-verified (plan-phase --gaps): cross-scope record binding rejected at the RedeemInvite/Leave call sites (helper-level binding rejected with cause) + byte-level regression; gap_closure: true, wave 16, depends_on 04-19..04-22. DEFERRED DECISION (user, 2026-10-20): the wire-level admin-immediate-tombstone dormancy divergence (VerifyMemberRecord vs command-path predicate) is intentionally OUT of 04-23 — decide separately, do not silently fold into another plan. Next: /gsd:execute-phase 04 --gaps-only --ws app, then re-verify."
+last_updated: "2026-10-20T18:39:30.992Z"
+last_activity: 2026-10-20 -- Phase 04 planning complete
 progress:
   total_phases: 7
-  completed_phases: 4
-  total_plans: 44
+  completed_phases: 3
+  total_plans: 45
   completed_plans: 44
-  percent: 57
+  percent: 43
 ---
 
 # Project State
@@ -28,7 +28,7 @@ See: .planning/workstreams/app/PROJECT.md (updated 2026-09-22)
 Phase: 04 (membership-invites) — EXECUTING
 Plan: 22 of 22
 Status: Ready to execute
-Last activity: 2026-10-20
+Last activity: 2026-10-20 -- Phase 04 planning complete
 
 Progress: [██████████] 100%
 
@@ -202,6 +202,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-10-20T01:01:29.683Z
-Stopped at: Completed 04-22-PLAN.md
+Last session: 2026-10-20T18:39:11.000Z
+Stopped at: Gap plan 04-23 planned and checker-verified (plan-phase --gaps): cross-scope record binding rejected at the RedeemInvite/Leave call sites (helper-level binding rejected with cause) + byte-level regression; gap_closure: true, wave 16, depends_on 04-19..04-22. DEFERRED DECISION (user, 2026-10-20): the wire-level admin-immediate-tombstone dormancy divergence (VerifyMemberRecord vs command-path predicate) is intentionally OUT of 04-23 — decide separately, do not silently fold into another plan. Next: /gsd:execute-phase 04 --gaps-only --ws app, then re-verify.
 Resume file: None
