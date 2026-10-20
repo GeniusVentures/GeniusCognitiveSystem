@@ -60,6 +60,13 @@ namespace
     /// negative redeem cases — never the minted bearer key.
     constexpr const char *kWellFormedInviteKey = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
 
+    /// Entity-catalog keys the cold node must own before it can resolve a
+    /// scope's creator. The production constants are file-local in
+    /// gcs_entity_store.cpp, so the fixture mirrors their exact values.
+    constexpr const char *kManifestKey  = "gcs/index/manifest";
+    constexpr const char *kSpacesPrefix = "gcs/entities/spaces/";
+    constexpr const char *kRoomsPrefix  = "gcs/entities/rooms/";
+
     /// Minimal soralog YAML — console sink only, error level (mirrors
     /// test_gcs_messaging_multinode.cpp).
     constexpr const char *kLoggingYaml = R"(
@@ -147,51 +154,21 @@ namespace gcs::test
     }
 
     /**
-     * @brief Wire the CRDT heal bridge + the creator-stamped EntityStore and the
-     *        Membership component (real D-06 crypto seam, enabled).
+     * @brief Build the enabled real-crypto seam for one real signer.
      *
-     * The receive-bridge lambda captures the node by pointer and fires on the
-     * CRDT DagWorker thread, so it only reads the node's membership pointer
-     * (never reassigned while the transport is live) — no data race.
+     * Production D-06 posture: the real vendored-OpenSSL wrap/unwrap and
+     * authenticator adapters, plus an issuer pair bound to a REAL secp256k1
+     * signer — so the seam's argument order and binary handling are proven
+     * against the production implementation. Built by member assignment
+     * (KeyWrapSeam has a user-provided default ctor).
      *
-     * @param[in,out] node   The node being wired.
-     * @param[in]     sender The local wallet address (D-03 authority stamp).
-     * @param[in]     signer The fixture-owned real signer for @p sender; it
-     *                       must outlive the membership (the issuer seam binds
-     *                       it by reference).
+     * @param[in] signer The fixture-owned real signer; it must outlive every
+     *                   membership constructed with this seam (the lambda binds
+     *                   it by reference).
+     * @return The enabled seam.
      */
-    void ArmMembership( MultinodeNode &node, const std::string &sender,
-                        sgns::GeniusSigner &signer )
+    gcs::Membership::KeyWrapSeam MakeSeam( sgns::GeniusSigner &signer )
     {
-        // CRDT heal path (D-01/D-04): member-record callback -> Membership.
-        ASSERT_TRUE( node.session->RegisterNewElementCallback(
-                          gcs::Membership::kMembersKeyCallbackPattern,
-                          [ &node ]( const std::string &key, const std::string &value ) {
-                              if ( node.membership )
-                              {
-                                  node.membership->OnMemberArrived( key, value );
-                              }
-                          } )
-                          .has_value() );
-
-        // WR-06: member and invite records replicate on the ONE well-known
-        // membership topic — never a per-scope room topic, which a recipient
-        // has by definition not joined. Listen first, then broadcast (D-07).
-        ASSERT_TRUE( node.session
-                         ->AddListenTopic( gcs::Membership::kMembershipTopic )
-                         .has_value() );
-        ASSERT_TRUE( node.session
-                         ->AddBroadcastTopic( gcs::Membership::kMembershipTopic )
-                         .has_value() );
-
-        node.store = std::make_unique<gcs::EntityStore>( *node.session, sender );
-        ASSERT_TRUE( node.store->LoadFromStore().has_value() );
-
-        // Production D-06 posture: real vendored-OpenSSL seam, enabled. Built by
-        // member assignment (KeyWrapSeam has a user-provided default ctor). The
-        // issuer pair is the only difference from the pre-04-15 fixture: it
-        // binds the REAL secp256k1 signer, so the seam's argument order and
-        // binary handling are proven against the production implementation.
         gcs::Membership::KeyWrapSeam seam;
         seam.wrap       = &gcs::crypto::WrapRoomKey;
         seam.unwrap     = &gcs::crypto::UnwrapRoomKey;
@@ -245,13 +222,57 @@ namespace gcs::test
                 bareAddress, signatureBytes, payloadBytes ) );
         };
 
+        return seam;
+    }
+
+    /**
+     * @brief Wire the CRDT heal bridge + the creator-stamped EntityStore and the
+     *        Membership component (real D-06 crypto seam, enabled).
+     *
+     * The receive-bridge lambda captures the node by pointer and fires on the
+     * CRDT DagWorker thread, so it only reads the node's membership pointer
+     * (never reassigned while the transport is live) — no data race.
+     *
+     * @param[in,out] node   The node being wired.
+     * @param[in]     sender The local wallet address (D-03 authority stamp).
+     * @param[in]     signer The fixture-owned real signer for @p sender; it
+     *                       must outlive the membership (the issuer seam binds
+     *                       it by reference).
+     */
+    void ArmMembership( MultinodeNode &node, const std::string &sender,
+                        sgns::GeniusSigner &signer )
+    {
+        // CRDT heal path (D-01/D-04): member-record callback -> Membership.
+        ASSERT_TRUE( node.session->RegisterNewElementCallback(
+                          gcs::Membership::kMembersKeyCallbackPattern,
+                          [ &node ]( const std::string &key, const std::string &value ) {
+                              if ( node.membership )
+                              {
+                                  node.membership->OnMemberArrived( key, value );
+                              }
+                          } )
+                          .has_value() );
+
+        // WR-06: member and invite records replicate on the ONE well-known
+        // membership topic — never a per-scope room topic, which a recipient
+        // has by definition not joined. Listen first, then broadcast (D-07).
+        ASSERT_TRUE( node.session
+                         ->AddListenTopic( gcs::Membership::kMembershipTopic )
+                         .has_value() );
+        ASSERT_TRUE( node.session
+                         ->AddBroadcastTopic( gcs::Membership::kMembershipTopic )
+                         .has_value() );
+
+        node.store = std::make_unique<gcs::EntityStore>( *node.session, sender );
+        ASSERT_TRUE( node.store->LoadFromStore().has_value() );
+
         node.membership = std::make_unique<gcs::Membership>(
             *node.session, *node.store, sender,
             [ &node ]( const chat::GcsEvent &event ) {
                 std::lock_guard<std::mutex> lock( node.sinkMutex );
                 node.events.push_back( event );
             },
-            seam );
+            MakeSeam( signer ) );
     }
 
     /**
@@ -427,6 +448,14 @@ namespace gcs::test
             // nodes, exactly as production init wiring does (04-11). The room
             // topic is still passed to OnScopeCreated for room-key storage.
             ASSERT_TRUE( m_nodeA.membership->OnScopeCreated( roomIdOut, topic, false ).has_value() );
+
+            // Verification resolves the creator from the local entity catalog,
+            // and entity records are local-only (the 2-arg Put). The cold node
+            // therefore needs the scope metadata before it can verify A's
+            // creator-rooted chain — exactly the ordering production guarantees
+            // by calling LoadFromStore() before constructing Membership.
+            MirrorScopesFromAToB();
+
             auto minted = m_nodeA.membership->MintInvite( roomIdOut );
             ASSERT_TRUE( minted.has_value() );
 
@@ -453,6 +482,48 @@ namespace gcs::test
                            listB.has_value() && listB.value().member_size() == 2;
                 },
                 kWaitTimeout ) );
+        }
+
+        /**
+         * @brief Copy A's entity catalog into the cold node B and reload it.
+         *
+         * Member verification resolves a scope's creator from the LOCAL entity
+         * catalog, but EntityStore writes entity records with the two-argument
+         * (local-only) Put, so nothing replicates the manifest or the entity
+         * bodies to B. The fixture mirrors exactly what A's creator-owned store
+         * wrote for the scope under test: the manifest, every space record, and
+         * every room record, then calls LoadFromStore() so B's in-memory catalog
+         * resolves the creator. This models production ordering — gcs_init loads
+         * the catalog before constructing Membership.
+         *
+         * This is a TEST FIXTURE for scope resolution, not an entity-sync
+         * service: Phase 4 has no cross-node entity replication on the
+         * membership path (proven by the late-metadata case below).
+         */
+        void MirrorScopesFromAToB()
+        {
+            auto manifest = m_nodeA.session->Get( kManifestKey );
+            if ( manifest.has_value() )
+            {
+                ASSERT_TRUE( m_nodeB.session
+                                 ->Put( kManifestKey, manifest.value() )
+                                 .has_value() );
+            }
+            for ( const chat::SpaceRecord &space : m_nodeA.store->Spaces() )
+            {
+                ASSERT_TRUE( m_nodeB.session
+                                 ->Put( std::string( kSpacesPrefix ) + space.id(),
+                                        space.SerializeAsString() )
+                                 .has_value() );
+            }
+            for ( const chat::RoomRecord &room : m_nodeA.store->Rooms() )
+            {
+                ASSERT_TRUE( m_nodeB.session
+                                 ->Put( std::string( kRoomsPrefix ) + room.id(),
+                                        room.SerializeAsString() )
+                                 .has_value() );
+            }
+            ASSERT_TRUE( m_nodeB.store->LoadFromStore().has_value() );
         }
 
         /**
@@ -567,6 +638,9 @@ namespace gcs::test
         ASSERT_TRUE(
             m_nodeA.membership->OnScopeCreated( spaceId, "", /*isSpace=*/true ).has_value() );
 
+        // Cold-node scope metadata: verification resolves the creator locally.
+        MirrorScopesFromAToB();
+
         auto minted = m_nodeA.membership->MintInvite( spaceId );
         ASSERT_TRUE( minted.has_value() );
         EXPECT_EQ( minted.value().rfind( "gcs://invite/space/", 0 ), 0 );
@@ -626,6 +700,9 @@ namespace gcs::test
 
         ASSERT_TRUE(
             m_nodeA.membership->OnScopeCreated( spaceId, "", /*isSpace=*/true ).has_value() );
+
+        // Cold-node scope metadata: verification resolves the creator locally.
+        MirrorScopesFromAToB();
 
         auto minted = m_nodeA.membership->MintInvite( spaceId );
         ASSERT_TRUE( minted.has_value() );
@@ -751,6 +828,9 @@ namespace gcs::test
 
         ASSERT_TRUE(
             m_nodeA.membership->OnScopeCreated( spaceId, "", /*isSpace=*/true ).has_value() );
+
+        // Cold-node scope metadata: verification resolves the creator locally.
+        MirrorScopesFromAToB();
 
         auto minted = m_nodeA.membership->MintInvite( spaceId );
         ASSERT_TRUE( minted.has_value() );
@@ -882,6 +962,75 @@ namespace gcs::test
                 return latest.has_value() &&
                        RoleOf( latest.value(), SenderB() ) == chat::ROLE_UNSPECIFIED &&
                        RoleOf( latest.value(), SenderA() ) == chat::ROLE_SUPER_ADMIN;
+            },
+            kWaitTimeout ) );
+    }
+
+    /**
+     * @brief Test 7 (T-04-22-07): a cold node fails closed until the scope's
+     *        entity metadata resolves, then re-verifies and converges.
+     *
+     * Node B receives the creator's member record on the membership topic but
+     * does NOT hold the scope's entity record, so it cannot resolve the creator
+     * identity and verification rejects the record (never trusts it). Once the
+     * catalog is mirrored and reloaded, the next read re-verifies against the
+     * now-resolvable creator — there is no cached negative — and a subsequent
+     * heal delivery of the same bytes pushes the converged roster.
+     *
+     * Phase 4 has NO entity-sync service: this pins fail-closed plus
+     * re-evaluation when metadata becomes available, not an implemented sync
+     * path.
+     */
+    TEST_F( MembershipMultinodeTest, ColdNodeConvergesWhenEntityMetadataArrivesAfterMemberRecord )
+    {
+        auto space = m_nodeA.store->CreateSpace( "cold", true, false, true );
+        ASSERT_TRUE( space.has_value() );
+        const std::string spaceId = space.value().id();
+
+        ASSERT_TRUE(
+            m_nodeA.membership->OnScopeCreated( spaceId, "", /*isSpace=*/true ).has_value() );
+
+        const std::string memberKey =
+            std::string( gcs::Membership::kMembersKeyPrefix ) + spaceId + "/" + SenderA();
+
+        // The member record replicates, but B has no entity catalog entry yet.
+        ASSERT_TRUE( WaitForCondition(
+            [ & ]() { return m_nodeB.session->Get( memberKey ).has_value(); },
+            kWaitTimeout ) );
+
+        // Fail closed: the raw bytes are present, but without the scope's
+        // creator identity the record is not a member.
+        auto listBefore = m_nodeB.membership->MembersFor( spaceId );
+        ASSERT_TRUE( listBefore.has_value() );
+        EXPECT_EQ( RoleOf( listBefore.value(), SenderA() ),
+                   chat::ROLE_UNSPECIFIED );
+        EXPECT_EQ( m_nodeB.membership->LocalRoleFor( spaceId ),
+                   chat::ROLE_GUEST );
+        ASSERT_TRUE( m_nodeB.session->Get( memberKey ).has_value() );
+
+        // Metadata arrives: the read path re-verifies against the resolvable
+        // creator with no cached negative.
+        MirrorScopesFromAToB();
+        auto listAfter = m_nodeB.membership->MembersFor( spaceId );
+        ASSERT_TRUE( listAfter.has_value() );
+        EXPECT_EQ( RoleOf( listAfter.value(), SenderA() ),
+                   chat::ROLE_SUPER_ADMIN );
+
+        // The heal trigger delivers the same bytes again; because the record
+        // now verifies, OnMemberArrived pushes the converged roster.
+        auto raw = m_nodeB.session->Get( memberKey );
+        ASSERT_TRUE( raw.has_value() );
+        {
+            std::lock_guard<std::mutex> lock( m_nodeB.sinkMutex );
+            m_nodeB.events.clear();
+        }
+        m_nodeB.membership->OnMemberArrived( memberKey, raw.value() );
+        ASSERT_TRUE( WaitForCondition(
+            [ & ]() {
+                auto latest = LatestMemberListFor( m_nodeB, spaceId );
+                return latest.has_value()
+                       && RoleOf( latest.value(), SenderA() )
+                              == chat::ROLE_SUPER_ADMIN;
             },
             kWaitTimeout ) );
     }
