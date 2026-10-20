@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: GCS Chat
 status: executing
-stopped_at: Completed 04-18-PLAN.md
-last_updated: "2026-10-19T20:36:51.703Z"
-last_activity: 2026-10-19 -- Phase 04 planning complete
+stopped_at: Completed 04-19-PLAN.md
+last_updated: "2026-10-20T00:09:00.000Z"
+last_activity: 2026-10-20 -- Phase 04 plan 19 complete (signed member authority)
 progress:
   total_phases: 7
   completed_phases: 3
   total_plans: 44
-  completed_plans: 40
+  completed_plans: 41
   percent: 43
 ---
 
@@ -26,9 +26,9 @@ See: .planning/workstreams/app/PROJECT.md (updated 2026-09-22)
 ## Current Position
 
 Phase: 04 (membership-invites) — EXECUTING
-Plan: 18 of 18
-Status: Ready to execute
-Last activity: 2026-10-19 -- Phase 04 planning complete
+Plan: 19 of 22
+Status: Executing Phase 04
+Last activity: 2026-10-20 -- Completed 04-19 (signed member authority)
 
 Progress: [██████████] 100%
 
@@ -74,6 +74,7 @@ Progress: [██████████] 100%
 | Phase 04 P16 | 25min | 3 tasks | 6 files |
 | Phase 04 P17 | 5min | 2 tasks | 3 files |
 | Phase 04 P18 | 5min | 2 tasks | 1 files |
+| Phase 04 P19 | 20min | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -150,6 +151,13 @@ Recent decisions affecting current work:
 - [Phase 04]: The multinode fixture owns real GeniusSigner identities declared before the nodes, so the issuer seam's reference capture cannot dangle and ShutdownNode evicts the membership first
 - [Phase 04]: The multinode verifyIssuer strips 0x, guards Membership::kSignatureBytes, and reorders the seam to VerifySignature(address, signature, data), proving the production argument order on the wire
 - [Phase 04]: The forged-issuer test mints a valid authenticator from the existing kWellFormedInviteKey (32 zero bytes) so only issuer binding can reject the record
+- [Phase 04]: The member authority signature covers authority fields only; record_signature, leave_signature, wrapped_room_key, and explicit_leave are excluded because they are self-referential, subject-owned, or bearer material — never authority
+- [Phase 04]: prior_role is derived in exactly one place (WriteMemberAsAuthor) from the verified pre-write record, and updated_at_ms is stamped monotonically as max(NowMs(), verified + 1) before signing so consecutive authority writes stay strictly ordered
+- [Phase 04]: Authority-preserving writes (leave, redeem key refresh) never re-sign or re-stamp; they keep the authority bytes verbatim and only warn when a cold node cannot verify, so read paths remain the authority gate (T-04-19-08 accepted)
+- [Phase 04]: MembersFor and AdminCount derive the wallet from the key and verify BEFORE the tombstone skip, so a verified tombstone advances the node-local predecessor cache and cannot be bypassed by a pre-tombstone replay
+- [Phase 04]: OnMemberArrived pushes nothing when verification fails; an unverifiable record stays in the CRDT but never enters a roster or an authority decision
+- [Phase 04]: The verified-predecessor cache is in-memory and non-replicated; a cold node falls back to the signed prior_role, and the cold-start rollback residual is documented (T-04-19-09)
+- [Phase 04]: Approve's REMOVE branch still writes deleted + pending REMOVE; the verifier correctly treats that as incoherent, and 04-21 T3 clears the pending fields (known transient, not a regression)
 
 ### Pending Todos
 
@@ -175,7 +183,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-10-19T00:12:59.936Z
-Stopped at: Completed 04-18-PLAN.md
-Resume file: 
-None
+Last session: 2026-10-20T00:09:00.000Z
+Stopped at: Completed 04-19-PLAN.md
+Resume file: .planning/workstreams/app/phases/04-membership-invites/04-20-PLAN.md

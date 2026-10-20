@@ -153,7 +153,7 @@ Plans:
   4. Super Admin cannot be demoted by other admins
   5. When 2+ admins exist, destructive actions require Super Admin approval
 
-**Plans:** 18/22 plans complete
+**Plans:** 19/22 plans executed
 
 Plans:
 **Wave 1**
@@ -209,7 +209,7 @@ Plans:
 
 **Wave 12** *(blocked on Wave 11 completion — re-verification gap closure, truth 29)*
 
-- [ ] 04-19-PLAN.md — Wave 12 — Signed member records: append-only created_by/record_signature, canonical payload, author-signed vs authority-preserving writes, verified reads, self-signed Guest cap, creator-rooted authority chain
+- [x] 04-19-PLAN.md — Wave 12 — Signed member records: append-only created_by/record_signature, canonical payload, author-signed vs authority-preserving writes, verified reads, self-signed Guest cap, creator-rooted authority chain
 
 **Wave 13** *(blocked on Wave 12 completion)*
 
@@ -283,7 +283,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 1. Foundation | 11/11 | Complete | 2026-09-16 |
 | 2. Spaces & Rooms | 5/5 | Complete   | 2026-09-19 |
 | 3. Messaging | 6/6 | Complete   | 2026-09-24 |
-| 4. Membership & Invites | 18/18 | Complete   | 2026-10-19 |
+| 4. Membership & Invites | 19/22 | In Progress|  |
 | 5. Moderation | 0/TBD | Not started | - |
 | 6. GCS Bot | 0/TBD | Not started | - |
 | 7. Discovery | 0/TBD | Not started | - |
