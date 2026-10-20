@@ -28,6 +28,7 @@
 #include <memory>
 #include <mutex>
 #include <string>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -221,6 +222,32 @@ namespace gcs::test
     }
 
     /**
+     * @brief Put member bytes on the production replication topic.
+     *
+     * Production authority writes replicate on `kMembershipTopic`; seeding and
+     * re-announcing through the same path gives the CRDT a tracked head, which
+     * is what makes a re-announce of previously written bytes a new DAG node
+     * rather than a deduplicated no-op.
+     *
+     * @param[in] session Live session.
+     * @param[in] scopeId Scope id.
+     * @param[in] address Member wallet address.
+     * @param[in] bytes   Serialized member record.
+     * @return true when the Put succeeded.
+     */
+    bool PutMemberBytes( gcs::CoreSession &session, const std::string &scopeId,
+                         const std::string &address, const std::string &bytes )
+    {
+        const std::unordered_set<std::string> topics{
+            gcs::Membership::kMembershipTopic };
+        return session
+            .Put( std::string( gcs::Membership::kMembersKeyPrefix ) + scopeId + "/"
+                      + address,
+                  bytes, topics )
+            .has_value();
+    }
+
+    /**
      * @brief Find a member entry by address in a pushed MemberList.
      *
      * @param[in] list    The roster.
@@ -409,11 +436,8 @@ namespace gcs::test
             record.set_created_by( signer );
             record.set_record_signature(
                 TestMemberSignatureHex( signer, scopeId, address, record ) );
-            ASSERT_TRUE( m_rig.session
-                             ->Put( std::string( gcs::Membership::kMembersKeyPrefix ) + scopeId
-                                        + "/" + address,
-                                    record.SerializeAsString() )
-                             .has_value() );
+            ASSERT_TRUE( PutMemberBytes( *m_rig.session, scopeId, address,
+                                         record.SerializeAsString() ) );
         }
 
         MembershipRig m_rig;
@@ -1917,6 +1941,861 @@ namespace gcs::test
         EXPECT_EQ( record.role(), chat::ROLE_GUEST );
         EXPECT_EQ( record.pending_action(), chat::PENDING_ACTION_UNSPECIFIED );
         EXPECT_EQ( record.pending_role(), chat::ROLE_UNSPECIFIED );
+    }
+
+    /**
+     * @brief Truth 29: a self-signed SUPER_ADMIN record is excluded from the
+     *        roster, resolves the local role to GUEST, and grants no command.
+     */
+    TEST_F( GcsMembershipTest, SelfSignedSuperAdminRecordIsExcludedAndGrantsNothing )
+    {
+        StartRig( kTestCreatorAddress );
+
+        auto space = m_rig.store->CreateSpace( "ops", true, true, true );
+        ASSERT_TRUE( space.has_value() );
+        const std::string spaceId = space.value().id();
+
+        std::vector<chat::GcsEvent> events;
+        gcs::Membership creator( *m_rig.session, *m_rig.store, kTestCreatorAddress,
+                                 CapturingSink( &events ), MakeSeam( kTestCreatorAddress ) );
+        ASSERT_TRUE( creator.OnScopeCreated( spaceId, "", true ).has_value() );
+
+        SeedMember( spaceId, kMemberAddress, chat::ROLE_MEMBER );
+        SeedMember( spaceId, kTargetAddress, chat::ROLE_SUPER_ADMIN, kSeedCreatedAtMs, false,
+                    kTargetAddress );
+
+        auto list = creator.MembersFor( spaceId );
+        ASSERT_TRUE( list.has_value() );
+        ASSERT_EQ( list.value().member_size(), 2 );
+        EXPECT_NE( FindMember( list.value(), kTestCreatorAddress ), nullptr );
+        EXPECT_NE( FindMember( list.value(), kMemberAddress ), nullptr );
+        EXPECT_EQ( FindMember( list.value(), kTargetAddress ), nullptr );
+
+        gcs::Membership attacker( *m_rig.session, *m_rig.store, kTargetAddress,
+                                  CapturingSink( &events ), MakeSeam( kTargetAddress ) );
+        EXPECT_EQ( attacker.LocalRoleFor( spaceId ), chat::ROLE_GUEST );
+        EXPECT_FALSE( attacker.DeleteScope( spaceId ).has_value() );
+        EXPECT_FALSE( attacker.RemoveMember( spaceId, kMemberAddress ).has_value() );
+        EXPECT_FALSE( attacker.ChangeRole( spaceId, kMemberAddress, chat::ROLE_GUEST ).has_value() );
+
+        // Rejection, never deletion: the forged record stays in the CRDT.
+        chat::MemberRecord forged;
+        ASSERT_TRUE( ReadMemberRecord( *m_rig.session, spaceId, kTargetAddress, forged ) );
+        EXPECT_EQ( forged.role(), chat::ROLE_SUPER_ADMIN );
+        EXPECT_EQ( forged.created_by(), kTargetAddress );
+    }
+
+    /**
+     * @brief Truth 29/D-05: a self-signed record cannot assert MEMBER or above,
+     *        a tombstone, a pending action, or a claimed prior role.
+     */
+    TEST_F( GcsMembershipTest, SelfSignedRecordCannotExceedGuestOrCarryTombstoneOrPending )
+    {
+        StartRig( kTestCreatorAddress );
+
+        auto space = m_rig.store->CreateSpace( "ops", true, true, true );
+        ASSERT_TRUE( space.has_value() );
+        const std::string spaceId = space.value().id();
+
+        std::vector<chat::GcsEvent> events;
+        gcs::Membership creator( *m_rig.session, *m_rig.store, kTestCreatorAddress,
+                                 CapturingSink( &events ), MakeSeam( kTestCreatorAddress ) );
+        ASSERT_TRUE( creator.OnScopeCreated( spaceId, "", true ).has_value() );
+        SeedMember( spaceId, kMemberAddress, chat::ROLE_MEMBER );
+
+        // (a) A self-signed MEMBER grant.
+        SeedMember( spaceId, kAdminAddress, chat::ROLE_MEMBER, kSeedCreatedAtMs, false,
+                    kAdminAddress );
+        // (b) A self-signed GUEST tombstone.
+        SeedMember( spaceId, kModeratorAddress, chat::ROLE_GUEST, kSeedCreatedAtMs, true,
+                    kModeratorAddress );
+        // (c) A self-signed GUEST carrying a pending removal.
+        SeedMember( spaceId, kGuestAddress, chat::ROLE_GUEST, kSeedCreatedAtMs, false,
+                    kGuestAddress );
+        chat::MemberRecord pendingRemove;
+        ASSERT_TRUE( ReadMemberRecord( *m_rig.session, spaceId, kGuestAddress, pendingRemove ) );
+        pendingRemove.set_pending_action( chat::PENDING_ACTION_REMOVE );
+        pendingRemove.set_prior_role( chat::ROLE_GUEST );
+        pendingRemove.set_record_signature( TestMemberSignatureHex(
+            kGuestAddress, spaceId, kGuestAddress, pendingRemove ) );
+        ASSERT_TRUE( PutMemberBytes( *m_rig.session, spaceId, kGuestAddress,
+                                     pendingRemove.SerializeAsString() ) );
+        // (d) A self-signed GUEST claiming a prior role.
+        SeedMember( spaceId, kTargetAddress, chat::ROLE_GUEST, kSeedCreatedAtMs, false,
+                    kTargetAddress );
+        chat::MemberRecord claimedPrior;
+        ASSERT_TRUE( ReadMemberRecord( *m_rig.session, spaceId, kTargetAddress, claimedPrior ) );
+        claimedPrior.set_prior_role( chat::ROLE_MODERATOR );
+        claimedPrior.set_record_signature( TestMemberSignatureHex(
+            kTargetAddress, spaceId, kTargetAddress, claimedPrior ) );
+        ASSERT_TRUE( PutMemberBytes( *m_rig.session, spaceId, kTargetAddress,
+                                     claimedPrior.SerializeAsString() ) );
+
+        auto list = creator.MembersFor( spaceId );
+        ASSERT_TRUE( list.has_value() );
+        ASSERT_EQ( list.value().member_size(), 2 );
+        EXPECT_NE( FindMember( list.value(), kTestCreatorAddress ), nullptr );
+        EXPECT_NE( FindMember( list.value(), kMemberAddress ), nullptr );
+        EXPECT_EQ( FindMember( list.value(), kAdminAddress ), nullptr );
+        EXPECT_EQ( FindMember( list.value(), kModeratorAddress ), nullptr );
+        EXPECT_EQ( FindMember( list.value(), kGuestAddress ), nullptr );
+        EXPECT_EQ( FindMember( list.value(), kTargetAddress ), nullptr );
+
+        // All six records remain in the raw store.
+        EXPECT_EQ( MemberScanCount( *m_rig.session, spaceId ), 6U );
+    }
+
+    /**
+     * @brief Truth 29: a tampered role without a fresh signature is excluded.
+     */
+    TEST_F( GcsMembershipTest, TamperedMemberSignatureIsExcluded )
+    {
+        StartRig( kTestCreatorAddress );
+
+        auto space = m_rig.store->CreateSpace( "ops", true, true, true );
+        ASSERT_TRUE( space.has_value() );
+        const std::string spaceId = space.value().id();
+
+        std::vector<chat::GcsEvent> events;
+        gcs::Membership creator( *m_rig.session, *m_rig.store, kTestCreatorAddress,
+                                 CapturingSink( &events ), MakeSeam( kTestCreatorAddress ) );
+        ASSERT_TRUE( creator.OnScopeCreated( spaceId, "", true ).has_value() );
+        SeedMember( spaceId, kTargetAddress, chat::ROLE_MEMBER );
+
+        const std::string targetKey = std::string( gcs::Membership::kMembersKeyPrefix ) + spaceId
+                                      + "/" + kTargetAddress;
+        chat::MemberRecord tampered;
+        ASSERT_TRUE( ReadMemberRecord( *m_rig.session, spaceId, kTargetAddress, tampered ) );
+        tampered.set_role( chat::ROLE_ADMIN ); // no re-sign
+        ASSERT_TRUE( PutMemberBytes( *m_rig.session, spaceId, kTargetAddress,
+                                     tampered.SerializeAsString() ) );
+
+        auto list = creator.MembersFor( spaceId );
+        ASSERT_TRUE( list.has_value() );
+        EXPECT_EQ( FindMember( list.value(), kTargetAddress ), nullptr );
+
+        gcs::Membership targetMembership( *m_rig.session, *m_rig.store, kTargetAddress,
+                                          CapturingSink( &events ), MakeSeam( kTargetAddress ) );
+        EXPECT_EQ( targetMembership.LocalRoleFor( spaceId ), chat::ROLE_GUEST );
+
+        // The rejected bytes are still the winning LWW value (never deleted).
+        auto raw = m_rig.session->Get( targetKey );
+        ASSERT_TRUE( raw.has_value() );
+        EXPECT_EQ( raw.value(), tampered.SerializeAsString() );
+    }
+
+    /**
+     * @brief Truth 29: the signed timestamp is the write-ordering input, so a
+     *        re-dated record without a fresh signature is excluded.
+     */
+    TEST_F( GcsMembershipTest, TamperedUpdatedAtMsIsExcluded )
+    {
+        StartRig( kTestCreatorAddress );
+
+        auto space = m_rig.store->CreateSpace( "ops", true, true, true );
+        ASSERT_TRUE( space.has_value() );
+        const std::string spaceId = space.value().id();
+
+        std::vector<chat::GcsEvent> events;
+        gcs::Membership creator( *m_rig.session, *m_rig.store, kTestCreatorAddress,
+                                 CapturingSink( &events ), MakeSeam( kTestCreatorAddress ) );
+        ASSERT_TRUE( creator.OnScopeCreated( spaceId, "", true ).has_value() );
+        SeedMember( spaceId, kTargetAddress, chat::ROLE_MEMBER );
+
+        const std::string targetKey = std::string( gcs::Membership::kMembersKeyPrefix ) + spaceId
+                                      + "/" + kTargetAddress;
+        chat::MemberRecord tampered;
+        ASSERT_TRUE( ReadMemberRecord( *m_rig.session, spaceId, kTargetAddress, tampered ) );
+        tampered.set_updated_at_ms( tampered.updated_at_ms() + 1000 ); // no re-sign
+        ASSERT_TRUE( PutMemberBytes( *m_rig.session, spaceId, kTargetAddress,
+                                     tampered.SerializeAsString() ) );
+
+        auto list = creator.MembersFor( spaceId );
+        ASSERT_TRUE( list.has_value() );
+        EXPECT_EQ( FindMember( list.value(), kTargetAddress ), nullptr );
+
+        auto raw = m_rig.session->Get( targetKey );
+        ASSERT_TRUE( raw.has_value() );
+        EXPECT_EQ( raw.value(), tampered.SerializeAsString() );
+    }
+
+    /**
+     * @brief Truth 5: a fresh third-party grant requires the creator, and the
+     *        grant matrix requires a sufficient signer rank.
+     */
+    TEST_F( GcsMembershipTest, InsufficientSignerCannotGrantAnotherWalletARole )
+    {
+        StartRig( kTestCreatorAddress );
+
+        auto space = m_rig.store->CreateSpace( "ops", true, true, true );
+        ASSERT_TRUE( space.has_value() );
+        const std::string spaceId = space.value().id();
+
+        std::vector<chat::GcsEvent> events;
+        gcs::Membership creator( *m_rig.session, *m_rig.store, kTestCreatorAddress,
+                                 CapturingSink( &events ), MakeSeam( kTestCreatorAddress ) );
+        ASSERT_TRUE( creator.OnScopeCreated( spaceId, "", true ).has_value() );
+
+        SeedMember( spaceId, kMemberAddress, chat::ROLE_MEMBER );
+        // A MEMBER signer cannot make the creator's fresh grant.
+        SeedMember( spaceId, kTargetAddress, chat::ROLE_ADMIN, kSeedCreatedAtMs, false,
+                    kMemberAddress );
+        // Independently, a MEMBER signer cannot grant MEMBER rank.
+        SeedMember( spaceId, kGuestAddress, chat::ROLE_MEMBER, kSeedCreatedAtMs, false,
+                    kMemberAddress );
+
+        auto list = creator.MembersFor( spaceId );
+        ASSERT_TRUE( list.has_value() );
+        ASSERT_EQ( list.value().member_size(), 2 );
+        EXPECT_NE( FindMember( list.value(), kTestCreatorAddress ), nullptr );
+        EXPECT_NE( FindMember( list.value(), kMemberAddress ), nullptr );
+        EXPECT_EQ( FindMember( list.value(), kTargetAddress ), nullptr );
+        EXPECT_EQ( FindMember( list.value(), kGuestAddress ), nullptr );
+
+        EXPECT_EQ( MemberScanCount( *m_rig.session, spaceId ), 4U );
+    }
+
+    /**
+     * @brief Truth 5/D-03: no third-party record may touch the creator. The
+     *        hostile record wins the key (LWW) but never gains authority, and
+     *        the creator's verified root returns when the saved bytes are
+     *        restored.
+     */
+    TEST_F( GcsMembershipTest, CreatorTargetIsRejectedFromEveryThirdPartyRecord )
+    {
+        StartRig( kTestCreatorAddress );
+
+        auto space = m_rig.store->CreateSpace( "ops", true, true, true );
+        ASSERT_TRUE( space.has_value() );
+        const std::string spaceId = space.value().id();
+
+        std::vector<chat::GcsEvent> events;
+        gcs::Membership creator( *m_rig.session, *m_rig.store, kTestCreatorAddress,
+                                 CapturingSink( &events ), MakeSeam( kTestCreatorAddress ) );
+        ASSERT_TRUE( creator.OnScopeCreated( spaceId, "", true ).has_value() );
+        SeedMember( spaceId, kMemberAddress, chat::ROLE_MODERATOR );
+
+        const std::string creatorKey = std::string( gcs::Membership::kMembersKeyPrefix ) + spaceId
+                                       + "/" + kTestCreatorAddress;
+        const auto saved = m_rig.session->Get( creatorKey );
+        ASSERT_TRUE( saved.has_value() );
+        chat::MemberRecord savedRecord;
+        ASSERT_TRUE( savedRecord.ParseFromString( saved.value() ) );
+
+        chat::MemberRecord forged = savedRecord;
+        forged.set_role( chat::ROLE_GUEST );
+        forged.set_created_by( kMemberAddress );
+        forged.set_prior_role( chat::ROLE_SUPER_ADMIN );
+        forged.set_updated_at_ms( savedRecord.updated_at_ms() + 1 );
+        forged.set_record_signature( TestMemberSignatureHex(
+            kMemberAddress, spaceId, kTestCreatorAddress, forged ) );
+        ASSERT_TRUE( PutMemberBytes( *m_rig.session, spaceId, kTestCreatorAddress,
+                                     forged.SerializeAsString() ) );
+
+        auto hostile = m_rig.session->Get( creatorKey );
+        ASSERT_TRUE( hostile.has_value() );
+        EXPECT_EQ( hostile.value(), forged.SerializeAsString() );
+
+        auto list = creator.MembersFor( spaceId );
+        ASSERT_TRUE( list.has_value() );
+        EXPECT_EQ( FindMember( list.value(), kTestCreatorAddress ), nullptr );
+
+        // The attacker holds MODERATOR but never gains creator authority.
+        // The forged root is unverifiable, so EVERY creator-rooted chain fails
+        // closed: the attacker loses its own Moderator claim too (the stronger
+        // outcome — a forged root grants nobody authority, including its author).
+        gcs::Membership attacker( *m_rig.session, *m_rig.store, kMemberAddress,
+                                  CapturingSink( &events ), MakeSeam( kMemberAddress ) );
+        EXPECT_EQ( attacker.LocalRoleFor( spaceId ), chat::ROLE_GUEST );
+        EXPECT_FALSE( attacker.RemoveMember( spaceId, kTestCreatorAddress ).has_value() );
+        EXPECT_FALSE(
+            attacker.ChangeRole( spaceId, kTestCreatorAddress, chat::ROLE_GUEST ).has_value() );
+
+        // Restoring the creator-signed bytes restores the verified root.
+        ASSERT_TRUE( PutMemberBytes( *m_rig.session, spaceId, kTestCreatorAddress,
+                                     saved.value() ) );
+        auto restored = creator.MembersFor( spaceId );
+        ASSERT_TRUE( restored.has_value() );
+        const chat::MemberRecord *creatorEntry =
+            FindMember( restored.value(), kTestCreatorAddress );
+        ASSERT_NE( creatorEntry, nullptr );
+        EXPECT_EQ( creatorEntry->role(), chat::ROLE_SUPER_ADMIN );
+    }
+
+    /**
+     * @brief Truth 5/D-07: an Admin cannot tombstone or demote a peer Admin —
+     *        every admin-tier destruction needs the creator.
+     */
+    TEST_F( GcsMembershipTest, AdminCannotTombstoneOrDemotePeerAdmin )
+    {
+        StartRig( kTestCreatorAddress );
+
+        auto space = m_rig.store->CreateSpace( "ops", true, true, true );
+        ASSERT_TRUE( space.has_value() );
+        const std::string spaceId = space.value().id();
+
+        std::vector<chat::GcsEvent> events;
+        gcs::Membership creator( *m_rig.session, *m_rig.store, kTestCreatorAddress,
+                                 CapturingSink( &events ), MakeSeam( kTestCreatorAddress ) );
+        ASSERT_TRUE( creator.OnScopeCreated( spaceId, "", true ).has_value() );
+        SeedMember( spaceId, kMemberAddress, chat::ROLE_ADMIN );
+        SeedMember( spaceId, kTargetAddress, chat::ROLE_ADMIN );
+
+        const std::string targetKey = std::string( gcs::Membership::kMembersKeyPrefix ) + spaceId
+                                      + "/" + kTargetAddress;
+        const auto saved = m_rig.session->Get( targetKey );
+        ASSERT_TRUE( saved.has_value() );
+        chat::MemberRecord savedRecord;
+        ASSERT_TRUE( savedRecord.ParseFromString( saved.value() ) );
+
+        gcs::Membership targetMembership( *m_rig.session, *m_rig.store, kTargetAddress,
+                                          CapturingSink( &events ), MakeSeam( kTargetAddress ) );
+
+        // A peer Admin's tombstone is not authority.
+        chat::MemberRecord tombstone = savedRecord;
+        tombstone.set_deleted( true );
+        tombstone.set_prior_role( chat::ROLE_ADMIN );
+        tombstone.set_approved_by( "" );
+        tombstone.set_pending_action( chat::PENDING_ACTION_UNSPECIFIED );
+        tombstone.set_updated_at_ms( savedRecord.updated_at_ms() + 1 );
+        tombstone.set_created_by( kMemberAddress );
+        tombstone.set_record_signature( TestMemberSignatureHex(
+            kMemberAddress, spaceId, kTargetAddress, tombstone ) );
+        ASSERT_TRUE( PutMemberBytes( *m_rig.session, spaceId, kTargetAddress,
+                                     tombstone.SerializeAsString() ) );
+
+        auto hostileTomb = m_rig.session->Get( targetKey );
+        ASSERT_TRUE( hostileTomb.has_value() );
+        EXPECT_EQ( hostileTomb.value(), tombstone.SerializeAsString() );
+
+        auto tombList = creator.MembersFor( spaceId );
+        ASSERT_TRUE( tombList.has_value() );
+        EXPECT_EQ( FindMember( tombList.value(), kTargetAddress ), nullptr );
+        EXPECT_EQ( targetMembership.LocalRoleFor( spaceId ), chat::ROLE_GUEST );
+
+        ASSERT_TRUE( PutMemberBytes( *m_rig.session, spaceId, kTargetAddress,
+                                     saved.value() ) );
+        auto restoredRaw = m_rig.session->Get( targetKey );
+        ASSERT_TRUE( restoredRaw.has_value() );
+        EXPECT_EQ( restoredRaw.value(), saved.value() );
+        auto restoredList = creator.MembersFor( spaceId );
+        ASSERT_TRUE( restoredList.has_value() );
+        const chat::MemberRecord *restored = FindMember( restoredList.value(), kTargetAddress );
+        ASSERT_NE( restored, nullptr );
+        EXPECT_EQ( restored->role(), chat::ROLE_ADMIN );
+
+        // A peer Admin's applied demotion is not authority either.
+        chat::MemberRecord demotion = savedRecord;
+        demotion.set_role( chat::ROLE_MODERATOR );
+        demotion.set_prior_role( chat::ROLE_ADMIN );
+        demotion.set_approved_by( "" );
+        demotion.set_pending_action( chat::PENDING_ACTION_UNSPECIFIED );
+        demotion.set_pending_role( chat::ROLE_UNSPECIFIED );
+        demotion.set_updated_at_ms( savedRecord.updated_at_ms() + 2 );
+        demotion.set_created_by( kMemberAddress );
+        demotion.set_record_signature( TestMemberSignatureHex(
+            kMemberAddress, spaceId, kTargetAddress, demotion ) );
+        ASSERT_TRUE( PutMemberBytes( *m_rig.session, spaceId, kTargetAddress,
+                                     demotion.SerializeAsString() ) );
+
+        auto hostileDemotion = m_rig.session->Get( targetKey );
+        ASSERT_TRUE( hostileDemotion.has_value() );
+        EXPECT_EQ( hostileDemotion.value(), demotion.SerializeAsString() );
+
+        auto demoteList = creator.MembersFor( spaceId );
+        ASSERT_TRUE( demoteList.has_value() );
+        EXPECT_EQ( FindMember( demoteList.value(), kTargetAddress ), nullptr );
+        EXPECT_EQ( targetMembership.LocalRoleFor( spaceId ), chat::ROLE_GUEST );
+
+        ASSERT_TRUE( PutMemberBytes( *m_rig.session, spaceId, kTargetAddress,
+                                     saved.value() ) );
+        auto finalList = creator.MembersFor( spaceId );
+        ASSERT_TRUE( finalList.has_value() );
+        const chat::MemberRecord *finalEntry = FindMember( finalList.value(), kTargetAddress );
+        ASSERT_NE( finalEntry, nullptr );
+        EXPECT_EQ( finalEntry->role(), chat::ROLE_ADMIN );
+    }
+
+    /**
+     * @brief Truth 5/D-03: strict outrank uses the signed predecessor, so a
+     *        peer Moderator cannot demote another Moderator and a lying
+     *        prior_role contradicts the node's verified state.
+     */
+    TEST_F( GcsMembershipTest, ModeratorCannotDemotePeerModerator )
+    {
+        StartRig( kTestCreatorAddress );
+
+        auto space = m_rig.store->CreateSpace( "ops", true, true, true );
+        ASSERT_TRUE( space.has_value() );
+        const std::string spaceId = space.value().id();
+
+        std::vector<chat::GcsEvent> events;
+        gcs::Membership creator( *m_rig.session, *m_rig.store, kTestCreatorAddress,
+                                 CapturingSink( &events ), MakeSeam( kTestCreatorAddress ) );
+        ASSERT_TRUE( creator.OnScopeCreated( spaceId, "", true ).has_value() );
+        SeedMember( spaceId, kMemberAddress, chat::ROLE_MODERATOR );
+        SeedMember( spaceId, kTargetAddress, chat::ROLE_MODERATOR );
+
+        const std::string targetKey = std::string( gcs::Membership::kMembersKeyPrefix ) + spaceId
+                                      + "/" + kTargetAddress;
+        const auto saved = m_rig.session->Get( targetKey );
+        ASSERT_TRUE( saved.has_value() );
+        chat::MemberRecord savedRecord;
+        ASSERT_TRUE( savedRecord.ParseFromString( saved.value() ) );
+
+        // Warm the node-local cache with the target's verified MODERATOR role.
+        gcs::Membership moderator( *m_rig.session, *m_rig.store, kMemberAddress,
+                                   CapturingSink( &events ), MakeSeam( kMemberAddress ) );
+        auto warmed = moderator.MembersFor( spaceId );
+        ASSERT_TRUE( warmed.has_value() );
+        const chat::MemberRecord *warmedEntry = FindMember( warmed.value(), kTargetAddress );
+        ASSERT_NE( warmedEntry, nullptr );
+        EXPECT_EQ( warmedEntry->role(), chat::ROLE_MODERATOR );
+
+        // Same-rank demotion: strict outrank rejects it.
+        chat::MemberRecord demotion = savedRecord;
+        demotion.set_role( chat::ROLE_MEMBER );
+        demotion.set_prior_role( chat::ROLE_MODERATOR );
+        demotion.set_updated_at_ms( savedRecord.updated_at_ms() + 1 );
+        demotion.set_created_by( kMemberAddress );
+        demotion.set_record_signature( TestMemberSignatureHex(
+            kMemberAddress, spaceId, kTargetAddress, demotion ) );
+        ASSERT_TRUE( PutMemberBytes( *m_rig.session, spaceId, kTargetAddress,
+                                     demotion.SerializeAsString() ) );
+
+        auto hostile = m_rig.session->Get( targetKey );
+        ASSERT_TRUE( hostile.has_value() );
+        EXPECT_EQ( hostile.value(), demotion.SerializeAsString() );
+
+        auto hostileList = moderator.MembersFor( spaceId );
+        ASSERT_TRUE( hostileList.has_value() );
+        EXPECT_EQ( FindMember( hostileList.value(), kTargetAddress ), nullptr );
+
+        ASSERT_TRUE( PutMemberBytes( *m_rig.session, spaceId, kTargetAddress,
+                                     saved.value() ) );
+        auto restored = moderator.MembersFor( spaceId );
+        ASSERT_TRUE( restored.has_value() );
+        const chat::MemberRecord *restoredEntry = FindMember( restored.value(), kTargetAddress );
+        ASSERT_NE( restoredEntry, nullptr );
+        EXPECT_EQ( restoredEntry->role(), chat::ROLE_MODERATOR );
+
+        // A lying predecessor contradicts the cached MODERATOR and is rejected.
+        chat::MemberRecord lie = savedRecord;
+        lie.set_role( chat::ROLE_MEMBER );
+        lie.set_prior_role( chat::ROLE_GUEST );
+        lie.set_updated_at_ms( savedRecord.updated_at_ms() + 2 );
+        lie.set_created_by( kMemberAddress );
+        lie.set_record_signature( TestMemberSignatureHex(
+            kMemberAddress, spaceId, kTargetAddress, lie ) );
+        ASSERT_TRUE( PutMemberBytes( *m_rig.session, spaceId, kTargetAddress,
+                                     lie.SerializeAsString() ) );
+
+        auto liedList = moderator.MembersFor( spaceId );
+        ASSERT_TRUE( liedList.has_value() );
+        EXPECT_EQ( FindMember( liedList.value(), kTargetAddress ), nullptr );
+
+        ASSERT_TRUE( PutMemberBytes( *m_rig.session, spaceId, kTargetAddress,
+                                     saved.value() ) );
+        auto finalList = moderator.MembersFor( spaceId );
+        ASSERT_TRUE( finalList.has_value() );
+        const chat::MemberRecord *finalEntry = FindMember( finalList.value(), kTargetAddress );
+        ASSERT_NE( finalEntry, nullptr );
+        EXPECT_EQ( finalEntry->role(), chat::ROLE_MODERATOR );
+    }
+
+    /**
+     * @brief Truth 29/D-02: a replayed pre-demotion record is rejected once the
+     *        node has verified the newer state. The cache is per-Membership, so
+     *        one target-bound instance is constructed before any verification
+     *        read and reused throughout.
+     */
+    TEST_F( GcsMembershipTest, ReplayedPreDemotionRecordIsRejected )
+    {
+        StartRig( kTestCreatorAddress );
+
+        auto space = m_rig.store->CreateSpace( "ops", true, true, true );
+        ASSERT_TRUE( space.has_value() );
+        const std::string spaceId = space.value().id();
+
+        std::vector<chat::GcsEvent> events;
+        gcs::Membership creator( *m_rig.session, *m_rig.store, kTestCreatorAddress,
+                                 CapturingSink( &events ), MakeSeam( kTestCreatorAddress ) );
+        ASSERT_TRUE( creator.OnScopeCreated( spaceId, "", true ).has_value() );
+
+        // Construct BEFORE any target verification read (the cache is
+        // per-instance; a fresh instance after the replay would start cold).
+        gcs::Membership targetMembership( *m_rig.session, *m_rig.store, kTargetAddress,
+                                          CapturingSink( &events ), MakeSeam( kTargetAddress ) );
+
+        SeedMember( spaceId, kTargetAddress, chat::ROLE_ADMIN );
+        const std::string targetKey = std::string( gcs::Membership::kMembersKeyPrefix ) + spaceId
+                                      + "/" + kTargetAddress;
+        const auto saved = m_rig.session->Get( targetKey );
+        ASSERT_TRUE( saved.has_value() );
+        chat::MemberRecord adminRecord;
+        ASSERT_TRUE( adminRecord.ParseFromString( saved.value() ) );
+
+        auto warmed = targetMembership.MembersFor( spaceId );
+        ASSERT_TRUE( warmed.has_value() );
+        const chat::MemberRecord *warmedEntry = FindMember( warmed.value(), kTargetAddress );
+        ASSERT_NE( warmedEntry, nullptr );
+        EXPECT_EQ( warmedEntry->role(), chat::ROLE_ADMIN );
+
+        // Publish the newer creator-signed demotion.
+        chat::MemberRecord demotion = adminRecord;
+        demotion.set_role( chat::ROLE_MODERATOR );
+        demotion.set_prior_role( chat::ROLE_ADMIN );
+        demotion.set_updated_at_ms( adminRecord.updated_at_ms() + 1 );
+        demotion.set_record_signature( TestMemberSignatureHex(
+            kTestCreatorAddress, spaceId, kTargetAddress, demotion ) );
+        ASSERT_TRUE( PutMemberBytes( *m_rig.session, spaceId, kTargetAddress,
+                                     demotion.SerializeAsString() ) );
+
+        auto demoted = targetMembership.MembersFor( spaceId );
+        ASSERT_TRUE( demoted.has_value() );
+        const chat::MemberRecord *demotedEntry = FindMember( demoted.value(), kTargetAddress );
+        ASSERT_NE( demotedEntry, nullptr );
+        EXPECT_EQ( demotedEntry->role(), chat::ROLE_MODERATOR );
+
+        // Replay the OLD ADMIN bytes (same signature, older timestamp).
+        ASSERT_TRUE( PutMemberBytes( *m_rig.session, spaceId, kTargetAddress,
+                                     saved.value() ) );
+        auto replayBytes = m_rig.session->Get( targetKey );
+        ASSERT_TRUE( replayBytes.has_value() );
+        EXPECT_EQ( replayBytes.value(), saved.value() );
+
+        // Fail closed on rollback: the same instance stays at GUEST.
+        EXPECT_EQ( targetMembership.LocalRoleFor( spaceId ), chat::ROLE_GUEST );
+        EXPECT_FALSE(
+            targetMembership.ChangeRole( spaceId, kTestCreatorAddress, chat::ROLE_GUEST )
+                .has_value() );
+        EXPECT_FALSE(
+            targetMembership.RemoveMember( spaceId, kTestCreatorAddress ).has_value() );
+    }
+
+    /**
+     * @brief Truth 29/D-02: a flipped explicit_leave without the subject's
+     *        signature is excluded, in both the missing and the stale direction.
+     */
+    TEST_F( GcsMembershipTest, FlippedExplicitLeaveWithoutSubjectSignatureIsExcluded )
+    {
+        StartRig( kTestCreatorAddress );
+
+        auto space = m_rig.store->CreateSpace( "ops", true, true, true );
+        ASSERT_TRUE( space.has_value() );
+        const std::string spaceId = space.value().id();
+
+        std::vector<chat::GcsEvent> events;
+        gcs::Membership creator( *m_rig.session, *m_rig.store, kTestCreatorAddress,
+                                 CapturingSink( &events ), MakeSeam( kTestCreatorAddress ) );
+        ASSERT_TRUE( creator.OnScopeCreated( spaceId, "", true ).has_value() );
+        SeedMember( spaceId, kTargetAddress, chat::ROLE_MEMBER );
+
+        const std::string targetKey = std::string( gcs::Membership::kMembersKeyPrefix ) + spaceId
+                                      + "/" + kTargetAddress;
+        const auto saved = m_rig.session->Get( targetKey );
+        ASSERT_TRUE( saved.has_value() );
+        chat::MemberRecord savedRecord;
+        ASSERT_TRUE( savedRecord.ParseFromString( saved.value() ) );
+
+        // explicit_leave = true without a subject signature. The authority
+        // signature still verifies because the canonical payload excludes the
+        // subject-owned flag.
+        chat::MemberRecord flipped = savedRecord;
+        flipped.set_explicit_leave( true );
+        flipped.clear_leave_signature();
+        ASSERT_TRUE( PutMemberBytes( *m_rig.session, spaceId, kTargetAddress,
+                                     flipped.SerializeAsString() ) );
+
+        auto flippedList = creator.MembersFor( spaceId );
+        ASSERT_TRUE( flippedList.has_value() );
+        EXPECT_EQ( FindMember( flippedList.value(), kTargetAddress ), nullptr );
+
+        gcs::Membership targetMembership( *m_rig.session, *m_rig.store, kTargetAddress,
+                                          CapturingSink( &events ), MakeSeam( kTargetAddress ) );
+        EXPECT_EQ( targetMembership.LocalRoleFor( spaceId ), chat::ROLE_GUEST );
+
+        auto flippedBytes = m_rig.session->Get( targetKey );
+        ASSERT_TRUE( flippedBytes.has_value() );
+        EXPECT_EQ( flippedBytes.value(), flipped.SerializeAsString() );
+
+        // The inverse: explicit_leave = false carrying a stale signature.
+        chat::MemberRecord stale = savedRecord;
+        stale.set_explicit_leave( false );
+        stale.set_leave_signature(
+            TestLeaveSignatureHex( kTargetAddress, spaceId, kTargetAddress ) );
+        ASSERT_TRUE( PutMemberBytes( *m_rig.session, spaceId, kTargetAddress,
+                                     stale.SerializeAsString() ) );
+
+        auto staleList = creator.MembersFor( spaceId );
+        ASSERT_TRUE( staleList.has_value() );
+        EXPECT_EQ( FindMember( staleList.value(), kTargetAddress ), nullptr );
+
+        auto staleBytes = m_rig.session->Get( targetKey );
+        ASSERT_TRUE( staleBytes.has_value() );
+        EXPECT_EQ( staleBytes.value(), stale.SerializeAsString() );
+    }
+
+    /**
+     * @brief Truth 29/D-02: Leave is an authority-preserving write — role,
+     *        creator-issued signature, prior role, and signed timestamp survive.
+     */
+    TEST_F( GcsMembershipTest, LeavePreservesPromotedRoleAuthority )
+    {
+        StartRig( kTestCreatorAddress );
+
+        auto space = m_rig.store->CreateSpace( "ops", true, true, true );
+        ASSERT_TRUE( space.has_value() );
+        const std::string spaceId = space.value().id();
+
+        std::vector<chat::GcsEvent> events;
+        gcs::Membership creator( *m_rig.session, *m_rig.store, kTestCreatorAddress,
+                                 CapturingSink( &events ), MakeSeam( kTestCreatorAddress ) );
+        ASSERT_TRUE( creator.OnScopeCreated( spaceId, "", true ).has_value() );
+        SeedMember( spaceId, kMemberAddress, chat::ROLE_MEMBER );
+
+        chat::MemberRecord before;
+        ASSERT_TRUE( ReadMemberRecord( *m_rig.session, spaceId, kMemberAddress, before ) );
+
+        gcs::Membership memberSelf( *m_rig.session, *m_rig.store, kMemberAddress,
+                                    CapturingSink( &events ), MakeSeam( kMemberAddress ) );
+        ASSERT_TRUE( memberSelf.Leave( spaceId ).has_value() );
+
+        chat::MemberRecord after;
+        ASSERT_TRUE( ReadMemberRecord( *m_rig.session, spaceId, kMemberAddress, after ) );
+        EXPECT_EQ( after.role(), chat::ROLE_MEMBER );
+        EXPECT_TRUE( after.explicit_leave() );
+        EXPECT_FALSE( after.deleted() );
+        EXPECT_EQ( after.created_by(), kTestCreatorAddress );
+        EXPECT_FALSE( after.record_signature().empty() );
+        EXPECT_FALSE( after.leave_signature().empty() );
+        EXPECT_EQ( after.updated_at_ms(), before.updated_at_ms() );
+        EXPECT_EQ( after.prior_role(), chat::ROLE_UNSPECIFIED );
+
+        auto list = memberSelf.MembersFor( spaceId );
+        ASSERT_TRUE( list.has_value() );
+        const chat::MemberRecord *member = FindMember( list.value(), kMemberAddress );
+        ASSERT_NE( member, nullptr );
+        EXPECT_EQ( member->role(), chat::ROLE_MEMBER );
+    }
+
+    /**
+     * @brief Truth 29/D-02/D-05: redeeming an invite as an existing live member
+     *        preserves the creator-issued authority and prior role verbatim.
+     */
+    TEST_F( GcsMembershipTest, RedeemOfExistingPromotedMemberPreservesAuthority )
+    {
+        StartRig( kTestCreatorAddress );
+
+        auto space = m_rig.store->CreateSpace( "ops", true, true, true );
+        ASSERT_TRUE( space.has_value() );
+        const std::string spaceId = space.value().id();
+
+        std::vector<chat::GcsEvent> events;
+        gcs::Membership creator( *m_rig.session, *m_rig.store, kTestCreatorAddress,
+                                 CapturingSink( &events ), MakeSeam( kTestCreatorAddress ) );
+        ASSERT_TRUE( creator.OnScopeCreated( spaceId, "", true ).has_value() );
+        auto minted = creator.MintInvite( spaceId );
+        ASSERT_TRUE( minted.has_value() );
+
+        SeedMember( spaceId, kJoinerAddress, chat::ROLE_MEMBER );
+        chat::MemberRecord before;
+        ASSERT_TRUE( ReadMemberRecord( *m_rig.session, spaceId, kJoinerAddress, before ) );
+
+        gcs::Membership joiner( *m_rig.session, *m_rig.store, kJoinerAddress,
+                                CapturingSink( &events ), MakeSeam( kJoinerAddress ) );
+        ASSERT_TRUE( joiner.RedeemInvite( minted.value() ).has_value() );
+
+        chat::MemberRecord after;
+        ASSERT_TRUE( ReadMemberRecord( *m_rig.session, spaceId, kJoinerAddress, after ) );
+        EXPECT_EQ( after.role(), chat::ROLE_MEMBER );
+        EXPECT_EQ( after.created_by(), kTestCreatorAddress );
+        EXPECT_FALSE( after.record_signature().empty() );
+        EXPECT_EQ( after.record_signature(), before.record_signature() );
+        EXPECT_EQ( after.updated_at_ms(), before.updated_at_ms() );
+        EXPECT_EQ( after.prior_role(), before.prior_role() );
+
+        auto list = joiner.MembersFor( spaceId );
+        ASSERT_TRUE( list.has_value() );
+        const chat::MemberRecord *member = FindMember( list.value(), kJoinerAddress );
+        ASSERT_NE( member, nullptr );
+        EXPECT_EQ( member->role(), chat::ROLE_MEMBER );
+    }
+
+    /**
+     * @brief Truth 29/D-02: a cold node cannot resolve the scope, yet a leave
+     *        still preserves the authority bytes verbatim; the record remains
+     *        excluded from the roster because its creator chain is unresolvable.
+     */
+    TEST_F( GcsMembershipTest, ColdNodeLeavePreservesAuthorityWithoutLocalScope )
+    {
+        StartRig( kTestCreatorAddress );
+
+        const std::string coldScopeId = "space-cold";
+        SeedMember( coldScopeId, kMemberAddress, chat::ROLE_MEMBER );
+
+        chat::MemberRecord before;
+        ASSERT_TRUE(
+            ReadMemberRecord( *m_rig.session, coldScopeId, kMemberAddress, before ) );
+
+        std::vector<chat::GcsEvent> events;
+        gcs::Membership memberSelf( *m_rig.session, *m_rig.store, kMemberAddress,
+                                    CapturingSink( &events ), MakeSeam( kMemberAddress ) );
+        ASSERT_TRUE( memberSelf.Leave( coldScopeId ).has_value() );
+
+        chat::MemberRecord after;
+        ASSERT_TRUE(
+            ReadMemberRecord( *m_rig.session, coldScopeId, kMemberAddress, after ) );
+        EXPECT_EQ( after.role(), chat::ROLE_MEMBER );
+        EXPECT_TRUE( after.explicit_leave() );
+        EXPECT_EQ( after.created_by(), kTestCreatorAddress );
+        EXPECT_EQ( after.record_signature(), before.record_signature() );
+        EXPECT_EQ( after.updated_at_ms(), before.updated_at_ms() );
+        EXPECT_FALSE( after.leave_signature().empty() );
+
+        // An unresolvable creator chain is not a member, but the bytes remain.
+        auto list = memberSelf.MembersFor( coldScopeId );
+        ASSERT_TRUE( list.has_value() );
+        EXPECT_EQ( list.value().member_size(), 0 );
+        const std::string memberKey = std::string( gcs::Membership::kMembersKeyPrefix )
+                                      + coldScopeId + "/" + kMemberAddress;
+        auto raw = m_rig.session->Get( memberKey );
+        ASSERT_TRUE( raw.has_value() );
+        EXPECT_EQ( raw.value(), after.SerializeAsString() );
+    }
+
+    /**
+     * @brief Truth 29/D-03: a verified tombstone advances the predecessor cache
+     *        before MembersFor skips it, so replaying the pre-tombstone bytes
+     *        cannot readmit the member.
+     */
+    TEST_F( GcsMembershipTest, PreTombstoneReplayAfterTombstoneIsRejected )
+    {
+        StartRig( kTestCreatorAddress );
+
+        auto space = m_rig.store->CreateSpace( "ops", true, true, true );
+        ASSERT_TRUE( space.has_value() );
+        const std::string spaceId = space.value().id();
+
+        std::vector<chat::GcsEvent> events;
+        gcs::Membership creator( *m_rig.session, *m_rig.store, kTestCreatorAddress,
+                                 CapturingSink( &events ), MakeSeam( kTestCreatorAddress ) );
+        ASSERT_TRUE( creator.OnScopeCreated( spaceId, "", true ).has_value() );
+
+        // Both instances exist before the first target read: the target-bound
+        // cache must be warmed by the tombstone, never by the replay.
+        gcs::Membership targetMembership( *m_rig.session, *m_rig.store, kTargetAddress,
+                                          CapturingSink( &events ), MakeSeam( kTargetAddress ) );
+
+        SeedMember( spaceId, kTargetAddress, chat::ROLE_MEMBER );
+        const std::string targetKey = std::string( gcs::Membership::kMembersKeyPrefix ) + spaceId
+                                      + "/" + kTargetAddress;
+        const auto saved = m_rig.session->Get( targetKey );
+        ASSERT_TRUE( saved.has_value() );
+        chat::MemberRecord liveRecord;
+        ASSERT_TRUE( liveRecord.ParseFromString( saved.value() ) );
+
+        auto liveList = creator.MembersFor( spaceId );
+        ASSERT_TRUE( liveList.has_value() );
+        const chat::MemberRecord *liveEntry = FindMember( liveList.value(), kTargetAddress );
+        ASSERT_NE( liveEntry, nullptr );
+        EXPECT_EQ( liveEntry->role(), chat::ROLE_MEMBER );
+
+        // Publish the creator-signed tombstone.
+        chat::MemberRecord tombstone = liveRecord;
+        tombstone.set_deleted( true );
+        tombstone.set_prior_role( chat::ROLE_MEMBER );
+        tombstone.set_approved_by( "" );
+        tombstone.set_pending_action( chat::PENDING_ACTION_UNSPECIFIED );
+        tombstone.set_pending_role( chat::ROLE_UNSPECIFIED );
+        tombstone.set_updated_at_ms( liveRecord.updated_at_ms() + 1 );
+        tombstone.set_record_signature( TestMemberSignatureHex(
+            kTestCreatorAddress, spaceId, kTargetAddress, tombstone ) );
+        ASSERT_TRUE( PutMemberBytes( *m_rig.session, spaceId, kTargetAddress,
+                                     tombstone.SerializeAsString() ) );
+
+        auto tombCreatorList = creator.MembersFor( spaceId );
+        ASSERT_TRUE( tombCreatorList.has_value() );
+        EXPECT_EQ( FindMember( tombCreatorList.value(), kTargetAddress ), nullptr );
+        auto tombTargetList = targetMembership.MembersFor( spaceId );
+        ASSERT_TRUE( tombTargetList.has_value() );
+        EXPECT_EQ( FindMember( tombTargetList.value(), kTargetAddress ), nullptr );
+
+        // Replay the exact pre-tombstone bytes.
+        ASSERT_TRUE( PutMemberBytes( *m_rig.session, spaceId, kTargetAddress,
+                                     saved.value() ) );
+        auto replayBytes = m_rig.session->Get( targetKey );
+        ASSERT_TRUE( replayBytes.has_value() );
+        EXPECT_EQ( replayBytes.value(), saved.value() );
+
+        auto replayCreatorList = creator.MembersFor( spaceId );
+        ASSERT_TRUE( replayCreatorList.has_value() );
+        EXPECT_EQ( FindMember( replayCreatorList.value(), kTargetAddress ), nullptr );
+        auto replayTargetList = targetMembership.MembersFor( spaceId );
+        ASSERT_TRUE( replayTargetList.has_value() );
+        EXPECT_EQ( FindMember( replayTargetList.value(), kTargetAddress ), nullptr );
+        EXPECT_EQ( targetMembership.LocalRoleFor( spaceId ), chat::ROLE_GUEST );
+    }
+
+    /**
+     * @brief Truth 29/D-03: a second OnScopeCreated never rewrites a verified
+     *        creator root and fails closed on an occupying unverifiable record.
+     */
+    TEST_F( GcsMembershipTest, SecondOnScopeCreatedDoesNotRewriteTheCreatorRoot )
+    {
+        StartRig( kTestCreatorAddress );
+
+        auto space = m_rig.store->CreateSpace( "ops", true, true, true );
+        ASSERT_TRUE( space.has_value() );
+        const std::string spaceId = space.value().id();
+
+        std::vector<chat::GcsEvent> events;
+        gcs::Membership creator( *m_rig.session, *m_rig.store, kTestCreatorAddress,
+                                 CapturingSink( &events ), MakeSeam( kTestCreatorAddress ) );
+        ASSERT_TRUE( creator.OnScopeCreated( spaceId, "", true ).has_value() );
+
+        const std::string creatorKey = std::string( gcs::Membership::kMembersKeyPrefix ) + spaceId
+                                       + "/" + kTestCreatorAddress;
+        const auto firstBytes = m_rig.session->Get( creatorKey );
+        ASSERT_TRUE( firstBytes.has_value() );
+        chat::MemberRecord firstRecord;
+        ASSERT_TRUE( firstRecord.ParseFromString( firstBytes.value() ) );
+
+        ASSERT_TRUE( creator.OnScopeCreated( spaceId, "", true ).has_value() );
+
+        const auto secondBytes = m_rig.session->Get( creatorKey );
+        ASSERT_TRUE( secondBytes.has_value() );
+        EXPECT_EQ( secondBytes.value(), firstBytes.value() );
+        chat::MemberRecord secondRecord;
+        ASSERT_TRUE( secondRecord.ParseFromString( secondBytes.value() ) );
+        EXPECT_EQ( secondRecord.record_signature(), firstRecord.record_signature() );
+        EXPECT_EQ( secondRecord.updated_at_ms(), firstRecord.updated_at_ms() );
+        EXPECT_EQ( secondRecord.created_at_ms(), firstRecord.created_at_ms() );
+        EXPECT_EQ( secondRecord.prior_role(), chat::ROLE_UNSPECIFIED );
+
+        auto list = creator.MembersFor( spaceId );
+        ASSERT_TRUE( list.has_value() );
+        const chat::MemberRecord *root = FindMember( list.value(), kTestCreatorAddress );
+        ASSERT_NE( root, nullptr );
+        EXPECT_EQ( root->role(), chat::ROLE_SUPER_ADMIN );
+
+        // An occupying record the node cannot verify is never overwritten.
+        chat::MemberRecord hostile = firstRecord;
+        hostile.set_role( chat::ROLE_GUEST );
+        hostile.set_created_by( kMemberAddress );
+        hostile.set_updated_at_ms( firstRecord.updated_at_ms() + 1 );
+        hostile.set_record_signature( TestMemberSignatureHex(
+            kMemberAddress, spaceId, kTestCreatorAddress, hostile ) );
+        ASSERT_TRUE( PutMemberBytes( *m_rig.session, spaceId, kTestCreatorAddress,
+                                     hostile.SerializeAsString() ) );
+
+        const std::size_t pushBaseline = events.size();
+        EXPECT_FALSE( creator.OnScopeCreated( spaceId, "", true ).has_value() );
+        EXPECT_EQ( events.size(), pushBaseline );
+
+        auto hostileBytes = m_rig.session->Get( creatorKey );
+        ASSERT_TRUE( hostileBytes.has_value() );
+        EXPECT_EQ( hostileBytes.value(), hostile.SerializeAsString() );
     }
 
 } // namespace gcs::test
