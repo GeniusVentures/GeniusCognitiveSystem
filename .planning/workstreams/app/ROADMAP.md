@@ -153,7 +153,7 @@ Plans:
   4. Super Admin cannot be demoted by other admins
   5. When 2+ admins exist, destructive actions require Super Admin approval
 
-**Plans:** 21/22 plans executed
+**Plans:** 22/22 plans complete
 
 Plans:
 **Wave 1**
@@ -221,7 +221,7 @@ Plans:
 
 **Wave 15** *(blocked on Wave 14 completion)*
 
-- [ ] 04-22-PLAN.md — Wave 15 (depends: 04-19, 04-20, 04-21) — Multinode cold-node scope mirror + wire-level forged self-claimed Super Admin exclusion and command rejection + full-suite gate
+- [x] 04-22-PLAN.md — Wave 15 (depends: 04-19, 04-20, 04-21) — Multinode cold-node scope mirror + wire-level forged self-claimed Super Admin exclusion and command rejection + full-suite gate
 
 **Deferred (recorded, not in this gap-closure set):** CR-07 — room keys live in a process-local store, so a second application process (or a restart without the invite material) cannot decrypt a room's key material. Warning-level; no Phase 4 requirement depends on cross-process key persistence, and no plan in Waves 5-11 addresses it.
 
@@ -283,7 +283,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 1. Foundation | 11/11 | Complete | 2026-09-16 |
 | 2. Spaces & Rooms | 5/5 | Complete   | 2026-09-19 |
 | 3. Messaging | 6/6 | Complete   | 2026-09-24 |
-| 4. Membership & Invites | 21/22 | In Progress|  |
+| 4. Membership & Invites | 22/22 | Complete   | 2026-10-20 |
 | 5. Moderation | 0/TBD | Not started | - |
 | 6. GCS Bot | 0/TBD | Not started | - |
 | 7. Discovery | 0/TBD | Not started | - |
