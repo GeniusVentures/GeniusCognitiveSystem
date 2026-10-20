@@ -334,6 +334,14 @@ public:
    * overwrites approved_by with the author's address (single-signer overwrite
    * on the SAME key — never a cross-key join), then applies the op.
    *
+   * A pending REMOVE is re-validated into a verifiable tombstone: the approved
+   * record clears pending_action and pending_role before the creator-signed
+   * write, because a deleted record that still carries a pending action is
+   * rejected by verification (WR-05). A pending ROLE_CHANGE is re-validated
+   * before mutation: its pending_role must be exactly Admin, Moderator,
+   * Member, or Guest (never Super Admin or Unspecified) and its target may
+   * never be the creator — the approval is irreversible (WR-03).
+   *
    * @param[in] scopeId Space id or standalone room id.
    * @param[in] target  Member address (remove/role change) or the scope id
    *                    itself (scope deletion).
@@ -467,6 +475,10 @@ private:
   /// Super Admin. The scope creator is the documented exception — as the D-03
   /// authority root it may amend any other member, and the D-07/WR-03
   /// dormancy rule keeps a peer Super Admin demotion dormant until approval.
+  /// The exception is resolved from the catalog by identity
+  /// (IsSuperAdmin(scopeId, m_sender)), never from the record's stored role,
+  /// so a record that merely claims SUPER_ADMIN receives no creator authority
+  /// (WR-02).
   bool CanChangeRole(const std::string &scopeId, const std::string &target,
                      chat::Role role) const;
 

@@ -1187,9 +1187,12 @@ bool Membership::CanChangeRole( const std::string &scopeId,
     }
     // The creator is the D-03 authority root: it may amend any member except
     // itself (rejected above), and the WR-03 dormancy rule still keeps a peer
-    // Super Admin demotion dormant until approval. Deliberate, not an
-    // oversight — the rank comparison below applies to non-creator authors.
-    if ( author == chat::ROLE_SUPER_ADMIN )
+    // Super Admin demotion dormant until approval. The exception is resolved
+    // from the catalog identity, NEVER from the record's claimed role — a
+    // record that merely says SUPER_ADMIN must not receive creator authority
+    // (WR-02/T-04-21-01). Deliberate, not an oversight — the rank comparison
+    // below applies to non-creator authors.
+    if ( IsSuperAdmin( scopeId, m_sender ) )
     {
         return true;
     }
@@ -2023,8 +2026,16 @@ outcome::result<void> Membership::Approve( const std::string &scopeId,
         {
             if ( record.pending_action() == chat::PENDING_ACTION_REMOVE )
             {
+                // 04-19 rejects a deleted record that still carries a pending
+                // action, so the approved tombstone must clear BOTH pending
+                // fields before the creator-signed write. Without this the
+                // removal would be applied locally but never verify or
+                // replicate (T-04-21-06).
                 record.set_approved_by( m_sender );
                 record.set_deleted( true );
+                record.set_pending_action(
+                    chat::PENDING_ACTION_UNSPECIFIED );
+                record.set_pending_role( chat::ROLE_UNSPECIFIED );
                 auto writeResult = WriteMemberAsAuthor( record );
                 if ( !writeResult.has_value() )
                 {
@@ -2034,8 +2045,34 @@ outcome::result<void> Membership::Approve( const std::string &scopeId,
             }
             if ( record.pending_action() == chat::PENDING_ACTION_ROLE_CHANGE )
             {
+                // Defense in depth (T-04-21-02): verification already rejects
+                // such records, but Approve is the write that makes a dormant
+                // op irreversible, so re-validate here. The creator can never
+                // be demoted, even by a dormant record.
+                const ScopeInfo scope = ResolveScope( scopeId );
+                if ( scope.found && !scope.creator.empty()
+                     && target == scope.creator )
+                {
+                    spdlog::warn( "gcs_membership: approve rejected — a pending "
+                                  "role change may not target the creator of "
+                                  "scope '{}'",
+                                  scopeId );
+                    return outcome::failure( sgns::gcs::Error::GcsDbError );
+                }
+                const chat::Role pendingRole = record.pending_role();
+                if ( pendingRole != chat::ROLE_ADMIN
+                     && pendingRole != chat::ROLE_MODERATOR
+                     && pendingRole != chat::ROLE_MEMBER
+                     && pendingRole != chat::ROLE_GUEST )
+                {
+                    spdlog::warn( "gcs_membership: approve rejected — pending "
+                                  "role is not a concrete grantable role in "
+                                  "scope '{}'",
+                                  scopeId );
+                    return outcome::failure( sgns::gcs::Error::GcsDbError );
+                }
                 record.set_approved_by( m_sender );
-                record.set_role( record.pending_role() );
+                record.set_role( pendingRole );
                 record.set_pending_action( chat::PENDING_ACTION_UNSPECIFIED );
                 record.set_pending_role( chat::ROLE_UNSPECIFIED );
                 auto writeResult = WriteMemberAsAuthor( record );
