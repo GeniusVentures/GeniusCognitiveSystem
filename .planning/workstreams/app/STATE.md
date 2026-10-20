@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: GCS Chat
 status: executing
-stopped_at: Completed 04-19-PLAN.md
-last_updated: "2026-10-20T00:09:00.000Z"
-last_activity: 2026-10-20 -- Phase 04 plan 19 complete (signed member authority)
+stopped_at: Completed 04-20-PLAN.md
+last_updated: "2026-10-20T00:33:02.204Z"
+last_activity: 2026-10-20
 progress:
   total_phases: 7
   completed_phases: 3
   total_plans: 44
-  completed_plans: 41
+  completed_plans: 42
   percent: 43
 ---
 
@@ -26,11 +26,11 @@ See: .planning/workstreams/app/PROJECT.md (updated 2026-09-22)
 ## Current Position
 
 Phase: 04 (membership-invites) — EXECUTING
-Plan: 19 of 22
-Status: Executing Phase 04
-Last activity: 2026-10-20 -- Completed 04-19 (signed member authority)
+Plan: 20 of 22
+Status: Ready to execute
+Last activity: 2026-10-20
 
-Progress: [██████████] 100%
+Progress: [██████████] 95%
 
 ## Performance Metrics
 
@@ -75,6 +75,7 @@ Progress: [██████████] 100%
 | Phase 04 P17 | 5min | 2 tasks | 3 files |
 | Phase 04 P18 | 5min | 2 tasks | 1 files |
 | Phase 04 P19 | 20min | 3 tasks | 3 files |
+| Phase 04 P20 | 20min | 3 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -158,6 +159,9 @@ Recent decisions affecting current work:
 - [Phase 04]: OnMemberArrived pushes nothing when verification fails; an unverifiable record stays in the CRDT but never enters a roster or an authority decision
 - [Phase 04]: The verified-predecessor cache is in-memory and non-replicated; a cold node falls back to the signed prior_role, and the cold-start rollback residual is documented (T-04-19-09)
 - [Phase 04]: Approve's REMOVE branch still writes deleted + pending REMOVE; the verifier correctly treats that as incoherent, and 04-21 T3 clears the pending fields (known transient, not a regression)
+- [Phase 04]: One shared test-side member/leave payload builder and hex signature helper; SeedMember and arrival records sign as their claimed creator
+- [Phase 04]: Member seeds/restores replicate on kMembershipTopic; a 2-arg re-write of identical bytes yields the same CRDT node CID and is deduplicated, so it cannot restore a value
+- [Phase 04]: A forged creator root grants nobody authority: every creator-rooted chain fails closed, including the attacker's own role (pinned as GUEST)
 
 ### Pending Todos
 
@@ -183,6 +187,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-10-20T00:09:00.000Z
-Stopped at: Completed 04-19-PLAN.md
-Resume file: .planning/workstreams/app/phases/04-membership-invites/04-20-PLAN.md
+Last session: 2026-10-20T00:33:02.197Z
+Stopped at: Completed 04-20-PLAN.md
+Resume file: .planning/workstreams/app/phases/04-membership-invites/04-21-PLAN.md
