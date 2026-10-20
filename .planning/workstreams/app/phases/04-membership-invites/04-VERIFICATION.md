@@ -1,98 +1,85 @@
 ---
 phase: 04-membership-invites
-verified: 2026-10-19T00:34:00Z
+verified: 2026-10-20T01:22:51Z
 status: gaps_found
-score: 28/30 must-haves verified
+score: 29/30 must-haves verified
 overrides_applied: 0
 re_verification:
   previous_status: gaps_found
-  previous_score: 26/30
+  previous_score: 28/30
   gaps_closed:
-    - "Truth 11 — dormant scope deletion now reaches the EntityStore catalog and Approve activates it (CR-06)"
-    - "Truth 30 — a tombstoned wallet can no longer rejoin via a stale invite (CR-02)"
-    - "Truth 5 sub-defects — redeem preserves a live member's role/pending/approved state (CR-01) and AdminCount fails closed (CR-05)"
-    - "Truth 29 sub-defects — InviteRecord is issuer-signed and authority-checked (CR-08); CanChangeRole enforces concrete roles and strict outrank (CR-03/CR-04)"
+    - "Truth 5 — the D-07 approval gate is no longer bypassable by an unauthenticated topic writer: every member record is signed and verified, so forged roles/tombstones are excluded; ChangeRole rejects while a removal is pending, RemoveMember clears pending_role, and Approve re-validates the pending role before making it irreversible (04-19/04-21)."
+    - "Truth 29 — MemberRecord is now an authenticated authority artifact (created_by/record_signature/leave_signature/prior_role); every read path verifies it (TryReadMember, MembersFor, LocalRoleFor, AdminCount, OnMemberArrived), CanChangeRole's creator exception is IsSuperAdmin identity, and the creator root is write-once (04-19/04-20/04-21/04-22)."
   gaps_remaining:
-    - "Truth 5 — the D-07 approval gate is command-level only: unauthenticated MemberRecords let any membership-topic writer publish a tombstone/role record directly, bypassing approval"
-    - "Truth 29 — MemberRecord carries no issuer/signature and is trusted for every authorization decision; CanChangeRole's creator exception is role-based; Approve applies an unvalidated pending_role"
+    - "Truth 29 — RedeemInvite and Leave copy an UNVERIFIED raw record whose body names another scope, and WriteMemberPreservingAuthority derives the write key from the record body. A hostile membership-topic writer can make an honest node write attacker bytes into another scope's member key (including a creator root), collapsing that scope's verified authority. This is the new Critical CR-01 in 04-REVIEW.md (remainder of prior WR-04)."
   regressions: []
 gaps:
-  - truth: "The five-tier role model governs what actions each participant can take — no self-granted escalation, and redeem does not rewrite stored role/pending state"
+  - truth: "The role model governs what actions each participant can take — no self-granted escalation, and redeem does not rewrite stored role/pending state"
     status: failed
     reason: >-
-      The invite-grant path is now authenticated end to end (created_by +
-      issuer_signature, scoped URL, exact-key lookup, Guest cap, issuer
-      authority), and redeem preserves live state and rejects tombstones.
-      However, MemberRecord itself remains an unauthenticated value on the
-      permissionless membership replication topic: it has no created_by or
-      signature, TryReadMember/MembersFor return stored bytes without checking
-      them against the key or an issuer, LocalRoleFor returns record.role()
-      verbatim, and OnMemberArrived pushes whatever arrives. Any peer can
-      publish gcs/members/<scope>/<attacker> with role = ROLE_SUPER_ADMIN and,
-      on its own node, CanDelete/CanRemoveMember/CanChangeRole authorize from
-      that record. The D-03 authority root is therefore not enforceable against
-      a peer that can write the roster. Two command-path defects compound this:
-      CanChangeRole's creator exception tests the resolved role rather than
-      IsSuperAdmin (a forged SUPER_ADMIN record receives the exception), and
-      Approve copies pending_role into role without re-validating it (a
-      forged pending ROLE_SUPER_ADMIN/ROLE_UNSPECIFIED is applied).
+      The signed-authority trust chain itself is implemented and proven: every
+      authority write signs, every authority read verifies, forged/tampered/
+      wire-injected records are excluded, the creator root is write-once, and
+      the transition matrix rejects unauthorized destruction. However, the two
+      authority-preserving paths still take their write key from an unverified
+      record body. RedeemInvite reads the raw record at the URL scope and
+      requires only that its body address equal the sender; Leave reads the raw
+      record and requires only address/deleted. Neither checks
+      record.scope_id() == scopeId. WriteMemberPreservingAuthority then writes
+      to MemberKey(record.scope_id(), record.address()). A hostile peer can
+      publish { scope_id: B, address: alice, ... } under A/alice; the read paths
+      correctly exclude it from rosters, but Alice's leave/redeem in A copies
+      those bytes to B/alice. If Alice is B's creator, the write clobbers B's
+      creator root with bytes that cannot verify for B, so every B member
+      resolves to GUEST and delete/role/invite authority collapses until the
+      creator re-signs the root. Even for a non-creator, an existing valid
+      record in B is overwritten by unverifiable bytes, removing that member
+      from B without approval. This propagates a rejected record instead of
+      excluding it, violating the signed-authority contract.
     artifacts:
-      - path: "src/proto/gcs_chat.proto"
-        issue: "MemberRecord (236-250) has no created_by/record_signature fields; only InviteRecord (270-292) is signed."
       - path: "src/lib/gcs_membership.cpp"
-        issue: "TryReadMember (371-390), MembersFor (495-527), and LocalRoleFor (529-537) trust stored bytes; OnMemberArrived (1536-1560) accepts any value on the permissionless topic and pushes it."
+        issue: "RedeemInvite (1589-1596, 1752-1778) reads with TryReadRawMember and checks only address/deleted; no record.scope_id() == urlScopeId binding before WriteMemberPreservingAuthority."
       - path: "src/lib/gcs_membership.cpp"
-        issue: "CanChangeRole (618-621) grants the creator exception to any record resolving to ROLE_SUPER_ADMIN instead of using IsSuperAdmin."
+        issue: "Leave (1931-1952) checks deleted/address only; no record.scope_id() == scopeId binding before WriteMemberPreservingAuthority."
       - path: "src/lib/gcs_membership.cpp"
-        issue: "Approve (1427-1432) applies record.pending_role() without re-running the concrete-role/creator-demotion guards."
+        issue: "WriteMemberPreservingAuthority (982-1008) requires only non-empty created_by/record_signature, runs an advisory VerifyMemberRecord against the record's OWN scope_id/address (1000), and Puts to MemberKey(record.scope_id(), record.address()) (1007)."
     missing:
-      - "Append created_by and record_signature to MemberRecord (append-only), sign every WriteMember path, and verify on OnMemberArrived/TryReadMember/MembersFor — reject unverifiable records from both the roster and every authorization decision."
-      - "Constrain what a self-signed member record may assert: no tier above the invite-derived Guest, and no tombstone/pending transition; role/removal authority must chain from the creator's signed record."
-      - "Use IsSuperAdmin(scopeId, m_sender) for CanChangeRole's creator exception (WR-02)."
-      - "Re-validate pending_role in Approve: concrete role only, never ROLE_SUPER_ADMIN, never a creator demotion (WR-03)."
-      - "Add a wire-level regression test that injects a SUPER_ADMIN member record and asserts it is excluded from MembersFor and cannot drive DeleteScope/RemoveMember/ChangeRole."
-
-  - truth: "When 2+ admins exist, destructive actions require Super Admin approval (SC5 / MEMB-04)"
-    status: failed
-    reason: >-
-      The three destructive command paths now implement dormancy correctly:
-      RemoveMember and ChangeRole(admin demotion) and DeleteScope write
-      pending state with empty approved_by, AdminCount fails closed, DeleteScope
-      routes through catalog mutators, and Approve's entity branch is reachable
-      and tested. The prior CR-01/CR-02/CR-05/CR-06 bypasses are closed.
-      The approval gate is nevertheless not enforceable against a hostile peer:
-      because MemberRecord is unauthenticated (same root as truth 29), any peer
-      can publish a tombstone or a demoting role record for an arbitrary wallet
-      directly on the membership replication topic, performing a removal or
-      demotion that was never approved. A peer can also self-assert
-      ROLE_SUPER_ADMIN so CanDelete/CanRemoveMember return true. Legitimately,
-      ChangeRole's non-demotion branch also clears any pending REMOVE without
-      approval (WR-05), so a pending destructive op can be silently cancelled by
-      a second admin's role change.
-    artifacts:
-      - path: "src/proto/gcs_chat.proto"
-        issue: "MemberRecord is unauthenticated, so pending/tombstone state can be written directly by any topic writer."
-      - path: "src/lib/gcs_membership.cpp"
-        issue: "ChangeRole (1235-1241) unconditionally clears pending_action/pending_role, cancelling a pending REMOVE without Approve."
-      - path: "src/lib/gcs_membership.cpp"
-        issue: "RemoveMember (1276-1280) sets pending_action but leaves a stale pending_role."
-    missing:
-      - "Authenticate member records (truth 29 fix), so pending/tombstone transitions cannot be injected on the wire."
-      - "Define the pending-state transition explicitly: reject ChangeRole while PENDING_ACTION_REMOVE is set, or add a creator-only cancel that records approved_by."
-      - "Clear pending_role when RemoveMember writes PENDING_ACTION_REMOVE."
-
+      - "Reject the raw record when record.scope_id() != the requested scope in both RedeemInvite (after the address check, before the tombstone check) and Leave. Prefer moving the binding check into TryReadRawMember so no future raw caller can repeat the defect."
+      - "Add a unit regression: store a record at gcs/members/A/<sender> whose body names scope B, call Leave(A) and RedeemInvite for an A invite, and assert both fail and gcs/members/B/<sender> is unchanged."
 deferred:
   - truth: "Room keys survive restart and reach a second application process (CR-07)"
     addressed_in: "Explicitly deferred by user decision — no later phase assigned"
-    evidence: "ROADMAP.md Phase 4: 'Deferred (recorded, not in this gap-closure set): CR-07 — room keys live in a process-local store, so a second application process (or a restart without the invite material) cannot decrypt a room's key material.' Not counted as an open gap for this phase."
+    evidence: "ROADMAP.md Phase 4 deferral note; Waves 5-11 and 04-19..04-22 do not address it. Room keys remain in the process-local gcs_crypto store."
+human_verification:
+  - test: "Invite link end-to-end (visual)"
+    expected: "Generate a space and a room invite; the invite view shows a gcs://invite/... link with a Copy action and copying preserves the URL."
+    why_human: "Clipboard integration and rendered link presentation."
+  - test: "Scope isolation of the invite view"
+    expected: "Open scope A's invite view, close it, open scope B's; B never shows A's link."
+    why_human: "Interactive drawer state across scopes."
+  - test: "Join flow"
+    expected: "Paste a valid link: Join enables, the dialog closes, and the member appears. Paste an invalid shape: the inline error keeps the dialog open."
+    why_human: "Interactive Flutter flow."
+  - test: "Post-join room access (WR-01)"
+    expected: "After redeeming a standalone-room invite and a space invite with autoJoinRooms, the joined room(s) become selectable without restarting the app. This currently FAILS by inspection: kRedeem does not refresh derived joins or push RoomList."
+    why_human: "Live multi-cubit state; verify the user-visible impact and confirm the warning is still open."
+  - test: "Role badges and gating"
+    expected: "Five-tier badges, the 'You' marker, and role-gated affordances match the UI spec for each tier."
+    why_human: "Visual/presentation checks."
+  - test: "Pending-op surface"
+    expected: "With 2+ admins, a removal shows a Pending badge and the Super Admin Approve affordance activates it; a target re-redeeming an invite does not clear the badge."
+    why_human: "Multi-actor UI state."
+  - test: "Two live nodes (production config)"
+    expected: "Mint on A, redeem on B (not joined); B joins as Guest and both rosters converge."
+    why_human: "Live-node smoke check (automated multinode proof exists)."
 ---
 
 # Phase 4: Membership & Invites Verification Report
 
-**Phase Goal:** Users can invite others via capability tokens, and the five-tier role model (Super Admin → Guest) governs what actions each participant can take.
-**Verified:** 2026-10-19T00:34:00Z
+**Phase Goal:** Users can invite others via capability tokens, and the five-tier role model (Super Admin -> Guest) governs what actions each participant can take.
+**Verified:** 2026-10-20T01:22:51Z
 **Status:** gaps_found
-**Re-verification:** Yes — after gap-closure waves 7-11 (plans 04-13 .. 04-18)
+**Re-verification:** Yes — after gap-closure waves 04-19 through 04-22 (signed member authority, coerced pending state, wire-level attacker exclusion)
 
 ## Goal Achievement
 
@@ -100,120 +87,120 @@ deferred:
 
 | # | Truth | Status | Evidence |
 | --- | --- | --- | --- |
-| 1 | SC1: User can generate a `gcs://invite/...` link for a space or room | ✓ VERIFIED | `MintInvite` (gcs_membership.cpp:683-869) emits `gcs://invite/{space\|room}/<scopeId>/<inviteId>?key=<IK>` and fails closed without the issuer seam (703-709); signed before Put (842-858). `InviteMintsSpaceInviteLinkWithCapabilityShape` and scoped-URL FFI tests pass. |
-| 2 | SC2: Recipient can use the invite to join and appears in the member list | ✓ VERIFIED | `SpaceInviteConvergesWithoutTheRecipientJoiningTheSpace` (multinode:560) proves a cold node redeems on `kMembershipTopic` and both rosters show 2 members. Warning: the FFI redeem arm does not refresh derived joins or push `RoomList` (WR-01), so room access lag until restart/unrelated command. |
-| 3 | SC3: Each participant has a visible five-tier role | ✓ VERIFIED | Five-tier `Role` enum (proto:208-214); `MemberList` carries roles + `self_address`; Dart 80 passed / 1 skipped. Caveat: the roster's trustworthiness is tracked under truth 29. |
-| 4 | SC4: Super Admin (creator) cannot be demoted by other admins | ✓ VERIFIED | `CanChangeRole` rejects any non-SUPER_ADMIN change targeting the creator (gcs_membership.cpp:585-591); `CanRemoveMember` rejects the creator (650-653); `CreatorDemotionIsRejected` and `ChangeRoleRejectsDemotingCreator` pass. Caveat: the unauthenticated member record can be overwritten on the wire (truth 29 blocker). |
-| 5 | SC5: When 2+ admins exist, destructive actions require Super Admin approval | ✗ FAILED | Dormancy/Approve now work for all three commands (RemoveMember 1269-1290, ChangeRole 1217-1241, DeleteScope 1326-1365, Approve 1397-1530; `DeleteScopeDormantThenApproved` passes) and AdminCount fails closed (399-432). Remaining: unauthenticated MemberRecords let any topic writer publish a tombstone/role record directly, bypassing approval; ChangeRole also clears a pending REMOVE (WR-05). |
-| 6 | Proto carries Role/MemberRecord/MemberList/InviteLink/InviteRecord + creator/members_can_invite + 7 command / 2 event arms, append-only | ✓ VERIFIED | proto:203-318; command arms 6-12 and event arms 7-8 appended with no renumbering (proto:57-68, 104-111); `InviteRecord.created_by=6`, `issuer_signature=7` appended. |
-| 7 | 32-byte room key AES-256-GCM wrap/unwrap; per-room key store; D-08 envelope/HKDF unchanged | ✓ VERIFIED | `test_gcs_crypto` passes; `WrapRoomKey`/`UnwrapRoomKey`/`RoomKeyFor` unchanged. Warning: store remains process-local (CR-07, deferred). |
-| 8 | MintInvite persists ONE invite record, writes NO member record, wraps keys under IK | ✓ VERIFIED | gcs_membership.cpp:683-869; `MintPersistsInviteRecordAndWritesNoMember` passes. |
-| 9 | RedeemInvite writes the redeemer's wallet-keyed member record and stores the key; multi-use | ✓ VERIFIED | gcs_membership.cpp:1140-1194; `RedeemWritesMemberStoresKeyAndIsMultiUse` passes. Merge semantics: existing live member keeps stored state (1167-1184). |
-| 10 | ChangeRole rejects demotion targeting the scope creator | ✓ VERIFIED | gcs_membership.cpp:585-591; `CreatorDemotionIsRejected` passes. |
-| 11 | RemoveMember/ChangeRole(demotion)/DeleteScope dormant when 2+ admins; Approve activates | ✓ VERIFIED | **Gap closed (04-14/CR-06).** DeleteScope routes through `ApplySpaceState`/`ApplyRoomState` (1360, 1385), which Put outside `m_catalogMutex` then publish the stored record (gcs_entity_store.cpp:352-389); Approve's entity branch re-reads authoritative bytes and applies (1477-1530). `DeleteScopeDormantThenApproved` + `Apply*StatePublishesTombstoneToCatalogAndStore` pass. |
-| 12 | MintInvite gated by author role + members_can_invite (MEMB-05) | ✓ VERIFIED | `CanInvite`/`CanInviteFor` (549-574); `membersCanInviteGatesMemberMinting` passes. Caveat: authority source is an unauthenticated member record (truth 29). |
-| 13 | MembersFor prefix-scans, skips tombstones, stamps self_address | ✓ VERIFIED | gcs_membership.cpp:495-527; unit + FFI tests. Warning: no body-vs-key validation (WR-04). |
-| 14 | Creator + members_can_invite stamped; UpdateSpace preserves creator | ✓ VERIFIED | gcs_entity_store.cpp:200-253; entity suite passes. |
-| 15 | gcs_init constructs Membership + heal callback so remote membership converges | ✓ VERIFIED | gcs_core_ffi.cpp:1001-1022 (topic registration), 1279-1286 (construction); multinode convergence tests pass. |
-| 16 | The seven command arms validate, guard, delegate, and push | ✓ VERIFIED | gcs_core_ffi.cpp:1720-1900; FFI suite passes. |
-| 17 | P5 guards on send_text/create_room/update_space; create paths stamp creator/members_can_invite | ✓ VERIFIED | gcs_core_ffi.cpp:1472-1484, 1587-1600, 1668-1680 (`ScopeHasRoster`/`RoleAtLeast`). Warning: ScopeHasRoster fails open (WR-07). |
-| 18 | Derived joins respect explicit_leave (D-02) | ✓ VERIFIED | `HasExplicitLeave` (539-547); membership tests cover both branches. Warning: Leave does not refresh derived joins (WR-01). |
-| 19 | Dart MembersCubit + dispatch arms + self flag | ✓ VERIFIED | members_cubit.dart; session_cubit.dart:525; Dart suite green. |
-| 20 | UI surfaces: members dialog, invite view, join dialog, rail affordances, pending badges | ✓ VERIFIED | Dart suite green; visual checks remain human. Warnings WR-09 (self change-role), WR-01 (post-join room access). |
-| 21 | Concurrent membership and entity-mutating commands do not corrupt shared state (prior CR-01) | ✓ VERIFIED | `m_catalogMutex` guards all catalog readers/writers; `ConcurrentCatalogReadsAndRoomCreatesDoNotRace` passes. |
-| 22 | Rank-strict removal guard: Moderator cannot remove Admin; Admin cannot remove non-creator Super Admin (WR-02) | ✓ VERIFIED | `CanRemoveMember` strict outrank (642-670); `ModeratorCannotRemoveAdminAndAdminCannotRemoveSuperAdmin` passes. |
-| 23 | Demoting a non-creator Super Admin with 2+ admins writes a dormant role change (WR-03) | ✓ VERIFIED | Rank-based `isAdminDemotion` (1226-1234); `SuperAdminDemotionIsDormantWhenTwoAdmins` passes. |
-| 24 | The bearer key gates every redeem; no key/no authenticator writes no member record (WR-04) | ✓ VERIFIED | Unconditional `verifyAuth` before any write (987-1005); `ForgedOrKeylessSpaceInviteWritesNoMemberRecord` passes. Warning: gate is seam-optional (WR-06). |
-| 25 | Tombstone arrival pushes the filtered roster; remote removal converges (WR-05) | ✓ VERIFIED | `OnMemberArrived` pushes (1536-1560); `RemovedMemberReceivesTheConvergedRoster` passes. |
-| 26 | Membership replicates on a registered well-known topic; an unjoined recipient redeems (WR-06) | ✓ VERIFIED | `kMembershipTopic` registered listen-then-broadcast at init (gcs_core_ffi.cpp:1015-1022); multinode suite passes. |
-| 27 | Teardown releases Membership before the session/catalog it borrows (WR-01 prior) | ✓ VERIFIED | gcs_core_ffi.cpp:358-425: globals evicted, `g_inviteAccount` reset, `membership.reset()` before `session->Shutdown()` and `entities.reset()`. |
-| 28 | Invite view renders the link for its own scope; clear-on-close (WR-07) | ✓ VERIFIED | `_pendingInviteLinks[scopeId]`/`pendingInviteLinkFor`/`clearPendingInviteLink` (session_cubit.dart:164-185, 536-540); widget tests pass. |
-| 29 | The role model governs what actions each participant can take — no self-granted escalation, and redeem does not rewrite stored role/pending state | ✗ FAILED | Invite grants are now issuer-signed and authority-checked (1021-1082), redeem merges live state and rejects tombstones (1007-1019, 1158-1194), and CanChangeRole enforces concrete roles + strict outrank (592-638). Remaining blocker: MemberRecord is unauthenticated and drives every authorization decision (truth-29 gap above); WR-02 role-based creator exception; WR-03 unvalidated `pending_role` in Approve. |
-| 30 | A removed (tombstoned) member cannot rejoin via a stale invite | ✓ VERIFIED | **Gap closed (04-13/CR-02).** `RedeemInvite` rejects `existing.deleted()` after the authenticator gate and before the unwrap loop (1007-1019); `TombstonedMemberCannotRedeemStaleInvite` asserts stored bytes and scan count are unchanged. |
+| 1 | SC1: User can generate a `gcs://invite/...` link for a space or room | VERIFIED | `MintInvite` (gcs_membership.cpp:1260-1446) emits `gcs://invite/{space\|room}/<scopeId>/<inviteId>?key=<IK>` and fails closed without the issuer seam. `MintStampsIssuerAndSignatureAndScopedUrl` passes. |
+| 2 | SC2: Recipient can use the invite to join and appears in the member list | VERIFIED | `SpaceInviteConvergesWithoutTheRecipientJoiningTheSpace` passes; both rosters show 2 members. Warning WR-01: the FFI redeem arm still does not refresh derived joins/push RoomList. |
+| 3 | SC3: Each participant has a visible five-tier role | VERIFIED | Five-tier `Role` enum (proto:207-214); `MemberList` carries roles + `self_address`; Dart 80 passed / 1 skipped. Roster authenticity is verified (truths 13/29). |
+| 4 | SC4: Super Admin (creator) cannot be demoted by other admins | VERIFIED | `CanChangeRole` rejects any non-SUPER_ADMIN change targeting the creator (1161-1165); `CanRemoveMember` rejects the creator (1227-1230); `CreatorDemotionIsRejected` and `CreatorIdentityIsTheOnlyCreatorException` pass. |
+| 5 | SC5: When 2+ admins exist, destructive actions require Super Admin approval | VERIFIED | Command paths: RemoveMember dormant predicate (1879-1901), ChangeRole admin demotion dormant (1825-1840), DeleteScope needsApproval (1976-2029), Approve activates and re-validates (2036-2206); AdminCount fails closed (866-919); pending state coherent (ChangeRole rejects pending REMOVE at 1808; RemoveMember clears pending_role). `TwoAdminRemovalIsDormantUntilApproved`, `DeleteScopeDormantThenApproved`, `ChangeRoleRejectedWhileRemovalIsPending` pass. Caveats: WR-11 (update_space drops pending fields) and a wire-level admin-immediate-tombstone divergence are listed under Anti-Patterns. |
+| 6 | Proto carries Role/MemberRecord/MemberList/InviteLink/InviteRecord + creator/members_can_invite + 7 command / 2 event arms, append-only | VERIFIED | proto:203-310; `MemberRecord` fields 12-15 appended without touching 1-11; `InviteRecord` 6-7 appended; command arms 6-12 and event arms 7-8 appended. |
+| 7 | 32-byte room key AES-256-GCM wrap/unwrap; per-room key store; D-08 envelope/HKDF unchanged | VERIFIED | `test_gcs_crypto` passes; Wrap/Unwrap/RoomKeyFor/DeriveRoomKey present. Store remains process-local (CR-07, deferred). |
+| 8 | MintInvite persists ONE invite record, writes NO member record, wraps keys under IK | VERIFIED | gcs_membership.cpp:1260-1446; `MintPersistsInviteRecordAndWritesNoMember` passes. |
+| 9 | RedeemInvite writes the redeemer's wallet-keyed member record and stores the key; multi-use | VERIFIED | gcs_membership.cpp:1724-1783; `RedeemWritesMemberStoresKeyAndIsMultiUse` passes. Existing live member keeps stored authority (1752-1770). |
+| 10 | ChangeRole rejects demotion targeting the scope creator | VERIFIED | gcs_membership.cpp:1161-1165; `CreatorDemotionIsRejected` passes. |
+| 11 | RemoveMember/ChangeRole(demotion)/DeleteScope dormant when 2+ admins; Approve activates | VERIFIED | Command predicates + AdminCount fail-closed + catalog mutators; `DeleteScopeDormantThenApproved`, `AdminDemotionIsDormantWhenTwoAdmins`, `TwoAdminRemovalIsDormantUntilApproved` pass. Warning WR-11. |
+| 12 | MintInvite gated by author role + members_can_invite (MEMB-05) | VERIFIED | `CanInvite`/`CanInviteFor` (1123-1148); `membersCanInviteGatesMemberMinting` passes. |
+| 13 | MembersFor prefix-scans, skips tombstones, stamps self_address, verifies records | VERIFIED | gcs_membership.cpp:1048-1101 verifies before the tombstone skip and derives the wallet from the key; unit/FFI tests pass. |
+| 14 | Creator + members_can_invite stamped; UpdateSpace preserves creator | VERIFIED | gcs_entity_store.cpp:195-235 (creator) and UpdateSpace preserves creator (293-350); entity suite passes. WR-11: approved_by/pending_action are not preserved. |
+| 15 | gcs_init constructs Membership + heal callback so remote membership converges | VERIFIED | gcs_core_ffi.cpp:1105-1132 (callback), 1279-1291 (construction); multinode convergence tests pass. |
+| 16 | The seven command arms validate, guard, delegate, and push | VERIFIED | gcs_core_ffi.cpp:1701-1900; FFI suite passes. Warnings WR-01/WR-08. |
+| 17 | P5 guards on send_text/create_room/update_space; create paths stamp creator/members_can_invite | VERIFIED | gcs_core_ffi.cpp:1473, 1588, 1669; entity/FFI tests pass. Warning WR-07. |
+| 18 | Derived joins respect explicit_leave (D-02) | VERIFIED | `HasExplicitLeave` (1113-1121); membership tests cover both branches. Warning WR-01: leave does not refresh derived joins. |
+| 19 | Dart MembersCubit + dispatch arms + self flag | VERIFIED | `members_cubit.dart` byScope/setMembers/self (76-219); `session_cubit.dart:540`; Dart suite green. |
+| 20 | UI surfaces: members dialog, invite view, join dialog, rail affordances, pending badges | VERIFIED | Dart suite green; visual checks remain human. Warning WR-09 (self change-role). |
+| 21 | Concurrent membership and entity-mutating commands do not corrupt shared state | VERIFIED | `m_catalogMutex` guards catalog readers/writers; `ConcurrentCatalogReadsAndRoomCreatesDoNotRace` passes. |
+| 22 | Rank-strict removal guard: Moderator cannot remove Admin; Admin cannot remove non-creator Super Admin | VERIFIED | `CanRemoveMember` strict outrank (1231-1247); `ModeratorCannotRemoveAdminAndAnUnverifiableSuperAdminGrantsNothing` passes. |
+| 23 | Demoting a non-creator Super Admin with 2+ admins writes a dormant role change | VERIFIED | Rank-based `isAdminDemotion` (1825-1833); `AdminDemotionIsDormantWhenTwoAdmins` passes. |
+| 24 | The bearer key gates every redeem; no key/no authenticator writes no member record | VERIFIED | Unconditional `verifyAuth` before any write (1564-1582); `ForgedOrKeylessSpaceInviteWritesNoMemberRecord`, `ChildlessSpaceInviteIsBearerGated` pass. Warning WR-06: gate is seam-optional. |
+| 25 | Tombstone arrival pushes the filtered roster; remote removal converges | VERIFIED | `OnMemberArrived` (2209-2246); `RemovedMemberReceivesTheConvergedRoster` passes. |
+| 26 | Membership replicates on a registered well-known topic; an unjoined recipient redeems | VERIFIED | `kMembershipTopic` registered listen-then-broadcast at init (gcs_core_ffi.cpp:1004-1022); multinode suite passes. |
+| 27 | Teardown releases Membership before the session/catalog it borrows | VERIFIED | gcs_core_ffi.cpp:350-425 evicts globals and resets membership before session shutdown/entities. Warning WR-12: failed init paths do not pair the embedded SDK boot. |
+| 28 | Invite view renders the link for its own scope; clear-on-close | VERIFIED | `_pendingInviteLinks[scopeId]` / `pendingInviteLinkFor` / `clearPendingInviteLink` (session_cubit.dart:167-181, 540); widget tests pass. |
+| 29 | The role model governs what actions each participant can take — no self-granted escalation, and redeem does not rewrite stored role/pending state | FAILED | Signed writes/verified reads/matrix/write-once root are implemented and the wire-level injected-authority tests pass. Remaining blocker: RedeemInvite/Leave copy an unverified raw record whose body can name another scope, and WriteMemberPreservingAuthority keys the write from that body — an honest node can be made to overwrite another scope's member/creator record with unverifiable bytes (04-REVIEW CR-01). |
+| 30 | A removed (tombstoned) member cannot rejoin via a stale invite | VERIFIED | `RedeemInvite` rejects `existing.deleted()` before unwrap/store (1597-1603); `TombstonedMemberCannotRedeemStaleInvite` asserts stored bytes and scan count unchanged. |
 
-**Score:** 28/30 truths verified
+**Score:** 29/30 truths verified
 
 ### Deferred Items
 
 | # | Item | Addressed In | Evidence |
 | --- | --- | --- | --- |
-| 1 | CR-07 — room keys live in a process-local store; they do not survive restart or reach another process | Deferred by user decision; no later phase assigned | ROADMAP.md Phase 4 deferral note (Waves 5-11 do not address it) |
+| 1 | CR-07 — room keys live in a process-local store; they do not survive restart or reach another process | Deferred by user decision; no later phase assigned | ROADMAP.md Phase 4 deferral note; not addressed by Waves 5-11 or 04-19..04-22 |
+| 2 | Exclusion-not-rollback — a hostile raw record stays at its original key while rosters and authority exclude it | Accepted design residual (04-22-SUMMARY.md) | Not a gap; recovery is proven by restoring the saved creator-signed record |
+| 3 | A never-synced node trusts a signed `prior_role` (cold-start predecessor gap) | Accepted design residual (04-22-SUMMARY.md) | Not a gap for this phase; the node-local predecessor cache warms on first verified read |
 
 ### Required Artifacts
 
 | Artifact | Expected | Status | Details |
 | --- | --- | --- | --- |
-| `src/proto/gcs_chat.proto` | Append-only membership wire contract | ✓ VERIFIED | Role/PendingAction/WrappedRoomKey/MemberRecord/MemberList/InviteLink/InviteRecord + creator/members_can_invite + 7 command / 2 event arms. `InviteRecord` gained `created_by=6`/`issuer_signature=7`; `MemberRecord` still has no issuer/signature (truth 29). |
-| `src/lib/gcs_crypto.hpp/.cpp` | Key-wrap + per-room key store + ikm swap + invite authenticator + hex codec | ✓ VERIFIED | Wrap/Unwrap/RoomKeyFor/DeriveRoomKey/MintInviteAuthenticator/VerifyInviteAuthenticator/HexEncode/HexDecode present; crypto suite passes. Store is process-local (CR-07 deferred). |
-| `src/lib/gcs_membership.hpp/.cpp` | Membership component (roster, roles, invites, approval) | ⚠️ PARTIAL | Redeem merge/tombstone rejection, issuer signing/verification, scoped lookup, role cap, AdminCount fail-closed, entity-mutator routing all present and tested. Member records remain unauthenticated; WR-02/WR-03/WR-05 remain (truths 5/29). |
-| `src/lib/gcs_entity_store.hpp/.cpp` | Creator/members_can_invite stamping + synchronized catalog + deletion mutators | ✓ VERIFIED | `ApplySpaceState`/`ApplyRoomState` Put outside `m_catalogMutex` and publish the stored record under it (352-389); entity tests pass. |
-| `src/ffi/gcs_core_ffi.cpp` | Membership construction + heal callback + 7 arms + guards + lifecycle + issuer seam | ✓ VERIFIED | Membership topic at init (1015-1022); account-backed sign/verifyIssuer with fail-closed posture (1195-1278); teardown order correct (358-425). Warnings WR-01/WR-07/WR-08. |
-| `src/app/lib/cubits/members_cubit.dart` | Per-scope roster state + MemberInfo | ✓ VERIFIED | Dart tests pass. |
-| `src/app/lib/cubits/session_cubit.dart` | Scope-keyed pending invite link | ✓ VERIFIED | `_pendingInviteLinks`, `pendingInviteLinkFor`, `clearPendingInviteLink`. |
-| `src/app/lib/shell/members_dialog.dart` | Member list + scope-keyed invite view + confirmations | ✓ VERIFIED | Widget tests pass; WR-09 self change-role warning. |
-| `src/app/lib/shell/join_dialog.dart` | Paste-invite redeem flow | ✓ VERIFIED | `kInviteLinkPattern` accepts two path segments (`space\|room/<scope>/<invite>?key=`); tests pass. |
-| `src/app/lib/generated/proto/gcs_chat.pb.dart` | Regenerated Dart bindings | ✓ VERIFIED | Exposes `createdBy`/`issuerSignature` (2258-2379), `InviteLink.scopeId`. |
-| `test/test_gcs_invite_helpers.hpp` | Canonical issuer-payload builder shared by unit and multinode suites | ✓ VERIFIED | `BuildInviteIssuerPayload` used by both suites. |
+| `src/proto/gcs_chat.proto` | Append-only membership wire contract | VERIFIED | Role/PendingAction/WrappedRoomKey/MemberRecord/MemberList/InviteLink/InviteRecord + creator/members_can_invite + 7 command / 2 event arms. `MemberRecord` fields 12-15 (created_by, record_signature, leave_signature, prior_role) appended without touching 1-11. |
+| `src/lib/gcs_crypto.hpp/.cpp` | Key-wrap + per-room key store + ikm swap + invite authenticator + hex codec | VERIFIED | Wrap/Unwrap/RoomKeyFor/DeriveRoomKey/MintInviteAuthenticator/VerifyInviteAuthenticator/HexEncode/HexDecode present; crypto suite passes. Store is process-local (CR-07 deferred). IN-05: verify accepts any non-empty key length. |
+| `src/lib/gcs_membership.hpp/.cpp` | Membership component (roster, roles, invites, approval, signed authority) | PARTIAL | Signed writes (`WriteMemberAsAuthor` 921-980), verified reads (433-459, 518-857, 1048-1101), transition matrix (518-819), write-once root (2248-2330), coherent pending state, identity creator exception (1195), validated Approve (2074-2112) all present and tested. Raw RedeemInvite/Leave paths lack the scope binding and propagate unverified bytes (CR-01, truth 29). |
+| `src/lib/gcs_entity_store.hpp/.cpp` | Creator/members_can_invite stamping + synchronized catalog + deletion mutators | VERIFIED | CreateSpace/CreateRoom stamp creator; `ApplySpaceState`/`ApplyRoomState` Put outside `m_catalogMutex` then publish under it (352-389). Warning WR-11: `UpdateSpace` resets `approved_by`/`pending_action`. |
+| `src/ffi/gcs_core_ffi.cpp` | Membership construction + heal callback + 7 arms + guards + lifecycle + issuer seam | VERIFIED | Membership topic at init (1004-1022); construction/seam (1105-1291); teardown (350-425). Warnings WR-01 (no derived-join refresh on redeem/leave), WR-07 (ScopeHasRoster fails open), WR-08 (scan failure pushed as empty roster), WR-12 (failed-init SDK teardown), WR-13 (orphan scope on creator-root failure). |
+| `src/app/lib/cubits/members_cubit.dart` | Per-scope roster state + MemberInfo | VERIFIED | byScope, setMembers, self flag (76-219); Dart tests pass. |
+| `src/app/lib/cubits/session_cubit.dart` | Scope-keyed pending invite link | VERIFIED | `_pendingInviteLinks`, `pendingInviteLinkFor`, `clearPendingInviteLink` (167-181, 540). |
+| `src/app/lib/shell/members_dialog.dart` | Member list + scope-keyed invite view + confirmations | VERIFIED | Widget tests pass. Warning WR-09: change-role affordance on the viewer's own row. |
+| `src/app/lib/shell/join_dialog.dart` | Paste-invite redeem flow | VERIFIED | `kInviteLinkPattern` accepts the two-segment scoped URL; tests pass. |
+| `src/app/lib/generated/proto/gcs_chat.pb.dart` | Regenerated Dart bindings | VERIFIED | Exposes `createdBy`/`recordSignature`/`priorRole`/`issuerSignature`; Dart suite compiles and passes. |
+| `test/test_gcs_member_helpers.hpp` | Canonical issuer/leave payload + hex signature helpers shared by unit and multinode suites | VERIFIED | `BuildMemberIssuerPayload`, `BuildMemberLeavePayload`, `TestMemberSignatureHex`, `TestLeaveSignatureHex`. |
 
 ### Key Link Verification
 
 | From | To | Via | Status | Details |
 | --- | --- | --- | --- | --- |
-| `MintInvite` | `KeyWrapSeam::sign` | issuer signature over canonical payload before Put | WIRED | gcs_membership.cpp:842-858. |
-| `RedeemInvite` | `KeyWrapSeam::verifyIssuer` | verify against `created_by` before any member write | WIRED | gcs_membership.cpp:1021-1048. |
-| `RedeemInvite` | `CanInviteFor` | issuer authority when the scope resolves locally | WIRED | gcs_membership.cpp:1073-1082. |
-| `RedeemInvite` | `TryReadMember` | read-before-write merge + tombstone rejection | WIRED | gcs_membership.cpp:1011-1019, 1167-1189. |
-| `DeleteScope` | `EntityStore::ApplySpaceState`/`ApplyRoomState` | catalog-synchronized destructive write | WIRED | gcs_membership.cpp:1360, 1385. |
-| `Approve` (entity branch) | `EntityStore::ApplySpaceState`/`ApplyRoomState` | re-read authoritative bytes, apply tombstone, push | WIRED | gcs_membership.cpp:1477-1530. |
-| `AdminCount` | `CoreSession::QueryKeyValues` | scan failure propagated, never 0 | WIRED | gcs_membership.cpp:399-432; three propagating call sites. |
-| `CanChangeRole` | `TryReadMember` + `PrivilegeRank` | target's current role, strict outrank | WIRED | gcs_membership.cpp:607-628. |
-| `MemberRecord` | authorization source | signed issuer/record binding | NOT_WIRED | No signature fields (proto:236-250); `LocalRoleFor` trusts stored bytes (529-537) — root of truth 29/5. |
-| `kRedeem` / `kLeave` | `RefreshDerivedJoins` + `BuildRoomListEvent` | derived-join refresh after membership change | NOT_WIRED | `RefreshDerivedJoins` called only at init/create_room/update_space (gcs_core_ffi.cpp:1288, 1648, 1696) — WR-01. |
-| `CanChangeRole` creator exception | `IsSuperAdmin` | creator identity, not resolved role | NOT_WIRED | gcs_membership.cpp:618-621 uses `author == ROLE_SUPER_ADMIN` — WR-02. |
-| `Approve` | concrete-role guard | re-validate `pending_role` before applying | NOT_WIRED | gcs_membership.cpp:1427-1432 — WR-03. |
-| `gcs_init` | `Membership` + `kMembershipTopic` | construction + listen-then-broadcast | WIRED | gcs_core_ffi.cpp:1015-1022, 1279-1286. |
-| `gcs_shutdown` | `g_membership`/`g_inviteAccount` | evict/reset before session shutdown | WIRED | gcs_core_ffi.cpp:358-425. |
+| `MintInvite` | `KeyWrapSeam::sign` | issuer signature over canonical payload before Put | WIRED | gcs_membership.cpp:1419-1446. |
+| `RedeemInvite` | `KeyWrapSeam::verifyIssuer` | verify against `created_by` before any member write | WIRED | gcs_membership.cpp:1605-1632. |
+| `RedeemInvite` | `CanInviteFor` | issuer authority when the scope resolves locally | WIRED | gcs_membership.cpp:1657-1666. |
+| `RedeemInvite` / `Leave` | `WriteMemberPreservingAuthority` | write-key binding to the requested scope | NOT_WIRED | Raw record read at 1589/1931; only address/deleted checked; write key derived from `record.scope_id()` at 1000/1007. CR-01. |
+| `DeleteScope` | `EntityStore::ApplySpaceState`/`ApplyRoomState` | catalog-synchronized destructive write | WIRED | gcs_membership.cpp:1996-2029. |
+| `Approve` (entity branch) | `EntityStore::ApplySpaceState`/`ApplyRoomState` | re-read authoritative bytes, apply tombstone, push | WIRED | gcs_membership.cpp:2146-2199. |
+| `AdminCount` | `CoreSession::QueryKeyValues` | scan failure propagated, never 0 | WIRED | gcs_membership.cpp:866-919; three propagating call sites. |
+| `CanChangeRole` | `TryReadMember` + `PrivilegeRank` | target's current role, strict outrank | WIRED | gcs_membership.cpp:1181-1216. |
+| `MemberRecord` | authorization source | signed issuer/record binding verified on every read | WIRED | VerifyMemberRecord (518-819) called from TryReadMember, MembersFor, AdminCount, OnMemberArrived, OnScopeCreated. |
+| `kRedeem` / `kLeave` | `RefreshDerivedJoins` + `BuildRoomListEvent` | derived-join refresh after membership change | NOT_WIRED | `RefreshDerivedJoins` only at init/create_room/update_space; kRedeem pushes SpaceTree only, kLeave pushes MemberList only (gcs_core_ffi.cpp:1736-1764, 1818-1844). WR-01. |
+| `CanChangeRole` creator exception | `IsSuperAdmin` | creator identity, not resolved role | WIRED | gcs_membership.cpp:1195. |
+| `Approve` | concrete-role guard | re-validate `pending_role`/creator target before applying | WIRED | gcs_membership.cpp:2074-2112. |
+| `gcs_init` | `Membership` + `kMembershipTopic` | construction + listen-then-broadcast | WIRED | gcs_core_ffi.cpp:1004-1022, 1279-1291. |
+| `gcs_shutdown` | `g_membership`/`g_inviteAccount` | evict/reset before session shutdown | WIRED | gcs_core_ffi.cpp:350-425. |
 | `session_cubit.dart` | `MembersCubit.setMembers` / scope-keyed link | dispatch arms | WIRED | session_cubit.dart:520-540. |
 
 ### Data-Flow Trace (Level 4)
 
 | Artifact | Data Variable | Source | Produces Real Data | Status |
 | --- | --- | --- | --- | --- |
-| members_dialog roster | `members.state.byScope[scopeId]` | Pushed `MemberList` → `Membership::MembersFor` prefix scan over CRDT member records | Yes (but records are unauthenticated — truth 29) | ⚠️ FLOWING / UNTRUSTED SOURCE |
-| members_dialog invite view | `session.pendingInviteLinkFor(scopeId)` | Pushed `InviteLink` from `MintInvite`; scope stamped by C++ | Yes | ✓ FLOWING |
-| room_rail pending deletion badge | `SpaceRecord.pending_action` / `deleted` | Pushed `SpaceTree` → `EntityStore::Spaces()` after `ApplySpaceState` | Yes — **gap closed** (04-14) | ✓ FLOWING |
-| members_dialog pending removal badge | `MemberRecord.pending_action` | Pushed `MemberList` → member records; preserved across redeem | Yes — **gap closed** (04-13) | ✓ FLOWING |
-| post-redeem room access | `RoomList` / derived-join topics | FFI `kRedeem` pushes only `SpaceTree`; no `RefreshDerivedJoins` | No | ✗ DISCONNECTED (WR-01) |
-| post-leave derived joins | `explicit_leave` → `DerivedJoinedTopics` | FFI `kLeave` writes the flag but never recomputes/pushes | No | ✗ DISCONNECTED (WR-01) |
+| members_dialog roster | `members.state.byScope[scopeId]` | Pushed `MemberList` -> `Membership::MembersFor` prefix scan over verified member records | Yes (unverifiable records excluded) | FLOWING |
+| members_dialog invite view | `session.pendingInviteLinkFor(scopeId)` | Pushed `InviteLink` from `MintInvite`; scope stamped by C++ | Yes | FLOWING |
+| room_rail pending deletion badge | `SpaceRecord.pending_action` / `deleted` | Pushed `SpaceTree` -> `EntityStore::Spaces()` after `ApplySpaceState` | Yes | FLOWING |
+| members_dialog pending removal badge | `MemberRecord.pending_action` | Pushed `MemberList` -> verified member records; preserved across redeem | Yes | FLOWING |
+| post-redeem room access | `RoomList` / derived-join topics | FFI `kRedeem` pushes only `SpaceTree`; no `RefreshDerivedJoins` | No | DISCONNECTED (WR-01) |
+| post-leave derived joins | `explicit_leave` -> `DerivedJoinedTopics` | FFI `kLeave` writes the flag but never recomputes/pushes | No | DISCONNECTED (WR-01) |
 
 ### Behavioral Spot-Checks
 
 | Behavior | Command | Result | Status |
 | --- | --- | --- | --- |
-| Full C++ suite | `ctest --test-dir build/OSX/Debug --output-on-failure` | 13/13 passed (190.47s) | ✓ PASS |
-| Membership, multinode, entities, crypto, FFI | `ctest -R "test_gcs_(membership|membership_multinode|entities|crypto|ffi)$"` | 5/5 passed (114.53s) | ✓ PASS |
-| Dart app suite | `cd src/app && flutter test` | 80 passed, 1 skipped, 0 failed | ✓ PASS |
-| Dormant removal survives redeem | `test_gcs_membership --gtest_filter=*DormantRemovalSurvivesRedeem*` (within suite) | Passed | ✓ PASS |
-| Tombstoned wallet rejected | `*TombstonedMemberCannotRedeemStaleInvite*` | Passed | ✓ PASS |
-| Dormant scope delete → approve | `*DeleteScopeDormantThenApproved*` | Passed | ✓ PASS |
-| AdminCount fail-closed | `*AdminCountScanFailurePropagatesAndFailsClosed*` | Passed | ✓ PASS |
-| Forged issuer on the wire | `test_gcs_membership_multinode` (`*ForgedIssuerSignatureCannotGrantARoleOnTheWire*`) | Passed | ✓ PASS |
-| Real-signer cross-node redeem | `*SpaceInviteConvergesWithoutTheRecipientJoiningTheSpace*` | Passed | ✓ PASS |
-| Role authority matrix | `*AdminCannotInitiateSuperAdminDemotion*`, `*ChangeRoleRejectsSuperAdminGrantAndUnspecifiedRole*` | Passed | ✓ PASS |
+| Full C++ suite | `ctest --test-dir build/OSX/Debug --output-on-failure` | 13/13 passed (200.46s) | PASS |
+| Membership unit suite | `ctest -R test_gcs_membership` | Passed (12.17s); 51/51 TEST_F cases | PASS |
+| Membership multinode suite | `ctest -R test_gcs_membership_multinode` | Passed (11.08s); 9/9 TEST_F cases | PASS |
+| Dart app suite | `cd src/app && flutter test` | 80 passed, 1 skipped, 0 failed | PASS |
+| Wire-injected self-signed Super Admin excluded | `WireInjectedSelfSignedSuperAdminIsNotAMember` (within multinode suite) | Passed | PASS |
+| Wire-injected hostile transitions excluded | `WireInjectedAuthorityTransitionsAreRejected` (within multinode suite) | Passed | PASS |
+| Cold-node late-metadata convergence | `ColdNodeConvergesWhenEntityMetadataArrivesAfterMemberRecord` | Passed | PASS |
+| Cross-scope raw-record write | No test exists | Code inspection confirms the defect (CR-01) | FAIL |
 
 ### Probe Execution
 
-No probe scripts are declared for this phase and none exist. Step 7c: SKIPPED (no probes).
+No probe scripts are declared for this phase and no `scripts/*/tests/probe-*.sh` files exist. Step 7c: SKIPPED (no probes).
 
 ### Requirements Coverage
 
 | Requirement | Source Plan | Description | Status | Evidence |
 | --- | --- | --- | --- | --- |
-| MEMB-01 | 04-01,02,03,05,07,09,10,11,12,13,15,16,18 | User can invite others via capability token (`gcs://invite/...`) | ✓ SATISFIED | Scoped, bearer-authenticated, issuer-signed invite minted at 683-869; redeem verifies signature/scope/kind/role cap/authority (938-1136); cross-node positive and forgery-negative multinode proofs pass. |
-| MEMB-02 | 04-01,02,03,05,06,07,08,09,12,15,17,18 | Space/room has roles: Super Admin, Admin, Moderator, Member, Guest | ✓ SATISFIED | Five-tier enum, roster pushes, UI labels/badges; enforcement caveat tracked under truth 29. |
-| MEMB-03 | 04-01,03,04,05,09,12,17 | Super Admin (creator) cannot be demoted by other admins | ✓ SATISFIED | ChangeRole creator guard + strict outrank (585-638); `CreatorDemotionIsRejected`, `AdminCannotInitiateSuperAdminDemotion` pass. Caveat: roster writes are unauthenticated (truth 29 blocker). |
-| MEMB-04 | 04-01,03,05,06,07,08,09,12,13,14 | Destructive actions require Super Admin approval when 2+ admins exist | ✗ BLOCKED | Command paths and catalog routing verified, but unauthenticated member records allow direct tombstone/role injection bypassing approval; ChangeRole can clear a pending REMOVE (WR-05). |
-| MEMB-05 | 04-01,02,03,04,05,07,09,10,11,15 | Members can invite others if `membersCanInvite` is enabled | ✓ SATISFIED | `CanInviteFor` gate + persisted flag + issuer-authority check at redeem; tests pass. Caveat: the authority source is an unauthenticated member record (truth 29). |
+| MEMB-01 | 04-01,02,03,05,07,09,10,11,12,13,15,16,18 | User can invite others via capability token (`gcs://invite/...`) | SATISFIED | Scoped, bearer-authenticated, issuer-signed invite minted at 1260-1446; redeem verifies signature/scope/kind/role cap/authority (1448-1783); cross-node positive and forgery-negative multinode proofs pass. |
+| MEMB-02 | 04-01,02,03,05,06,07,08,09,12,15,17,18,19,20,21,22 | Space/room has roles: Super Admin, Admin, Moderator, Member, Guest | SATISFIED | Five-tier enum, signed/verified roster, UI labels/badges; wiring caveat tracked under truth 29 (CR-01). |
+| MEMB-03 | 04-01,03,04,05,09,12,17,19,20,21,22 | Super Admin (creator) cannot be demoted by other admins | SATISFIED | ChangeRole creator guard + strict outrank (1161-1216); wire-level creator-target rejection; tests pass. |
+| MEMB-04 | 04-01,03,05,06,07,08,09,12,13,14,19,20,21,22 | Destructive actions require Super Admin approval when 2+ admins exist | SATISFIED | Command paths enforce dormancy, AdminCount fails closed, Approve re-validates, pending state is coherent. Caveats: WR-11 (update_space drops pending fields) and the wire-level admin-immediate-tombstone divergence noted under Anti-Patterns. |
+| MEMB-05 | 04-01,02,03,04,05,07,09,10,11,15,19 | Members can invite others if `membersCanInvite` is enabled | SATISFIED | `CanInviteFor` gate + persisted flag + issuer-authority check at redeem; tests pass. |
 
 No orphaned requirements: all five Phase 4 IDs appear in at least one plan's `requirements` field, and REQUIREMENTS.md maps exactly MEMB-01..05 to Phase 4.
 
@@ -221,47 +208,53 @@ No orphaned requirements: all five Phase 4 IDs appear in at least one plan's `re
 
 | File | Line | Pattern | Severity | Impact |
 | --- | --- | --- | --- | --- |
-| `src/proto/gcs_chat.proto`; `src/lib/gcs_membership.cpp` | 236-250; 371-390, 495-527, 529-537, 1536-1560 | `MemberRecord` has no issuer/signature; roster and every role decision trust stored bytes from a permissionless topic | 🛑 BLOCKER | Self-asserted `ROLE_SUPER_ADMIN` and direct tombstone/role injection; defeats the role model and the SC5 approval gate (truths 29/5). |
-| `src/lib/gcs_membership.cpp` | 618-621 | Creator exception tests resolved role, not `IsSuperAdmin` | ⚠️ WARNING | A forged SUPER_ADMIN record receives the creator's unrestricted role-change authority (WR-02). |
-| `src/lib/gcs_membership.cpp` | 1427-1432 | `Approve` applies `pending_role` without re-validation | ⚠️ WARNING | Attacker-controlled pending value can grant SUPER_ADMIN/UNSPECIFIED on approval (WR-03). |
-| `src/lib/gcs_membership.cpp` | 1235-1241, 1276-1280 | Pending-state transitions not reconciled | ⚠️ WARNING | A role change cancels a pending REMOVE without approval; RemoveMember leaves a stale `pending_role` (WR-05). |
-| `src/lib/gcs_membership.cpp` | 371-390, 434-456, 495-527 | Member write/read never validates body-vs-key | ⚠️ WARNING | A body/key-mismatched record can redirect a write to another scope/member key (WR-04). |
-| `src/ffi/gcs_core_ffi.cpp` | 1736-1763, 1818-1843 | `kRedeem`/`kLeave` do not refresh derived joins or push `RoomList` | ⚠️ WARNING | Invitee cannot open auto-join/standalone rooms until restart; leave takes effect only after restart (WR-01). |
-| `src/ffi/gcs_core_ffi.cpp` | 752-756 | `ScopeHasRoster` fails open | ⚠️ WARNING | A scan error downgrades Member+/Admin+ gates to no gate (WR-07). |
-| `src/ffi/gcs_core_ffi.cpp` | 596-611 | `BuildMemberListEvent` pushes an empty roster on scan failure | ⚠️ WARNING | Read failure renders as "No members yet" and removes role-gated affordances (WR-08). |
-| `src/lib/gcs_membership.cpp` | 823-840, 987-1005 | Invite bearer gate is seam-optional | ⚠️ WARNING | A partially wired seam silently produces/accepts ungated invites (WR-06). |
-| `src/lib/gcs_membership.cpp` | 1339-1391 | Space deletion does not cascade to child rooms; nested rooms cannot be deleted | ⚠️ WARNING | Orphaned rooms reappear as top-level; nested-room DeleteScope always denied (WR-10). |
-| `src/app/lib/shell/members_dialog.dart` | 318-324 | Change-role offered on the viewer's own row | ⚠️ WARNING | C++ always rejects self-targeting; guaranteed error toast (WR-09). |
-| `src/lib/gcs_crypto.cpp` | 44-252 | Room-key store is process-local | ⚠️ WARNING | CR-07 — explicitly deferred by user decision. |
+| `src/lib/gcs_membership.cpp` | 1000-1007, 1589-1596, 1752-1778, 1931-1952 | Raw-record copy derives the write key from an unverified body; no scope-id binding | BLOCKER | Cross-scope write: a hostile peer can make an honest node overwrite another scope's member/creator record with unverifiable bytes, collapsing that scope's verified authority (CR-01; truth 29). |
+| `src/lib/gcs_membership.cpp` | 698-725 vs 1879-1884 | Verifier accepts an admin-authored immediate tombstone of a below-admin target; the command path makes the same removal dormant when 2+ admins | WARNING | An authenticated Admin can publish a removal on the topic without Super Admin approval. Requires a design decision: enforce the author-admin-tier dormancy predicate in VerifyMemberRecord, or document that wire-level admin removals of lower-tier members are intentional. This warning does not affect unsigned/hostile peers. |
+| `src/lib/gcs_membership.cpp` | 1327-1338, 1738 | MintInvite wraps a topic-derived key for child rooms the minter does not hold; RedeemInvite overwrites an existing stored key | WARNING | A room can be registered under a topic-derived key; confidentiality degrades and an existing member's working key can be replaced (WR-14). |
+| `src/lib/gcs_membership.cpp` | 1752-1770, 1942-1952 | `explicit_leave` is never cleared by a later redeem/authority write | WARNING | A re-invited member is permanently excluded from derived joins (WR-15). |
+| `src/lib/gcs_membership.cpp` | 1400-1417, 1566-1582 | Invite bearer gate is seam-optional (fails open when unset) | WARNING | A partially wired seam silently removes the bearer-key precondition (WR-06). |
+| `src/lib/gcs_membership.cpp` | 1978-2030 | Space deletion does not cascade to child rooms; a nested room cannot be deleted alone | WARNING | Orphaned rooms reappear as top-level; nested-room DeleteScope is always denied (WR-10). |
+| `src/lib/gcs_membership.cpp` | 2168-2171, 2188-2191, 1992 | Entity `pending_action` is not cleared when deletion is activated | WARNING | Stored state `deleted && pending_action == DELETE` contradicts the member-path coherence rule (IN-07). |
+| `src/ffi/gcs_core_ffi.cpp` | 1736-1764, 1818-1844, 799-879 | `kRedeem`/`kLeave` do not refresh derived joins or push `RoomList` | WARNING | Invitee cannot open auto-join/standalone rooms until restart; leave takes effect only after restart (WR-01). |
+| `src/ffi/gcs_core_ffi.cpp` | 752-756 | `ScopeHasRoster` fails open on a scan error | WARNING | A transient read failure downgrades Member+/Admin+ gates to no gate (WR-07). |
+| `src/ffi/gcs_core_ffi.cpp` | 596-612 | `BuildMemberListEvent` pushes an empty roster on scan failure | WARNING | Read failure renders as "No members yet" and removes role-gated affordances (WR-08). |
+| `src/ffi/gcs_core_ffi.cpp` | 997-1022 | Failed init paths after the smoke/membership topic joins do not shut down the embedded SDK or clear `g_roomTopics` | WARNING | Resource leak for the process lifetime; a retry can duplicate smoke topics (WR-12). |
+| `src/ffi/gcs_core_ffi.cpp` | 1542-1555, 1627-1643 | Scope creation is not transactional; a failed creator root leaves an orphan scope | WARNING | The orphan can never acquire an authority root; standalone rooms also retain freshly minted key material (WR-13). |
+| `src/lib/gcs_entity_store.cpp` | 293-350 | `UpdateSpace` resets `approved_by`/`pending_action` on a full-state rewrite | WARNING | An Admin can cancel a dormant deletion by renaming the space without approval (WR-11). |
+| `src/app/lib/shell/members_dialog.dart` | 318-319 | Change-role affordance is offered on the viewer's own row | WARNING | C++ always rejects self-targeting; guaranteed error toast (WR-09). |
+| `src/lib/gcs_crypto.cpp` | 44-252 | Room-key store is process-local | WARNING | CR-07 — explicitly deferred by user decision. |
+| `src/lib/gcs_crypto.cpp` | 515-521 | `VerifyInviteAuthenticator` accepts any non-empty key length | WARNING | Verify contract is weaker than the documented 32-byte invariant (IN-05). |
+| `src/ffi/gcs_core_ffi.cpp` | 1786, 1812, 1838, 1864, 1891 | All membership failures map to one error | INFO | Causes cannot be distinguished by the user or logs (IN-03). |
+| `src/lib/gcs_membership.cpp` | 1011-1046, and FFI arms | Every membership mutation pushes `MemberList` twice | INFO | Two identical roster events per action (IN-04). |
 
-Debt-marker gate: no `TBD`/`FIXME`/`XXX` in any file modified by this phase (clean). No `sleep_for` in tests; no OS preprocessor guards in reviewed C++ sources.
+Debt-marker gate: no `TBD`/`FIXME`/`XXX` in any file modified by this phase (clean). No `sleep_for`/`sleep_until` in tests. No OS preprocessor guards in reviewed C++ sources. No hardcoded secrets, `eval`, shell, or raw stdio debug output found.
 
 ### Human Verification Required
-
-The following remain after automated checks (re-check after the gaps close):
 
 1. **Invite link end-to-end (visual)** — Generate a space and a room invite; confirm the invite view shows a `gcs://invite/...` link with a Copy action and that copying preserves the URL. Why human: clipboard + rendering.
 2. **Scope isolation of the invite view** — Open scope A's invite view, close it, open scope B's; confirm B never shows A's link. Why human: interactive drawer state.
 3. **Join flow** — Paste a valid link; confirm Join enables, the dialog closes, and the member appears. Paste an invalid shape; confirm the inline error keeps the dialog open. Why human: interactive Flutter flow.
-4. **Post-join room access (WR-01)** — After redeeming a standalone-room invite and a space invite with `autoJoinRooms`, confirm the joined room(s) are openable and receive messages without restarting the app. Expected after fix: the RoomList refresh makes them selectable immediately. Why human: multi-cubit live state.
+4. **Post-join room access (WR-01)** — After redeeming a standalone-room invite and a space invite with `autoJoinRooms`, confirm the joined room(s) are openable and receive messages without restarting the app. Currently expected to FAIL by inspection. Why human: multi-cubit live state.
 5. **Role badges and gating** — Confirm five-tier badges, the "You" marker, and role-gated affordances match the UI spec for each tier. Why human: visual/presentation.
-6. **Pending-op surface** — With 2+ admins, trigger a removal; confirm the Pending badge and Super-Admin Approve affordance activate the op; confirm a target re-redeeming an invite does not clear the badge. Why human: multi-actor UI state.
+6. **Pending-op surface** — With 2+ admins, trigger a removal; confirm the Pending badge and Super Admin Approve affordance activate the op; confirm a target re-redeeming an invite does not clear the badge. Why human: multi-actor UI state.
 7. **Two live nodes (production config)** — Mint on A, redeem on B (not joined); confirm B joins as Guest and both rosters converge. Why human: live-node smoke check (automated multinode proof exists).
 
 ### Gaps Summary
 
-Wave 7-11 closed the concrete defects from the previous verification: redeem now merges into an existing live member record and rejects tombstones before any side effect (CR-01/CR-02); `AdminCount` fails closed (CR-05); `DeleteScope`/`Approve` route through catalog-synchronized entity mutators, making dormant scope deletion reachable (CR-06); invites are issuer-signed with a scoped URL, exact-key lookup, Guest role cap, and issuer-authority check (CR-08); `CanChangeRole` enforces concrete roles and strict outrank (CR-03/CR-04). The full C++ suite (13/13), targeted suites (5/5), and the Dart suite (80 passed / 1 skipped) are green.
+Waves 04-19 through 04-22 closed the two prior blockers at their stated scope:
 
-Two goal-level truths remain failed, and they share one root cause plus two command-path defects:
+- **Truth 29's original clauses are implemented.** `MemberRecord` now carries `created_by`, `record_signature`, `leave_signature`, and `prior_role` (proto 249-266). Every authority write signs (`WriteMemberAsAuthor`, 921-980) and every authority read verifies (`VerifyMemberRecord`, 518-819; `TryReadMember`, `MembersFor`, `LocalRoleFor`, `AdminCount`, `OnMemberArrived`, `OnScopeCreated`). A validly self-signed SUPER_ADMIN record, a tampered role/timestamp, an insufficiently ranked signer, a creator-target transition, a peer-admin tombstone/demotion, a lying predecessor, a replayed pre-demotion/pre-tombstone record, and a flipped leave are all excluded from rosters and grants; the wire-level multinode proofs use real secp256k1 signatures and pass.
+- **Truth 5's command path is coherent.** Dormant removal/role-change/scope-delete, fail-closed `AdminCount`, re-validated `Approve`, pending-REMOVE write barrier, and pending-field clearing all pass their regression tests. The prior unauthenticated-topic-writer bypass is closed because unverifiable records never enter an authorization decision.
 
-- **Member records are unauthenticated (BLOCKER, truth 29).** `InviteRecord` was signed, but `MemberRecord` still has no issuer or signature. Every authorization decision (`LocalRoleFor` → `CanDelete`/`CanRemoveMember`/`CanChangeRole`) and every pushed roster is derived from values any peer can publish on the membership replication topic. A peer can self-assert `ROLE_SUPER_ADMIN` and, separately, publish a tombstone or demoting role for any wallet. `CanChangeRole`'s creator exception also tests the role instead of `IsSuperAdmin` (WR-02), and `Approve` applies an unvalidated `pending_role` (WR-03).
-- **The SC5 approval gate is not enforceable (BLOCKER, truth 5).** The three destructive commands now implement dormancy and approval correctly, but the unauthenticated-record bypass above lets a peer perform a removal/demotion directly without approval. A legitimate path also remains: a role change clears a pending REMOVE without approval (WR-05).
+One goal-level blocker remains, and it is a new Critical in the fresh review:
 
-The remaining review warnings (WR-01, WR-04, WR-06..WR-10) are correctness/robustness gaps; WR-01 is the most user-visible (post-join room access). CR-07 is explicitly deferred and is not counted as an open gap.
+- **Unverified raw records are propagated into another scope (truth 29, CR-01).** `RedeemInvite` (1589-1596) and `Leave` (1931-1932) read the raw record and check only address/deleted, not `record.scope_id()`. `WriteMemberPreservingAuthority` (982-1008) then writes under `MemberKey(record.scope_id(), record.address())`, and its advisory verification uses the record's own scope/address, so it cannot detect the mismatch. A hostile peer publishes `{scope_id: B, address: alice}` under `A/alice`; Alice's leave/redeem in A copies those bytes to `B/alice`, overwriting a valid record (or B's creator root) with bytes that cannot verify for B. The destination scope's role model then fails closed for everyone until the creator re-signs the root; the member is effectively removed from B without approval. The fix is a two-line scope binding in both call sites (or inside `TryReadRawMember`) plus a regression test.
 
-**Suggested next step:** run `/gsd:plan-phase --gaps` for a gap-closure wave that (1) appends `created_by`/`record_signature` to `MemberRecord`, signs every member write, verifies on arrival/read, and constrains self-signed records to the Guest invite grant with no tombstone/pending transitions; (2) makes the creator exception identity-based and re-validates `pending_role` in `Approve`; (3) defines the pending-state transition so `ChangeRole` cannot silently cancel a pending REMOVE; and (4) refreshes derived joins and pushes `RoomList` on redeem/leave. If the project instead intends to treat the CRDT topic as trusted for this milestone, record an override in the frontmatter with the must-have text, rationale, and approver.
+The review's remaining warnings (WR-01, WR-06..WR-15, IN-01..IN-07) are correctness/robustness gaps. WR-01 is the most user-visible (post-join room access). WR-11 also undermines D-07 coherence (an `update_space` can cancel a dormant delete). CR-07 is explicitly deferred and is not counted as an open gap. The 04-22 accepted residuals (exclusion-not-rollback; a never-synced node trusting a signed `prior_role`) are documented design decisions, not gaps.
+
+**Suggested next step:** run `/gsd:plan-phase --gaps` for a focused gap-closure plan that binds the raw-record write key to the requested scope in `RedeemInvite` and `Leave` (ideally inside `TryReadRawMember`), adds the cross-scope regression test, and then decides the wire-level admin-dormancy question surfaced above.
 
 ---
 
-_Verified: 2026-10-19T00:34:00Z_
+_Verified: 2026-10-20T01:22:51Z_
 _Verifier: Claude (gsd-verifier)_
