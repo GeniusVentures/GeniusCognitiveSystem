@@ -16,7 +16,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 1: Foundation** - C++ core scaffolding, GlobalDB CRDT integration, FFI bridge to Flutter, and cross-platform CI/CD (macOS, Linux, Windows, iOS, Android)
 - [x] **Phase 2: Spaces & Rooms** - Space and room creation with configurable inheritance (completed 2026-09-19)
 - [x] **Phase 3: Messaging** - Real-time text messaging with CRDT sync across participants (completed 2026-09-24)
-- [x] **Phase 4: Membership & Invites** - Roles, capability tokens, and permission model (gap closure in progress) (completed 2026-10-19)
+- [x] **Phase 4: Membership & Invites** - Roles, capability tokens, and permission model (completed 2026-10-21)
 - [ ] **Phase 5: Moderation** - Message tombstones, kick/ban, and admin approval flows
 - [ ] **Phase 6: GCS Bot** - Bot participant with auto-answer policies and Expert Model routing
 - [ ] **Phase 7: Discovery** - Public space lobby and private space isolation
@@ -153,7 +153,7 @@ Plans:
   4. Super Admin cannot be demoted by other admins
   5. When 2+ admins exist, destructive actions require Super Admin approval
 
-**Plans:** 22/22 plans complete + 1 gap-closure plan pending (04-23)
+**Plans:** 23/23 plans complete
 
 Plans:
 **Wave 1**
@@ -225,7 +225,7 @@ Plans:
 
 **Wave 16** *(blocked on Wave 15 completion — verification gap closure)*
 
-- [ ] 04-23-PLAN.md — Wave 16 (depends: 04-19, 04-20, 04-21) — Reject cross-scope raw member records in RedeemInvite/Leave before the authority-preserving write (CR-01, truth 29) + byte-level regression
+- [x] 04-23-PLAN.md — Wave 16 (depends: 04-19, 04-20, 04-21) — Reject cross-scope raw member records in RedeemInvite/Leave before the authority-preserving write (CR-01, truth 29) + byte-level regression
 
 **Deferred (recorded, not in this gap-closure set):** CR-07 — room keys live in a process-local store, so a second application process (or a restart without the invite material) cannot decrypt a room's key material. Warning-level; no Phase 4 requirement depends on cross-process key persistence, and no plan in Waves 5-11 addresses it.
 
@@ -287,7 +287,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 1. Foundation | 11/11 | Complete | 2026-09-16 |
 | 2. Spaces & Rooms | 5/5 | Complete   | 2026-09-19 |
 | 3. Messaging | 6/6 | Complete   | 2026-09-24 |
-| 4. Membership & Invites | 22/22 | Complete   | 2026-10-20 |
+| 4. Membership & Invites | 23/23 | Complete   | 2026-10-21 |
 | 5. Moderation | 0/TBD | Not started | - |
 | 6. GCS Bot | 0/TBD | Not started | - |
 | 7. Discovery | 0/TBD | Not started | - |

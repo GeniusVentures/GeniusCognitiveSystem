@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: GCS Chat
-status: executing
-stopped_at: "Gap plan 04-23 planned and checker-verified (plan-phase --gaps): cross-scope record binding rejected at the RedeemInvite/Leave call sites (helper-level binding rejected with cause) + byte-level regression; gap_closure: true, wave 16, depends_on 04-19..04-22. DEFERRED DECISION (user, 2026-10-20): the wire-level admin-immediate-tombstone dormancy divergence (VerifyMemberRecord vs command-path predicate) is intentionally OUT of 04-23 — decide separately, do not silently fold into another plan. Next: /gsd:execute-phase 04 --gaps-only --ws app, then re-verify."
-last_updated: "2026-10-20T18:39:30.992Z"
-last_activity: 2026-10-20 -- Phase 04 planning complete
+status: verifying
+stopped_at: "Gap plan 04-23 executed: RedeemInvite/Leave reject cross-scope raw records before the authority-preserving write, TryReadRawMember documents its non-binding contract, byte-level regression green (full suite 13/13). Next: re-run /gsd:verify-work for phase 04."
+last_updated: "2026-10-21T17:46:17.843Z"
+last_activity: 2026-10-21 -- Completed plan 04-23 (gap closure)
 progress:
   total_phases: 7
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 45
-  completed_plans: 44
-  percent: 43
+  completed_plans: 45
+  percent: 57
 ---
 
 # Project State
@@ -25,10 +25,10 @@ See: .planning/workstreams/app/PROJECT.md (updated 2026-09-22)
 
 ## Current Position
 
-Phase: 04 (membership-invites) — EXECUTING
-Plan: 22 of 22
-Status: Ready to execute
-Last activity: 2026-10-20 -- Phase 04 planning complete
+Phase: 04 (membership-invites) — COMPLETE
+Plan: 23 of 23
+Status: Phase complete — ready for verification
+Last activity: 2026-10-21 -- Completed plan 04-23 (gap closure)
 
 Progress: [██████████] 100%
 
@@ -78,6 +78,7 @@ Progress: [██████████] 100%
 | Phase 04 P20 | 20min | 3 tasks | 2 files |
 | Phase 04 P21 | 12min | 3 tasks | 4 files |
 | Phase 04 P22 | 25min | 3 tasks | 3 files |
+| Phase 04 P23 | 14min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -177,6 +178,8 @@ Recent decisions affecting current work:
 - [Phase 04]: Pending transitions require an admin-tier participant: pending REMOVE is accepted only with priorRank >= ADMIN || signerRank >= ADMIN, pending ROLE_CHANGE only with priorRank >= ADMIN; RemoveMember applies the same predicate, so a Moderator's Member removal is immediate rather than a wire-only dormant state with no cancel path (T-04-21-07)
 - [Phase 04]: A cold node verifies nothing until the entity catalog resolves the scope: the fixture mirrors the manifest and space/room records A-to-B after OnScopeCreated, so membership is excluded before metadata and re-verified after; production's LoadFromStore-before-Membership ordering is the contract this models, and a late OnMemberArrived heals the roster (T-04-22-03/07)
 - [Phase 04]: Wire-injected authority is excluded, not rolled back: a validly signed hostile record remains the winning raw CRDT value while both rosters omit the target and every command fails; restoring the saved creator-signed record recovers the target. A signer-bound Membership must warm its predecessor cache before the hostile publish, because a never-synced instance trusts the signed prior_role (the documented cold-start residual), while a live node's verified history rejects the lie (T-04-22-01/02/04/06)
+- [Phase 04]: The scope binding lives at the two authority-preserving call sites (RedeemInvite, Leave), not inside TryReadRawMember — a helper-level false is indistinguishable from absent and would make redeem take the fresh-record branch and succeed while reversing OnScopeCreated's write-once root (CR-01)
+- [Phase 04]: TryReadRawMember stays behavior-identical; its Doxygen now states the non-binding raw contract and names how each caller is bound, so a future raw caller cannot repeat the defect silently
 
 ### Pending Todos
 
@@ -202,6 +205,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-10-20T18:39:11.000Z
-Stopped at: Gap plan 04-23 planned and checker-verified (plan-phase --gaps): cross-scope record binding rejected at the RedeemInvite/Leave call sites (helper-level binding rejected with cause) + byte-level regression; gap_closure: true, wave 16, depends_on 04-19..04-22. DEFERRED DECISION (user, 2026-10-20): the wire-level admin-immediate-tombstone dormancy divergence (VerifyMemberRecord vs command-path predicate) is intentionally OUT of 04-23 — decide separately, do not silently fold into another plan. Next: /gsd:execute-phase 04 --gaps-only --ws app, then re-verify.
+Last session: 2026-10-21T17:46:17.836Z
+Stopped at: Gap plan 04-23 executed: RedeemInvite/Leave reject cross-scope raw records before the authority-preserving write, TryReadRawMember documents its non-binding contract, byte-level regression green (full suite 13/13). Next: re-run /gsd:verify-work for phase 04.
 Resume file: None
