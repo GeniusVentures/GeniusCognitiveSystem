@@ -81,6 +81,44 @@ The verification-side bound is preferred (fail closed at the read gate); the cla
 **Issue:** The `@warning` added by 36a8fd9 correctly documents that callers deriving authorization or a write key must bind the body to the requested scope themselves, and all five current call sites comply. Nothing structural, however, prevents a future caller from repeating the exact CR-01 mistake — the mistake is only prevented by prose. The mirror of the payload builder in `test/test_gcs_member_helpers.hpp` is an accepted, documented duplicate (invariant 11 argument in that header) with a positive-control tripwire, so it is not re-raised here.
 **Fix (suggestion only, YAGNI governs):** if a third raw-read write path ever appears, add a bound variant (e.g., `TryReadRawMemberBound` checking `scope_id`/`address` against the key) and reserve the unbound reader for the cold-node authority-preservation case by name. Do not add it speculatively now.
 
+## Preserved backlog — full-phase review (2026-10-19, commit 6486295)
+
+The scoped re-review above supersedes the full-phase report only for the three 04-23 files. The full-phase findings for all other files remain open and are preserved here so the live REVIEW.md stays the single ledger. Full detail for each item: `git show 6486295:.planning/workstreams/app/phases/04-membership-invites/04-REVIEW.md`. The two passes use independent ID namespaces — cite prior-pass items as "prior WR-11" etc. Note: new IN-01 above is the same finding as prior IN-06 (do not double-count in a `--fix` pass).
+
+**Resolved:**
+
+| ID | Finding | Status |
+|----|---------|--------|
+| prior CR-01 | `RedeemInvite`/`Leave` take the write key from an unverified record body (cross-scope laundering) | **RESOLVED by 04-23** (`36a8fd9`, `4cec74d`); closure confirmed by this re-review |
+
+**Open — Warnings (11):**
+
+| ID | Finding | Primary file(s) |
+|----|---------|-----------------|
+| prior WR-01 | Membership changes never refresh the derived-join projection | `src/ffi/gcs_core_ffi.cpp:799-879`, `:1762-1764`, `:1818-1844` |
+| prior WR-06 | Invite bearer gate is optional; wrong-key redemption still writes a member record | `src/lib/gcs_membership.cpp:1400-1417`, `:1566-1582`; `src/ffi/gcs_core_ffi.cpp:1187-1188` |
+| prior WR-07 | `ScopeHasRoster` fails open on a scan error | `src/ffi/gcs_core_ffi.cpp:752-756` |
+| prior WR-08 | A failed member scan is pushed as an empty roster | `src/ffi/gcs_core_ffi.cpp:596-612`; `src/app/lib/cubits/members_cubit.dart:204-219` |
+| prior WR-09 | Members dialog offers "change role" on the viewer's own row | `src/app/lib/shell/members_dialog.dart:318-319` |
+| prior WR-10 | Deleting a space does not cascade to its rooms; a nested room cannot be deleted alone | `src/lib/gcs_membership.cpp:1960-2034`, `:1249-1253`; `src/app/lib/cubits/rail_cubit.dart:196-211` |
+| prior WR-11 | `update_space` silently cancels a dormant deletion (D-07 coherence gap) | `src/ffi/gcs_core_ffi.cpp:1681-1687`; `src/lib/gcs_entity_store.cpp:293-350` |
+| prior WR-12 | Failed `gcs_init` paths leave the embedded SDK booted and smoke topics latched in `g_roomTopics` | `src/ffi/gcs_core_ffi.cpp:985`, `:997-1002`, `:1015-1022` |
+| prior WR-13 | Scope creation is not transactional — a failed creator root leaves an orphan scope | `src/ffi/gcs_core_ffi.cpp:1523-1555`, `:1595-1643`; `src/lib/gcs_membership.cpp:2257-2271` |
+| prior WR-14 | `MintInvite` wraps a topic-derived key for child rooms the minter does not hold; `RedeemInvite` overwrites the redeemer's real key | `src/lib/gcs_membership.cpp:1314-1338`, `:1738`; `src/lib/gcs_crypto.cpp:222-238` |
+| prior WR-15 | Explicit leave is irreversible — a re-invited member is silently left out of the derived join | `src/lib/gcs_membership.cpp:1942-1952`, `:1752-1770`, `:494-497`, `:1116-1120` |
+
+**Open — Info (7):**
+
+| ID | Finding | Primary file(s) |
+|----|---------|-----------------|
+| prior IN-01 | Stale `kRedeem` comment | `src/ffi/gcs_core_ffi.cpp:1740-1743` |
+| prior IN-02 | Unnamed numeric literals in `PrivilegeRank` | `src/lib/gcs_membership.cpp:98-113` |
+| prior IN-03 | All membership failures map to one error | `src/ffi/gcs_core_ffi.cpp:1786`, `:1812`, `:1838`, `:1864`, `:1891` |
+| prior IN-04 | Every membership mutation pushes `MemberList` twice | `src/lib/gcs_membership.cpp:1011-1046`; `src/ffi/gcs_core_ffi.cpp:1789`, `:1815`, `:1842`, `:1894` |
+| prior IN-05 | `VerifyInviteAuthenticator` accepts any non-empty key length | `src/lib/gcs_crypto.cpp:515-521` |
+| prior IN-06 | Dead/redundant clause in the third-party verification branch (= new IN-01 above) | `src/lib/gcs_membership.cpp:641-645` |
+| prior IN-07 | Entity-level `pending_action` is never cleared on activation | `src/lib/gcs_membership.cpp:2168-2171`, `:2188-2191`, `:1992` |
+
 ---
 
 _Reviewed: 2026-10-21T17:55:39Z_
