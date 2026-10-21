@@ -1388,6 +1388,96 @@ namespace gcs::test
     }
 
     /**
+     * @brief CR-01: a raw record whose body names another scope is rejected by
+     *        leave and redeem, and the other scope's bytes never change.
+     */
+    TEST_F( GcsMembershipTest, CrossScopeRawRecordIsNotPropagatedByLeaveOrRedeem )
+    {
+        StartRig( kTestCreatorAddress );
+
+        auto space = m_rig.store->CreateSpace( "ops", true, true, false );
+        ASSERT_TRUE( space.has_value() );
+        const std::string scopeA = space.value().id();
+
+        std::vector<chat::GcsEvent> events;
+        gcs::Membership creator( *m_rig.session, *m_rig.store, kTestCreatorAddress,
+                                 CapturingSink( &events ), MakeSeam( kTestCreatorAddress ) );
+        ASSERT_TRUE( creator.OnScopeCreated( scopeA, "", true ).has_value() );
+        auto minted = creator.MintInvite( scopeA );
+        ASSERT_TRUE( minted.has_value() );
+
+        // Deliberately no entity record and no roster for B: this test is about
+        // store keys, not scope resolution.
+        const std::string scopeB = "cross-scope-b";
+
+        // Baseline: a valid creator-signed B record for the joining wallet.
+        chat::MemberRecord baseline;
+        baseline.set_scope_id( scopeB );
+        baseline.set_address( kJoinerAddress );
+        baseline.set_role( chat::ROLE_MEMBER );
+        baseline.set_deleted( false );
+        baseline.set_prior_role( chat::ROLE_UNSPECIFIED );
+        baseline.set_created_at_ms( kSeedCreatedAtMs );
+        baseline.set_updated_at_ms( kSeedCreatedAtMs );
+        baseline.set_created_by( kTestCreatorAddress );
+        baseline.set_record_signature(
+            TestMemberSignatureHex( kTestCreatorAddress, scopeB, kJoinerAddress, baseline ) );
+        ASSERT_TRUE( PutMemberBytes( *m_rig.session, scopeB, kJoinerAddress,
+                                     baseline.SerializeAsString() ) );
+
+        const std::string keyB = std::string( gcs::Membership::kMembersKeyPrefix ) + scopeB
+                                 + "/" + kJoinerAddress;
+        auto baselineBResult = m_rig.session->Get( keyB );
+        ASSERT_TRUE( baselineBResult.has_value() );
+        const std::string baselineB = baselineBResult.value();
+
+        // The hostile shape: a B-bodied record planted under A's member key.
+        // It differs from the baseline in role and timestamp, so a propagated
+        // write WOULD change B's bytes — the assertions below fail if either
+        // scope binding is removed, which is what makes this a regression and
+        // not a tautology.
+        chat::MemberRecord hostile = baseline;
+        hostile.set_role( chat::ROLE_GUEST );
+        hostile.set_created_at_ms( kSeedCreatedAtMs + 1 );
+        hostile.set_updated_at_ms( kSeedCreatedAtMs + 1 );
+        hostile.set_record_signature(
+            TestMemberSignatureHex( kTestCreatorAddress, scopeB, kJoinerAddress, hostile ) );
+        ASSERT_TRUE( PutMemberBytes( *m_rig.session, scopeA, kJoinerAddress,
+                                     hostile.SerializeAsString() ) );
+        const std::string hostileBytes = hostile.SerializeAsString();
+        const std::string keyA = std::string( gcs::Membership::kMembersKeyPrefix ) + scopeA
+                                 + "/" + kJoinerAddress;
+
+        // Attack precondition: A's key holds a record whose body names B.
+        chat::MemberRecord storedA;
+        ASSERT_TRUE( ReadMemberRecord( *m_rig.session, scopeA, kJoinerAddress, storedA ) );
+        EXPECT_EQ( storedA.scope_id(), scopeB );
+
+        gcs::Membership joiner( *m_rig.session, *m_rig.store, kJoinerAddress,
+                                CapturingSink( &events ), MakeSeam( kJoinerAddress ) );
+
+        EXPECT_FALSE( joiner.Leave( scopeA ).has_value() );
+        auto afterLeaveB = m_rig.session->Get( keyB );
+        ASSERT_TRUE( afterLeaveB.has_value() );
+        EXPECT_EQ( afterLeaveB.value(), baselineB );
+        auto afterLeaveA = m_rig.session->Get( keyA );
+        ASSERT_TRUE( afterLeaveA.has_value() );
+        EXPECT_EQ( afterLeaveA.value(), hostileBytes );
+
+        EXPECT_FALSE( joiner.RedeemInvite( minted.value() ).has_value() );
+        auto afterRedeemB = m_rig.session->Get( keyB );
+        ASSERT_TRUE( afterRedeemB.has_value() );
+        EXPECT_EQ( afterRedeemB.value(), baselineB );
+        auto afterRedeemA = m_rig.session->Get( keyA );
+        ASSERT_TRUE( afterRedeemA.has_value() );
+        EXPECT_EQ( afterRedeemA.value(), hostileBytes );
+
+        auto list = creator.MembersFor( scopeA );
+        ASSERT_TRUE( list.has_value() );
+        EXPECT_EQ( FindMember( list.value(), kJoinerAddress ), nullptr );
+    }
+
+    /**
      * @brief Test 8 (MEMB-04/D-08): with a single admin a removal applies
      *        immediately, while a Guest's every mutator is rejected read-only.
      */
