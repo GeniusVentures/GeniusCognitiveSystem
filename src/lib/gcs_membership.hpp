@@ -648,6 +648,16 @@ private:
   /**
    * @brief Read and parse a member record without verifying it.
    *
+   * Returns whatever is stored at MemberKey(scopeId, address) and does NOT
+   * check that record.scope_id() equals @p scopeId: the read is deliberately
+   * unbound so authority bytes can be preserved on a cold node.
+   *
+   * @warning Callers that derive authorization or a write key MUST bind the
+   *          body to the requested scope themselves. VerifiedRoleFor and
+   *          TryReadMemberVerified are bound by VerifyMemberRecord;
+   *          OnScopeCreated deliberately treats any occupying record as final;
+   *          RedeemInvite and Leave bind explicitly before any write.
+   *
    * @param[in]  scopeId Scope id.
    * @param[in]  address Member wallet address.
    * @param[out] out     Parsed record when found.

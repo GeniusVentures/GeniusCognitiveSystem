@@ -1594,6 +1594,19 @@ outcome::result<void> Membership::RedeemInvite( const std::string &inviteUrl )
                       urlScopeId );
         return outcome::failure( sgns::gcs::Error::GcsDbError );
     }
+    // CR-01: TryReadRawMember does not bind the record body to the key it was
+    // read from. A body naming another scope can only have come from a hostile
+    // or corrupt writer, and the preserving write below derives its Put key
+    // from that body — accepting it here would launder unverified bytes into
+    // the other scope's member record or creator root (MEMB-02/MEMB-04).
+    if ( hasExisting && existing.scope_id() != urlScopeId )
+    {
+        spdlog::warn( "gcs_membership: redeem rejected — the stored record under "
+                      "the sender key names scope '{}', not '{}'; refusing to "
+                      "propagate it",
+                      existing.scope_id(), urlScopeId );
+        return outcome::failure( sgns::gcs::Error::GcsDbError );
+    }
     if ( hasExisting && existing.deleted() )
     {
         spdlog::warn( "gcs_membership: redeem rejected — wallet '{}' is tombstoned "
@@ -1939,6 +1952,19 @@ outcome::result<void> Membership::Leave( const std::string &scopeId )
     // D-02: explicit leave is a bool on the caller's own record — never a
     // tombstone, never a key removal. The SUBJECT signs the leave so another
     // wallet cannot flip the flag on a copied record.
+    //
+    // CR-01: the raw read above does not bind the body to the key. The
+    // preserving write below derives its Put key from record.scope_id(), so a
+    // body naming another scope would rewrite that scope's member record (or
+    // its creator root) with bytes that cannot verify there. Refuse it before
+    // mutating or signing anything.
+    if ( record.scope_id() != scopeId )
+    {
+        spdlog::warn( "gcs_membership: leave rejected — the stored record in "
+                      "scope '{}' names scope '{}'; refusing to rewrite it",
+                      scopeId, record.scope_id() );
+        return outcome::failure( sgns::gcs::Error::GcsDbError );
+    }
     record.set_explicit_leave( true );
     auto leaveSignature = m_keyWrap.sign( MemberLeavePayload( scopeId, m_sender ),
                                           m_sender );
