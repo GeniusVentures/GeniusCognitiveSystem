@@ -27,8 +27,8 @@ See: .planning/workstreams/app/PROJECT.md (updated 2026-09-22)
 
 Phase: 04 (membership-invites) — COMPLETE
 Plan: 23 of 23
-Status: Phase complete — ready for verification
-Last activity: 2026-10-21 -- Completed plan 04-23 (gap closure)
+Status: Verification 30/30 truths, CR-01 closed — human_needed (7 UAT items in 04-HUMAN-UAT.md)
+Last activity: 2026-10-21 -- Re-verification after gap closure 04-23
 
 Progress: [██████████] 100%
 
@@ -201,7 +201,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 | Category | Item | Status | Deferred At |
 |----------|------|--------|-------------|
-| *(none)* | | | |
+| Membership authority | Wire-level admin-authored immediate tombstone accepted by `VerifyMemberRecord` while the command path makes the same removal dormant when 2+ admins | Deferred by user decision 2026-10-20 — requires its own design decision; do not fold into another plan (see 04-23-PLAN.md:102) | 2026-10-20 |
+| Room-key persistence | CR-07 — room keys live in the process-local store; no restart/cross-process survival | Deferred by user decision — no later phase assigned (ROADMAP.md Phase 4 deferral note) | 2026-10-19 |
 
 ## Session Continuity
 
