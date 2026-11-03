@@ -60,7 +60,23 @@
     "auto_fix_review_issues": true,
     "pr_body_sections": []
   },
-  "agent_skills": {},
+  "agent_skills": {
+    "gsd-executor": [
+      ".planning/skills/solid-coupling"
+    ],
+    "gsd-planner": [
+      ".planning/skills/solid-coupling"
+    ],
+    "gsd-plan-checker": [
+      ".planning/skills/solid-coupling"
+    ],
+    "gsd-verifier": [
+      ".planning/skills/solid-coupling"
+    ],
+    "gsd-debugger": [
+      ".planning/skills/solid-coupling"
+    ]
+  },
   "features": {},
   "resolve_model_ids": "omit",
   "runtime": "claude"
