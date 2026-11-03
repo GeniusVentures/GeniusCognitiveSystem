@@ -301,6 +301,185 @@ namespace gcs::test
     }
 
     /**
+     * @brief D-02a (user decision 2026-11-03): a nested room stamps its
+     *        creator, and the creator derives a joined topic even when the
+     *        parent space has autoJoinRooms=false.
+     */
+    TEST_F( GcsEntitiesTest, CreatorNestedRoomDerivesWithoutAutoJoin )
+    {
+        auto pubsub = MakeStartedPubSub( m_tempPath + "/key" );
+        ASSERT_NE( pubsub, nullptr );
+        auto graphsync = gcs::test::MakeGraphsyncContext( pubsub );
+
+        gcs::CoreSession::Config cfg{};
+        cfg.m_dbPath = m_tempPath + "/db";
+        gcs::CoreSession session( cfg );
+        ASSERT_TRUE( session.Initialize( pubsub, graphsync.network ).has_value() );
+
+        const auto dbPath = cfg.m_dbPath;
+        EXPECT_TRUE( gcs::test::WaitForCondition( [&dbPath]() { return std::filesystem::exists( dbPath ); },
+                                                  gcs::test::kWaitTimeout ) );
+
+        gcs::EntityStore store( session, "0xcreator" );
+        ASSERT_TRUE( store.LoadFromStore().has_value() );
+
+        auto space = store.CreateSpace( "ops", true, false ); // auto-join OFF
+        ASSERT_TRUE( space.has_value() );
+        auto room = store.CreateRoom( "general", space.value().id() );
+        ASSERT_TRUE( room.has_value() );
+        EXPECT_EQ( room.value().creator(), "0xcreator" ); // D-02a stamp
+
+        const auto topics = store.DerivedJoinedTopics();
+        ASSERT_EQ( topics.size(), 1U );
+        EXPECT_EQ( topics.front(), std::string( kRoomTopicPrefix ) + room.value().id() );
+
+        session.Shutdown();
+        pubsub->Stop();
+    }
+
+    /**
+     * @brief D-02a: a standalone room — never derivation-joined before this
+     *        decision — derives a joined topic for its creator.
+     */
+    TEST_F( GcsEntitiesTest, CreatorStandaloneRoomDerives )
+    {
+        auto pubsub = MakeStartedPubSub( m_tempPath + "/key" );
+        ASSERT_NE( pubsub, nullptr );
+        auto graphsync = gcs::test::MakeGraphsyncContext( pubsub );
+
+        gcs::CoreSession::Config cfg{};
+        cfg.m_dbPath = m_tempPath + "/db";
+        gcs::CoreSession session( cfg );
+        ASSERT_TRUE( session.Initialize( pubsub, graphsync.network ).has_value() );
+
+        const auto dbPath = cfg.m_dbPath;
+        EXPECT_TRUE( gcs::test::WaitForCondition( [&dbPath]() { return std::filesystem::exists( dbPath ); },
+                                                  gcs::test::kWaitTimeout ) );
+
+        gcs::EntityStore store( session, "0xcreator" );
+        ASSERT_TRUE( store.LoadFromStore().has_value() );
+
+        auto room = store.CreateRoom( "lounge", "" );
+        ASSERT_TRUE( room.has_value() );
+        EXPECT_EQ( room.value().creator(), "0xcreator" );
+
+        const auto topics = store.DerivedJoinedTopics();
+        ASSERT_EQ( topics.size(), 1U );
+        EXPECT_EQ( topics.front(), std::string( kRoomTopicPrefix ) + room.value().id() );
+
+        session.Shutdown();
+        pubsub->Stop();
+    }
+
+    /**
+     * @brief D-02a guard: the creator term never fires for another viewer —
+     *        a store with a different local address derives nothing from a
+     *        room created by someone else under autoJoinRooms=false.
+     */
+    TEST_F( GcsEntitiesTest, NonCreatorViewDerivesNothingWithoutAutoJoin )
+    {
+        auto pubsub = MakeStartedPubSub( m_tempPath + "/key" );
+        ASSERT_NE( pubsub, nullptr );
+        auto graphsync = gcs::test::MakeGraphsyncContext( pubsub );
+
+        gcs::CoreSession::Config cfg{};
+        cfg.m_dbPath = m_tempPath + "/db";
+        gcs::CoreSession session( cfg );
+        ASSERT_TRUE( session.Initialize( pubsub, graphsync.network ).has_value() );
+
+        const auto dbPath = cfg.m_dbPath;
+        EXPECT_TRUE( gcs::test::WaitForCondition( [&dbPath]() { return std::filesystem::exists( dbPath ); },
+                                                  gcs::test::kWaitTimeout ) );
+
+        gcs::EntityStore store( session, "0xcreator" );
+        ASSERT_TRUE( store.LoadFromStore().has_value() );
+        auto space = store.CreateSpace( "ops", true, false );
+        ASSERT_TRUE( space.has_value() );
+        auto room = store.CreateRoom( "general", space.value().id() );
+        ASSERT_TRUE( room.has_value() );
+
+        gcs::EntityStore viewer( session, "0xother" );
+        ASSERT_TRUE( viewer.LoadFromStore().has_value() );
+        EXPECT_TRUE( viewer.DerivedJoinedTopics().empty() );
+
+        session.Shutdown();
+        pubsub->Stop();
+    }
+
+    /**
+     * @brief D-02a guard: an empty identity never matches — a store with no
+     *        local address (the legacy pre-membership path) derives nothing
+     *        from the creator arm even though it stamped an empty creator.
+     */
+    TEST_F( GcsEntitiesTest, EmptyIdentityNeverDerivesViaCreatorArm )
+    {
+        auto pubsub = MakeStartedPubSub( m_tempPath + "/key" );
+        ASSERT_NE( pubsub, nullptr );
+        auto graphsync = gcs::test::MakeGraphsyncContext( pubsub );
+
+        gcs::CoreSession::Config cfg{};
+        cfg.m_dbPath = m_tempPath + "/db";
+        gcs::CoreSession session( cfg );
+        ASSERT_TRUE( session.Initialize( pubsub, graphsync.network ).has_value() );
+
+        const auto dbPath = cfg.m_dbPath;
+        EXPECT_TRUE( gcs::test::WaitForCondition( [&dbPath]() { return std::filesystem::exists( dbPath ); },
+                                                  gcs::test::kWaitTimeout ) );
+
+        gcs::EntityStore store( session ); // legacy: no local address
+        ASSERT_TRUE( store.LoadFromStore().has_value() );
+        auto space = store.CreateSpace( "ops", true, false );
+        ASSERT_TRUE( space.has_value() );
+        auto room = store.CreateRoom( "general", space.value().id() );
+        ASSERT_TRUE( room.has_value() );
+        EXPECT_TRUE( room.value().creator().empty() );
+
+        EXPECT_TRUE( store.DerivedJoinedTopics().empty() );
+
+        session.Shutdown();
+        pubsub->Stop();
+    }
+
+    /**
+     * @brief D-02a edge: the creator term does not resurrect a room under a
+     *        tombstoned parent — deletion beats creator derivation.
+     */
+    TEST_F( GcsEntitiesTest, CreatorRoomUnderTombstonedParentNeverDerives )
+    {
+        auto pubsub = MakeStartedPubSub( m_tempPath + "/key" );
+        ASSERT_NE( pubsub, nullptr );
+        auto graphsync = gcs::test::MakeGraphsyncContext( pubsub );
+
+        gcs::CoreSession::Config cfg{};
+        cfg.m_dbPath = m_tempPath + "/db";
+        gcs::CoreSession session( cfg );
+        ASSERT_TRUE( session.Initialize( pubsub, graphsync.network ).has_value() );
+
+        const auto dbPath = cfg.m_dbPath;
+        EXPECT_TRUE( gcs::test::WaitForCondition( [&dbPath]() { return std::filesystem::exists( dbPath ); },
+                                                  gcs::test::kWaitTimeout ) );
+
+        gcs::EntityStore store( session, "0xcreator" );
+        ASSERT_TRUE( store.LoadFromStore().has_value() );
+        auto space = store.CreateSpace( "ops", true, true );
+        ASSERT_TRUE( space.has_value() );
+        auto room = store.CreateRoom( "general", space.value().id() );
+        ASSERT_TRUE( room.has_value() );
+        ASSERT_EQ( store.DerivedJoinedTopics().size(), 1U );
+
+        auto           spaces = store.Spaces();
+        gcs::chat::SpaceRecord tombstone = spaces.front();
+        tombstone.set_deleted( true );
+        tombstone.set_deleted_at_ms( kTombstoneAtMs );
+        ASSERT_TRUE( store.ApplySpaceState( tombstone ).has_value() );
+
+        EXPECT_TRUE( store.DerivedJoinedTopics().empty() );
+
+        session.Shutdown();
+        pubsub->Stop();
+    }
+
+    /**
      * @brief CORE-02: a room with a non-empty unknown parent is rejected
      *        without writing anything.
      */
@@ -684,11 +863,12 @@ namespace gcs::test
     }
 
     /**
-     * @brief P2: a standalone room (empty parent) is its own Super Admin scope,
-     *        so it carries the creator; a nested room leaves `creator` empty
-     *        because its Super Admin is the parent space's creator.
+     * @brief P2 + D-02a (2026-11-03): every room records its creator — a
+     *        standalone room is its own Super Admin scope, and a nested room's
+     *        creator derives a join to their own room regardless of the parent's
+     *        autoJoinRooms flag.
      */
-    TEST_F( GcsEntitiesTest, RoomCreatorStampedOnlyForStandaloneRooms )
+    TEST_F( GcsEntitiesTest, EveryRoomRecordsItsCreator )
     {
         auto pubsub = MakeStartedPubSub( m_tempPath + "/key" );
         ASSERT_NE( pubsub, nullptr );
@@ -715,7 +895,7 @@ namespace gcs::test
         ASSERT_TRUE( space.has_value() );
         auto nested = store.CreateRoom( "general", space.value().id(), true );
         ASSERT_TRUE( nested.has_value() );
-        EXPECT_TRUE( nested.value().creator().empty() );
+        EXPECT_EQ( nested.value().creator(), kTestCreatorAddress );
         EXPECT_TRUE( nested.value().members_can_invite() );
 
         session.Shutdown();

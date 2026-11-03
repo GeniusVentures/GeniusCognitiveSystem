@@ -256,13 +256,12 @@ outcome::result<RoomRecord> EntityStore::CreateRoom( const std::string &name,
     record.set_name( name );
     record.set_parent_space_id( parentSpaceId );       // empty = standalone (D-01)
     record.set_members_can_invite( membersCanInvite ); // MEMB-05 invite gate
-    if ( parentSpaceId.empty() )
-    {
-        // Standalone room = its own Super Admin scope (P2), so it carries the
-        // creator. A nested room's Super Admin is the parent space's creator,
-        // so its creator field stays empty.
-        record.set_creator( m_localAddress );
-    }
+    // D-02a (user decision 2026-11-03): every room records its creator — a
+    // standalone room is its own Super Admin scope (P2), and a nested room's
+    // creator derives a join to their own room regardless of the parent's
+    // autoJoinRooms flag. Rooms created before D-02a carry an empty creator
+    // and never match the creator term.
+    record.set_creator( m_localAddress );
     record.set_created_at_ms( nowMs );
     record.set_updated_at_ms( nowMs );
     record.set_deleted( false );          // D-03: tombstone fields present from
@@ -431,18 +430,32 @@ std::vector<std::string> EntityStore::DerivedJoinedTopics() const
             continue; // tombstoned room — Rooms() supplied this skip before
         }
         const RoomRecord &room = entry.second;
+        // D-02a creator term (user decision 2026-11-03): a room's creator is
+        // joined to their own room regardless of the parent's autoJoinRooms.
+        // Empty identities never match — a legacy room (creator never stamped)
+        // or an unconfigured store derives nothing from this arm.
+        const bool ownRoom =
+            !m_localAddress.empty() && room.creator() == m_localAddress;
         if ( room.parent_space_id().empty() )
         {
-            continue; // standalone rooms never join via a space (D-04)
+            // Standalone rooms join via the creator term only (D-04/D-02a).
+            if ( !ownRoom )
+            {
+                continue;
+            }
         }
-        const auto parentIt = m_spaces.find( room.parent_space_id() );
-        if ( parentIt == m_spaces.end() )
+        else
         {
-            continue; // orphaned record — no parent to derive from
-        }
-        if ( parentIt->second.deleted() || !parentIt->second.auto_join_rooms() )
-        {
-            continue; // tombstoned parent or auto-join disabled
+            const auto parentIt = m_spaces.find( room.parent_space_id() );
+            if ( parentIt == m_spaces.end() || parentIt->second.deleted() )
+            {
+                continue; // orphaned or tombstoned parent — never derived, not
+                          // even for the creator (deletion beats D-02a)
+            }
+            if ( !ownRoom && !parentIt->second.auto_join_rooms() )
+            {
+                continue; // auto-join disabled and not the creator
+            }
         }
         topics.push_back( std::string( kRoomTopicPrefix ) + room.id() );
     }

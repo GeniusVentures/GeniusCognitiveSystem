@@ -798,12 +798,13 @@ namespace
      */
     void RefreshDerivedJoins( std::unique_lock<std::mutex> &lock )
     {
-        // D-02: room access stays derived — joined(room) = parentSpace.
-        // autoJoinRooms && !member.explicitLeave. A derived room whose parent
-        // space the LOCAL member has explicitly left is filtered out before
-        // registration so it never (re)enters the projection. EntityStore
-        // already excludes standalone rooms from DerivedJoinedTopics, so only
-        // nested rooms (non-empty parent) can be filtered here.
+        // D-02 + D-02a: room access stays derived — joined(room) =
+        // (room.creator == self || parentSpace.autoJoinRooms)
+        // && !member.explicitLeave (user decision 2026-11-03). EntityStore
+        // owns both positive terms (the creator term and the auto-join term);
+        // this filter owns the leave term, keyed on the room's EFFECTIVE
+        // scope — the parent space for nested rooms, the room itself for the
+        // standalone rooms the creator term now admits.
         const std::vector<gcs::chat::RoomRecord> rooms = g_entities->Rooms();
         std::vector<std::string>                 derived;
         for ( const std::string& topic : g_entities->DerivedJoinedTopics() )
@@ -816,8 +817,9 @@ namespace
                 {
                     continue;
                 }
-                if ( !room.parent_space_id().empty()
-                     && g_membership->HasExplicitLeave( room.parent_space_id() ) )
+                const std::string& leaveScope =
+                    room.parent_space_id().empty() ? roomId : room.parent_space_id();
+                if ( g_membership->HasExplicitLeave( leaveScope ) )
                 {
                     explicitlyLeft = true;
                 }

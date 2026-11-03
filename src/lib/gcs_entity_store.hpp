@@ -52,9 +52,11 @@ public:
    * Performs no I/O and no fallible work (deferred registration idiom).
    *
    * @param[in] session      The owning session; must outlive this store.
-   * @param[in] localAddress Local wallet address stamped into `creator` on new
-   *                         spaces and standalone rooms (the D-03 authority);
-   *                         empty = the legacy pre-membership path.
+   * @param[in] localAddress Local wallet address stamped into `creator` on every
+   *                         new space and room (the D-03 authority; rooms
+   *                         unconditionally per D-02a, 2026-11-03); empty = the
+   *                         legacy pre-membership path (and the D-02a creator
+   *                         term never matches an empty identity).
    */
   explicit EntityStore(CoreSession &session, std::string localAddress = {});
 
@@ -101,9 +103,10 @@ public:
    * model). A non-empty parentSpaceId must reference a known, non-tombstoned
    * space — otherwise the call is rejected without writing anything.
    *
-   * A standalone room stamps `creator` from the injected address (it is its
-   * own Super Admin scope, P2); a nested room leaves `creator` empty because
-   * its Super Admin is the parent space's creator.
+   * Every room stamps `creator` from the injected address (D-02a, 2026-11-03):
+   * the creator derives a join to their own room regardless of the parent's
+   * autoJoinRooms flag. Rooms created before D-02a carry an empty creator and
+   * never match the creator term in DerivedJoinedTopics().
    *
    * @param[in] name             Display name (mutable metadata, not identity).
    * @param[in] parentSpaceId    Parent space id; empty = standalone.
@@ -189,9 +192,13 @@ public:
   /**
    * @brief Derived joined-room topics (D-04 — pure recomputation).
    *
-   * Emits gcs/chat/<room-id> for every non-tombstoned room whose parent space
-   * exists, is not tombstoned, and has auto_join_rooms() == true. Never emits
-   * ops; retroactive by construction (re-evaluated on every call).
+   * joined(room) = (room.creator == self || parentSpace.autoJoinRooms) — the
+   * D-02a creator term (2026-11-03) applies to standalone rooms (their only
+   * join arm) and to nested rooms regardless of the parent's autoJoinRooms.
+   * A nested room whose parent is missing or tombstoned is never derived,
+   * not even for its creator (deletion beats D-02a). An empty local identity
+   * never matches the creator term. Never emits ops; retroactive by
+   * construction (re-evaluated on every call).
    *
    * @return Topic strings in id-sorted room order.
    */
