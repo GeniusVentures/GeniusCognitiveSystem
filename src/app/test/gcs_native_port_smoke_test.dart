@@ -260,15 +260,28 @@ void main()
     expect(completeEcho.message.id, pendingEcho.message.id,
         reason: 'pending -> complete upsert shares one id (D-07)');
 
-    // 6) create_space command publish -> SpaceTree with the C++-minted space
-    //    (D-27: data-only command; the id never comes from Dart).
+    // 6) create_space command publish -> MemberList for the creator's minted
+    //    Super Admin record (D-03, pushed via the membership sink before the
+    //    catalog), then SpaceTree with the C++-minted space (D-27: data-only
+    //    command; the id never comes from Dart).
     final GcsCommand createSpace = GcsCommand()
       ..createSpace = (CreateSpaceCommand()
         ..name = kSpaceName
         ..isPublic = true
         ..autoJoinRooms = true);
     expect(_publishCommand(bindings, handle, createSpace), kGcsOk);
-    final GcsEvent spaceEvent = await events.next().timeout(kWaitLimit);
+    final GcsEvent creatorList = await events.next().timeout(kWaitLimit);
+    expect(creatorList.hasMemberList(), isTrue,
+        reason: 'create_space mints the creator record and pushes the roster (D-03)');
+    // The creator record's CRDT self-arrival can echo an additional roster
+    // push from the DagWorker heal thread before the catalog event — the C++
+    // tests scan with FindLatest* for the same reason. Consume roster pushes
+    // until the SpaceTree lands instead of pinning the interleaving.
+    GcsEvent spaceEvent = await events.next().timeout(kWaitLimit);
+    while (spaceEvent.hasMemberList())
+    {
+      spaceEvent = await events.next().timeout(kWaitLimit);
+    }
     expect(spaceEvent.hasSpaceTree(), isTrue);
     expect(spaceEvent.spaceTree.space, hasLength(1));
     expect(spaceEvent.spaceTree.space.first.name, kSpaceName);

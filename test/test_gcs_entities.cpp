@@ -19,10 +19,13 @@
 #include "test_wait_condition.hpp"
 
 #include <algorithm>
+#include <atomic>
 #include <chrono>
+#include <cstdint>
 #include <cstring>
 #include <filesystem>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -77,6 +80,19 @@ namespace
 
     /// Arbitrary tombstone timestamp for direct-write fixtures (D-03).
     constexpr int64_t kTombstoneAtMs = 1234;
+
+    /// Timestamps stamped onto the amended record by the Apply*State tests.
+    constexpr std::int64_t kDeletedAtMs = 7777;
+    constexpr std::int64_t kUpdatedAtMs = 8888;
+
+    /// Injected local wallet address used as the Super Admin creator (D-03).
+    constexpr const char kTestCreatorAddress[] = "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY";
+
+    /// Writer-thread room count for the concurrent catalog stress case.
+    constexpr int kConcurrentWriterRoomCount = 40;
+
+    /// Reader-thread loop count for the concurrent catalog stress case.
+    constexpr int kConcurrentReaderIterations = 200;
 } // namespace
 
 namespace gcs::test
@@ -449,6 +465,114 @@ namespace gcs::test
     }
 
     /**
+     * @brief CR-06: ApplySpaceState persists the caller's amended record and
+     *        publishes it to the catalog in the same call — a tombstone is
+     *        visible to every reader immediately and survives a reload.
+     */
+    TEST_F( GcsEntitiesTest, ApplySpaceStatePublishesTombstoneToCatalogAndStore )
+    {
+        auto pubsub = MakeStartedPubSub( m_tempPath + "/key" );
+        ASSERT_NE( pubsub, nullptr );
+        auto graphsync = gcs::test::MakeGraphsyncContext( pubsub );
+
+        gcs::CoreSession::Config cfg{};
+        cfg.m_dbPath = m_tempPath + "/db";
+        gcs::CoreSession session( cfg );
+        ASSERT_TRUE( session.Initialize( pubsub, graphsync.network ).has_value() );
+
+        const auto dbPath = cfg.m_dbPath;
+        EXPECT_TRUE( gcs::test::WaitForCondition( [&dbPath]() { return std::filesystem::exists( dbPath ); },
+                                                  gcs::test::kWaitTimeout ) );
+
+        gcs::EntityStore store( session );
+        ASSERT_TRUE( store.LoadFromStore().has_value() );
+
+        auto space = store.CreateSpace( "ops", true, true, false );
+        ASSERT_TRUE( space.has_value() );
+        const std::string id = space.value().id();
+        auto room = store.CreateRoom( "sub", id );
+        ASSERT_TRUE( room.has_value() );
+        ASSERT_EQ( store.DerivedJoinedTopics().size(), 1U );
+
+        gcs::chat::SpaceRecord amended = space.value();
+        amended.set_deleted( true );
+        amended.set_deleted_at_ms( kDeletedAtMs );
+        amended.set_updated_at_ms( kUpdatedAtMs );
+
+        ASSERT_TRUE( store.ApplySpaceState( amended ).has_value() );
+
+        // The catalog is updated in the same call: no stale live entry, and the
+        // derived-join projection immediately drops the child room.
+        EXPECT_TRUE( store.Spaces().empty() );
+        EXPECT_FALSE( store.IsValidParentSpace( id ) );
+        EXPECT_TRUE( store.DerivedJoinedTopics().empty() );
+
+        // The persisted bytes are the caller's full state, not a preserved one.
+        auto storedBytes = session.Get( std::string( kSpacesKeyPrefix ) + id );
+        ASSERT_TRUE( storedBytes.has_value() );
+        gcs::chat::SpaceRecord stored;
+        ASSERT_TRUE( stored.ParseFromString( storedBytes.value() ) );
+        EXPECT_TRUE( stored.deleted() );
+        EXPECT_EQ( stored.deleted_at_ms(), kDeletedAtMs );
+        EXPECT_EQ( stored.updated_at_ms(), kUpdatedAtMs );
+
+        // The tombstone is persisted, not only in memory.
+        ASSERT_TRUE( store.LoadFromStore().has_value() );
+        EXPECT_TRUE( store.Spaces().empty() );
+
+        session.Shutdown();
+        pubsub->Stop();
+    }
+
+    /**
+     * @brief CR-06 room twin: ApplyRoomState persists the amended record and
+     *        publishes it to the catalog in the same call.
+     */
+    TEST_F( GcsEntitiesTest, ApplyRoomStatePublishesTombstoneToCatalogAndStore )
+    {
+        auto pubsub = MakeStartedPubSub( m_tempPath + "/key" );
+        ASSERT_NE( pubsub, nullptr );
+        auto graphsync = gcs::test::MakeGraphsyncContext( pubsub );
+
+        gcs::CoreSession::Config cfg{};
+        cfg.m_dbPath = m_tempPath + "/db";
+        gcs::CoreSession session( cfg );
+        ASSERT_TRUE( session.Initialize( pubsub, graphsync.network ).has_value() );
+
+        const auto dbPath = cfg.m_dbPath;
+        EXPECT_TRUE( gcs::test::WaitForCondition( [&dbPath]() { return std::filesystem::exists( dbPath ); },
+                                                  gcs::test::kWaitTimeout ) );
+
+        gcs::EntityStore store( session );
+        ASSERT_TRUE( store.LoadFromStore().has_value() );
+
+        auto room = store.CreateRoom( "lobby", "" );
+        ASSERT_TRUE( room.has_value() );
+        const std::string id = room.value().id();
+        ASSERT_EQ( store.Rooms().size(), 1U );
+
+        gcs::chat::RoomRecord amended = room.value();
+        amended.set_deleted( true );
+        amended.set_deleted_at_ms( kDeletedAtMs );
+        amended.set_updated_at_ms( kUpdatedAtMs );
+
+        ASSERT_TRUE( store.ApplyRoomState( amended ).has_value() );
+
+        EXPECT_TRUE( store.Rooms().empty() );
+        EXPECT_TRUE( store.DerivedJoinedTopics().empty() );
+
+        auto storedBytes = session.Get( std::string( kRoomsKeyPrefix ) + id );
+        ASSERT_TRUE( storedBytes.has_value() );
+        gcs::chat::RoomRecord stored;
+        ASSERT_TRUE( stored.ParseFromString( storedBytes.value() ) );
+        EXPECT_TRUE( stored.deleted() );
+        EXPECT_EQ( stored.deleted_at_ms(), kDeletedAtMs );
+
+        session.Shutdown();
+        pubsub->Stop();
+    }
+
+    /**
      * @brief Restart criterion: entities created in session A survive into
      *        session B on the same db_path (manifest + N+1 record reads).
      *        Session A is shut down before B is constructed (no two live
@@ -506,6 +630,296 @@ namespace gcs::test
 
             sessionB.Shutdown();
         }
+        pubsub->Stop();
+    }
+
+    /**
+     * @brief D-03/MEMB-05: a store constructed with a wallet address stamps
+     *        `creator` on new spaces and applies the passed `members_can_invite`
+     *        value (default false — the MEMB-05 "if enabled" wording); both
+     *        survive a serialization round-trip through the manifest reload.
+     */
+    TEST_F( GcsEntitiesTest, CreateSpaceStampsCreatorAndMembersCanInvite )
+    {
+        auto pubsub = MakeStartedPubSub( m_tempPath + "/key" );
+        ASSERT_NE( pubsub, nullptr );
+        auto graphsync = gcs::test::MakeGraphsyncContext( pubsub );
+
+        gcs::CoreSession::Config cfg{};
+        cfg.m_dbPath = m_tempPath + "/db";
+        gcs::CoreSession session( cfg );
+        ASSERT_TRUE( session.Initialize( pubsub, graphsync.network ).has_value() );
+
+        const auto dbPath = cfg.m_dbPath;
+        EXPECT_TRUE( gcs::test::WaitForCondition( [&dbPath]() { return std::filesystem::exists( dbPath ); },
+                                                  gcs::test::kWaitTimeout ) );
+
+        gcs::EntityStore store( session, kTestCreatorAddress );
+        ASSERT_TRUE( store.LoadFromStore().has_value() );
+
+        auto invited = store.CreateSpace( "ops", true, true, true );
+        ASSERT_TRUE( invited.has_value() );
+        EXPECT_EQ( invited.value().creator(), kTestCreatorAddress );
+        EXPECT_TRUE( invited.value().members_can_invite() );
+
+        // T-04-04-EoP: membersCanInvite defaults false — the gate is opt-in.
+        auto closed = store.CreateSpace( "closed", true, true );
+        ASSERT_TRUE( closed.has_value() );
+        EXPECT_EQ( closed.value().creator(), kTestCreatorAddress );
+        EXPECT_FALSE( closed.value().members_can_invite() );
+
+        // T-04-04-T: creator is a persisted C++-stamped field — it must survive
+        // the proto serialization + manifest replay, not just the in-memory map.
+        gcs::EntityStore reloaded( session, kTestCreatorAddress );
+        ASSERT_TRUE( reloaded.LoadFromStore().has_value() );
+        const auto persisted = reloaded.Spaces();
+        ASSERT_EQ( persisted.size(), 2U );
+        for ( const auto &space : persisted )
+        {
+            EXPECT_EQ( space.creator(), kTestCreatorAddress );
+        }
+
+        session.Shutdown();
+        pubsub->Stop();
+    }
+
+    /**
+     * @brief P2: a standalone room (empty parent) is its own Super Admin scope,
+     *        so it carries the creator; a nested room leaves `creator` empty
+     *        because its Super Admin is the parent space's creator.
+     */
+    TEST_F( GcsEntitiesTest, RoomCreatorStampedOnlyForStandaloneRooms )
+    {
+        auto pubsub = MakeStartedPubSub( m_tempPath + "/key" );
+        ASSERT_NE( pubsub, nullptr );
+        auto graphsync = gcs::test::MakeGraphsyncContext( pubsub );
+
+        gcs::CoreSession::Config cfg{};
+        cfg.m_dbPath = m_tempPath + "/db";
+        gcs::CoreSession session( cfg );
+        ASSERT_TRUE( session.Initialize( pubsub, graphsync.network ).has_value() );
+
+        const auto dbPath = cfg.m_dbPath;
+        EXPECT_TRUE( gcs::test::WaitForCondition( [&dbPath]() { return std::filesystem::exists( dbPath ); },
+                                                  gcs::test::kWaitTimeout ) );
+
+        gcs::EntityStore store( session, kTestCreatorAddress );
+        ASSERT_TRUE( store.LoadFromStore().has_value() );
+
+        auto standalone = store.CreateRoom( "lounge", "", true );
+        ASSERT_TRUE( standalone.has_value() );
+        EXPECT_EQ( standalone.value().creator(), kTestCreatorAddress );
+        EXPECT_TRUE( standalone.value().members_can_invite() );
+
+        auto space = store.CreateSpace( "ops", true, true );
+        ASSERT_TRUE( space.has_value() );
+        auto nested = store.CreateRoom( "general", space.value().id(), true );
+        ASSERT_TRUE( nested.has_value() );
+        EXPECT_TRUE( nested.value().creator().empty() );
+        EXPECT_TRUE( nested.value().members_can_invite() );
+
+        session.Shutdown();
+        pubsub->Stop();
+    }
+
+    /**
+     * @brief T-04-04-T: a full-state rewrite preserves the stored creator even
+     *        when the desired record carries a different (client-supplied) value,
+     *        while `members_can_invite` is applied as desired state.
+     */
+    TEST_F( GcsEntitiesTest, UpdateSpacePreservesCreatorAndAppliesMembersCanInvite )
+    {
+        auto pubsub = MakeStartedPubSub( m_tempPath + "/key" );
+        ASSERT_NE( pubsub, nullptr );
+        auto graphsync = gcs::test::MakeGraphsyncContext( pubsub );
+
+        gcs::CoreSession::Config cfg{};
+        cfg.m_dbPath = m_tempPath + "/db";
+        gcs::CoreSession session( cfg );
+        ASSERT_TRUE( session.Initialize( pubsub, graphsync.network ).has_value() );
+
+        const auto dbPath = cfg.m_dbPath;
+        EXPECT_TRUE( gcs::test::WaitForCondition( [&dbPath]() { return std::filesystem::exists( dbPath ); },
+                                                  gcs::test::kWaitTimeout ) );
+
+        gcs::EntityStore store( session, kTestCreatorAddress );
+        ASSERT_TRUE( store.LoadFromStore().has_value() );
+
+        auto space = store.CreateSpace( "ops", true, true, false );
+        ASSERT_TRUE( space.has_value() );
+        EXPECT_EQ( space.value().creator(), kTestCreatorAddress );
+
+        // Desired record supplies a hostile creator + flips the invite gate on.
+        gcs::SpaceRecord desired;
+        desired.set_id( space.value().id() );
+        desired.set_name( "ops" );
+        desired.set_is_public( true );
+        desired.set_auto_join_rooms( true );
+        desired.set_creator( "attacker-supplied-address" );
+        desired.set_members_can_invite( true );
+
+        auto toggledOn = store.UpdateSpace( desired );
+        ASSERT_TRUE( toggledOn.has_value() );
+        EXPECT_EQ( toggledOn.value().creator(), kTestCreatorAddress );
+        EXPECT_TRUE( toggledOn.value().members_can_invite() );
+
+        desired.set_members_can_invite( false );
+        auto toggledOff = store.UpdateSpace( desired );
+        ASSERT_TRUE( toggledOff.has_value() );
+        EXPECT_EQ( toggledOff.value().creator(), kTestCreatorAddress );
+        EXPECT_FALSE( toggledOff.value().members_can_invite() );
+
+        session.Shutdown();
+        pubsub->Stop();
+    }
+
+    /**
+     * @brief Legacy path: a default-constructed store (no injected address)
+     *        still creates a space, with an empty `creator` (the documented
+     *        pre-membership retrofit boundary — research P1).
+     */
+    TEST_F( GcsEntitiesTest, DefaultStoreLeavesCreatorEmpty )
+    {
+        auto pubsub = MakeStartedPubSub( m_tempPath + "/key" );
+        ASSERT_NE( pubsub, nullptr );
+        auto graphsync = gcs::test::MakeGraphsyncContext( pubsub );
+
+        gcs::CoreSession::Config cfg{};
+        cfg.m_dbPath = m_tempPath + "/db";
+        gcs::CoreSession session( cfg );
+        ASSERT_TRUE( session.Initialize( pubsub, graphsync.network ).has_value() );
+
+        const auto dbPath = cfg.m_dbPath;
+        EXPECT_TRUE( gcs::test::WaitForCondition( [&dbPath]() { return std::filesystem::exists( dbPath ); },
+                                                  gcs::test::kWaitTimeout ) );
+
+        gcs::EntityStore store( session );
+        ASSERT_TRUE( store.LoadFromStore().has_value() );
+
+        auto created = store.CreateSpace( "legacy", true, true );
+        ASSERT_TRUE( created.has_value() );
+        EXPECT_TRUE( created.value().creator().empty() );
+        EXPECT_FALSE( created.value().members_can_invite() );
+
+        session.Shutdown();
+        pubsub->Stop();
+    }
+
+    /**
+     * @brief CR-01: one entity writer and concurrent catalog readers do not
+     *        race — Spaces()/Rooms()/DerivedJoinedTopics()/IsValidParentSpace()
+     *        hold the catalog mutex while CreateRoom inserts into the same maps
+     *        from the FFI's unlocked in-flight window.
+     */
+    TEST_F( GcsEntitiesTest, ConcurrentCatalogReadsAndRoomCreatesDoNotRace )
+    {
+        auto pubsub = MakeStartedPubSub( m_tempPath + "/key" );
+        ASSERT_NE( pubsub, nullptr );
+        auto graphsync = gcs::test::MakeGraphsyncContext( pubsub );
+
+        gcs::CoreSession::Config cfg{};
+        cfg.m_dbPath = m_tempPath + "/db";
+        gcs::CoreSession session( cfg );
+        ASSERT_TRUE( session.Initialize( pubsub, graphsync.network ).has_value() );
+
+        const auto dbPath = cfg.m_dbPath;
+        EXPECT_TRUE( gcs::test::WaitForCondition( [&dbPath]() { return std::filesystem::exists( dbPath ); },
+                                                  gcs::test::kWaitTimeout ) );
+
+        gcs::EntityStore store( session );
+        ASSERT_TRUE( store.LoadFromStore().has_value() );
+
+        auto space = store.CreateSpace( "ops", true, true, true );
+        ASSERT_TRUE( space.has_value() );
+        const std::string spaceId = space.value().id();
+
+        std::atomic<int> createdRooms{ 0 };
+        std::thread      writer(
+            [&store, &spaceId, &createdRooms]()
+            {
+                for ( int i = 0; i < kConcurrentWriterRoomCount; ++i )
+                {
+                    auto created = store.CreateRoom( "writer-room", spaceId, false );
+                    EXPECT_TRUE( created.has_value() );
+                    if ( created.has_value() )
+                    {
+                        createdRooms.fetch_add( 1 );
+                    }
+                }
+            } );
+
+        auto readerBody = [&store, &spaceId]()
+        {
+            for ( int i = 0; i < kConcurrentReaderIterations; ++i )
+            {
+                EXPECT_GE( store.Spaces().size(), 1U );
+                EXPECT_LE( store.Rooms().size(), static_cast<std::size_t>( kConcurrentWriterRoomCount ) );
+                EXPECT_LE( store.DerivedJoinedTopics().size(), static_cast<std::size_t>( kConcurrentWriterRoomCount ) );
+                EXPECT_TRUE( store.IsValidParentSpace( spaceId ) );
+            }
+        };
+        std::thread readerA( readerBody );
+        std::thread readerB( readerBody );
+
+        writer.join();
+        readerA.join();
+        readerB.join();
+
+        ASSERT_EQ( createdRooms.load(), kConcurrentWriterRoomCount );
+        EXPECT_EQ( store.Rooms().size(), static_cast<std::size_t>( kConcurrentWriterRoomCount ) );
+        EXPECT_EQ( store.Spaces().size(), 1U );
+
+        session.Shutdown();
+        pubsub->Stop();
+    }
+
+    /**
+     * @brief D-04: a tombstoned child room under a LIVE auto-join parent is
+     *        excluded from DerivedJoinedTopics() — the room-level tombstone
+     *        skip the direct m_rooms loop re-applies.
+     */
+    TEST_F( GcsEntitiesTest, DerivedJoinedTopicsSkipsTombstonedChildRoom )
+    {
+        auto pubsub = MakeStartedPubSub( m_tempPath + "/key" );
+        ASSERT_NE( pubsub, nullptr );
+        auto graphsync = gcs::test::MakeGraphsyncContext( pubsub );
+
+        gcs::CoreSession::Config cfg{};
+        cfg.m_dbPath = m_tempPath + "/db";
+        gcs::CoreSession session( cfg );
+        ASSERT_TRUE( session.Initialize( pubsub, graphsync.network ).has_value() );
+
+        const auto dbPath = cfg.m_dbPath;
+        EXPECT_TRUE( gcs::test::WaitForCondition( [&dbPath]() { return std::filesystem::exists( dbPath ); },
+                                                  gcs::test::kWaitTimeout ) );
+
+        gcs::EntityStore store( session );
+        ASSERT_TRUE( store.LoadFromStore().has_value() );
+
+        auto space = store.CreateSpace( "ops", true, true, false );
+        ASSERT_TRUE( space.has_value() );
+        auto child = store.CreateRoom( "child", space.value().id(), false );
+        ASSERT_TRUE( child.has_value() );
+
+        const std::string childId       = child.value().id();
+        const std::string expectedTopic = std::string( kRoomTopicPrefix ) + childId;
+        const auto        topicsBefore  = store.DerivedJoinedTopics();
+        ASSERT_EQ( topicsBefore.size(), 1U );
+        EXPECT_EQ( topicsBefore.front(), expectedTopic );
+
+        // No store deletion API: tombstone the child through the direct-write
+        // + reload pattern (tombstone bytes never come from a command — D-03).
+        gcs::chat::RoomRecord tombstoned = child.value();
+        tombstoned.set_deleted( true );
+        tombstoned.set_deleted_at_ms( kTombstoneAtMs );
+        ASSERT_TRUE(
+            session.Put( std::string( kRoomsKeyPrefix ) + childId, tombstoned.SerializeAsString() ).has_value() );
+        ASSERT_TRUE( store.LoadFromStore().has_value() );
+
+        EXPECT_TRUE( store.DerivedJoinedTopics().empty() );
+        EXPECT_EQ( store.Spaces().size(), 1U ); // parent space record stays live
+
+        session.Shutdown();
         pubsub->Stop();
     }
 

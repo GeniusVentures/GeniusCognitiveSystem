@@ -22,6 +22,7 @@ import 'package:frontend_scaffold/theme/scaffold_dimens.dart';
 import 'package:frontend_scaffold/theme/scaffold_theme.dart';
 
 import '../cubits/composer_cubit.dart';
+import '../cubits/members_cubit.dart';
 import '../cubits/message_flow_cubit.dart';
 import '../cubits/rail_cubit.dart';
 import '../cubits/session_cubit.dart';
@@ -50,6 +51,7 @@ class GCSChat extends StatefulWidget {
     this.dbPath,
     this.sessionCubit,
     this.railCubit,
+    this.membersCubit,
     this.messageFlowCubit,
     this.composerCubit,
   });
@@ -65,6 +67,11 @@ class GCSChat extends StatefulWidget {
   /// Room rail cubit; null -> the shell owns one.
   final RailCubit? railCubit;
 
+  /// Membership roster cubit (D-04/D-08); null -> the shell owns one. The
+  /// session dispatches pushed `MemberList` events into it, and the rail's
+  /// viewer-role gate plus the members dialog read its per-scope rosters.
+  final MembersCubit? membersCubit;
+
   /// Message flow cubit; null -> the shell owns one.
   final MessageFlowCubit? messageFlowCubit;
 
@@ -79,10 +86,12 @@ class GCSChat extends StatefulWidget {
 class _GCSChatState extends State<GCSChat> {
   late final SessionCubit _sessionCubit;
   late final RailCubit _railCubit;
+  late final MembersCubit _membersCubit;
   late final MessageFlowCubit _messageFlowCubit;
   late final ComposerCubit _composerCubit;
   late final bool _ownsSessionCubit;
   late final bool _ownsRailCubit;
+  late final bool _ownsMembersCubit;
   late final bool _ownsMessageFlowCubit;
   late final bool _ownsComposerCubit;
 
@@ -91,15 +100,18 @@ class _GCSChatState extends State<GCSChat> {
     super.initState();
     _ownsSessionCubit = widget.sessionCubit == null;
     _ownsRailCubit = widget.railCubit == null;
+    _ownsMembersCubit = widget.membersCubit == null;
     _ownsMessageFlowCubit = widget.messageFlowCubit == null;
     _ownsComposerCubit = widget.composerCubit == null;
     _railCubit = widget.railCubit ?? RailCubit();
+    _membersCubit = widget.membersCubit ?? MembersCubit();
     _messageFlowCubit = widget.messageFlowCubit ?? MessageFlowCubit();
     _sessionCubit =
         widget.sessionCubit ??
         SessionCubit.openDefault(
           dbPath: widget.dbPath,
           railCubit: _railCubit,
+          membersCubit: _membersCubit,
           messageFlowCubit: _messageFlowCubit,
         );
     _composerCubit =
@@ -123,6 +135,7 @@ class _GCSChatState extends State<GCSChat> {
         if (_ownsComposerCubit) _composerCubit.close(),
         if (_ownsSessionCubit) _sessionCubit.close(),
         if (_ownsMessageFlowCubit) _messageFlowCubit.close(),
+        if (_ownsMembersCubit) _membersCubit.close(),
         if (_ownsRailCubit) _railCubit.close(),
       ]),
     );
@@ -135,6 +148,7 @@ class _GCSChatState extends State<GCSChat> {
       providers: [
         BlocProvider<SessionCubit>.value(value: _sessionCubit),
         BlocProvider<RailCubit>.value(value: _railCubit),
+        BlocProvider<MembersCubit>.value(value: _membersCubit),
         BlocProvider<MessageFlowCubit>.value(value: _messageFlowCubit),
         BlocProvider<ComposerCubit>.value(value: _composerCubit),
       ],

@@ -20,6 +20,7 @@ import 'package:ffi/ffi.dart' as pkg_ffi;
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:flutter_app/cubits/composer_cubit.dart';
+import 'package:flutter_app/cubits/members_cubit.dart';
 import 'package:flutter_app/cubits/message_flow_cubit.dart';
 import 'package:flutter_app/cubits/rail_cubit.dart';
 import 'package:flutter_app/cubits/session_cubit.dart';
@@ -189,6 +190,127 @@ void main() {
       cubit.selectRoom('gcs/chat/b');
       expect(cubit.state.activeRoom, 'gcs/chat/b');
     });
+  });
+
+  group('MembersCubit', () {
+    test(
+      'setMembers REPLACES an existing scope roster on a second push (D-04)',
+      () {
+        final MembersCubit cubit = MembersCubit();
+        addTearDown(cubit.close);
+        cubit.setMembers('space-1', <MemberRecord>[
+          MemberRecord()
+            ..scopeId = 'space-1'
+            ..address = '0xaaa'
+            ..role = Role.ROLE_ADMIN,
+        ], '0xaaa');
+        expect(cubit.state.byScope['space-1'], hasLength(1));
+
+        cubit.setMembers('space-1', <MemberRecord>[
+          MemberRecord()
+            ..scopeId = 'space-1'
+            ..address = '0xbbb'
+            ..role = Role.ROLE_MEMBER,
+          MemberRecord()
+            ..scopeId = 'space-1'
+            ..address = '0xccc'
+            ..role = Role.ROLE_GUEST,
+        ], '0xbbb');
+        final List<MemberInfo> replaced = cubit.state.byScope['space-1']!;
+        expect(
+          replaced.map((MemberInfo m) => m.address),
+          <String>['0xbbb', '0xccc'],
+          reason: 'the pushed roster is the complete set, never appended to',
+        );
+      },
+    );
+
+    test(
+      'setMembers leaves other scopes untouched (per-scope rosters, D-01)',
+      () {
+        final MembersCubit cubit = MembersCubit();
+        addTearDown(cubit.close);
+        cubit.setMembers('space-1', <MemberRecord>[
+          MemberRecord()
+            ..address = '0xaaa'
+            ..role = Role.ROLE_SUPER_ADMIN,
+        ], '0xaaa');
+        cubit.setMembers('room-2', <MemberRecord>[
+          MemberRecord()
+            ..address = '0xbbb'
+            ..role = Role.ROLE_GUEST,
+        ], '0xbbb');
+        expect(
+          cubit.state.byScope.keys,
+          containsAll(<String>['space-1', 'room-2']),
+        );
+        expect(cubit.state.byScope['space-1']!.single.address, '0xaaa');
+      },
+    );
+
+    test(
+      'the "You" marker derives from the pushed selfAddress, never the session (D-04)',
+      () {
+        final MembersCubit cubit = MembersCubit();
+        addTearDown(cubit.close);
+        cubit.setMembers('space-1', <MemberRecord>[
+          MemberRecord()
+            ..address = '0xaaa'
+            ..role = Role.ROLE_SUPER_ADMIN,
+          MemberRecord()
+            ..address = '0xbbb'
+            ..role = Role.ROLE_MEMBER,
+          MemberRecord()
+            ..address = '0xccc'
+            ..role = Role.ROLE_GUEST,
+        ], '0xbbb');
+        expect(
+          cubit.state.byScope['space-1']!
+              .map((MemberInfo m) => m.self)
+              .toList(),
+          <bool>[false, true, false],
+        );
+        expect(
+          cubit.state.byScope['space-1']!.map((MemberInfo m) => m.role),
+          <String>['Super Admin', 'Member', 'Guest'],
+        );
+      },
+    );
+
+    test(
+      'a dormant D-07 op derives pending + its badge text from the record',
+      () {
+        final MembersCubit cubit = MembersCubit();
+        addTearDown(cubit.close);
+        cubit.setMembers('space-1', <MemberRecord>[
+          MemberRecord()
+            ..address = '0xaaa'
+            ..role = Role.ROLE_ADMIN
+            ..pendingAction = PendingAction.PENDING_ACTION_REMOVE,
+          MemberRecord()
+            ..address = '0xbbb'
+            ..role = Role.ROLE_ADMIN
+            ..pendingAction = PendingAction.PENDING_ACTION_ROLE_CHANGE
+            ..pendingRole = Role.ROLE_MEMBER,
+          MemberRecord()
+            ..address = '0xccc'
+            ..role = Role.ROLE_ADMIN
+            ..approvedBy = '0xaaa'
+            ..pendingAction = PendingAction.PENDING_ACTION_REMOVE,
+        ], '0xccc');
+        final List<MemberInfo> roster = cubit.state.byScope['space-1']!;
+        expect(roster[0].pending, isTrue);
+        expect(roster[0].pendingLabel, 'Pending removal');
+        expect(roster[1].pending, isTrue);
+        expect(roster[1].pendingLabel, 'Pending: Member');
+        expect(
+          roster[2].pending,
+          isFalse,
+          reason: 'an approved op is no longer dormant',
+        );
+        expect(roster[2].pendingLabel, isEmpty);
+      },
+    );
   });
 
   group('MessageFlowCubit', () {
@@ -781,10 +903,7 @@ void main() {
         expect(flow.state, isEmpty, reason: 'switching rooms clears the flow');
         expect(cubit.publishedCommands, hasLength(2));
         expect(cubit.publishedCommands.last.hasJoinTopic(), isTrue);
-        expect(
-          cubit.publishedCommands.last.joinTopic.roomTopic,
-          'gcs/chat/b',
-        );
+        expect(cubit.publishedCommands.last.joinTopic.roomTopic, 'gcs/chat/b');
 
         // The selection-driven replay for the now-active room passes the
         // gate and refills the cleared flow.
@@ -802,8 +921,10 @@ void main() {
               .writeToBuffer(),
         );
         expect(flow.state, hasLength(1));
-        expect((flow.state.single as ChatFlowItemTextBubble).instanceId,
-            'hist-b');
+        expect(
+          (flow.state.single as ChatFlowItemTextBubble).instanceId,
+          'hist-b',
+        );
       },
     );
 
@@ -945,6 +1066,139 @@ void main() {
         expect(rail.state.treeReceived, isTrue);
         expect(rail.state.spaces, hasLength(1));
         expect(rail.state.spaces.single.rooms.single.id, 'room-1');
+      },
+    );
+
+    test(
+      'pushed MemberList dispatches the roster with the pushed selfAddress (D-04)',
+      () {
+        final MembersCubit members = MembersCubit();
+        final SessionCubit cubit = SessionCubit(membersCubit: members);
+        addTearDown(cubit.close);
+        addTearDown(members.close);
+
+        cubit.handlePushedBytes(
+          (GcsEvent()
+                ..memberList = (MemberList()
+                  ..scopeId = 'space-1'
+                  ..selfAddress = '0xaaa'
+                  ..member.addAll(<MemberRecord>[
+                    MemberRecord()
+                      ..scopeId = 'space-1'
+                      ..address = '0xaaa'
+                      ..role = Role.ROLE_SUPER_ADMIN,
+                    MemberRecord()
+                      ..scopeId = 'space-1'
+                      ..address = '0xbbb'
+                      ..role = Role.ROLE_GUEST,
+                  ])))
+              .writeToBuffer(),
+        );
+        final List<MemberInfo> roster = members.state.byScope['space-1']!;
+        expect(roster.map((MemberInfo m) => m.address), <String>[
+          '0xaaa',
+          '0xbbb',
+        ]);
+        expect(roster.first.self, isTrue);
+        expect(roster.last.self, isFalse);
+        expect(members.state.byScope.keys, <String>['space-1']);
+      },
+    );
+
+    test('pushed InviteLink is held for the invite view (D-05)', () {
+      final SessionCubit cubit = SessionCubit();
+      addTearDown(cubit.close);
+      expect(cubit.pendingInviteLinkFor('space-1'), isNull);
+
+      cubit.handlePushedBytes(
+        (GcsEvent()
+              ..inviteLink = (InviteLink()
+                ..scopeId = 'space-1'
+                ..url = 'gcs://invite/abc'))
+            .writeToBuffer(),
+      );
+      expect(cubit.pendingInviteLinkFor('space-1'), 'gcs://invite/abc');
+      expect(cubit.pendingInviteLinkFor('space-2'), isNull);
+    });
+
+    test('pushed InviteLink is not reachable from another scope (WR-07)', () {
+      final SessionCubit cubit = SessionCubit();
+      addTearDown(cubit.close);
+
+      cubit.handlePushedBytes(
+        (GcsEvent()
+              ..inviteLink = (InviteLink()
+                ..scopeId = 'space-1'
+                ..url = 'gcs://invite/space-1-token'))
+            .writeToBuffer(),
+      );
+
+      // T-04-10-01: the link minted for space-1 must never surface as
+      // space-2's capability token.
+      expect(
+        cubit.pendingInviteLinkFor('space-1'),
+        'gcs://invite/space-1-token',
+      );
+      expect(cubit.pendingInviteLinkFor('space-2'), isNull);
+    });
+
+    test('clearPendingInviteLink empties the scope entry (T-04-10-02)', () {
+      final SessionCubit cubit = SessionCubit();
+      addTearDown(cubit.close);
+
+      cubit.handlePushedBytes(
+        (GcsEvent()
+              ..inviteLink = (InviteLink()
+                ..scopeId = 'space-1'
+                ..url = 'gcs://invite/abc'))
+            .writeToBuffer(),
+      );
+      expect(cubit.pendingInviteLinkFor('space-1'), 'gcs://invite/abc');
+
+      cubit.clearPendingInviteLink('space-1');
+      expect(cubit.pendingInviteLinkFor('space-1'), isNull);
+      // A later read for another scope is still null (no fallback bucket).
+      expect(cubit.pendingInviteLinkFor('space-2'), isNull);
+    });
+
+    test(
+      'pushed SpaceTree surfaces the D-07 pending fields on the rail models',
+      () {
+        final RailCubit rail = RailCubit();
+        final SessionCubit cubit = SessionCubit(railCubit: rail);
+        addTearDown(cubit.close);
+        addTearDown(rail.close);
+
+        cubit.handlePushedBytes(
+          (GcsEvent()
+                ..spaceTree = (SpaceTree()
+                  ..space.add(
+                    SpaceRecord()
+                      ..id = 'space-1'
+                      ..name = 'ops'
+                      ..pendingAction = PendingAction.PENDING_ACTION_DELETE,
+                  )
+                  ..room.add(
+                    RoomRecord()
+                      ..id = 'room-2'
+                      ..name = 'lounge'
+                      ..approvedBy = '0xaaa'
+                      ..pendingAction =
+                          PendingAction.PENDING_ACTION_ROLE_CHANGE,
+                  )))
+              .writeToBuffer(),
+        );
+        final RailSpace space = rail.state.spaces.single;
+        expect(
+          space.pendingAction,
+          PendingAction.PENDING_ACTION_DELETE,
+          reason: 'the pushed dormant-op kind is surfaced, not dropped',
+        );
+        expect(space.approvedBy, isEmpty);
+
+        final RailRoom room = rail.state.standaloneRooms.single;
+        expect(room.pendingAction, PendingAction.PENDING_ACTION_ROLE_CHANGE);
+        expect(room.approvedBy, '0xaaa');
       },
     );
 

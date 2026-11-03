@@ -19,7 +19,9 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <mutex>
 #include <random>
+#include <utility>
 
 namespace gcs {
 namespace
@@ -102,8 +104,8 @@ namespace
     }
 } // namespace
 
-EntityStore::EntityStore( CoreSession &session )
-    : m_session( session )
+EntityStore::EntityStore( CoreSession &session, std::string localAddress )
+    : m_session( session ), m_localAddress( std::move( localAddress ) )
 {
 }
 
@@ -120,8 +122,11 @@ std::string EntityStore::NextEntityId( const char *prefix )
 
 outcome::result<void> EntityStore::LoadFromStore()
 {
-    m_spaces.clear();
-    m_rooms.clear();
+    {
+        std::lock_guard<std::mutex> catalogLock( m_catalogMutex );
+        m_spaces.clear();
+        m_rooms.clear();
+    }
 
     auto manifestBytes = m_session.Get( kManifestKey );
     if ( !manifestBytes.has_value() )
@@ -159,6 +164,7 @@ outcome::result<void> EntityStore::LoadFromStore()
         }
         // Tombstoned records stay in the map (hidden by Spaces()) so
         // IsValidParentSpace() keeps returning false for them (D-03).
+        std::lock_guard<std::mutex> catalogLock( m_catalogMutex );
         m_spaces.emplace( record.id(), record );
     }
 
@@ -180,6 +186,7 @@ outcome::result<void> EntityStore::LoadFromStore()
                           roomId );
             continue;
         }
+        std::lock_guard<std::mutex> catalogLock( m_catalogMutex );
         m_rooms.emplace( record.id(), record );
     }
     return outcome::success();
@@ -187,7 +194,8 @@ outcome::result<void> EntityStore::LoadFromStore()
 
 outcome::result<SpaceRecord> EntityStore::CreateSpace( const std::string &name,
                                                        bool               isPublic,
-                                                       bool               autoJoinRooms )
+                                                       bool               autoJoinRooms,
+                                                       bool               membersCanInvite )
 {
     SpaceRecord record;
     const std::string id = NextEntityId( kSpaceIdPrefix );
@@ -196,6 +204,8 @@ outcome::result<SpaceRecord> EntityStore::CreateSpace( const std::string &name,
     record.set_name( name );
     record.set_is_public( isPublic );
     record.set_auto_join_rooms( autoJoinRooms );
+    record.set_creator( m_localAddress );              // D-03 Super Admin identity
+    record.set_members_can_invite( membersCanInvite ); // MEMB-05 invite gate
     record.set_created_at_ms( nowMs );
     record.set_updated_at_ms( nowMs );
     record.set_deleted( false );          // D-03: tombstone fields present from
@@ -205,6 +215,8 @@ outcome::result<SpaceRecord> EntityStore::CreateSpace( const std::string &name,
     // manifest id LoadFromStore skips gracefully ("record read failed"),
     // never unreachable orphan record bytes the manifest-less order left
     // behind (GlobalDB has no enumeration, so the manifest is the only index).
+    // AppendToManifest is intentionally outside m_catalogMutex: entity
+    // creation is already serialized by the FFI's g_mutex.
     auto manifestResult = AppendToManifest( m_session, true, id );
     if ( !manifestResult.has_value() )
     {
@@ -216,12 +228,16 @@ outcome::result<SpaceRecord> EntityStore::CreateSpace( const std::string &name,
     {
         return putResult.error();
     }
-    m_spaces.emplace( id, record );
+    {
+        std::lock_guard<std::mutex> catalogLock( m_catalogMutex );
+        m_spaces.emplace( id, record );
+    }
     return record;
 }
 
 outcome::result<RoomRecord> EntityStore::CreateRoom( const std::string &name,
-                                                     const std::string &parentSpaceId )
+                                                     const std::string &parentSpaceId,
+                                                     bool               membersCanInvite )
 {
     if ( !parentSpaceId.empty() && !IsValidParentSpace( parentSpaceId ) )
     {
@@ -238,7 +254,15 @@ outcome::result<RoomRecord> EntityStore::CreateRoom( const std::string &name,
     const int64_t      nowMs = NowMs();
     record.set_id( id );
     record.set_name( name );
-    record.set_parent_space_id( parentSpaceId ); // empty = standalone (D-01)
+    record.set_parent_space_id( parentSpaceId );       // empty = standalone (D-01)
+    record.set_members_can_invite( membersCanInvite ); // MEMB-05 invite gate
+    if ( parentSpaceId.empty() )
+    {
+        // Standalone room = its own Super Admin scope (P2), so it carries the
+        // creator. A nested room's Super Admin is the parent space's creator,
+        // so its creator field stays empty.
+        record.set_creator( m_localAddress );
+    }
     record.set_created_at_ms( nowMs );
     record.set_updated_at_ms( nowMs );
     record.set_deleted( false );          // D-03: tombstone fields present from
@@ -246,7 +270,8 @@ outcome::result<RoomRecord> EntityStore::CreateRoom( const std::string &name,
 
     // Manifest first, then the record (WR-02 — same rationale as CreateSpace:
     // a failed record Put degrades to a skipped manifest id on reload, never
-    // an unreachable orphan record).
+    // an unreachable orphan record). AppendToManifest is intentionally
+    // outside m_catalogMutex (already serialized by the FFI's g_mutex).
     auto manifestResult = AppendToManifest( m_session, false, id );
     if ( !manifestResult.has_value() )
     {
@@ -258,14 +283,36 @@ outcome::result<RoomRecord> EntityStore::CreateRoom( const std::string &name,
     {
         return putResult.error();
     }
-    m_rooms.emplace( id, record );
+    {
+        std::lock_guard<std::mutex> catalogLock( m_catalogMutex );
+        m_rooms.emplace( id, record );
+    }
     return record;
 }
 
 outcome::result<SpaceRecord> EntityStore::UpdateSpace( const SpaceRecord &desired )
 {
-    const auto existingIt = m_spaces.find( desired.id() );
-    if ( existingIt == m_spaces.end() || existingIt->second.deleted() )
+    // Phase 1: copy the immutable authority fields out under the catalog lock.
+    // Only scalars/values leave the locked scope — no iterator survives into
+    // the unlocked Put below.
+    bool        found             = false;
+    int64_t     createdAtMs       = 0;
+    bool        storedDeleted     = false;
+    int64_t     storedDeletedAtMs = 0;
+    std::string storedCreator;
+    {
+        std::lock_guard<std::mutex> catalogLock( m_catalogMutex );
+        const auto                  existingIt = m_spaces.find( desired.id() );
+        if ( existingIt != m_spaces.end() && !existingIt->second.deleted() )
+        {
+            found             = true;
+            createdAtMs       = existingIt->second.created_at_ms();
+            storedDeleted     = existingIt->second.deleted();
+            storedDeletedAtMs = existingIt->second.deleted_at_ms();
+            storedCreator     = existingIt->second.creator();
+        }
+    }
+    if ( !found )
     {
         spdlog::warn( "gcs_entity_store: update_space rejected — space '{}' not "
                       "found or deleted",
@@ -274,28 +321,77 @@ outcome::result<SpaceRecord> EntityStore::UpdateSpace( const SpaceRecord &desire
     }
 
     // Full-state rewrite (per-key LWW replaces the whole value) — but the
-    // immutable fields stay stamped by C++: the caller's desired record may
-    // carry only id/name/is_public/auto_join_rooms, so created_at_ms and the
-    // tombstone state are preserved from the stored record, never zeroed.
+    // immutable authority fields stay stamped by C++: the caller's desired
+    // record may carry only id/name/is_public/auto_join_rooms, so created_at_ms,
+    // the tombstone state, and the creator (D-03 — a client command can never
+    // blank or overwrite the Super Admin) are preserved from the stored record.
+    // members_can_invite is NOT preserved — it is desired state, applied as-is.
     SpaceRecord updated = desired;
-    updated.set_created_at_ms( existingIt->second.created_at_ms() );
-    updated.set_deleted( existingIt->second.deleted() );
-    updated.set_deleted_at_ms( existingIt->second.deleted_at_ms() );
+    updated.set_created_at_ms( createdAtMs );
+    updated.set_deleted( storedDeleted );
+    updated.set_deleted_at_ms( storedDeletedAtMs );
+    updated.set_creator( storedCreator );
     updated.set_updated_at_ms( NowMs() );
 
+    // Phase 2: the blocking Put stays outside the catalog lock (T-04-08-02 —
+    // holding it here would invert the FFI/DagWorker lock order).
     auto putResult = m_session.Put( std::string( kSpacesKeyPrefix ) + updated.id(),
                                     updated.SerializeAsString() );
     if ( !putResult.has_value() )
     {
         return putResult.error();
     }
-    m_spaces[updated.id()] = updated;
+    // Phase 3: publish the stored state to the in-memory catalog.
+    {
+        std::lock_guard<std::mutex> catalogLock( m_catalogMutex );
+        m_spaces[updated.id()] = updated;
+    }
     return updated;
+}
+
+outcome::result<void> EntityStore::ApplySpaceState( const SpaceRecord &record )
+{
+    // Phase 1: the blocking Put stays outside the catalog lock (T-04-14-01 —
+    // holding it here would invert the FFI/DagWorker lock order). Full-state
+    // write of the caller's amended record — no immutable preservation and no
+    // timestamp restamp: the session is authoritative.
+    auto putResult = m_session.Put( std::string( kSpacesKeyPrefix ) + record.id(),
+                                    record.SerializeAsString() );
+    if ( !putResult.has_value() )
+    {
+        return putResult.error();
+    }
+    // Phase 2: publish the exact stored state. Assignment (not emplace) inserts
+    // when absent and replaces when present; tombstoned records stay in the map
+    // so IsValidParentSpace()/DerivedJoinedTopics() keep excluding them.
+    {
+        std::lock_guard<std::mutex> catalogLock( m_catalogMutex );
+        m_spaces[record.id()] = record;
+    }
+    return outcome::success();
+}
+
+outcome::result<void> EntityStore::ApplyRoomState( const RoomRecord &record )
+{
+    // Room twin of ApplySpaceState(): Put outside the catalog lock
+    // (T-04-14-01), then publish the exact stored state under it.
+    auto putResult = m_session.Put( std::string( kRoomsKeyPrefix ) + record.id(),
+                                    record.SerializeAsString() );
+    if ( !putResult.has_value() )
+    {
+        return putResult.error();
+    }
+    {
+        std::lock_guard<std::mutex> catalogLock( m_catalogMutex );
+        m_rooms[record.id()] = record;
+    }
+    return outcome::success();
 }
 
 std::vector<SpaceRecord> EntityStore::Spaces() const
 {
-    std::vector<SpaceRecord> spaces;
+    std::lock_guard<std::mutex> catalogLock( m_catalogMutex );
+    std::vector<SpaceRecord>    spaces;
     for ( const auto &entry : m_spaces )
     {
         if ( !entry.second.deleted() )
@@ -308,7 +404,8 @@ std::vector<SpaceRecord> EntityStore::Spaces() const
 
 std::vector<RoomRecord> EntityStore::Rooms() const
 {
-    std::vector<RoomRecord> rooms;
+    std::lock_guard<std::mutex> catalogLock( m_catalogMutex );
+    std::vector<RoomRecord>     rooms;
     for ( const auto &entry : m_rooms )
     {
         if ( !entry.second.deleted() )
@@ -321,9 +418,19 @@ std::vector<RoomRecord> EntityStore::Rooms() const
 
 std::vector<std::string> EntityStore::DerivedJoinedTopics() const
 {
-    std::vector<std::string> topics;
-    for ( const RoomRecord &room : Rooms() )
+    // Lock once and iterate m_rooms directly: calling the now-locking Rooms()
+    // here would recursively acquire m_catalogMutex (non-recursive) and
+    // deadlock. The room-level deleted() skip is re-applied below because the
+    // filtering Rooms() call is gone.
+    std::lock_guard<std::mutex> catalogLock( m_catalogMutex );
+    std::vector<std::string>    topics;
+    for ( const auto &entry : m_rooms )
     {
+        if ( entry.second.deleted() )
+        {
+            continue; // tombstoned room — Rooms() supplied this skip before
+        }
+        const RoomRecord &room = entry.second;
         if ( room.parent_space_id().empty() )
         {
             continue; // standalone rooms never join via a space (D-04)
@@ -344,7 +451,8 @@ std::vector<std::string> EntityStore::DerivedJoinedTopics() const
 
 bool EntityStore::IsValidParentSpace( const std::string &id ) const
 {
-    const auto it = m_spaces.find( id );
+    std::lock_guard<std::mutex> catalogLock( m_catalogMutex );
+    const auto                  it = m_spaces.find( id );
     return it != m_spaces.end() && !it->second.deleted();
 }
 

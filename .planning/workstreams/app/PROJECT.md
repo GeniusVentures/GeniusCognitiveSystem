@@ -59,6 +59,7 @@ Users can create a space, invite others, and have a group conversation where an 
 - **Tech stack:** C++17 (no C++20 features), Flutter/Dart, libp2p GossipSub, GlobalDB CRDT
 - **No central servers:** All state sync via CRDT over IPFS pubsub
 - **Platform:** macOS first, then Linux, Windows, iOS, Android
+- **Canonical build (plans, verify commands, and agents MUST use this form):** configure and build inside the per-platform tree — `cd build/<OSX|Windows|Linux|Android|iOS> && mkdir -p Debug && cd Debug && cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Debug && ninja` (full per-platform detail in `build/README.md`). Build/test commands target the configured tree: `ninja -C build/OSX/Debug <targets>` and `ctest --test-dir build/OSX/Debug -R "…"`. Never `cmake --build build` — no build tree exists at the repo root.
 
 ## Key Decisions
 

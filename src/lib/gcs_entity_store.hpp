@@ -17,6 +17,7 @@
 #define GCS_ENTITY_STORE_HPP
 
 #include <map>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -50,9 +51,12 @@ public:
    *
    * Performs no I/O and no fallible work (deferred registration idiom).
    *
-   * @param[in] session The owning session; must outlive this store.
+   * @param[in] session      The owning session; must outlive this store.
+   * @param[in] localAddress Local wallet address stamped into `creator` on new
+   *                         spaces and standalone rooms (the D-03 authority);
+   *                         empty = the legacy pre-membership path.
    */
-  explicit EntityStore(CoreSession &session);
+  explicit EntityStore(CoreSession &session, std::string localAddress = {});
 
   EntityStore(const EntityStore &) = delete;
   EntityStore &operator=(const EntityStore &) = delete;
@@ -78,14 +82,17 @@ public:
    * C++ stamps id, timestamps, and the tombstone fields (D-01/D-27 — the
    * authority fields never come from Dart).
    *
-   * @param[in] name          Display name (mutable metadata, not identity).
-   * @param[in] isPublic      Public/private display flag.
-   * @param[in] autoJoinRooms D-04 derived-join source of truth.
+   * @param[in] name             Display name (mutable metadata, not identity).
+   * @param[in] isPublic         Public/private display flag.
+   * @param[in] autoJoinRooms    D-04 derived-join source of truth.
+   * @param[in] membersCanInvite MEMB-05 invite gate; false = members cannot
+   *                             invite (default matches the "if enabled" wording).
    * @return outcome::success with the stored SpaceRecord; propagated Error on
    *         a failed record/manifest write.
    */
   outcome::result<SpaceRecord> CreateSpace(const std::string &name,
-                                           bool isPublic, bool autoJoinRooms);
+                                           bool isPublic, bool autoJoinRooms,
+                                           bool membersCanInvite = false);
 
   /**
    * @brief Create a room: mint an opaque id, persist the record + manifest.
@@ -94,13 +101,20 @@ public:
    * model). A non-empty parentSpaceId must reference a known, non-tombstoned
    * space — otherwise the call is rejected without writing anything.
    *
-   * @param[in] name          Display name (mutable metadata, not identity).
-   * @param[in] parentSpaceId Parent space id; empty = standalone.
+   * A standalone room stamps `creator` from the injected address (it is its
+   * own Super Admin scope, P2); a nested room leaves `creator` empty because
+   * its Super Admin is the parent space's creator.
+   *
+   * @param[in] name             Display name (mutable metadata, not identity).
+   * @param[in] parentSpaceId    Parent space id; empty = standalone.
+   * @param[in] membersCanInvite MEMB-05 creation-time invite gate; false by
+   *                             default.
    * @return outcome::success with the stored RoomRecord; Error on an unknown
    *         parent or a failed record/manifest write.
    */
   outcome::result<RoomRecord> CreateRoom(const std::string &name,
-                                         const std::string &parentSpaceId);
+                                         const std::string &parentSpaceId,
+                                         bool membersCanInvite = false);
 
   /**
    * @brief Overwrite a space record with the full desired state (CORE-03).
@@ -115,6 +129,48 @@ public:
    *         unknown or tombstoned, or the write failed.
    */
   outcome::result<SpaceRecord> UpdateSpace(const SpaceRecord &desired);
+
+  /**
+   * @brief Persist a caller-amended space record and publish it to the catalog.
+   *
+   * A full-state write of a record the caller already read and amended: the
+   * record is stored exactly as supplied — created_at_ms, creator, the
+   * tombstone fields, and updated_at_ms are NOT re-stamped or preserved from
+   * the catalog (unlike UpdateSpace). The session is authoritative and the
+   * catalog must mirror what was just written; an id absent from the catalog
+   * is inserted (it covers a record a concurrent LoadFromStore has not yet
+   * replayed). A tombstoned record is accepted and KEPT in the map so
+   * IsValidParentSpace() and DerivedJoinedTopics() keep excluding it.
+   *
+   * The blocking CoreSession Put happens OUTSIDE m_catalogMutex
+   * (T-04-14-01 lock-order): holding the catalog lock across a Put would
+   * invert the established FFI/DagWorker lock order. This mutator is the only
+   * sanctioned path for destructive entity-state writes
+   * (Membership::DeleteScope / Membership::Approve).
+   *
+   * @param[in] record Full space state already amended by the caller.
+   * @return outcome::success once the record is persisted and catalogued;
+   *         the propagated Error when the write fails (the catalog is
+   *         unchanged).
+   */
+  outcome::result<void> ApplySpaceState(const SpaceRecord &record);
+
+  /**
+   * @brief Persist a caller-amended room record and publish it to the catalog.
+   *
+   * Room twin of ApplySpaceState(): full-state persist of a caller-amended
+   * record, catalog published on success, and the blocking Put never held
+   * under m_catalogMutex (T-04-14-01 lock-order). A tombstoned record is
+   * accepted and kept in the map so Rooms() and DerivedJoinedTopics() keep
+   * excluding it. This mutator is the only sanctioned path for destructive
+   * room-state writes (Membership::DeleteScope / Membership::Approve).
+   *
+   * @param[in] record Full room state already amended by the caller.
+   * @return outcome::success once the record is persisted and catalogued;
+   *         the propagated Error when the write fails (the catalog is
+   *         unchanged).
+   */
+  outcome::result<void> ApplyRoomState(const RoomRecord &record);
 
   /**
    * @brief All non-tombstoned spaces in id order.
@@ -166,6 +222,18 @@ private:
   static std::string NextEntityId(const char *prefix);
 
   CoreSession &m_session; ///< Borrowed session (Put/Get pass-throughs)
+
+  std::string m_localAddress; ///< Wallet address stamped into `creator` (D-03)
+
+  /**
+   * @brief Guards m_spaces and m_rooms only (catalog synchronization).
+   *
+   * NEVER held across a CoreSession Put/Get: the FFI holds g_mutex across
+   * entity Puts and the CRDT DagWorker heal lambda takes g_mutex, so nesting a
+   * store call under this mutex would invert the established lock order.
+   * `mutable` because the read accessors are const.
+   */
+  mutable std::mutex m_catalogMutex;
 
   std::map<std::string, SpaceRecord>
       m_spaces; ///< Known spaces by id (tombstoned records kept)

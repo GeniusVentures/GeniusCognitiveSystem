@@ -16,7 +16,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 1: Foundation** - C++ core scaffolding, GlobalDB CRDT integration, FFI bridge to Flutter, and cross-platform CI/CD (macOS, Linux, Windows, iOS, Android)
 - [x] **Phase 2: Spaces & Rooms** - Space and room creation with configurable inheritance (completed 2026-09-19)
 - [x] **Phase 3: Messaging** - Real-time text messaging with CRDT sync across participants (completed 2026-09-24)
-- [ ] **Phase 4: Membership & Invites** - Roles, capability tokens, and permission model
+- [x] **Phase 4: Membership & Invites** - Roles, capability tokens, and permission model (completed 2026-10-21)
 - [ ] **Phase 5: Moderation** - Message tombstones, kick/ban, and admin approval flows
 - [ ] **Phase 6: GCS Bot** - Bot participant with auto-answer policies and Expert Model routing
 - [ ] **Phase 7: Discovery** - Public space lobby and private space isolation
@@ -153,27 +153,82 @@ Plans:
   4. Super Admin cannot be demoted by other admins
   5. When 2+ admins exist, destructive actions require Super Admin approval
 
-**Plans:** 7 plans
+**Plans:** 23/23 plans complete
 
 Plans:
 **Wave 1**
 
-- [ ] 04-01-PLAN.md — Wave 1 — Append-only proto contract (Role/MemberRecord/MemberList/InviteLink + creator/members_can_invite/approved_by + 7 command/2 event arms)
-- [ ] 04-02-PLAN.md — Wave 1 — Crypto key-wrap + per-room key store + WR-02 HKDF-ikm swap (D-06)
+- [x] 04-01-PLAN.md — Wave 1 — Append-only proto contract (Role/MemberRecord/MemberList/InviteLink + creator/members_can_invite/approved_by + 7 command/2 event arms)
+- [x] 04-02-PLAN.md — Wave 1 — Crypto key-wrap + per-room key store + WR-02 HKDF-ikm swap (D-06)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 04-04-PLAN.md — Wave 2 (depends: 04-01) — EntityStore creator + members_can_invite stamping (P1/P2/P3) + UpdateSpace preservation
-- [ ] 04-06-PLAN.md — Wave 2 (depends: 04-01) — Dart pb regen + MembersCubit + SessionCubit dispatch arms
+- [x] 04-04-PLAN.md — Wave 2 (depends: 04-01) — EntityStore creator + members_can_invite stamping (P1/P2/P3) + UpdateSpace preservation
+- [x] 04-06-PLAN.md — Wave 2 (depends: 04-01) — Dart pb regen + MembersCubit + SessionCubit dispatch arms
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 04-03-PLAN.md — Wave 3 (depends: 04-01, 04-02, 04-04) — gcs::Membership component (mint/redeem/role/remove/leave/delete/approve + D-03/D-07/D-08 guards) + unit/multinode tests
-- [ ] 04-07-PLAN.md — Wave 3 (depends: 04-06) — Membership UI (members dialog, join dialog, rail affordances, MembersCubit wiring)
+- [x] 04-03-PLAN.md — Wave 3 (depends: 04-01, 04-02, 04-04) — gcs::Membership component (mint/redeem/role/remove/leave/delete/approve + D-03/D-07/D-08 guards) + unit/multinode tests
+- [x] 04-07-PLAN.md — Wave 3 (depends: 04-06) — Membership UI (members dialog, join dialog, rail affordances, MembersCubit wiring)
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 04-05-PLAN.md — Wave 4 (depends: 04-03, 04-04) — FFI wiring (membership arms + /gcs/members/ heal callback + P5 retroactive guards + D-02 explicit_leave)
+- [x] 04-05-PLAN.md — Wave 4 (depends: 04-03, 04-04) — FFI wiring (membership arms + /gcs/members/ heal callback + P5 retroactive guards + D-02 explicit_leave)
+
+**Wave 5** *(blocked on Wave 4 completion — gap closure)*
+
+- [x] 04-08-PLAN.md — Wave 5 (gap CR-01) — EntityStore catalog synchronization (mutex-guarded maps, never held across a Put) + concurrent reader/writer stress test
+- [x] 04-09-PLAN.md — Wave 5 (gaps WR-02/03/04/05/06) — Membership rank guards, every-invite bearer authenticator (HKDF/AES-GCM + seam callables) with kind cross-check and collision rejection, tombstone-arrival roster push, well-known replication topic + appended proto fields, and the multinode fixture moved onto that topic
+
+**Wave 6** *(blocked on Wave 5 completion — gap closure)*
+
+- [x] 04-10-PLAN.md — Wave 6 (gap WR-07) — Dart: scope-keyed pending invite link + pinned 22.5.0 pb regen
+- [x] 04-11-PLAN.md — Wave 6 (gaps WR-01/06/07) — FFI: g_membership teardown eviction, membership-topic registration at init before the session global is installed, production invite-auth seam wiring, scope-stamped InviteLink push
+- [x] 04-12-PLAN.md — Wave 6 (gaps WR-06/04/05) — Multinode cases only (fixture lives in 04-09): space-invite convergence with no per-scope registration, wire-level every-invite bearer-gate proof, remote-removal push
+
+**Wave 7** *(blocked on Wave 6 completion — re-verification gap closure)*
+
+- [x] 04-13-PLAN.md — Wave 7 (gaps CR-01/CR-02) — RedeemInvite preserves live member state (role/pending/approved_by) and rejects tombstoned wallets, with dormant-removal and no-write regression tests
+
+**Wave 8** *(blocked on Wave 7 completion — gap closure)*
+
+- [x] 04-14-PLAN.md — Wave 8 (gaps CR-06/CR-05) — EntityStore ApplySpaceState/ApplyRoomState deletion mutators (catalog-synchronized, Put outside the mutex) + DeleteScope/Approve routed through them + AdminCount fail-closed with an injected-scan regression test
+
+**Wave 9** *(blocked on Wave 8 completion — gap closure)*
+
+- [x] 04-15-PLAN.md — Wave 9 (gap CR-08) — Issuer-signed invite records: append-only created_by/issuer_signature, public hex codec, sign/verify seam, scoped URL + exact-key lookup, redeem signature/authority/scope checks, unit forgery/authority/scope proofs
+
+**Wave 10** *(blocked on Wave 9 completion — gap closure)*
+
+- [x] 04-16-PLAN.md — Wave 10 (gap CR-08 production) — FFI account-backed issuer seam (fail closed) + scoped-link FFI tests + pinned Dart pb regen + two-segment join-link gate
+
+**Wave 11** *(blocked on Wave 10 completion — gap closure)*
+
+- [x] 04-17-PLAN.md — Wave 11 (gaps CR-03/CR-04) — CanChangeRole concrete-role and strict-rank guards (creator exception preserved) + role/rank authorization tests
+- [x] 04-18-PLAN.md — Wave 11 (gap CR-08 wire proof) — Multinode real-signer fixture: genuine cross-node redeem accepted, forged issuer with a valid bearer authenticator rejected with baseline capture
+
+**Wave 12** *(blocked on Wave 11 completion — re-verification gap closure, truth 29)*
+
+- [x] 04-19-PLAN.md — Wave 12 — Signed member records: append-only created_by/record_signature, canonical payload, author-signed vs authority-preserving writes, verified reads, self-signed Guest cap, creator-rooted authority chain
+
+**Wave 13** *(blocked on Wave 12 completion)*
+
+- [x] 04-20-PLAN.md — Wave 13 (depends: 04-19) — Signed SeedMember + shared test payload helper, flipped no-seam/peer-Super-Admin expectations, trust-chain exclusion and authority-preservation tests
+
+**Wave 14** *(blocked on Wave 13 completion)*
+
+- [x] 04-21-PLAN.md — Wave 14 (depends: 04-20) — WR-02 identity-based creator exception, WR-03 approval re-validation, WR-05 pending-removal barrier and canonical clearing
+
+**Wave 15** *(blocked on Wave 14 completion)*
+
+- [x] 04-22-PLAN.md — Wave 15 (depends: 04-19, 04-20, 04-21) — Multinode cold-node scope mirror + wire-level forged self-claimed Super Admin exclusion and command rejection + full-suite gate
+
+**Wave 16** *(blocked on Wave 15 completion — verification gap closure)*
+
+- [x] 04-23-PLAN.md — Wave 16 (depends: 04-19, 04-20, 04-21) — Reject cross-scope raw member records in RedeemInvite/Leave before the authority-preserving write (CR-01, truth 29) + byte-level regression
+
+**Deferred (recorded, not in this gap-closure set):** CR-07 — room keys live in a process-local store, so a second application process (or a restart without the invite material) cannot decrypt a room's key material. Warning-level; no Phase 4 requirement depends on cross-process key persistence, and no plan in Waves 5-11 addresses it.
+
 **UI hint**: yes
 
 ### Phase 5: Moderation
@@ -232,7 +287,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 1. Foundation | 11/11 | Complete | 2026-09-16 |
 | 2. Spaces & Rooms | 5/5 | Complete   | 2026-09-19 |
 | 3. Messaging | 6/6 | Complete   | 2026-09-24 |
-| 4. Membership & Invites | 0/7 | Not started | - |
+| 4. Membership & Invites | 23/23 | Complete   | 2026-10-21 |
 | 5. Moderation | 0/TBD | Not started | - |
 | 6. GCS Bot | 0/TBD | Not started | - |
 | 7. Discovery | 0/TBD | Not started | - |

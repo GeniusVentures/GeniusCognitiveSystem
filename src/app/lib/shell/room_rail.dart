@@ -25,8 +25,12 @@ import 'package:frontend_scaffold/theme/scaffold_dimens.dart';
 import 'package:frontend_scaffold/theme/scaffold_palette.dart';
 import 'package:frontend_scaffold/theme/scaffold_theme.dart';
 
+import '../cubits/members_cubit.dart';
 import '../cubits/rail_cubit.dart';
 import '../cubits/session_cubit.dart';
+import '../generated/proto/gcs_chat.pb.dart';
+import 'join_dialog.dart';
+import 'members_dialog.dart';
 import 'space_room_dialog.dart';
 
 /// Short display name of a pushed room topic (`gcs/chat/smoke-test` ->
@@ -41,6 +45,12 @@ String roomDisplayName(String roomTopic) {
   }
   return roomTopic.substring(lastSlash + 1);
 }
+
+/// Extent of a node's leading glyph (the space chevron and the room chat
+/// bubble both use the default 24px Material icon size). A node's metadata
+/// line indents one glyph + one space3 past the row's own leading padding so
+/// its badges align under the node name.
+const double _kNodeLeadingGlyph = 24.0;
 
 /// The left room rail of the GCS chat shell (D-21).
 ///
@@ -109,15 +119,24 @@ class _RoomRailState extends State<RoomRail> {
                         ),
                       ),
                     ),
+                    const _HeaderJoinButton(),
+                    SizedBox(width: dimens.space2),
                     const _HeaderCreateButton(),
                   ],
                 ),
               ),
               Expanded(
-                child: !_railHasTree(rail)
-                    ? const ScaffoldStateView(state: 'loading')
-                    : _railIsEmpty(rail)
-                    ? ScaffoldStateView(
+                // The viewer-role gate (D-08): the space/standalone-room
+                // affordances render from the VIEWER's pushed role, so this
+                // subtree must re-render when a MemberList arrives. Only the
+                // tree depends on membership -- the toolbar above does not.
+                child: BlocBuilder<MembersCubit, MembersState>(
+                  builder: (BuildContext context, MembersState members) {
+                    if (!_railHasTree(rail)) {
+                      return const ScaffoldStateView(state: 'loading');
+                    }
+                    if (_railIsEmpty(rail)) {
+                      return ScaffoldStateView(
                         state: 'empty',
                         emptyHeadline: 'No spaces yet',
                         emptyBody:
@@ -125,8 +144,11 @@ class _RoomRailState extends State<RoomRail> {
                         emptyAction: _CreateSpaceAction(
                           onTap: () => _openCreateFromHeader(context),
                         ),
-                      )
-                    : _buildTree(context, rail, dimens),
+                      );
+                    }
+                    return _buildTree(context, rail, dimens, members.byScope);
+                  },
+                ),
               ),
             ],
           );
@@ -144,7 +166,12 @@ class _RoomRailState extends State<RoomRail> {
 
   /// The populated tree: space nodes, then the standalone Rooms section
   /// (hidden entirely while empty -- no empty-section noise).
-  Widget _buildTree(BuildContext context, RailState rail, ScaffoldDimens dimens) {
+  Widget _buildTree(
+    BuildContext context,
+    RailState rail,
+    ScaffoldDimens dimens,
+    Map<String, List<MemberInfo>> rosters,
+  ) {
     // Prune collapse state for spaces absent from the pushed tree (IN-02):
     // stale ids would otherwise accumulate for the whole session lifetime
     // (ids are unique per creation, so they never come back). Safe to mutate
@@ -164,6 +191,7 @@ class _RoomRailState extends State<RoomRail> {
             onToggle: () => _toggleExpanded(space.id),
             joinedTopics: rail.rooms,
             activeRoom: rail.activeRoom,
+            rosters: rosters,
           ),
         if (rail.standaloneRooms.isNotEmpty) ...<Widget>[
           SizedBox(height: dimens.space12),
@@ -191,6 +219,11 @@ class _RoomRailState extends State<RoomRail> {
               joined: rail.rooms.contains(room.topic),
               selected: rail.activeRoom == room.topic,
               leadingInset: dimens.space6,
+              // Standalone rows carry membership/deletion affordances;
+              // nested rows do not (membership derives from the parent
+              // space, D-01/D-02).
+              standalone: true,
+              rosters: rosters,
             ),
         ],
       ],
@@ -241,6 +274,77 @@ class _HeaderCreateButton extends StatelessWidget {
   }
 }
 
+/// The toolbar's "Join" entry point (UI-SPEC rail contract): a 40px
+/// `textSecondary` person-add affordance to the LEFT of the accent "+",
+/// lifted to a 48px hit area by [ScaffoldPressable]'s internal touch target.
+/// Persists in every rail state -- the redeem flow is never a dead end.
+class _HeaderJoinButton extends StatelessWidget {
+  /// Creates the header join affordance.
+  const _HeaderJoinButton();
+
+  @override
+  Widget build(BuildContext context) {
+    return _NodeIconAffordance(
+      icon: Icons.person_add_outlined,
+      semanticLabel: 'Join via invite link',
+      onTap: () => showJoinDialog(
+        context: context,
+        transport: context.read<SessionCubit>(),
+      ),
+    );
+  }
+}
+
+/// Opens the member list for the scope [scopeId]/[scopeName] through the
+/// session transport (the shared rail entry point; space nodes and standalone
+/// rows call it).
+void _openMembersDialog({
+  required BuildContext context,
+  required String scopeId,
+  required String scopeName,
+  required bool membersCanInvite,
+}) {
+  showMembersDialog(
+    context: context,
+    transport: context.read<SessionCubit>(),
+    scopeId: scopeId,
+    scopeName: scopeName,
+    membersCanInvite: membersCanInvite,
+  );
+}
+
+/// Opens the destructive delete confirmation for [scopeName] through the
+/// session transport (the shared rail entry point; space nodes and standalone
+/// rows call it). The confirm copy/composition lives in [MembersDialog].
+void _openDeleteDialog({
+  required BuildContext context,
+  required String scopeId,
+  required String scopeName,
+}) {
+  MembersDialog.showDeleteConfirm(
+    context: context,
+    transport: context.read<SessionCubit>(),
+    scopeId: scopeId,
+    scopeName: scopeName,
+  );
+}
+
+/// Publishes the Super Admin's approve for a pending scope deletion through
+/// the session transport (immediate, no confirmation -- D-07 single-signer).
+/// Delegates to the shared approve publish in [approvePendingOp] (target is
+/// the scope itself for a scope-level op).
+void _approveDeletion({
+  required BuildContext context,
+  required String scopeId,
+}) {
+  approvePendingOp(
+    context: context,
+    transport: context.read<SessionCubit>(),
+    scopeId: scopeId,
+    target: scopeId,
+  );
+}
+
 /// The empty-state accent action pill ("Create space"; UI-SPEC: accent
 /// reserved list, item 8) -- opens the header-launch create dialog.
 class _CreateSpaceAction extends StatelessWidget {
@@ -289,6 +393,7 @@ class _SpaceNode extends StatelessWidget {
     required this.onToggle,
     required this.joinedTopics,
     required this.activeRoom,
+    required this.rosters,
   });
 
   /// The catalog space rendered by this node.
@@ -307,10 +412,30 @@ class _SpaceNode extends StatelessWidget {
   /// Currently selected room topic, if any.
   final String? activeRoom;
 
+  /// Per-scope pushed rosters (the viewer-role gate source, D-08).
+  final Map<String, List<MemberInfo>> rosters;
+
   @override
   Widget build(BuildContext context) {
     final ScaffoldDimens dimens = context.dimens;
     final bool reducedMotion = ScaffoldMotion.of(context).reducedMotion;
+    // Viewer-role gate (D-08): every affordance below renders from the
+    // VIEWER's pushed role for this scope; an absent roster (role unknown)
+    // hides every gated affordance rather than guessing.
+    final String? viewerRole = viewerOf(rosters[space.id])?.role;
+    final bool showPendingDeletion =
+        space.pendingAction == PendingAction.PENDING_ACTION_DELETE &&
+        space.approvedBy.isEmpty;
+    final bool canDelete = viewerCanDeleteScope(
+      viewerRole,
+      deletionPending: showPendingDeletion,
+    );
+    final bool canApproveDeletion =
+        showPendingDeletion && viewerIsSuperAdmin(viewerRole);
+    // Privacy and dormancy are metadata, not actions: they render on their own
+    // line under the row (see [_NodeMetadataLine]) so the 280px header always
+    // has room for its 48px affordances.
+    final bool showMetadata = !space.isPublic || showPendingDeletion;
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -353,15 +478,40 @@ class _SpaceNode extends StatelessWidget {
                       ),
                     ),
                   ),
-                  if (!space.isPublic) ...<Widget>[
-                    SizedBox(width: dimens.space2),
-                    ScaffoldBadge(
-                      variant: BadgeVariant.text,
-                      text: 'Private',
-                      badgeColor: context.palette.textSecondary,
-                    ),
-                  ],
                   const Spacer(),
+                  _NodeIconAffordance(
+                    icon: Icons.group_outlined,
+                    semanticLabel: 'View members of ${space.name}',
+                    onTap: () => _openMembersDialog(
+                      context: context,
+                      scopeId: space.id,
+                      scopeName: space.name,
+                      membersCanInvite: space.membersCanInvite,
+                    ),
+                  ),
+                  SizedBox(width: dimens.space2),
+                  if (canDelete) ...<Widget>[
+                    _NodeIconAffordance(
+                      icon: Icons.delete_outline,
+                      semanticLabel: 'Delete ${space.name}',
+                      color: context.palette.statusError,
+                      onTap: () => _openDeleteDialog(
+                        context: context,
+                        scopeId: space.id,
+                        scopeName: space.name,
+                      ),
+                    ),
+                    SizedBox(width: dimens.space2),
+                  ],
+                  if (canApproveDeletion) ...<Widget>[
+                    _NodeIconAffordance(
+                      icon: Icons.check_circle_outline,
+                      semanticLabel: 'Approve deletion of ${space.name}',
+                      onTap: () =>
+                          _approveDeletion(context: context, scopeId: space.id),
+                    ),
+                    SizedBox(width: dimens.space2),
+                  ],
                   _NodeIconAffordance(
                     icon: Icons.edit_outlined,
                     semanticLabel: 'Edit space ${space.name}',
@@ -388,6 +538,29 @@ class _SpaceNode extends StatelessWidget {
             ),
           ),
         ),
+        if (showMetadata)
+          _NodeMetadataLine(
+            // One leading glyph + one space3 past the row's own space6, so the
+            // badges line up under the space name.
+            leadingInset: dimens.space6 + _kNodeLeadingGlyph + dimens.space3,
+            badges: <Widget>[
+              if (!space.isPublic)
+                ScaffoldBadge(
+                  variant: BadgeVariant.text,
+                  text: 'Private',
+                  badgeColor: context.palette.textSecondary,
+                ),
+              // D-07 pending-deletion surface (pushed state only): the
+              // informational badge is always shown while the op is dormant;
+              // the approve affordance is Super-Admin-only.
+              if (showPendingDeletion)
+                ScaffoldBadge(
+                  variant: BadgeVariant.text,
+                  text: kPendingDeletionLabel,
+                  badgeColor: context.palette.statusWarningText,
+                ),
+            ],
+          ),
         AnimatedSize(
           // Body reveal, zero-duration under reduced motion. Padding keeps a
           // stable child across the transition (ScaffoldDisclosure idiom).
@@ -431,19 +604,25 @@ class _SpaceNode extends StatelessWidget {
   }
 }
 
-/// One trailing icon affordance of a space node (edit / "+"): a 40px
-/// circular area at `textSecondary` (accent stays reserved for the header
-/// "+"), lifted to 48px by ScaffoldPressable's internal touch target. The
-/// innermost gesture wins the arena, so these taps never collapse the node.
+/// One 40px icon-only affordance (toolbar join, space-node trailing cluster,
+/// or standalone-row trailing cluster): a circular area at `textSecondary`
+/// (accent stays reserved for the header "+"; destructive affordances pass a
+/// `statusError` [color]), lifted to 48px by ScaffoldPressable's internal
+/// touch target. The innermost gesture wins the arena, so these taps never
+/// collapse or select the row beneath them.
 class _NodeIconAffordance extends StatelessWidget {
-  /// Creates the affordance; [onTap] opens the matching dialog mode.
+  /// Creates the affordance; [onTap] opens the matching dialog or publishes
+  /// the matching command.
   const _NodeIconAffordance({
     required this.icon,
     required this.semanticLabel,
     required this.onTap,
+    this.color,
   });
 
-  /// Icon glyph (Icons.edit_outlined / Icons.add).
+  /// Icon glyph (Icons.person_add_outlined / Icons.group_outlined /
+  /// Icons.delete_outline / Icons.check_circle_outline / Icons.edit_outlined
+  /// / Icons.add).
   final IconData icon;
 
   /// Accessible name (icon-only pressable, WCAG 4.1.2).
@@ -451,6 +630,10 @@ class _NodeIconAffordance extends StatelessWidget {
 
   /// Opens the dialog for this affordance's mode.
   final VoidCallback onTap;
+
+  /// Optional glyph tint; defaults to `textSecondary`. The destructive delete
+  /// affordance passes `statusError`.
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
@@ -463,8 +646,47 @@ class _NodeIconAffordance extends StatelessWidget {
         width: size,
         height: size,
         child: Center(
-          child: Icon(icon, color: context.palette.textSecondary),
+          child: Icon(icon, color: color ?? context.palette.textSecondary),
         ),
+      ),
+    );
+  }
+}
+
+/// The metadata line under a rail node: the privacy and dormant-op badges,
+/// rendered on their own line instead of the node's header row.
+///
+/// The rail is 280px wide; a text badge costs roughly 100px of a row's budget,
+/// which the header needs for its 48px touch-target affordances. Keeping
+/// badges on their own line keeps the header from overflowing while every
+/// badge stays visible. Hidden entirely when [badges] is empty (callers gate
+/// on their own flags).
+class _NodeMetadataLine extends StatelessWidget {
+  /// Creates the metadata line, indenting its badges by [leadingInset] so they
+  /// align under the node name.
+  const _NodeMetadataLine({required this.leadingInset, required this.badges});
+
+  /// Start inset aligning the badges with the node name.
+  final double leadingInset;
+
+  /// The badges to render, in order.
+  final List<Widget> badges;
+
+  @override
+  Widget build(BuildContext context) {
+    final ScaffoldDimens dimens = context.dimens;
+    return Padding(
+      padding: EdgeInsetsDirectional.only(
+        start: leadingInset,
+        end: dimens.space6,
+        bottom: dimens.space2,
+      ),
+      // Wrap so two badges (private + pending) degrade to a second line rather
+      // than overflowing the rail.
+      child: Wrap(
+        spacing: dimens.space2,
+        runSpacing: dimens.space2,
+        children: badges,
       ),
     );
   }
@@ -483,6 +705,8 @@ class _TreeRoomRow extends StatelessWidget {
     required this.joined,
     required this.selected,
     required this.leadingInset,
+    this.standalone = false,
+    this.rosters = const <String, List<MemberInfo>>{},
   });
 
   /// The catalog room rendered by this row.
@@ -498,6 +722,15 @@ class _TreeRoomRow extends StatelessWidget {
   /// standalone rows).
   final double leadingInset;
 
+  /// Whether this is a standalone room row. Standalone rooms are their own
+  /// membership scope (D-01), so they carry the members/delete affordances
+  /// and the pending-deletion surface; nested rows do not (their membership
+  /// derives from the parent space, D-02).
+  final bool standalone;
+
+  /// Per-scope pushed rosters (the viewer-role gate source, D-08).
+  final Map<String, List<MemberInfo>> rosters;
+
   @override
   Widget build(BuildContext context) {
     final ScaffoldPalette palette = context.palette;
@@ -505,7 +738,22 @@ class _TreeRoomRow extends StatelessWidget {
     final Color foreground = selected
         ? palette.textPrimary
         : palette.textSecondary;
-    return ScaffoldPressable(
+    // Viewer-role gate (D-08) -- evaluated only for standalone scopes; a
+    // nested row renders none of these affordances.
+    final String? viewerRole = standalone
+        ? viewerOf(rosters[room.id])?.role
+        : null;
+    final bool showPendingDeletion =
+        standalone &&
+        room.pendingAction == PendingAction.PENDING_ACTION_DELETE &&
+        room.approvedBy.isEmpty;
+    final bool canDelete = viewerCanDeleteScope(
+      viewerRole,
+      deletionPending: showPendingDeletion,
+    );
+    final bool canApproveDeletion =
+        showPendingDeletion && viewerIsSuperAdmin(viewerRole);
+    final Widget row = ScaffoldPressable(
       disabled: !joined,
       onPressed: () => context.read<RailCubit>().selectRoom(room.topic),
       child: DecoratedBox(
@@ -536,16 +784,73 @@ class _TreeRoomRow extends StatelessWidget {
                   child: Text(
                     room.name,
                     overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: foreground,
-                    ),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodyMedium?.copyWith(color: foreground),
                   ),
                 ),
+                if (standalone) ...<Widget>[
+                  if (canApproveDeletion) ...<Widget>[
+                    _NodeIconAffordance(
+                      icon: Icons.check_circle_outline,
+                      semanticLabel: 'Approve deletion of ${room.name}',
+                      onTap: () =>
+                          _approveDeletion(context: context, scopeId: room.id),
+                    ),
+                    SizedBox(width: dimens.space2),
+                  ],
+                  _NodeIconAffordance(
+                    icon: Icons.group_outlined,
+                    semanticLabel: 'View members of ${room.name}',
+                    onTap: () => _openMembersDialog(
+                      context: context,
+                      scopeId: room.id,
+                      scopeName: room.name,
+                      membersCanInvite: room.membersCanInvite,
+                    ),
+                  ),
+                  if (canDelete) ...<Widget>[
+                    SizedBox(width: dimens.space2),
+                    _NodeIconAffordance(
+                      icon: Icons.delete_outline,
+                      semanticLabel: 'Delete ${room.name}',
+                      color: palette.statusError,
+                      onTap: () => _openDeleteDialog(
+                        context: context,
+                        scopeId: room.id,
+                        scopeName: room.name,
+                      ),
+                    ),
+                  ],
+                ],
               ],
             ),
           ),
         ),
       ),
+    );
+    if (!showPendingDeletion) {
+      return row;
+    }
+    // D-07 pending-deletion surface: the badge is metadata, so it renders on
+    // its own line (see [_NodeMetadataLine]) instead of competing with the
+    // affordances for the row's width.
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        row,
+        _NodeMetadataLine(
+          leadingInset: leadingInset + _kNodeLeadingGlyph + dimens.space3,
+          badges: <Widget>[
+            ScaffoldBadge(
+              variant: BadgeVariant.text,
+              text: kPendingDeletionLabel,
+              badgeColor: palette.statusWarningText,
+            ),
+          ],
+        ),
+      ],
     );
   }
 }
