@@ -6,7 +6,7 @@ status: planning
 last_updated: "2026-11-03T19:36:19.094Z"
 last_activity: 2026-11-03
 progress:
-  total_phases: 0
+  total_phases: 7
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -24,10 +24,10 @@ See: .planning/workstreams/app/PROJECT.md (updated 2026-09-22)
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: Not started (4.1 — room-session service; inserted v1.0.1 phases 4.1–4.4 precede v1.0's remaining phases 5–7)
 Plan: —
-Status: Defining requirements
-Last activity: 2026-11-03 — Milestone v1.0.1 started
+Status: Planning
+Last activity: 2026-11-03 — Milestone v1.0.1 roadmap created (4 phases inserted)
 
 ## Performance Metrics
 

@@ -13,10 +13,16 @@ Build a working multi-party chat application where users create spaces and rooms
 
 Decimal phases appear between their surrounding integers in numeric order.
 
+**Inserted milestone v1.0.1 (Coupling Remediation):** Phases 4.1–4.4 execute between Phase 4 and Phase 5. Phase 4 is complete; v1.0 Phases 5–7 remain planned and resume after v1.0.1.
+
 - [x] **Phase 1: Foundation** - C++ core scaffolding, GlobalDB CRDT integration, FFI bridge to Flutter, and cross-platform CI/CD (macOS, Linux, Windows, iOS, Android)
 - [x] **Phase 2: Spaces & Rooms** - Space and room creation with configurable inheritance (completed 2026-09-19)
 - [x] **Phase 3: Messaging** - Real-time text messaging with CRDT sync across participants (completed 2026-09-24)
 - [x] **Phase 4: Membership & Invites** - Roles, capability tokens, and permission model (completed 2026-10-21)
+- [ ] **Phase 4.1: Room-Session Service (INSERTED)** - Joined-room state, the composed join predicate, the role gates, and topic grammar move from the FFI into a `src/lib` room-session service
+- [ ] **Phase 4.2: Storage & Prefix Single-Homing (INSERTED)** - `Membership::Approve` reads through `EntityStore`; the `"gcs/chat/"` prefix has one C++ definition
+- [ ] **Phase 4.3: Dart Predicate Single-Homing (INSERTED)** - Capability and dormancy predicates have one Dart home
+- [ ] **Phase 4.4: Enforcement Gate (INSERTED)** - Canonical-payload tripwire plus a lib-only test target that drives the room lifecycle without `gcs_ffi`
 - [ ] **Phase 5: Moderation** - Message tombstones, kick/ban, and admin approval flows
 - [ ] **Phase 6: GCS Bot** - Bot participant with auto-answer policies and Expert Model routing
 - [ ] **Phase 7: Discovery** - Public space lobby and private space isolation
@@ -231,6 +237,68 @@ Plans:
 
 **UI hint**: yes
 
+### Phase 4.1: Room-Session Service (INSERTED)
+
+**Goal**: A room-session service in `src/lib` owns which rooms a session is joined to and why — the joined-topic registry, the composed join predicate, the send/create/update permission gates, and the topic grammar/length policies — while `gcs_core_ffi.cpp` validates arguments and delegates with no room-topic registry state.
+**Depends on**: Phase 4 (complete; inserted before v1.0 Phase 5)
+**Requirements**: CPLX-01, CPLX-02, CPLX-03
+**Success Criteria** (what must be TRUE):
+
+  1. Joined-room state is owned by one `src/lib` service: join dedup, re-join (refresh-only), D-07 listen-then-broadcast ordering, derived/explicit partition, eviction, and the send-requires-joined check; `src/ffi/gcs_core_ffi.cpp` holds no room-topic registry globals (a grep for the registry names finds none).
+  2. The composed join predicate — `(room.creator == self || parentSpace.autoJoinRooms) && !explicitLeave` — is assembled in `src/lib` from `EntityStore::DerivedJoinedTopics` and `Membership::HasExplicitLeave`, never in the adapter.
+  3. The send/create/update permission gates (including `RoleAtLeast` and scope/roster resolution) are computed in `src/lib`; each FFI arm validates arguments and delegates with no local rank or policy expression.
+  4. Room-topic grammar, topic/name/message length limits, and topic↔id derivation have a single definition in `src/lib`, referenced by the adapter.
+  5. Full regression is green and behavior is unchanged: `ctest --test-dir build/OSX/Debug` passes 13/13 and the Flutter suite (`flutter test` in `src/app`) passes; the joined set, pushed event sequence/payloads, and error results are identical to the pre-phase baseline.
+
+**Plans**: TBD
+
+### Phase 4.2: Storage & Prefix Single-Homing (INSERTED)
+
+**Goal**: The lib's only cross-domain raw-key read and the duplicated room-topic prefix are gone — `Membership::Approve` reads entity state through `EntityStore` functions, and `"gcs/chat/"` has one C++ definition.
+**Depends on**: Phase 4.1
+**Requirements**: CPLX-04, CPLX-05
+**Success Criteria** (what must be TRUE):
+
+  1. `Membership::Approve` obtains space/room state through `EntityStore` functions (the existing `ApplySpaceState`/`ApplyRoomState` path or an equivalent accessor on the same owner); `gcs_membership.cpp` no longer builds raw `gcs/entities/...` keys or parses `SpaceRecord`/`RoomRecord` itself.
+  2. A key-literal grep finds the entity key prefixes only in the `EntityStore` translation unit, and Approve's outcomes are unchanged: same approval/dormancy decisions, same error codes, existing membership tests passing with no expectation edits.
+  3. `"gcs/chat/"` has exactly one C++ definition in `src/lib`; `gcs_entity_store.cpp`, `gcs_membership.cpp`, and `gcs_core_ffi.cpp` all reference it and no other TU restates it.
+  4. Full regression is green and behavior is unchanged: `ctest --test-dir build/OSX/Debug` passes 13/13 and the Flutter suite passes; error results, event ordering, and event payloads are identical.
+
+*Scope note: the Dart `'gcs/chat/$id'` getter is an interpolated client-side derivation, not a prefix constant definition; it is unchanged because pushing a per-room topic field would alter event payloads.*
+
+**Plans**: TBD
+
+### Phase 4.3: Dart Predicate Single-Homing (INSERTED)
+
+**Goal**: The Flutter app no longer re-derives capability and dormancy rules in multiple homes — each predicate has exactly one Dart definition that every call site uses, while C++ remains the enforcement authority.
+**Depends on**: Phase 4.1 (settled pushed-event surface; the Dart work itself is independent of the C++ moves)
+**Requirements**: CPLX-06
+**Success Criteria** (what must be TRUE):
+
+  1. Capability predicates — `viewerCanManageMembers`, `viewerIsSuperAdmin`, `viewerCanDeleteScope`, the MEMB-05 invite gate, and the row/affordance gates including D-03 Super-Admin immunity — each have exactly one Dart definition; `members_dialog.dart` and `room_rail.dart` call it instead of restating the matrix.
+  2. The D-07 dormancy predicate (empty `approvedBy` with a non-unspecified `pendingAction`) has exactly one Dart definition used by the members cubit and both rail call sites.
+  3. Every capability/dormancy decision is unchanged for the role and record states covered by the existing Flutter tests (no expectation edits), and presentation still only displays pushed state — no rule is recomputed from wire bytes, and no business logic enters templates.
+  4. Full regression is green and behavior is unchanged: the Flutter suite in `src/app` passes, `ctest --test-dir build/OSX/Debug` passes 13/13, and pushed event payloads are unchanged (no proto field added).
+
+*Route: single-home in Dart. The push-computed-flags alternative would add proto fields and change event payload bytes, which the milestone's behavior-preserving gate forbids.*
+
+**Plans**: TBD
+
+### Phase 4.4: Enforcement Gate (INSERTED)
+
+**Goal**: The demotion is enforced, not promised — a lib-only test target drives the room lifecycle without `gcs_ffi`, and a canonical-payload tripwire makes payload drift fail the test suite.
+**Depends on**: Phases 4.1, 4.2 (the gate must exercise the consolidated lib shape)
+**Requirements**: CPLX-07, CPLX-08
+**Success Criteria** (what must be TRUE):
+
+  1. A new test target links `gcs_core` (and its storage/support libraries) with no `gcs_ffi` dependency and registers in ctest.
+  2. That target drives a room lifecycle through the lib service alone — create a space with `autoJoinRooms`, create a nested room, explicit leave, re-derive — and asserts the joined set; it cannot pass by going through the adapter because the adapter is not linked.
+  3. The room-session service's tests run in the lib-only target, not only in FFI-level tests.
+  4. A canonical-payload tripwire compares the production member/entity canonical payload builders with the test-helper mirrors; a change to either side alone makes the test fail. The production builders are reachable from the lib-only target without the FFI.
+  5. Full regression is green and behavior is unchanged: every registered ctest test passes (13/13 pre-existing plus the new lib-only target) and the Flutter suite passes; error results, event ordering, and event payloads are identical.
+
+**Plans**: TBD
+
 ### Phase 5: Moderation
 
 **Goal**: Moderators and admins can manage room content and membership through tombstone-based CRDT ops that preserve history while hiding removed content.
@@ -280,7 +348,7 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
+Phases execute in numeric order: 1 → 2 → 3 → 4 → 4.1 → 4.2 → 4.3 → 4.4 → 5 → 6 → 7. Phases 4.1–4.4 are the inserted v1.0.1 milestone; v1.0 resumes at Phase 5.
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -288,6 +356,10 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 2. Spaces & Rooms | 5/5 | Complete   | 2026-09-19 |
 | 3. Messaging | 6/6 | Complete   | 2026-09-24 |
 | 4. Membership & Invites | 23/23 | Complete   | 2026-10-21 |
+| 4.1. Room-Session Service | 0/TBD | Not started | - |
+| 4.2. Storage & Prefix Single-Homing | 0/TBD | Not started | - |
+| 4.3. Dart Predicate Single-Homing | 0/TBD | Not started | - |
+| 4.4. Enforcement Gate | 0/TBD | Not started | - |
 | 5. Moderation | 0/TBD | Not started | - |
 | 6. GCS Bot | 0/TBD | Not started | - |
 | 7. Discovery | 0/TBD | Not started | - |

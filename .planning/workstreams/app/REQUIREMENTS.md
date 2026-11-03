@@ -108,6 +108,14 @@ Which phases cover which requirements. Updated during roadmap creation.
 | MEMB-03 | Phase 4 | Complete |
 | MEMB-04 | Phase 4 | Complete |
 | MEMB-05 | Phase 4 | Complete |
+| CPLX-01 | Phase 4.1 | Pending |
+| CPLX-02 | Phase 4.1 | Pending |
+| CPLX-03 | Phase 4.1 | Pending |
+| CPLX-04 | Phase 4.2 | Pending |
+| CPLX-05 | Phase 4.2 | Pending |
+| CPLX-06 | Phase 4.3 | Pending |
+| CPLX-07 | Phase 4.4 | Pending |
+| CPLX-08 | Phase 4.4 | Pending |
 | MODR-01 | Phase 5 | Pending |
 | MODR-02 | Phase 5 | Pending |
 | MODR-03 | Phase 5 | Pending |
@@ -123,7 +131,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 - v1 requirements: 20 total
 - Mapped to phases: 20
 - Unmapped: 0
+- v1.0.1 requirements: 8 total
+- Mapped to phases: 8
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-08-15*
-*Last updated: 2026-08-15 after roadmap creation*
+*Last updated: 2026-11-03 after v1.0.1 roadmap creation*
