@@ -139,21 +139,34 @@ class MembersDialog {
     required String scopeName,
     bool membersCanInvite = false,
   }) {
+    // The dialog route mounts under the Navigator, ABOVE the shell's
+    // MultiBlocProvider (GCSChat is home:, below the MaterialApp's
+    // Navigator), so _RosterBody/_RosterFooter cannot resolve MembersCubit
+    // from the route context. Read the instance from the CALLING context
+    // and carry it into the route -- the same by-reference pattern the
+    // invite view uses for SessionCubit via _sessionOf.
+    final MembersCubit members = context.read<MembersCubit>();
     return ResponsiveDrawer.show<void>(
       context: context,
       title: 'Members of $scopeName',
       children: <Widget>[
-        _RosterBody(
-          scopeId: scopeId,
-          scopeName: scopeName,
-          transport: transport,
+        BlocProvider<MembersCubit>.value(
+          value: members,
+          child: _RosterBody(
+            scopeId: scopeId,
+            scopeName: scopeName,
+            transport: transport,
+          ),
         ),
       ],
-      footer: _RosterFooter(
-        scopeId: scopeId,
-        scopeName: scopeName,
-        membersCanInvite: membersCanInvite,
-        transport: transport,
+      footer: BlocProvider<MembersCubit>.value(
+        value: members,
+        child: _RosterFooter(
+          scopeId: scopeId,
+          scopeName: scopeName,
+          membersCanInvite: membersCanInvite,
+          transport: transport,
+        ),
       ),
     );
   }

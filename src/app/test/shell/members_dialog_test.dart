@@ -317,4 +317,45 @@ void main() {
     expect(command.approve.target, '0xbeef');
     expect(find.byType(BottomDrawer), findsOneWidget);
   });
+
+  testWidgets(
+    'roster resolves when the provider lives below the MaterialApp (route scoping)',
+    (WidgetTester tester) async {
+      final MembersCubit members = MembersCubit();
+      addTearDown(members.close);
+      members.setMembers('space-1', <MemberRecord>[
+        MemberRecord()
+          ..address = '0xcreator'
+          ..role = Role.ROLE_SUPER_ADMIN,
+      ], '0xcreator');
+
+      // The real app's topology: GCSChat provides MembersCubit BELOW the
+      // MaterialApp (home:), while the dialog route mounts under the
+      // Navigator above it. The dialog must therefore carry the cubit in,
+      // not resolve it from the route context (UAT finding 2026-11-02).
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: GcsTheme.light,
+          home: BlocProvider<MembersCubit>.value(
+            value: members,
+            child: const Scaffold(body: SizedBox()),
+          ),
+        ),
+      );
+      final BuildContext context = tester.state(find.byType(Scaffold)).context;
+      unawaited(
+        showMembersDialog(
+          context: context,
+          transport: _RecordingTransport(),
+          scopeId: 'space-1',
+          scopeName: 'ops',
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('Super Admin'), findsOneWidget);
+      expect(find.text('You'), findsOneWidget);
+    },
+  );
 }
