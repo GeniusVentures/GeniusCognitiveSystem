@@ -8,7 +8,20 @@ Multi-party group chat application built on the Genius Cognitive System (GCS). U
 
 Users can create a space, invite others, and have a group conversation where an AI participant (GCS) responds to questions — all synchronized via CRDT without central servers.
 
-## Current Milestone: v1.0 GCS Chat
+## Current Milestone: v1.0.1 Coupling Remediation
+
+**Goal:** Demote the FFI adapter to translation — the domain rules it currently owns move to `src/lib` owners, per the [whole-project coupling audit](../../notes/whole-project-coupling-audit.md) (2026-11-03).
+
+**Target features:**
+- Room-session service in `src/lib` owning the joined-topic registry, permission gates, and topic grammar
+- `Membership::Approve` reads entity state through `EntityStore` (no raw entity-key access in lib)
+- Single home for the `"gcs/chat/"` prefix constant
+- Dart capability/dormancy predicates single-homed (or computed flags pushed from C++)
+- Canonical-payload tripwire test + lib-only test target (the audit's gate)
+
+**Key context:** behavior-preserving refactor (tests green at each step); D-02a creator auto-join — the one sanctioned behavior change — shipped first (develop `e4a548c`). v1.0 GCS Chat is PAUSED at phase 04-complete (7 UAT items parked in `04-HUMAN-UAT.md`; phases 05–07 unplanned) and resumes after this milestone.
+
+### Paused Milestone: v1.0 GCS Chat
 
 **Goal:** Build a working multi-party chat with spaces, rooms, membership, and GCS bot integration.
 
@@ -95,4 +108,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-09-24 after Phase 3 (Messaging)*
+*Last updated: 2026-11-03 — milestone v1.0.1 started (v1.0 paused at phase 04-complete)*

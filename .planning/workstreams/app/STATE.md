@@ -1,17 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: GCS Chat
-status: verifying
-stopped_at: "Gap plan 04-23 executed: RedeemInvite/Leave reject cross-scope raw records before the authority-preserving write, TryReadRawMember documents its non-binding contract, byte-level regression green (full suite 13/13). Next: re-run /gsd:verify-work for phase 04."
-last_updated: "2026-10-21T17:46:17.843Z"
-last_activity: 2026-10-21 -- Completed plan 04-23 (gap closure)
+milestone: v1.0.1
+milestone_name: Coupling Remediation
+status: planning
+last_updated: "2026-11-03T19:36:19.094Z"
+last_activity: 2026-11-03
 progress:
-  total_phases: 7
-  completed_phases: 4
-  total_plans: 45
-  completed_plans: 45
-  percent: 57
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -25,12 +24,10 @@ See: .planning/workstreams/app/PROJECT.md (updated 2026-09-22)
 
 ## Current Position
 
-Phase: 04 (membership-invites) — COMPLETE
-Plan: 23 of 23
-Status: Verification 30/30 truths, CR-01 closed — human_needed (7 UAT items in 04-HUMAN-UAT.md)
-Last activity: 2026-10-21 -- Re-verification after gap closure 04-23
-
-Progress: [██████████] 100%
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-11-03 — Milestone v1.0.1 started
 
 ## Performance Metrics
 
