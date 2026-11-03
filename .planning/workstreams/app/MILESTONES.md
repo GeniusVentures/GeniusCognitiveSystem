@@ -24,20 +24,28 @@
 
 **Goal:** Demote the FFI adapter to translation. The domain rules it currently
 owns move to `src/lib` owners, per the audit's target shape. Quick milestone:
-scoped moves with tests green at each step, no behavior changes.
+scoped moves with tests green at each step, plus one sanctioned behavior
+change delivered first (D-02a).
 
 **Scope (from the audit):**
-1. Room-session service in `src/lib` — owns the joined-topic registry (dedup,
+1. **D-02a creator auto-join (behavior change, decided 2026-11-03 — do
+   first):** rooms stamp `creator` always (nested included — previously
+   empty, `gcs_entity_store.cpp:262-264`); the derived-join rule becomes
+   `(room.creator == self || parentSpace.autoJoinRooms) && !explicitLeave`,
+   which also makes standalone rooms derivation-joined for their creator for
+   the first time (`gcs_entity_store.cpp:434-436`). Retroactive only for
+   rooms that carry a creator stamp.
+2. Room-session service in `src/lib` — owns the joined-topic registry (dedup,
    re-join, D-07 listen-then-broadcast ordering, derived/explicit partition,
    eviction), the composed D-02 predicate, the send/create/update permission
    gates, and the topic grammar + length policies currently in
    `gcs_core_ffi.cpp`
-2. `Membership::Approve` reads entity state through `EntityStore` functions —
+3. `Membership::Approve` reads entity state through `EntityStore` functions —
    removes the lib's only cross-domain raw-key access
-3. Single-home the `"gcs/chat/"` prefix constant (currently 3 homes)
-4. Dart capability/dormancy predicates — single home, or computed flags pushed
+4. Single-home the `"gcs/chat/"` prefix constant (currently 3 homes)
+5. Dart capability/dormancy predicates — single home, or computed flags pushed
    from C++ (the `self_address` precedent)
-5. Canonical-payload tripwire test; lib-only test target linking `gcs_core`
+6. Canonical-payload tripwire test; lib-only test target linking `gcs_core`
    without `gcs_ffi` (the audit's gate — unwritable today)
 
 **Out of scope:** the D-02 creator-join product decision; the wire-level

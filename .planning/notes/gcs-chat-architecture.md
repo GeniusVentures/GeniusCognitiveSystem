@@ -28,6 +28,14 @@ Space CRDT carries config ops controlling room inheritance:
 
 Config ops are CRDT writes to the space topic. Clients process changes and update local join behavior.
 
+**Join derivation (D-02, amended 2026-11-03):** a room is joined when
+`(room.creator == self || parentSpace.autoJoinRooms) && !explicitLeave` — a
+room's **creator auto-joins their own room regardless of the space's auto-join
+flag** (user decision 2026-11-03, from UAT finding 2026-11-02); an explicit
+leave always wins. Nested rooms record their creator from this decision
+forward (previously deliberately empty); standalone rooms, which were never
+derivation-joined before, join for their creator via the same term.
+
 ## Invite Model
 
 | Entity | Mechanism | Format |
