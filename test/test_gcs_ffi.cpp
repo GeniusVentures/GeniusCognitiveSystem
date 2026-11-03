@@ -792,4 +792,67 @@ namespace gcs::test
         EXPECT_TRUE( RoomListCarriesTopic( events, roomTopic ) );
     }
 
+    /**
+     * @brief D-02a (user decision 2026-11-03): a room's creator is joined to
+     *        their own room immediately after creation even when the parent
+     *        space has autoJoinRooms=false — the UAT 2026-11-02 grayed-room
+     *        finding. create_room recomputes derived joins and pushes RoomList
+     *        before returning, so no restart is involved.
+     */
+    TEST_F( GcsFFI, CreatorRoomReachesRoomListWithoutAutoJoin )
+    {
+        m_handle = InitSubscribedSession();
+        ASSERT_NE( m_handle, nullptr );
+
+        gcs::chat::GcsCommand createSpace;
+        createSpace.mutable_create_space()->set_name( "ops" );
+        createSpace.mutable_create_space()->set_is_public( true );
+        createSpace.mutable_create_space()->set_auto_join_rooms( false );
+        ASSERT_EQ( PublishCommand( m_handle, createSpace ), GCS_OK );
+        const auto tree = FindLatestSpaceTree( g_pushedEvents.Take() );
+        ASSERT_TRUE( tree.has_value() );
+        ASSERT_EQ( tree->space_size(), 1 );
+        const std::string spaceId = tree->space( 0 ).id();
+
+        gcs::chat::GcsCommand createRoom;
+        createRoom.mutable_create_room()->set_name( "general" );
+        createRoom.mutable_create_room()->set_parent_space_id( spaceId );
+        ASSERT_EQ( PublishCommand( m_handle, createRoom ), GCS_OK );
+
+        const auto events = g_pushedEvents.Take();
+        const auto roomTree = FindLatestSpaceTree( events );
+        ASSERT_TRUE( roomTree.has_value() );
+        ASSERT_EQ( roomTree->room_size(), 1 );
+        const std::string roomId = roomTree->room( 0 ).id();
+        EXPECT_FALSE( roomTree->room( 0 ).creator().empty() ); // D-02a stamp
+
+        const std::string roomTopic = std::string( "gcs/chat/" ) + roomId;
+        EXPECT_TRUE( RoomListCarriesTopic( events, roomTopic ) );
+    }
+
+    /**
+     * @brief D-02a: a standalone room — never derivation-joined before this
+     *        decision — reaches the pushed RoomList for its creator right
+     *        after creation.
+     */
+    TEST_F( GcsFFI, CreatorStandaloneRoomReachesRoomList )
+    {
+        m_handle = InitSubscribedSession();
+        ASSERT_NE( m_handle, nullptr );
+
+        gcs::chat::GcsCommand createRoom;
+        createRoom.mutable_create_room()->set_name( "lounge" );
+        ASSERT_EQ( PublishCommand( m_handle, createRoom ), GCS_OK );
+
+        const auto events = g_pushedEvents.Take();
+        const auto roomTree = FindLatestSpaceTree( events );
+        ASSERT_TRUE( roomTree.has_value() );
+        ASSERT_EQ( roomTree->room_size(), 1 );
+        const std::string roomId = roomTree->room( 0 ).id();
+        EXPECT_FALSE( roomTree->room( 0 ).creator().empty() ); // D-02a stamp
+
+        const std::string roomTopic = std::string( "gcs/chat/" ) + roomId;
+        EXPECT_TRUE( RoomListCarriesTopic( events, roomTopic ) );
+    }
+
 } // namespace gcs::test
