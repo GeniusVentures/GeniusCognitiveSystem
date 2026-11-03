@@ -44,9 +44,17 @@ result: [pending]
 
 total: 7
 passed: 0
-issues: 0
+issues: 2
 pending: 7
 skipped: 0
 blocked: 0
 
 ## Gaps
+
+### Issue 1 (2026-11-02, live UAT): members dialog crashed with ProviderNotFoundException — FIXED
+
+Clicking the members (2-person) icon threw `Could not find the correct Provider<MembersCubit> above this BlocBuilder`. Root cause: the dialog route mounts under the Navigator, above the shell's MultiBlocProvider (`GCSChat` is `home:` of the MaterialApp); `_RosterBody`/`_RosterFooter` resolved `MembersCubit` from the route context. Existing widget tests never caught it because their harness places providers ABOVE the MaterialApp. Fixed in `ca1db01` (read the cubit from the calling context, wrap the dialog body/footer in `BlocProvider.value`; regression test pumps the real app topology). Blocks re-test of items 1, 5, 6 until the app bundle is rebuilt and relaunched.
+
+### Issue 2 (2026-11-02, live UAT): creator's own room grayed out — WORKS AS DESIGNED (D-02), open product decision
+
+A space created without auto-join rooms derives no nested-room joins for anyone, including the room's creator (`joined(room) = parentSpace.autoJoinRooms && !explicitLeave`, gcs_core_ffi.cpp:801). Workaround today: edit the space and enable auto-join rooms (live recompute, no restart). Open question for the user: should a room's creator be joined to it regardless of the space's auto-join flag? D-02 says no; UAT intuition says yes. Not changed — awaiting decision.
