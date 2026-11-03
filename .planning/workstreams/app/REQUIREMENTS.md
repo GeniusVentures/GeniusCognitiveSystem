@@ -42,6 +42,21 @@ Requirements for initial release. Each maps to roadmap phases.
 - [ ] **DISC-02**: Private spaces never appear in lobby
 - [ ] **DISC-03**: User can browse public spaces in lobby
 
+## v1.0.1 Requirements (Coupling Remediation)
+
+Behavior-preserving refactor from the [whole-project coupling audit](../../notes/whole-project-coupling-audit.md) (2026-11-03). D-02a creator auto-join (the one sanctioned behavior change) shipped first — develop `e4a548c`. Cross-cutting acceptance for every phase: full regression green (13/13 ctest + Flutter suite) and zero observable behavior change (error results, ordering, event payloads identical).
+
+### Coupling Remediation
+
+- [ ] **CPLX-01**: Joined-room state (registry dedup, re-join, D-07 listen-then-broadcast ordering, derived/explicit partition, eviction) is owned by a service in `src/lib`; `gcs_core_ffi.cpp` retains no room-topic registry globals
+- [ ] **CPLX-02**: The composed join predicate (D-02/D-02a + explicit-leave) and the send/create/update permission gates (incl. RoleAtLeast) are computed in `src/lib`; FFI arms validate arguments and delegate
+- [ ] **CPLX-03**: Topic grammar and length policies have a single home in `src/lib`
+- [ ] **CPLX-04**: `Membership::Approve` reads entity state through `EntityStore` functions; `src/lib` contains no cross-domain raw entity-key access
+- [ ] **CPLX-05**: The `"gcs/chat/"` topic prefix constant has exactly one definition in the codebase
+- [ ] **CPLX-06**: Dart capability/dormancy predicates have a single home or become computed flags pushed from C++ (the `self_address` precedent)
+- [ ] **CPLX-07**: A canonical-payload tripwire test pins the member/entity record payload shapes and fails on unauthorized drift
+- [ ] **CPLX-08**: A lib-only test target links `gcs_core` without `gcs_ffi`, and lib tests run in it (the audit's structural gate)
+
 ## v2 Requirements
 
 Deferred to future release. Tracked but not in current roadmap.
