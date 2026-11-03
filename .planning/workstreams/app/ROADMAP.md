@@ -248,9 +248,15 @@ Plans:
   2. The composed join predicate — `(room.creator == self || parentSpace.autoJoinRooms) && !explicitLeave` — is assembled in `src/lib` from `EntityStore::DerivedJoinedTopics` and `Membership::HasExplicitLeave`, never in the adapter.
   3. The send/create/update permission gates (including `RoleAtLeast` and scope/roster resolution) are computed in `src/lib`; each FFI arm validates arguments and delegates with no local rank or policy expression.
   4. Room-topic grammar, topic/name/message length limits, and topic↔id derivation have a single definition in `src/lib`, referenced by the adapter.
-  5. Full regression is green and behavior is unchanged: `ctest --test-dir build/OSX/Debug` passes 13/13 and the Flutter suite (`flutter test` in `src/app`) passes; the joined set, pushed event sequence/payloads, and error results are identical to the pre-phase baseline.
+  5. Full regression is green and behavior is unchanged: `ctest --test-dir build/OSX/Debug` passes 13/13 (plus the new lib-only room-session suite) and the Flutter suite (`flutter test` in `src/app`) passes; the joined set, pushed event sequence/payloads, and error results are identical to the pre-phase baseline.
 
-**Plans**: TBD
+**Plans:** 4 plans
+
+Plans:
+- [ ] 04.1-01-PLAN.md — Wave 1 — Lib policy predicates: `EntityStore::IsNameTooLong` (64 code points), `Messaging::IsMessageTextTooLong` (4096 bytes), `Membership::RoleAtLeast` (D-08 rank) with boundary tests
+- [ ] 04.1-02-PLAN.md — Wave 2 (depends: 04.1-01) — `src/lib/gcs_room_session.hpp/.cpp`: registry, listen-then-broadcast join, derived recompute + leave term + eviction, three permission denials
+- [ ] 04.1-03-PLAN.md — Wave 3 (depends: 04.1-02) — `test/test_gcs_room_session.cpp` lib-only suite (no `gcs_ffi`) + shared key-wrap seam double; full regression
+- [ ] 04.1-04-PLAN.md — Wave 4 (depends: 04.1-03) — FFI handoff: install RoomSession at init, delegate join/send/derived/gates, delete registry globals, grammar helpers, rank/roster helpers, and name/text caps
 
 ### Phase 4.2: Storage & Prefix Single-Homing (INSERTED)
 
