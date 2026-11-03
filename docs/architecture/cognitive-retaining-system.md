@@ -25,7 +25,7 @@ Targeted Retraining is defined as:
     - EJM decision heads/readouts and calibration artifacts
     - routing weights
     - critic or verifier weight distributions
-    - memory structures
+    - memory structures and sparse contextual overlay weights
     - arbitration logic
 
 - **Non-Differentiable Optimization**
@@ -61,6 +61,7 @@ EGGROLL enables:
 - Critic or verifier weighting distributions
 - Exploration vs alignment balance
 - Arbitration strategies
+- Contextual memory-overlay affinities and preference weights
 
 ### 20.3.3 Reward Signals
 
@@ -97,6 +98,61 @@ Representative evaluation perspectives include:
 - grounded factual consistency
 
 ---
+
+
+### 20.4.2 Persistent Contextual Memory Overlays
+
+HCTS context layers may maintain sparse, persistent GAML overlays rather than separate copies of shared knowledge.
+
+Representative overlay scopes include:
+
+* country / cultural
+* regional / social
+* professional / domain
+* organizational / team
+* individual cognitive
+* stable expert lineage
+
+An overlay references canonical GAML Cognitive Assets and adds context-specific weighting:
+
+```text
+Shared objective/domain memory
+        +
+country / regional context
+        +
+professional / organization context
+        +
+individual or expert overlay
+        +
+current short-term / working memory
+        ↓
+context packet for critique or execution
+```
+
+A representative logical shape is:
+
+```text
+MemoryOverlay {
+    overlay_id
+    scope_type
+    scope_id
+    entries[] {
+        asset_id
+        affinity_delta
+        activation_bias
+        preference_weight
+    }
+}
+```
+
+The overlay SHOULD remain sparse. Shared facts, procedures, and verified evidence remain canonical GAML assets rather than being copied into every cultural, organizational, or expert context.
+
+Context layers are affinities, not immutable identity labels. An expert or user may have strong affinity with multiple countries, professional cultures, organizations, teams, or reasoning styles at the same time, and those affinities may evolve.
+
+Overlay influence should scale with context dependence. Objective facts and verified transitions should normally dominate highly objective tasks. Cultural, organizational, stylistic, or individual overlays may have much greater influence on subjective or norm-dependent tasks.
+
+An overlay MUST NOT silently change objective confidence, provenance, authorization, or verified VTG statistics. It may affect retrieval priority, critique framing, synthesis, arbitration, and preference-sensitive ranking.
+
 
 ## 20.5 Functional Responsibilities
 

@@ -1,0 +1,29 @@
+{
+  "source_path": "/Users/Shared/SSDevelopment/Development/GeniusVentures/GeniusNetwork/GeniusCogntiveSystem/docs/architecture/objective-memory-vtg.md",
+  "type": "DOC",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "23 Objective Memory and Verified Transition Graph (VTG)",
+  "summary": "Defines the Objective Memory layer and Verified Transition Graph (VTG) as a verified cognitive execution substrate that records reusable low-entropy transitions for accelerating distributed inference in GeniusCognitiveSystem.",
+  "scope": [
+    "Objective Memory",
+    "Verified Transition Graph (VTG)",
+    "candidate frontier",
+    "transition edges",
+    "state identity",
+    "GAML",
+    "Semantic Core",
+    "Expert Language Models (ELMs)",
+    "Router",
+    "Planner",
+    "Epistemic Arbitration",
+    "EGGROLL",
+    "Swarm Thinking Context",
+    "HCTS",
+    "cognitive execution substrate"
+  ],
+  "cross_refs": [],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}

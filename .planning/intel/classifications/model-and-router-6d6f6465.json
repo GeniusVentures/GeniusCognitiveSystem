@@ -1,0 +1,40 @@
+{
+  "source_path": "/Users/Shared/SSDevelopment/Development/GeniusVentures/GeniusNetwork/GeniusCogntiveSystem/docs/architecture/model-and-router.md",
+  "type": "DOC",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "Model Architecture and Router Design",
+  "summary": "Architectural design of the Semantic Core, Expert Language Models (ELMs), specialist modules, and the Router Layer for task orchestration within GeniusCognitiveSystem.",
+  "scope": [
+    "Semantic Core",
+    "SGFP4 Adaptive Quantization Format",
+    "MNN model runtime",
+    "Vulkan/MoltenVK GPU acceleration",
+    "Expert Language Models (ELMs)",
+    "Planner ELM",
+    "Primary Draft ELM",
+    "Verifier ELM",
+    "Arbiter ELM",
+    "Refiner/Formatter ELM",
+    "Grounding ELM",
+    "Tool-Support ELM",
+    "Math Specialist",
+    "Code Specialist",
+    "Scientific Specialist",
+    "Legal/Compliance Specialist",
+    "Operations/Workflow Specialist",
+    "Customer Support Specialist",
+    "Finance Specialist",
+    "Private ELMs",
+    "Router Layer",
+    "Rule-based detection system",
+    "Task orchestration",
+    "Execution graph"
+  ],
+  "cross_refs": [
+    "./sgfp4-format.md"
+  ],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}

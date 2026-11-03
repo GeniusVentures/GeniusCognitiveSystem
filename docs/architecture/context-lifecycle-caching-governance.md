@@ -634,6 +634,10 @@ Retrieval SHOULD begin at the smallest sufficient level and drill down only when
 
 Compaction SHOULD create delta summaries rather than repeatedly summarizing the entire history. Older raw transcripts may remain as cold artifacts subject to retention and privacy policy.
 
+Task handoffs MUST retain author and source lineage and be scoped by authorized user/tenant, project, task branch, and session. Updates MUST use version checks or equivalent conflict handling so concurrent writers cannot silently overwrite each other's unfinished work; prior versions remain recoverable within retention policy.
+
+For a resumed stateful task, the orchestrator MUST restore the required authorized continuity before execution after restart, compaction, or model replacement; exposing a recall tool alone is insufficient. Restoration MUST recheck corrections, supersession, and revocation, preserve the fields in §17.15.2, and obey context budgets using bounded digests with source references. If required state cannot be restored, execution MUST pause or take an explicit recovery path rather than assume an empty history.
+
 ### **17.15.5 Compaction Quality Check**
 
 Before a compacted state replaces active context, GCS MUST verify that required preservation fields remain represented.
@@ -954,6 +958,9 @@ The implementation is acceptable when all of the following hold:
 13. The Context Inspector can attribute context weight and cache behavior without exposing unauthorized content or hidden reasoning.
 14. Efficiency changes pass the same quality, safety, privacy, and task-completion evaluation suite as the baseline.
 15. Cache and context regressions produce actionable alerts with a cause classification.
+
+16. Restart, compaction, and model-replacement checks preserve required task state and authorship; concurrent handoff writes do not silently lose work, and corrected or revoked state is not restored as current.
+17. Repeated retrieval and same-source expert fan-out do not increase factual confidence or independent-evidence counts; applicable standing constraints survive disuse under their retention and revocation policies.
 
 ---
 

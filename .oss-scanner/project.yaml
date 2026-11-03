@@ -1,0 +1,8 @@
+# Prepared enrollment for anthropics/oss-scanner/projects/genius-cognitive-system/project.yaml.
+# This local copy does not itself enroll the project with Anthropic.
+repo: https://github.com/GeniusVentures/GeniusCognitiveSystem#develop
+primary_contact: admin@gnus.ai
+homepage: https://gcs.gnus.ai
+disabled: false
+dockerfile: .oss-scanner/Dockerfile
+threat_model: .oss-scanner/threat_model.md

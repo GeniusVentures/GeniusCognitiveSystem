@@ -46,14 +46,15 @@ The Compute Layer handles the hardware-level execution and optimization of the S
 
 ### 4.1.1 SGFP4 Design
 
-The custom quantization uses the **SGFP4 adaptive format**, designed for minimal overhead and maximum efficiency across diverse GPU hardware. Full details are in [16 SGFP4 Adaptive Quantization Format](./sgfp4-format.md).
+The custom quantization uses the **SGFP4 adaptive format**, designed for minimal overhead and maximum efficiency across diverse GPU hardware. Full details are in [22 SGFP4 Adaptive Quantization Format](./sgfp4-format.md).
 
 Key properties:
 
-- **64x64 macroblocks** with a fixed **2048-byte payload** per block, enabling uniform GPU addressing.
-- **Per-block scale + bias** (affine decode: `w_hat = S * code + Bias`) stored as packed FP16 in a single `uint32` header.
-- **Adaptive dual-mode** per block: **FP4_AFFINE** (4-bit signed codes) or **T158_AFFINE** (ternary codes in ~1.58-bit class), selected by the encoder via error minimization.
-- **Flags-in-offsets:** Mode selection and metadata are embedded in the low 4 bits of aligned payload offsets — zero additional memory cost.
+- **Two profiles:** a **v1 fixed-payload** profile (64x64 macroblocks, fixed 2048-byte payload per block, uniform GPU addressing) and a **v2 quadtree-adaptive** profile (self-framed `'SGF4'` stream; macroblocks split into 64x64–4x4 leaves by error, spending bits only where needed).
+- **Per-block/leaf scale + bias** (affine decode: `w_hat = S * code + Bias`) stored as packed FP16 in a single `uint32` header.
+- **Adaptive dual-mode:** **FP4_AFFINE** (4-bit signed codes) or **T158_AFFINE** (ternary codes in ~1.58-bit class) per block/leaf, selected by the encoder via Laplacian-weighted error minimization.
+- **Flags-in-offsets (v1) / flags-in-headers (v2):** Mode selection is embedded in the low 4 bits of aligned payload offsets or leaf headers — zero additional memory cost.
+- **Normative decode semantics:** independent decoders produce bit-identical tensors, making container decode a contract-grade artifact for the Execution Integrity System.
 - Compressed weights are **decoded in shared memory at inference time** by GPU compute shaders with per-workgroup branching.
 
 The Semantic Core is expected to be the primary beneficiary of aggressive compression, while role-based and domain-specific experts may use different quantization tradeoffs depending on whether they optimize for breadth, language generation, bounded judgment quality, deterministic formatting, diffusion/refinement stability, verification quality, or workflow specialization.
