@@ -288,6 +288,12 @@ TEST( GcsCryptoTests, MintRoomKeyIsFresh32Bytes )
     EXPECT_NE( first, second );
 }
 
+/// Per-thread iteration count for ConcurrentKeyStoreAccessIsRaceFree. File scope
+/// on purpose: the thread lambda references it without capture — MSVC rejects
+/// the uncaptured function-local use (C3493) while clang -Werror rejects the
+/// capture (-Wunused-lambda-capture), so neither capture form is portable.
+constexpr int kConcurrentKeystoreIterations = 500;
+
 /**
  * @brief (P7) Concurrent StoreRoomKey/RoomKeyFor across threads are race-free:
  *        the store holds only key bytes and every access is mutex-guarded.
@@ -295,7 +301,6 @@ TEST( GcsCryptoTests, MintRoomKeyIsFresh32Bytes )
 TEST( GcsCryptoTests, ConcurrentKeyStoreAccessIsRaceFree )
 {
     constexpr int kThreadCount = 8;
-    constexpr int kIterations  = 500;
 
     std::vector<std::thread> threads;
     threads.reserve( kThreadCount );
@@ -306,7 +311,7 @@ TEST( GcsCryptoTests, ConcurrentKeyStoreAccessIsRaceFree )
             {
                 const std::string topic = "keystore-concurrent-" + std::to_string( t );
                 const std::vector<unsigned char> key = MakeKey( static_cast<unsigned char>( t ) );
-                for ( int i = 0; i < kIterations; ++i )
+                for ( int i = 0; i < kConcurrentKeystoreIterations; ++i )
                 {
                     StoreRoomKey( topic, key );
                     auto read = RoomKeyFor( topic );
