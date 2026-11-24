@@ -62,16 +62,20 @@
   },
   "agent_skills": {
     "gsd-executor": [
-      ".planning/skills/solid-coupling"
+      ".planning/skills/solid-coupling",
+      ".claude/skills/architecture-review"
     ],
     "gsd-planner": [
-      ".planning/skills/solid-coupling"
+      ".planning/skills/solid-coupling",
+      ".claude/skills/architecture-review"
     ],
     "gsd-plan-checker": [
-      ".planning/skills/solid-coupling"
+      ".planning/skills/solid-coupling",
+      ".claude/skills/architecture-review"
     ],
     "gsd-verifier": [
-      ".planning/skills/solid-coupling"
+      ".planning/skills/solid-coupling",
+      ".claude/skills/architecture-review"
     ],
     "gsd-debugger": [
       ".planning/skills/solid-coupling"
