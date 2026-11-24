@@ -234,6 +234,18 @@ Use `Platform.hpp`, platform-specific implementations, and CMake source/include 
 
 Do not add compiler-specific behavior unless it is isolated behind the same kind of boundary.
 
+### 9. SOLID discipline — the adapter never owns a rule
+
+Binding on every GSD agent (executor, planner, reviewer). The layer map is fixed: `src/lib` owns domain rules · `src/ffi` translates and delegates · `src/app` displays. Coupling runs upward only — a rule may never move up into the adapter (added after the 2026-11-03 whole-project coupling audit found the FFI layer had become a fifth domain module: join derivation, role gates, topic prefixes, and dormancy all duplicated there).
+
+- **S — Single responsibility.** A new domain rule (who joins what, who may act, what derives from what) lands in its owning `src/lib` module in the same change. An FFI arm that computes, filters, or re-decides a domain outcome has two reasons to change — split it before adding to it.
+- **O — Open/closed via the owner.** Behavior changes extend the owning lib module and its tests; callers and adapters switch to the new contract. Never branch domain behavior inside an adapter arm or a Dart widget to avoid touching the owner.
+- **L — Adapter delegates, never re-implements.** If `src/ffi` or `src/app` contains the same formula, threshold, prefix, regex, or state check as `src/lib`, that is a defect even when the answers agree today.
+- **I — Small contracts.** New lib surface exposes the smallest complete API; adapters receive computed results, not raw catalog state to re-filter.
+- **D — Depend on the lib contract.** Adapters call lib functions for every rule outcome. The only strings/knowledge an adapter owns are FFI plumbing (handles, event envelope shape) — never domain facts.
+
+Tripwire (grep before merge): a changed `src/ffi/**` or `src/app/lib/**` file must not add domain literals (`"gcs/"` topic/key prefixes, role names, limits, dormancy thresholds) or rule arithmetic. If the rule is nameable, it belongs in `src/lib`; move it there and call it.
+
 ---
 
 ## C++ implementation rules
