@@ -28,7 +28,7 @@ See: .planning/workstreams/app/PROJECT.md (updated 2026-09-22)
 Phase: Not started (4.1 — room-session service; inserted v1.0.1 phases 4.1–4.4 precede v1.0's remaining phases 5–7)
 Plan: —
 Status: Ready to execute
-Last activity: 2026-11-03 -- Phase 4.1 planning complete
+Last activity: 2026-11-13 - Completed quick task 261113-gen: remove GNUS-NEO-SWARM/GQHSM (superseded by GQHSM-CPP)
 
 ## Performance Metrics
 
@@ -192,6 +192,7 @@ None yet.
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
 | 260922-gev | Audit frontend/scaffold separation of concerns vs genius-ai-boss pattern | 2026-09-22 | 846c7c1 | [260922-gev-audit-frontend-scaffold-separation-of-co](../quick/260922-gev-audit-frontend-scaffold-separation-of-co/) |
+| 261113-gen | Remove GNUS-NEO-SWARM/GQHSM submodule (C# editor/library superseded by Super-Genius/GQHSM-CPP) | 2026-11-13 | 659ca0c | [261113-gen-need-to-remove-gnus-neo-swarm-gqhsm-beca](../quick/261113-gen-need-to-remove-gnus-neo-swarm-gqhsm-beca/) |
 
 ## Deferred Items
 
