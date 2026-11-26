@@ -53,8 +53,11 @@
 
 namespace
 {
-    /// GossipPubSub bind address used by every node.
-    constexpr const char *kListenIp = "0.0.0.0";
+    /// GossipPubSub bind address used by every node. Loopback on purpose:
+    /// both nodes run in this process, and binding 0.0.0.0 lets interface
+    /// enumeration publish a virtual-adapter address (WSL2 vEthernet
+    /// 172.27.0.1 on SG-I9-WIN11-2) that the peer can never dial.
+    constexpr const char *kListenIp = "127.0.0.1";
 
     /// Room chat topic prefix — the gcs/chat/<id> convention (D-01).
     constexpr const char *kRoomTopicPrefix = "gcs/chat/";
